@@ -1,0 +1,138 @@
+{
+  "A": {
+    "creators": {
+      "excel": 12304,
+      "db": 12303
+    },
+    "campaign_creators": {
+      "excel": 18368,
+      "db": 18367
+    },
+    "videos": {
+      "excel": 11314,
+      "db": 11314
+    },
+    "payouts": {
+      "excel": 337,
+      "db": 324
+    },
+    "campaigns": {
+      "excel": 18,
+      "db": 30
+    }
+  },
+  "B": {
+    "duplicate_creators": 0,
+    "duplicate_details": []
+  },
+  "C": [],
+  "D": {
+    "exTotalPrice": {
+      "iswhite": 42425000,
+      "syb": 7467000,
+      "omgskincare": 178840000,
+      "qahira": 21700000,
+      "omgmakeup": 21575000,
+      "salsacosme": 14192000,
+      "wardah": 6100000,
+      "salsababycare": 9480000,
+      "pws": 21080000,
+      "naisday": 20244166,
+      "dioly": 17398000,
+      "msglowbeauty": 9900000,
+      "msglowformen": 46636666,
+      "skinmology": 5452500,
+      "databasekimme": 0,
+      "kimme": 100050635000
+    },
+    "dbTotalPrice": {
+      "iswhite": 42025000,
+      "syb": 7217000,
+      "omgskincareramadhansales": 178465000,
+      "qahira": 18650000,
+      "omgmakeup": 0
+    },
+    "exTotalGMV": {
+      "iswhite": 24247411174,
+      "syb": 640018135,
+      "omgskincare": 68177389,
+      "qahira": 785644,
+      "omgmakeup": 685774,
+      "salsacosme": 338779,
+      "wardah": null,
+      "salsababycare": 402826,
+      "pws": 0,
+      "naisday": 1632130,
+      "dioly": 1210019,
+      "msglowbeauty": 421730,
+      "msglowformen": 677042,
+      "skinmology": 1306158,
+      "databasekimme": 346791742225,
+      "kimme": 16255
+    },
+    "dbTotalGMV": {
+      "iswhite": 23657711174,
+      "syb": 640018134,
+      "omgskincareramadhansales": 68175211,
+      "qahira": 781857,
+      "omgmakeup": 131496
+    },
+    "exTotalAds": {
+      "msglowformen": 200000000,
+      "msglowbeauty": 400000000,
+      "omgskincare": 85650000,
+      "iswhite": 56027500,
+      "syb": 89250000,
+      "omgmakeup": 154400000,
+      "qahira": 82200000,
+      "salsacosmetics": 87900000,
+      "salsamb": 45250000,
+      "wardah": 23400000,
+      "pws": 0,
+      "glowies": 1500000,
+      "kimme": 30630000,
+      "skinmology": 0,
+      "dioly": 6700000,
+      "naisday": 44800000
+    },
+    "dbTotalAds": {
+      "omgskincareramadhansales": 132400000,
+      "omgmakeup": 154400000,
+      "qahira": 82200000,
+      "salsacosmetics": 87900000,
+      "wardah": 23400000,
+      "iswhite": 56027500,
+      "naisday": 44800000,
+      "syb": 89250000,
+      "msglowbeauty": 400000000,
+      "msglowformen": 200000000,
+      "kimme": 30630000,
+      "dioly": 6700000
+    }
+  },
+  "E": {
+    "duplicate_wa_count": 17,
+    "duplicate_wa_sample": [
+      [
+        "85226956975",
+        2
+      ],
+      [
+        "85659024812",
+        2
+      ],
+      [
+        "87797559661",
+        2
+      ],
+      [
+        "81287688118",
+        2
+      ],
+      [
+        "82188059466",
+        2
+      ]
+    ]
+  }
+}

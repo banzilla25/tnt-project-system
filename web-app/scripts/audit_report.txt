@@ -1,0 +1,363 @@
+=== AUDIT REPORT ===
+
+🔍 Found 532 Phone Numbers shared by MULTIPLE different normalized usernames.
+
+📱 Phone: 81375495494
+   -> Username: gabolegalakya (Raw in excel: gabolegalakya in tab ISWHITE)
+   -> Username: mardiyanti (Raw in excel: mardi_yanti in tab OMG MAKEUP)
+
+📱 Phone: 87746514165
+   -> Username: itscendi (Raw in excel: itscendi in tab ISWHITE)
+   -> Username: anitru7 (Raw in excel: anitru7 in tab WARDAH)
+
+📱 Phone: 85640025088
+   -> Username: wulanmaulida056 (Raw in excel: wulanmaulida056 in tab ISWHITE)
+   -> Username: wulanagemoy (Raw in excel: wulana.gemoy in tab Database KIMME)
+
+📱 Phone: 85719216803
+   -> Username: moonhaloho (Raw in excel: moon_haloho in tab ISWHITE)
+   -> Username: dindaaaaaaaaa (Raw in excel: dindaaaaaaaaa_____ in tab Database KIMME)
+
+📱 Phone: 85226956975
+   -> Username: innaahhiyan (Raw in excel: innaahhiyan in tab ISWHITE)
+   -> Username: innahhiyan (Raw in excel: Innahhiyan in tab OMG SKINCARE)
+
+📱 Phone: 82118716575
+   -> Username: ekbardiary (Raw in excel: ekbardiary in tab ISWHITE)
+   -> Username: afifahmlna (Raw in excel: afifahmlna in tab Database KIMME)
+
+📱 Phone: 83832817842
+   -> Username: queengembredek (Raw in excel: queen.gembredek in tab ISWHITE)
+   -> Username: elsaamalia19real (Raw in excel: elsaamalia19real in tab KIMME)
+
+📱 Phone: 82243401932
+   -> Username: feronicawulandari (Raw in excel: feronicawulandari in tab ISWHITE)
+   -> Username: qiabeautyskincare (Raw in excel: Qia Beauty Skincare✨ in tab Database KIMME)
+   -> Username: realglowbest (Raw in excel: realglow.best in tab Database KIMME)
+
+📱 Phone: 87721316159
+   -> Username: nris9 (Raw in excel: nris9 in tab ISWHITE)
+   -> Username: mamoli (Raw in excel: ma_mo_li in tab Database KIMME)
+
+📱 Phone: 85784945833
+   -> Username: nabillmusthafa (Raw in excel: nabillmusthafa in tab ISWHITE)
+   -> Username: nabillmushtafa (Raw in excel: nabillmushtafa in tab KIMME)
+
+📱 Phone: 82244689998
+   -> Username: ikasetiana12 (Raw in excel: ika.setiana12 in tab ISWHITE)
+   -> Username: ikastiana2 (Raw in excel: ikastiana2 in tab Database KIMME)
+
+📱 Phone: 82269863399
+   -> Username: kikiromli89 (Raw in excel: kikiromli89 in tab ISWHITE)
+   -> Username: kikiyantishop89 (Raw in excel: Kiki_YantiShop89 in tab Database KIMME)
+
+📱 Phone: 87733517156
+   -> Username: iniicaaaaa19 (Raw in excel: Iniicaaaaa_19 in tab ISWHITE)
+   -> Username: gallerycantiiiik (Raw in excel: gallery_cantiiiik in tab Database KIMME)
+
+📱 Phone: 89636619781
+   -> Username: ariffratnaa (Raw in excel: ariff.ratnaa in tab ISWHITE)
+   -> Username: ariffratna (Raw in excel: ariff.ratna in tab Database KIMME)
+
+📱 Phone: 85211520489
+   -> Username: olinshop789 (Raw in excel: olinshop789 in tab ISWHITE)
+   -> Username: olinolshop789 (Raw in excel: olinolshop789 in tab Database KIMME)
+
+📱 Phone: 85755657495
+   -> Username: abhizarsel (Raw in excel: abhizarsel in tab ISWHITE)
+   -> Username: cheyllachellyu (Raw in excel: cheyllachellyu in tab Database KIMME)
+
+📱 Phone: 85158411516
+   -> Username: yumiharizuki (Raw in excel: yumi.harizuki in tab ISWHITE)
+   -> Username: tehracyunspill (Raw in excel: teh_racyun_spill in tab PWS)
+
+📱 Phone: 85877363141
+   -> Username: vaziass (Raw in excel: vaziass in tab ISWHITE)
+   -> Username: auliavv52 (Raw in excel: auliavv52 in tab Database KIMME)
+
+📱 Phone: 85659024812
+   -> Username: chiccandsassy (Raw in excel: chiccandsassy in tab ISWHITE)
+   -> Username: sarahylnh (Raw in excel: sarahylnh in tab OMG MAKEUP)
+
+📱 Phone: 85743166243
+   -> Username: notyourbaeee6 (Raw in excel: notyourbaeee6 in tab ISWHITE)
+   -> Username: glowin9992 (Raw in excel: glowin9992 in tab Database KIMME)
+
+📱 Phone: 83853789141
+   -> Username: mawarinddah (Raw in excel: mawarinddah in tab SYB)
+   -> Username: inddah (Raw in excel: Inddah in tab Database KIMME)
+
+📱 Phone: 81222236202
+   -> Username: lilyisnotflowerrr (Raw in excel: lilyisnotflowerrr in tab ISWHITE)
+   -> Username: flawlessfemme (Raw in excel: flawlessfemme_ in tab Database KIMME)
+
+📱 Phone: 82310268988
+   -> Username: edelweisssharma (Raw in excel: edelweiss.sharma in tab SYB)
+   -> Username: reviewerna27 (Raw in excel: review.erna27 in tab PWS)
+
+📱 Phone: 82276692229
+   -> Username: sooonyaaaa (Raw in excel: sooonyaaaa_ in tab SYB)
+   -> Username: sonyasinaga (Raw in excel: sonyasinaga_ in tab KIMME)
+
+📱 Phone: 85814141139
+   -> Username: msnha92 (Raw in excel: Msnha92 in tab SYB)
+   -> Username: msna92 (Raw in excel: Msna92 in tab KIMME)
+
+📱 Phone: 882005110743
+   -> Username: missjoovy (Raw in excel: miss_joovy in tab SYB)
+   -> Username: jovybeauty (Raw in excel: Jovy_beauty in tab Database KIMME)
+
+📱 Phone: 85760916245
+   -> Username: itsmecaaacadump (Raw in excel: _itsmecaaacadump_ in tab SYB)
+   -> Username: itsmecaacadump (Raw in excel: _itsmecaacadump_ in tab Database KIMME)
+
+📱 Phone: 85219372676
+   -> Username: rositaramdani7 (Raw in excel: rositaramdani7 in tab SYB)
+   -> Username: aiiross2 (Raw in excel: aiiross2 in tab Database KIMME)
+
+📱 Phone: 81459126211
+   -> Username: uusofficial0 (Raw in excel: uusofficial0 in tab SYB)
+   -> Username: httpswwwtiktokcomuusofficial0r1tzs95hecrt6cxs (Raw in excel: https://www.tiktok.com/@uusofficial0?_r=1&_t=ZS-95hEcRt6cXS in tab Database KIMME)
+   -> Username: httpswwwtiktokcomuusofficial0r1tzs95k1k8urmip (Raw in excel: https://www.tiktok.com/@uusofficial0?_r=1&_t=ZS-95k1K8UrmIp in tab Database KIMME)
+   -> Username: httpswwwtiktokcomuusofficial0r1tzs961mfs66qjk (Raw in excel: https://www.tiktok.com/@uusofficial0?_r=1&_t=ZS-961mfs66QjK in tab Database KIMME)
+
+📱 Phone: 82275670668
+   -> Username: karisma01 (Raw in excel: _karisma__01 in tab SYB)
+   -> Username: 895351795802 (Raw in excel: 895351795802 in tab KIMME)
+
+📱 Phone: 88220053069
+   -> Username: rahasiakunih (Raw in excel: rahasiakunih in tab SYB)
+   -> Username: nacantik126 (Raw in excel: nacantik126 in tab Database KIMME)
+
+📱 Phone: 87797559661
+   -> Username: anjelina5600 (Raw in excel: anjelina5600 in tab OMG SKINCARE)
+   -> Username: bilqiesky (Raw in excel: bilqiesky in tab OMG MAKEUP)
+
+📱 Phone: 81287688118
+   -> Username: racunwithdivani (Raw in excel: racunwithdivani in tab OMG SKINCARE)
+   -> Username: dreygonball (Raw in excel: dreygonball in tab OMG SKINCARE)
+   -> Username: ramyadsha (Raw in excel: ramyadsha in tab Database KIMME)
+   -> Username: allowfla (Raw in excel: allowfla in tab Database KIMME)
+   -> Username: crescentiads (Raw in excel: crescentiads in tab Database KIMME)
+
+📱 Phone: 82188059466
+   -> Username: arnilawati (Raw in excel: arnilawati in tab OMG SKINCARE)
+   -> Username: arnillawati (Raw in excel: arnillawati in tab OMG MAKEUP)
+
+📱 Phone: 8126685182
+   -> Username: queenhannisss (Raw in excel: queenhannisss in tab OMG SKINCARE)
+   -> Username: hasyaas (Raw in excel: hasyaas__ in tab OMG MAKEUP)
+
+📱 Phone: 81242092003
+   -> Username: indysabillah (Raw in excel: indysabillah in tab OMG SKINCARE)
+   -> Username: indisabillah (Raw in excel: indisabillah in tab Database KIMME)
+
+📱 Phone: 85776666279
+   -> Username: liansseptiana (Raw in excel: liansseptiana in tab OMG SKINCARE)
+   -> Username: rmstarkies (Raw in excel: rmstarkies in tab Database KIMME)
+
+📱 Phone: 85890005040
+   -> Username: pinkskieslova (Raw in excel: Pinkskieslova in tab OMG SKINCARE)
+   -> Username: skaterint (Raw in excel: skaterint in tab Database KIMME)
+
+📱 Phone: 87834575611
+   -> Username: bygurlsspil (Raw in excel: bygurlsspil in tab OMG SKINCARE)
+   -> Username: bygurlsspill (Raw in excel: bygurlsspill in tab SALSA COSME)
+
+📱 Phone: 81936933668
+   -> Username: prettygirlswww (Raw in excel: prettygirls.www in tab OMG SKINCARE)
+   -> Username: bytitaaa (Raw in excel: by.titaaa in tab OMG SKINCARE)
+
+📱 Phone: 87731128125
+   -> Username: karaskinbeauty (Raw in excel: karaskinbeauty in tab OMG SKINCARE)
+   -> Username: littleboy0103 (Raw in excel: littleboy0103 in tab Database KIMME)
+
+📱 Phone: 895620646522
+   -> Username: arsykhumairah27 (Raw in excel: arsykhumairah27 in tab OMG SKINCARE)
+   -> Username: dvnarini (Raw in excel: dvnarini in tab Database KIMME)
+
+📱 Phone: 85773624738
+   -> Username: skincaredaily96 (Raw in excel: skincaredaily96 in tab OMG SKINCARE)
+   -> Username: fashionbynovi (Raw in excel: fashionbynovi in tab Database KIMME)
+
+📱 Phone: 82119145119
+   -> Username: ginafathonah (Raw in excel: ginafathonah_ in tab OMG SKINCARE)
+   -> Username: ginafatonah (Raw in excel: ginafatonah_ in tab SALSA COSME)
+   -> Username: harumrice (Raw in excel: harumrice in tab KIMME)
+
+📱 Phone: 87751035800
+   -> Username: angelmatondang14 (Raw in excel: angelmatondang14 in tab OMG SKINCARE)
+   -> Username: hanisasarah18 (Raw in excel: hanisasarah18 in tab SYB)
+
+📱 Phone: 87719140967
+   -> Username: andine (Raw in excel: andine__ in tab OMG SKINCARE)
+   -> Username: andinee (Raw in excel: andinee__ in tab OMG MAKEUP)
+
+📱 Phone: 85640945392
+   -> Username: edelweise20 (Raw in excel: edelweise20 in tab OMG SKINCARE)
+   -> Username: selenophile20 (Raw in excel: selenophile20_ in tab Database KIMME)
+
+📱 Phone: 81238564205
+   -> Username: tiwif989 (Raw in excel: Tiwif.989 in tab OMG SKINCARE)
+   -> Username: kaktiiwii (Raw in excel: kak_tiiwii in tab Database KIMME)
+
+📱 Phone: 82112694700
+   -> Username: byshofuraadz (Raw in excel: byshofuraadz in tab OMG SKINCARE)
+   -> Username: yourlittlejelly (Raw in excel: yourlittlejelly in tab OMG SKINCARE)
+
+📱 Phone: 85783508172
+   -> Username: seeputriaqnhania (Raw in excel: seeputriaqnhania in tab OMG SKINCARE)
+   -> Username: clariselle18 (Raw in excel: clariselle18 in tab KIMME)
+
+... and 482 more phone conflicts.
+
+
+🔍 Found 34 Links shared by MULTIPLE different normalized usernames.
+
+🔗 Link: /@ptsabbythrds
+   -> Username: ptsabbythrds (Raw in excel: ptsabbythrds in tab ISWHITE)
+   -> Username: internal (Raw in excel: Internal in tab SYB)
+   -> Username: mellnt (Raw in excel: mell.nt in tab ISWHITE)
+   -> Username: meiarifin180899 (Raw in excel: mei_arifin180899 in tab SYB)
+   -> Username: cipirut (Raw in excel: cipirut in tab SYB)
+   -> Username: mamizainhomedecor (Raw in excel: mamizain.homedecor in tab SYB)
+   -> Username: risarivia (Raw in excel: risarivia in tab SYB)
+   -> Username: wulandaribul4n (Raw in excel: wulandaribul4n in tab SYB)
+   -> Username: violinajasronadi18 (Raw in excel: violinajasronadi18 in tab ISWHITE)
+   -> Username: ayun1708 (Raw in excel: ayun_1708 in tab SYB)
+   -> Username: mamakkao (Raw in excel: mamak_kao in tab ISWHITE)
+   -> Username: tata81692 (Raw in excel: tata81692 in tab SYB)
+   -> Username: mawarinddah (Raw in excel: mawarinddah in tab SYB)
+
+🔗 Link: /@ayun_1708
+   -> Username: yodaasiiii (Raw in excel: yodaasiiii in tab QAHIRA)
+   -> Username: ayun1708 (Raw in excel: ayun_1708 in tab SYB)
+
+🔗 Link: /@mamanyacila28
+   -> Username: mamanyacila28 (Raw in excel: mamanyacila28 in tab SALSA BABY CARE)
+   -> Username: mamanyacila28live (Raw in excel: mamanyacila28 (LIVE) in tab SALSA BABY CARE)
+
+🔗 Link: /@biinbiinstore
+   -> Username: biinbiinstore (Raw in excel: Biinbiinstore in tab SALSA BABY CARE)
+   -> Username: biinbiinstorelive (Raw in excel: Biinbiinstore (LIVE) in tab SALSA BABY CARE)
+
+🔗 Link: /@dheaaa261918
+   -> Username: dheaaa261918 (Raw in excel: dheaaa261918 in tab PWS)
+   -> Username: nissaputeri (Raw in excel: nissaputeri in tab Database KIMME)
+
+🔗 Link: /@mbakernand
+   -> Username: mbakernand (Raw in excel: mbakernand in tab PWS)
+   -> Username: bellacan02 (Raw in excel: bellacan_02 in tab Database KIMME)
+
+🔗 Link: /@retnowahyuni93
+   -> Username: retnowahyuni93 (Raw in excel: retnowahyuni93 in tab PWS)
+   -> Username: jenooott (Raw in excel: jenooott in tab Database KIMME)
+
+🔗 Link: /@priskaphiliciaanindita
+   -> Username: priskaphiliciaanindita (Raw in excel: priskaphiliciaanindita in tab PWS)
+   -> Username: renidwiastutiii (Raw in excel: renidwiastutiii in tab Database KIMME)
+
+🔗 Link: /@callmesusek
+   -> Username: callmesusek (Raw in excel: callmesusek in tab PWS)
+   -> Username: ayurasya2612 (Raw in excel: ayurasya_2612 in tab Database KIMME)
+
+🔗 Link: /@bellacan_02
+   -> Username: bellacan02 (Raw in excel: bellacan_02 in tab Database KIMME)
+   -> Username: leniiymakeup (Raw in excel: leniiymakeup in tab Database KIMME)
+
+🔗 Link: /@cattleya_rinjani
+   -> Username: cattleyarinjani (Raw in excel: cattleya_rinjani in tab Database KIMME)
+   -> Username: fashionlyid (Raw in excel: fashionly.id in tab Database KIMME)
+
+🔗 Link: /@didiies.nailss
+   -> Username: didiiesnailss (Raw in excel: didiies.nailss in tab Database KIMME)
+   -> Username: bandarparfum2 (Raw in excel: bandarparfum2 in tab Database KIMME)
+
+🔗 Link: /@chieindry
+   -> Username: chieindry (Raw in excel: chieindry in tab Database KIMME)
+   -> Username: enuzaiin (Raw in excel: enuzaiin in tab Database KIMME)
+
+🔗 Link: /@bismaarkanantaa
+   -> Username: bismaarkanantaa (Raw in excel: bismaarkanantaa in tab Database KIMME)
+   -> Username: mkarenam (Raw in excel: mkarenam in tab Database KIMME)
+
+🔗 Link: /@owner_isna_flova
+   -> Username: lenyanggraini705 (Raw in excel: lenyanggraini705 in tab Database KIMME)
+   -> Username: ownerisnaflova (Raw in excel: owner_isna_flova in tab Database KIMME)
+
+🔗 Link: /@dvianasusila
+   -> Username: dvianasusila (Raw in excel: dvianasusila in tab Database KIMME)
+   -> Username: mutiaraa56 (Raw in excel: mutiara.a56 in tab Database KIMME)
+
+🔗 Link: /@haerudgy4ss
+   -> Username: haerudgy4ss (Raw in excel: haerudgy4ss in tab Database KIMME)
+   -> Username: faradianaervina (Raw in excel: faradianaervina in tab Database KIMME)
+
+🔗 Link: /@siigoodgirl
+   -> Username: siigoodgirl (Raw in excel: siigoodgirl in tab Database KIMME)
+   -> Username: tiapharingopi (Raw in excel: tiapharingopi in tab Database KIMME)
+
+🔗 Link: /@arsyshop31
+   -> Username: arsyshop31 (Raw in excel: arsyshop31 in tab Database KIMME)
+   -> Username: edlncitra (Raw in excel: edlncitra in tab Database KIMME)
+
+🔗 Link: /@ica.ahsan
+   -> Username: syavibarbermanmitasalon (Raw in excel: syavibarberman_mitasalon in tab Database KIMME)
+   -> Username: icaahsan (Raw in excel: ica.ahsan in tab Database KIMME)
+
+🔗 Link: /@fitrivivi20
+   -> Username: fitrivivi20 (Raw in excel: fitrivivi20 in tab Database KIMME)
+   -> Username: rianghufran (Raw in excel: rian_ghufran in tab Database KIMME)
+
+🔗 Link: /@dsptraaa
+   -> Username: dsptraaa (Raw in excel: dsptraaa in tab Database KIMME)
+   -> Username: epoyyy (Raw in excel: e_poyyy in tab Database KIMME)
+
+🔗 Link: /@dianadhie11
+   -> Username: dianadhie11 (Raw in excel: dianadhie11 in tab Database KIMME)
+   -> Username: pancadwi308 (Raw in excel: pancadwi308 in tab Database KIMME)
+
+🔗 Link: /@callmita2
+   -> Username: callmita2 (Raw in excel: callmita2 in tab Database KIMME)
+   -> Username: shintyaaaa05 (Raw in excel: shintyaaaa_05 in tab Database KIMME)
+
+🔗 Link: /@arbi_cilacap
+   -> Username: arbicilacap (Raw in excel: arbi_cilacap in tab Database KIMME)
+   -> Username: rharamario1 (Raw in excel: rharamario1 in tab Database KIMME)
+
+🔗 Link: /@lilmiuwx
+   -> Username: lilmiuwx (Raw in excel: lilmiuwx in tab Database KIMME)
+   -> Username: risachaaaaa (Raw in excel: risachaaaaa in tab Database KIMME)
+
+🔗 Link: /@risachaaaaa
+   -> Username: ikhalistyarini (Raw in excel: ikhalistyarini in tab Database KIMME)
+   -> Username: risachaaaaa (Raw in excel: risachaaaaa in tab Database KIMME)
+
+🔗 Link: /@ayurasya_2612
+   -> Username: khoirohummah1 (Raw in excel: khoiroh_ummah1 in tab Database KIMME)
+   -> Username: ayurasya2612 (Raw in excel: ayurasya_2612 in tab Database KIMME)
+
+🔗 Link: /@gitamakeup.17
+   -> Username: gitamakeup17 (Raw in excel: gitamakeup.17 in tab Database KIMME)
+   -> Username: lenykusumawati718 (Raw in excel: lenykusumawati718 in tab Database KIMME)
+
+🔗 Link: /@lenykusumawati718
+   -> Username: natbar (Raw in excel: natbar__ in tab Database KIMME)
+   -> Username: lenykusumawati718 (Raw in excel: lenykusumawati718 in tab Database KIMME)
+
+🔗 Link: /@niarshoop
+   -> Username: niarshoop (Raw in excel: niarshoop in tab Database KIMME)
+   -> Username: selvysu (Raw in excel: selvysu in tab Database KIMME)
+
+🔗 Link: /@ayuckmua
+   -> Username: ayuckmua (Raw in excel: ayuckmua in tab Database KIMME)
+   -> Username: chbeautyalldays (Raw in excel: ch_beautyalldays in tab Database KIMME)
+
+🔗 Link: /@jnoviena
+   -> Username: jnoviena (Raw in excel: jnoviena in tab Database KIMME)
+   -> Username: j0ournei (Raw in excel: j0ournei in tab Database KIMME)
+
+🔗 Link: /@https://www.tiktok.com/@uusofficial0
+   -> Username: httpswwwtiktokcomuusofficial0r1tzs95hecrt6cxs (Raw in excel: https://www.tiktok.com/@uusofficial0?_r=1&_t=ZS-95hEcRt6cXS in tab Database KIMME)
+   -> Username: httpswwwtiktokcomuusofficial0r1tzs95k1k8urmip (Raw in excel: https://www.tiktok.com/@uusofficial0?_r=1&_t=ZS-95k1K8UrmIp in tab Database KIMME)
+   -> Username: httpswwwtiktokcomuusofficial0r1tzs961mfs66qjk (Raw in excel: https://www.tiktok.com/@uusofficial0?_r=1&_t=ZS-961mfs66QjK in tab Database KIMME)

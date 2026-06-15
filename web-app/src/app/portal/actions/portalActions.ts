@@ -1,0 +1,201 @@
+'use server'
+
+import { createClient } from "@supabase/supabase-js";
+import { cookies } from 'next/headers';
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+export async function loginPortal(campaignId: number, pin: string) {
+  const { data: campaign, error } = await supabase
+    .from('campaigns')
+    .select('id, pin')
+    .eq('id', campaignId)
+    .single();
+
+  if (error || !campaign) {
+    return { success: false, message: 'Campaign tidak ditemukan.' };
+  }
+
+  if (!campaign.pin) {
+    return { success: false, message: 'Campaign ini belum dikonfigurasi dengan PIN akses Klien.' };
+  }
+
+  if (campaign.pin !== pin) {
+    return { success: false, message: 'PIN salah.' };
+  }
+
+  // Set cookie
+  const cookieStore = await cookies();
+  cookieStore.set(`portal_pin_${campaignId}`, pin, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: 60 * 60 * 24 * 7, // 1 minggu
+    path: `/portal/${campaignId}`
+  });
+
+  return { success: true };
+}
+
+export async function logoutPortal(campaignId: number) {
+  const cookieStore = await cookies();
+  cookieStore.delete(`portal_pin_${campaignId}`);
+  return { success: true };
+}
+
+export async function getPortalData(campaignId: number) {
+  const cookieStore = await cookies();
+  const pin = cookieStore.get(`portal_pin_${campaignId}`)?.value;
+  
+  if (!pin) return { authenticated: false };
+
+  const { data: campaign } = await supabase
+    .from('campaigns')
+    .select('*')
+    .eq('id', campaignId)
+    .single();
+
+  if (!campaign || campaign.pin !== pin) return { authenticated: false };
+
+  // Fetch vw_campaign_summary (Tanpa financial internal)
+  const { data: summary } = await supabase
+    .from('vw_campaign_summary')
+    .select('target_gmv, target_video, total_daily_organic, total_daily_vsa, total_gmv_achievement, achievement_video')
+    .eq('campaign_id', campaignId)
+    .single();
+
+  // Fetch daily performance
+  const { data: dailyPerf } = await supabase
+    .from('daily_performance')
+    .select('date, organic_sales, vsa_sales')
+    .eq('campaign_id', campaignId)
+    .order('date', { ascending: true });
+
+  // Fetch creators for Client Approval (hanya yang sudah disetujui internal TNT)
+  const { data: ccData } = await supabase
+    .from('campaign_creators')
+    .select(`
+      id, 
+      client_approval, 
+      notes_pic, 
+      creators(username, nama_asli, link_account)
+    `)
+    .eq('campaign_id', campaignId)
+    .in('approval', ['approved', 'alternate']);
+
+  // Fetch creator addresses (Pengiriman sampel)
+  // Karena tidak ada direct relation dari creator_addresses ke campaigns, kita ambil via campaign_creators
+  const { data: addrData } = await supabase
+    .from('creator_addresses')
+    .select(`
+      id,
+      campaign_creator_id,
+      nama_penerima,
+      nohp_penerima,
+      nama_jalan,
+      provinsi,
+      kabupaten_kota,
+      kecamatan,
+      kelurahan,
+      kode_pos,
+      catatan,
+      resi,
+      proses,
+      tanggal_kirim,
+      is_cancel
+    `);
+
+  const ccIds = ccData?.map((cc: any) => cc.id) || [];
+  const samples = addrData?.filter((addr: any) => ccIds.includes(addr.campaign_creator_id)).map((addr: any) => {
+    const cc = ccData?.find((c: any) => c.id === addr.campaign_creator_id);
+    const creatorInfo = Array.isArray(cc?.creators) ? cc.creators[0] : cc?.creators;
+    return {
+      ...addr,
+      creator_username: creatorInfo?.username || 'Unknown'
+    };
+  }) || [];
+
+  // Fetch Live Schedules
+  const { data: liveData } = await supabase
+    .from('live_schedules')
+    .select(`
+      id,
+      campaign_creator_id,
+      tanggal_live
+    `);
+  
+  const schedules = liveData?.filter((l: any) => ccIds.includes(l.campaign_creator_id)).map((l: any) => {
+    const cc = ccData?.find((c: any) => c.id === l.campaign_creator_id);
+    const creatorInfo = Array.isArray(cc?.creators) ? cc.creators[0] : cc?.creators;
+    return {
+      ...l,
+      creator_username: creatorInfo?.username || 'Unknown'
+    };
+  }) || [];
+
+  return { 
+    authenticated: true, 
+    campaign, 
+    summary, 
+    dailyPerf: dailyPerf || [], 
+    approvalList: ccData || [], 
+    samples,
+    schedules
+  };
+}
+
+export async function submitClientApproval(campaignId: number, campaignCreatorId: number, status: 'approved' | 'rejected') {
+  const cookieStore = await cookies();
+  const pin = cookieStore.get(`portal_pin_${campaignId}`)?.value;
+  if (!pin) throw new Error('Not authenticated');
+
+  // Cek otorisasi
+  const { data: campaign } = await supabase.from('campaigns').select('pin').eq('id', campaignId).single();
+  if (!campaign || campaign.pin !== pin) throw new Error('Unauthorized');
+
+  // Update
+  const { error } = await supabase
+    .from('campaign_creators')
+    .update({ client_approval: status })
+    .eq('id', campaignCreatorId)
+    .eq('campaign_id', campaignId); // Proteksi tambahan
+
+  if (error) throw error;
+  return { success: true };
+}
+
+export async function updateResiByClient(campaignId: number, addressId: number, resi: string, proses: string) {
+  const cookieStore = await cookies();
+  const pin = cookieStore.get(`portal_pin_${campaignId}`)?.value;
+  if (!pin) throw new Error('Not authenticated');
+
+  // Cek otorisasi
+  const { data: campaign } = await supabase.from('campaigns').select('pin').eq('id', campaignId).single();
+  if (!campaign || campaign.pin !== pin) throw new Error('Unauthorized');
+
+  // Verifikasi bahwa addressId ini benar-benar milik campaignId ini
+  // (mencegah eksploitasi jika brand menginput addressId milik brand lain)
+  const { data: addr } = await supabase
+    .from('creator_addresses')
+    .select('campaign_creators(campaign_id)')
+    .eq('id', addressId)
+    .single() as any;
+
+  if (!addr || addr.campaign_creators?.campaign_id !== campaignId) {
+    throw new Error('Unauthorized address modification');
+  }
+
+  // Update
+  const { error } = await supabase
+    .from('creator_addresses')
+    .update({ 
+      resi: resi, 
+      proses: proses,
+      tanggal_kirim: proses === 'Dikirim' ? new Date().toISOString() : undefined
+    })
+    .eq('id', addressId);
+
+  if (error) throw error;
+  return { success: true };
+}
