@@ -4,12 +4,17 @@ import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/Dialog";
 import { Button } from "@/components/ui/Button";
 import { Upload, Download, Loader2, ArrowRight, CheckCircle } from "lucide-react";
+import { UsernameAutocomplete } from "@/components/ui/UsernameAutocomplete";
+import { findClosestMatch } from "@/utils/stringSimilarity";
 import { downloadCreatorSyncTemplate, parseCreatorSyncFile, parseFileHeaders, ParsedCreatorRow, ColumnMapping } from "@/utils/importCreatorSync";
 import { createClient } from "@/utils/supabase/client";
+import { useDatabaseStore } from "@/store/useDatabaseStore";
 
 const supabase = createClient();
 
 export function CreatorSyncModal({ onComplete }: { onComplete?: () => void }) {
+  const { creators } = useDatabaseStore();
+  const creatorUsernames = creators.map(c => c.username);
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<1|2|3|4>(1);
   const [file, setFile] = useState<File | null>(null);
@@ -31,6 +36,14 @@ export function CreatorSyncModal({ onComplete }: { onComplete?: () => void }) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isCommitting, setIsCommitting] = useState(false);
   const [commitProgress, setCommitProgress] = useState(0);
+  const [editingRowIndex, setEditingRowIndex] = useState<number | null>(null);
+
+  const updatePreviewUsername = (index: number, newUsername: string) => {
+    const newPreview = [...preview];
+    newPreview[index].username = newUsername.replace(/\s+/g, '');
+    setPreview(newPreview);
+    setEditingRowIndex(null);
+  };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
@@ -257,12 +270,12 @@ export function CreatorSyncModal({ onComplete }: { onComplete?: () => void }) {
               )}
 
               {preview.length > 0 && (
-                <div className="border rounded max-h-96 overflow-y-auto">
-                  <table className="w-full text-sm text-left whitespace-nowrap">
+                <div className="border rounded max-h-[500px] overflow-y-auto">
+                  <table className="w-full text-sm text-left">
                     <thead className="bg-slate-50 border-b sticky top-0 z-10">
                       <tr>
                         <th className="p-2 font-medium">Username</th>
-                        <th className="p-2 font-medium">Followers</th>
+                        <th className="p-2 font-medium text-right">Followers</th>
                         <th className="p-2 font-medium">Tier</th>
                         <th className="p-2 font-medium">Level</th>
                         <th className="p-2 font-medium">Ratecard</th>
@@ -271,20 +284,56 @@ export function CreatorSyncModal({ onComplete }: { onComplete?: () => void }) {
                       </tr>
                     </thead>
                     <tbody className="divide-y">
-                      {preview.slice(0, 10).map((row, i) => (
+                      {preview.map((row, i) => (
                         <tr key={i} className="hover:bg-slate-50">
-                          <td className="p-2">@{row.username}</td>
-                          <td className="p-2">{row.followers?.toLocaleString() || '-'}</td>
-                          <td className="p-2">{row.tier || '-'}</td>
-                          <td className="p-2">{row.level || '-'}</td>
-                          <td className="p-2">{row.ratecard === 0 ? 'Barter' : row.ratecard ? `Rp ${row.ratecard.toLocaleString()}` : '-'}</td>
-                          <td className="p-2">{row.no_whatsapp || '-'}</td>
-                          <td className="p-2">{row.gmv_30_days ? `Rp ${row.gmv_30_days.toLocaleString()}` : '-'}</td>
+                          <td className="p-2 align-top min-w-[250px]">
+                            {editingRowIndex === i ? (
+                              <UsernameAutocomplete
+                                value={row.username}
+                                options={creatorUsernames}
+                                onChange={(val) => updatePreviewUsername(i, val)}
+                                onCancel={() => setEditingRowIndex(null)}
+                              />
+                            ) : (
+                              <div className="flex flex-col gap-1 items-start">
+                                <span className="font-semibold text-slate-700">@{row.username}</span>
+                                {(() => {
+                                  const exactMatch = creatorUsernames.find(u => u.toLowerCase() === row.username.toLowerCase());
+                                  if (exactMatch) {
+                                    return <span className="px-1.5 py-0.5 bg-green-100 text-green-700 text-[10px] rounded-full font-medium w-fit">Data Ada & Akan Diupdate</span>;
+                                  }
+
+                                  const match = findClosestMatch(row.username, creatorUsernames);
+                                  return (
+                                    <div className="flex flex-col gap-1 mt-1 bg-blue-50 border border-blue-100 p-1.5 rounded w-full">
+                                      <span className="text-[10px] font-bold text-blue-600">✨ Kreator Baru</span>
+                                      <div className="flex flex-wrap items-center gap-1 mt-0.5">
+                                         {match && (
+                                           <button onClick={() => updatePreviewUsername(i, match.match)} className="text-[10px] px-2 py-1 bg-amber-500 text-white shadow-sm rounded hover:bg-amber-600 font-semibold transition-colors">
+                                             Mirip ➡️ @{match.match}
+                                           </button>
+                                         )}
+                                         <button onClick={() => setEditingRowIndex(i)} className="text-[10px] px-2 py-1 bg-white border border-slate-300 shadow-sm rounded hover:bg-slate-50 text-slate-600 font-medium">
+                                           Ketik Manual
+                                         </button>
+                                      </div>
+                                      <span className="text-[9px] text-slate-400">Biarkan jika ingin mendaftarkan sebagai kreator baru.</span>
+                                    </div>
+                                  );
+                                })()}
+                              </div>
+                            )}
+                          </td>
+                          <td className="p-2 align-top text-right font-medium">{row.followers ? new Intl.NumberFormat('id-ID').format(row.followers) : '-'}</td>
+                          <td className="p-2 align-top">{row.tier || '-'}</td>
+                          <td className="p-2 align-top">{row.level || '-'}</td>
+                          <td className="p-2 align-top">{row.ratecard === 0 ? 'Barter' : row.ratecard ? `Rp ${row.ratecard.toLocaleString()}` : '-'}</td>
+                          <td className="p-2 align-top">{row.no_whatsapp || '-'}</td>
+                          <td className="p-2 align-top">{row.gmv_30_days ? `Rp ${row.gmv_30_days.toLocaleString()}` : '-'}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
-                  {preview.length > 10 && <p className="text-xs text-slate-500 text-center p-2 border-t bg-slate-50">Menampilkan 10 baris pertama dari {preview.length} data.</p>}
                 </div>
               )}
             </div>

@@ -105,8 +105,8 @@ export const parseCreatorSyncFile = async (file: File, mapping: ColumnMapping): 
   rowData.forEach((row: any, index: number) => {
     const rowNum = index + 2; // +1 for header, +1 for 0-index
           
-          const usernameStr = mapping.username ? (row[mapping.username] || '') : '';
-          const username = usernameStr.toString().trim().replace(/^@/, ''); // Remove @ if exists
+    const usernameStr = mapping.username ? (row[mapping.username] || '') : '';
+    const username = usernameStr.toString().trim().replace(/^@/, '').replace(/\s+/g, ''); // Remove @ if exists
           
           if (!username) {
             errors.push(`Baris ${rowNum}: Username kosong, baris dilewati.`);

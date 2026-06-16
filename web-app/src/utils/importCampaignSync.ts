@@ -82,7 +82,7 @@ export const parseCampaignSyncFile = async (file: File, mapping: CampaignColumnM
     const rowNum = index + 2; 
     
     const usernameStr = mapping.username ? (row[mapping.username] || '') : '';
-    const username = usernameStr.toString().trim().replace(/^@/, '');
+    const username = usernameStr.toString().trim().replace(/^@/, '').replace(/\s+/g, '');
     
     if (!username) {
       errors.push(`Baris ${rowNum}: Username kosong, baris dilewati.`);

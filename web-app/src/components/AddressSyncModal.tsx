@@ -4,6 +4,8 @@ import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/Dialog";
 import { Button } from "@/components/ui/Button";
 import { Upload, Download, Loader2, CheckCircle, ArrowRight } from "lucide-react";
+import { UsernameAutocomplete } from "@/components/ui/UsernameAutocomplete";
+import { findClosestMatch } from "@/utils/stringSimilarity";
 import { downloadAddressSyncTemplate, parseAddressSyncFile, AddressColumnMapping, ParsedAddressRow } from "@/utils/importAddressSync";
 import { parseFileHeaders } from "@/utils/importCampaignSync";
 import { createClient } from "@/utils/supabase/client";
@@ -12,7 +14,8 @@ import { useDatabaseStore } from "@/store/useDatabaseStore";
 const supabase = createClient();
 
 export function AddressSyncModal({ campaignId: initialCampaignId, onComplete }: { campaignId?: number; onComplete?: () => void }) {
-  const { campaigns, fetchData } = useDatabaseStore();
+  const { campaigns, fetchData, creators } = useDatabaseStore();
+  const creatorUsernames = creators.map(c => c.username);
   const [campaignId, setCampaignId] = useState(initialCampaignId || 0);
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<1|2|3|4>(1);
@@ -36,6 +39,14 @@ export function AddressSyncModal({ campaignId: initialCampaignId, onComplete }: 
   const [isProcessing, setIsProcessing] = useState(false);
   const [isCommitting, setIsCommitting] = useState(false);
   const [commitProgress, setCommitProgress] = useState(0);
+  const [editingRowIndex, setEditingRowIndex] = useState<number | null>(null);
+
+  const updatePreviewUsername = (index: number, newUsername: string) => {
+    const newPreview = [...preview];
+    newPreview[index].username = newUsername.replace(/\s+/g, '');
+    setPreview(newPreview);
+    setEditingRowIndex(null);
+  };
 
   const campaignName = campaigns.find(c => c.id === campaignId)?.nama || '...';
 
@@ -315,18 +326,51 @@ export function AddressSyncModal({ campaignId: initialCampaignId, onComplete }: 
                       </tr>
                     </thead>
                     <tbody className="divide-y">
-                      {preview.slice(0, 10).map((row, i) => (
+                      {preview.map((row, i) => (
                         <tr key={i} className="hover:bg-slate-50">
-                          <td className="p-2">@{row.username}</td>
-                          <td className="p-2">{row.nama_penerima || '-'}</td>
-                          <td className="p-2 max-w-[200px] truncate">{row.nama_jalan || '-'}</td>
-                          <td className="p-2">{row.resi || '-'}</td>
-                          <td className="p-2">
-                            <span className={`px-2 py-1 text-xs rounded-full ${
-                              row.proses === 'Diterima' ? 'bg-green-100 text-green-700' :
-                              row.proses === 'Dikirim' ? 'bg-blue-100 text-blue-700' :
-                              'bg-yellow-100 text-yellow-700'
-                            }`}>
+                          <td className="p-2 align-top min-w-[250px]">
+                            {editingRowIndex === i ? (
+                              <UsernameAutocomplete
+                                value={row.username}
+                                options={creatorUsernames}
+                                onChange={(val) => updatePreviewUsername(i, val)}
+                                onCancel={() => setEditingRowIndex(null)}
+                              />
+                            ) : (
+                              <div className="flex flex-col gap-1 items-start">
+                                <span className="font-semibold text-slate-700">@{row.username}</span>
+                                {(() => {
+                                  const exactMatch = creatorUsernames.find(u => u.toLowerCase() === row.username.toLowerCase());
+                                  if (exactMatch) {
+                                    return <span className="px-1.5 py-0.5 bg-green-100 text-green-700 text-[10px] rounded-full font-medium w-fit">Valid</span>;
+                                  }
+
+                                  const match = findClosestMatch(row.username, creatorUsernames);
+                                  return (
+                                    <div className="flex flex-col gap-1 mt-1 bg-amber-50 border border-amber-100 p-1.5 rounded w-full">
+                                      <span className="text-[10px] font-bold text-amber-600">⚠ Kreator Tidak Ditemukan</span>
+                                      <div className="flex flex-wrap items-center gap-1 mt-0.5">
+                                         {match && (
+                                           <button onClick={() => updatePreviewUsername(i, match.match)} className="text-[10px] px-2 py-1 bg-blue-500 text-white shadow-sm rounded hover:bg-blue-600 font-semibold transition-colors">
+                                             Ganti ➡️ @{match.match}
+                                           </button>
+                                         )}
+                                         <button onClick={() => setEditingRowIndex(i)} className="text-[10px] px-2 py-1 bg-white border border-slate-300 shadow-sm rounded hover:bg-slate-50 text-slate-600 font-medium">
+                                           Ketik Manual
+                                         </button>
+                                      </div>
+                                      <span className="text-[9px] text-slate-400">Data ini akan diabaikan jika kreator belum masuk campaign.</span>
+                                    </div>
+                                  );
+                                })()}
+                              </div>
+                            )}
+                          </td>
+                          <td className="p-2 align-top font-medium max-w-[150px] truncate">{row.nama_penerima || '-'}</td>
+                          <td className="p-2 align-top text-xs max-w-[200px] truncate">{row.nama_jalan || '-'}</td>
+                          <td className="p-2 align-top text-xs max-w-[100px] truncate">{row.kabupaten_kota || '-'}</td>
+                          <td className="p-2 align-top">
+                            <span className={`px-2 py-1 text-xs rounded-full bg-slate-100 text-slate-700`}>
                               {row.proses}
                             </span>
                           </td>
@@ -334,7 +378,6 @@ export function AddressSyncModal({ campaignId: initialCampaignId, onComplete }: 
                       ))}
                     </tbody>
                   </table>
-                  {preview.length > 10 && <p className="text-xs text-slate-500 text-center p-2 border-t bg-slate-50">Menampilkan 10 baris pertama.</p>}
                 </div>
               )}
             </div>
