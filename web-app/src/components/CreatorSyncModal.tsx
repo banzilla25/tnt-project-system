@@ -102,8 +102,9 @@ export function CreatorSyncModal({ onComplete }: { onComplete?: () => void }) {
     setIsCommitting(true);
     try {
       // Fetch existing creators to map IDs
-      setCommitStatus('Mengecek data kreator di database...');
-      const usernamesArray = Array.from(new Set(preview.map(p => p.username)));
+      // Deduplikasi preview (ambil data terakhir jika ada username ganda di excel)
+      const uniquePreview = Array.from(new Map(preview.map(item => [item.username.toLowerCase(), item])).values());
+      const usernamesArray = uniquePreview.map(p => p.username);
       const existingCreators: any[] = [];
       
       for (let i = 0; i < usernamesArray.length; i += 100) {
@@ -116,54 +117,90 @@ export function CreatorSyncModal({ onComplete }: { onComplete?: () => void }) {
       let creatorMap = new Map(existingCreators.map(c => [c.username.toLowerCase(), c.id]));
       setCommitProgress(0);
 
-      for (let i = 0; i < preview.length; i++) {
-        setCommitStatus(`Memproses ${i + 1}/${preview.length}...`);
-        const row = preview[i];
-        let creatorId = creatorMap.get(row.username.toLowerCase());
-        
-        // 1. Upsert Creator
-        if (!creatorId) {
-          const { data: newC, error: errC } = await supabase.from('creators').insert({
-            username: row.username,
-            link_account: `https://www.tiktok.com/@${row.username}`
-          }).select().single();
-          if (errC) { setErrors(prev => [...prev, `Gagal buat kreator ${row.username}`]); continue; }
-          creatorId = newC.id;
-          creatorMap.set(row.username, creatorId);
-        }
+      const chunkArray = (arr: any[], size: number) => Array.from({ length: Math.ceil(arr.length / size) }, (v, i) => arr.slice(i * size, i * size + size));
+      const chunks = chunkArray(uniquePreview, 50);
 
-        // 2. Contacts
-        if (row.no_whatsapp) {
-          const { data: currentContacts } = await supabase.from('creator_contacts')
-            .select('id, nomor').eq('creator_id', creatorId).eq('status', 'aktif');
+      for (let c = 0; c < chunks.length; c++) {
+        setCommitStatus(`Memproses gerbong ${c + 1} dari ${chunks.length}...`);
+        
+        await Promise.all(chunks[c].map(async (row: any, idx: number) => {
+          let creatorId = creatorMap.get(row.username.toLowerCase());
           
-          const existing = currentContacts?.[0];
-          if (!existing || existing.nomor !== row.no_whatsapp) {
-            if (existing) {
-              await supabase.from('creator_contacts').update({ status: 'arsip', tanggal_diganti: new Date().toISOString() }).eq('id', existing.id);
+          // 1. Upsert Creator
+          if (!creatorId) {
+            const { data: newC, error: errC } = await supabase.from('creators').insert({
+              username: row.username,
+              link_account: `https://www.tiktok.com/@${row.username}`,
+              tipe_kreator: row.tipe_kreator || 'Reguler'
+            }).select().single();
+            if (errC) { setErrors(prev => [...prev, `Gagal buat kreator ${row.username}`]); return; }
+            creatorId = newC.id;
+            creatorMap.set(row.username, creatorId);
+          } else if (row.tipe_kreator) {
+             await supabase.from('creators').update({ tipe_kreator: row.tipe_kreator }).eq('id', creatorId);
+          }
+
+          // 2. Contacts
+          if (row.no_whatsapp) {
+            const { data: currentContacts } = await supabase.from('creator_contacts')
+              .select('id, nomor').eq('creator_id', creatorId).eq('status', 'aktif');
+            
+            const existing = currentContacts?.[0];
+            if (!existing || existing.nomor !== row.no_whatsapp) {
+              if (existing) {
+                await supabase.from('creator_contacts').update({ status: 'arsip', tanggal_diganti: new Date().toISOString() }).eq('id', existing.id);
+              }
+              await supabase.from('creator_contacts').insert({
+                creator_id: creatorId,
+                nomor: row.no_whatsapp,
+                status: 'aktif',
+                tanggal_mulai: new Date().toISOString()
+              });
             }
-            await supabase.from('creator_contacts').insert({
+          }
+
+          // 3. Snapshot
+          await supabase.from('creator_snapshots').insert({
+            creator_id: creatorId,
+            tanggal_update: new Date().toISOString(),
+            followers: row.followers,
+            tier: row.tier, 
+            level: row.level,
+            ratecard: row.ratecard,
+            gmv_30d: row.gmv_30_days,
+            audience_age: row.audience_age
+          });
+
+          // 4. Notes
+          if (row.catatan) {
+            await supabase.from('creator_notes').insert({
               creator_id: creatorId,
-              nomor: row.no_whatsapp,
-              status: 'aktif',
-              tanggal_mulai: new Date().toISOString()
+              catatan: row.catatan,
+              kategori: 'General',
+              tanggal: new Date().toISOString().split('T')[0]
             });
           }
-        }
 
-        // 3. Snapshot
-        await supabase.from('creator_snapshots').insert({
-          creator_id: creatorId,
-          tanggal_update: new Date().toISOString(),
-          followers: row.followers,
-          tier: row.tier, // fallback tier or auto tier
-          level: row.level,
-          ratecard: row.ratecard,
-          audience_age: row.audience_age,
-          gmv_30d: row.gmv_30_days
-        });
-        setCommitProgress(i + 1);
-      }
+          // 5. Niches
+          if (row.niche_1 || row.niche_2) {
+            const { data: currentNiches } = await supabase.from('creator_niches').select('niche_id').eq('creator_id', creatorId);
+            const currentNicheIds = new Set(currentNiches?.map(n => n.niche_id) || []);
+            const newNicheInserts = [];
+            
+            if (row.niche_1 && !currentNicheIds.has(row.niche_1)) {
+              newNicheInserts.push({ creator_id: creatorId, niche_id: row.niche_1, peringkat: 1 });
+            }
+            if (row.niche_2 && !currentNicheIds.has(row.niche_2)) {
+              newNicheInserts.push({ creator_id: creatorId, niche_id: row.niche_2, peringkat: 2 });
+            }
+            if (newNicheInserts.length > 0) {
+              await supabase.from('creator_niches').insert(newNicheInserts);
+            }
+          }
+        }));
+        
+        setCommitProgress(((c + 1) / chunks.length) * 100);
+      };
 
       setStep(4);
     } catch (e: any) {

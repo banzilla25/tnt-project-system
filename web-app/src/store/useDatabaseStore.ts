@@ -121,9 +121,7 @@ export const useDatabaseStore = create<DatabaseState>((set, get) => ({
       
       const [
         brandsRes, campaignsRes, nichesRes, creatorNichesRes, creatorNotesRes,
-        skusRes, vwCampaignSummaryRes,
-        dailyPerformanceRes, payoutRequestsRes, payoutCreatorRes, creatorPaymentsRes,
-        adsSpendsRes, creatorAddressesRes, liveSchedulesRes, adsPerformanceRes, adNameMappingRes
+        skusRes, vwCampaignSummaryRes, adNameMappingRes
       ] = await Promise.all([
         supabase.from('brands').select('*'),
         supabase.from('campaigns').select('*'),
@@ -132,14 +130,6 @@ export const useDatabaseStore = create<DatabaseState>((set, get) => ({
         fetchAll('creator_notes'),
         supabase.from('skus').select('*'),
         supabase.from('vw_campaign_summary').select('*'), // Usually < 1000
-        fetchAll('daily_performance'),
-        fetchAll('payout_requests'),
-        fetchAll('payout_creator'),
-        fetchAll('creator_payments'),
-        fetchAll('ads_spends'),
-        fetchAll('creator_addresses'),
-        fetchAll('live_schedules'),
-        fetchAll('ads_performance'),
         supabase.from('ad_name_mapping').select('*')
       ]);
 
@@ -157,15 +147,15 @@ export const useDatabaseStore = create<DatabaseState>((set, get) => ({
         audit_logs: [],
         skus: skusRes.data || [],
         vw_campaign_summary: vwCampaignSummaryRes.data || [],
-        daily_performance: dailyPerformanceRes || [],
-        payout_requests: payoutRequestsRes || [],
-        payout_creator: payoutCreatorRes || [],
-        creator_payments: creatorPaymentsRes || [],
-        ads_spends: adsSpendsRes || [],
-        creator_addresses: creatorAddressesRes || [],
-        live_schedules: liveSchedulesRes || [],
+        daily_performance: [],
+        payout_requests: [],
+        payout_creator: [],
+        creator_payments: [],
+        ads_spends: [],
+        creator_addresses: [],
+        live_schedules: [],
         sales: [],
-        ads_performance: adsPerformanceRes || [],
+        ads_performance: [],
         ad_name_mapping: adNameMappingRes.data || [],
         isLoading: false
       });

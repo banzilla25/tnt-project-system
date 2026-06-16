@@ -119,8 +119,8 @@ export function AddressSyncModal({ campaignId: initialCampaignId, onComplete }: 
 
       const addressMap = new Map(addresses?.map(a => [a.campaign_creator_id, a.id]));
       const usernameToCcId = new Map<string, number>();
-      setCommitStatus('Mengecek data kreator di database...');
-      const usernamesArray = Array.from(new Set(preview.map(p => p.username)));
+      const uniquePreview = Array.from(new Map(preview.map(item => [item.username.toLowerCase(), item])).values());
+      const usernamesArray = uniquePreview.map(p => p.username);
       const existingCreators: any[] = [];
       
       for (let i = 0; i < usernamesArray.length; i += 100) {
@@ -144,54 +144,61 @@ export function AddressSyncModal({ campaignId: initialCampaignId, onComplete }: 
       let skippedCount = 0;
       setCommitProgress(0);
 
-      for (let i = 0; i < preview.length; i++) {
-        const row = preview[i];
-        const ccId = usernameToCcId.get(row.username.toLowerCase());
-        if (!ccId) {
-          skippedCount++;
-          continue;
-        }
+      const chunkArray = (arr: any[], size: number) => Array.from({ length: Math.ceil(arr.length / size) }, (v, i) => arr.slice(i * size, i * size + size));
+      const chunks = chunkArray(uniquePreview, 50);
 
-        const existingAddrId = addressMap.get(ccId);
-        const payload = {
-          campaign_creator_id: ccId,
-          ...(row.nama_penerima && { nama_penerima: row.nama_penerima }),
-          ...(row.nama_jalan && { nama_jalan: row.nama_jalan }),
-          ...(row.kecamatan && { kecamatan: row.kecamatan }),
-          ...(row.kabupaten_kota && { kabupaten_kota: row.kabupaten_kota }),
-          ...(row.provinsi && { provinsi: row.provinsi }),
-          ...(row.kode_pos && { kode_pos: row.kode_pos }),
-          ...(row.resi && { resi: row.resi }),
-          ...(row.proses && { proses: row.proses }),
-        };
-
-        if (existingAddrId) {
-          await supabase.from('creator_addresses').update(payload).eq('id', existingAddrId);
-        } else {
-          await supabase.from('creator_addresses').insert(payload);
-        }
-
-        const cc = ccs?.find(c => c.id === ccId);
-        if (cc && cc.creator_id && row.nama_jalan) {
-          const { data: existingBooks } = await supabase.from('creator_address_book')
-            .select('id, alamat_jalan')
-            .eq('creator_id', cc.creator_id);
-            
-          const isExist = existingBooks?.find(b => b.alamat_jalan?.toLowerCase() === row.nama_jalan?.toLowerCase());
-          if (!isExist) {
-            await supabase.from('creator_address_book').insert({
-              creator_id: cc.creator_id,
-              label: 'Hasil Sync Excel',
-              nama_penerima: row.nama_penerima,
-              alamat_jalan: row.nama_jalan,
-              kecamatan: row.kecamatan,
-              kota: row.kabupaten_kota,
-              provinsi: row.provinsi,
-              kodepos: row.kode_pos
-            });
+      for (let c = 0; c < chunks.length; c++) {
+        setCommitStatus(`Memproses gerbong ${c + 1} dari ${chunks.length}...`);
+        
+        await Promise.all(chunks[c].map(async (row: any, idx: number) => {
+          const ccId = usernameToCcId.get(row.username.toLowerCase());
+          if (!ccId) {
+            skippedCount++;
+            return;
           }
-        }
-        setCommitProgress(i + 1);
+
+          const existingAddrId = addressMap.get(ccId);
+          const payload = {
+            campaign_creator_id: ccId,
+            ...(row.nama_penerima && { nama_penerima: row.nama_penerima }),
+            ...(row.nama_jalan && { nama_jalan: row.nama_jalan }),
+            ...(row.kecamatan && { kecamatan: row.kecamatan }),
+            ...(row.kabupaten_kota && { kabupaten_kota: row.kabupaten_kota }),
+            ...(row.provinsi && { provinsi: row.provinsi }),
+            ...(row.kode_pos && { kode_pos: row.kode_pos }),
+            ...(row.resi && { resi: row.resi }),
+            ...(row.proses && { proses: row.proses }),
+          };
+
+          if (existingAddrId) {
+            await supabase.from('creator_addresses').update(payload).eq('id', existingAddrId);
+          } else {
+            await supabase.from('creator_addresses').insert(payload);
+          }
+
+          const cc = ccs?.find(c => c.id === ccId);
+          if (cc && cc.creator_id && row.nama_jalan) {
+            const { data: existingBooks } = await supabase.from('creator_address_book')
+              .select('id, alamat_jalan')
+              .eq('creator_id', cc.creator_id);
+              
+            const isExist = existingBooks?.find(b => b.alamat_jalan?.toLowerCase() === row.nama_jalan?.toLowerCase());
+            if (!isExist) {
+              await supabase.from('creator_address_book').insert({
+                creator_id: cc.creator_id,
+                label: 'Hasil Sync Excel',
+                nama_penerima: row.nama_penerima,
+                alamat_jalan: row.nama_jalan,
+                kecamatan: row.kecamatan,
+                kota: row.kabupaten_kota,
+                provinsi: row.provinsi,
+                kodepos: row.kode_pos
+              });
+            }
+          }
+        }));
+
+        setCommitProgress(((c + 1) / chunks.length) * 100);
       }
 
       if (skippedCount > 0) {

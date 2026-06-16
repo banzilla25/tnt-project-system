@@ -75,11 +75,25 @@ function SearchableSelect({ options, value, onChange, placeholder }: { options: 
 }
 
 export default function AdsReportPage() {
-  const { ads_performance, creators, campaigns, fetchData } = useDatabaseStore();
+  const { creators, campaigns } = useDatabaseStore();
+  const [adsPerformance, setAdsPerformance] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  
+  const supabase = createClient();
+
+  useEffect(() => {
+    const fetchAds = async () => {
+      setIsLoading(true);
+      const { data } = await supabase.from('ads_performance').select('*').order('tanggal', { ascending: false }).limit(2000);
+      if (data) setAdsPerformance(data);
+      setIsLoading(false);
+    };
+    fetchAds();
+  }, [supabase]);
   
   // Edit States
   const [editCampaignId, setEditCampaignId] = useState<number | ''>('');
@@ -115,12 +129,11 @@ export default function AdsReportPage() {
       kurs: numKurs
     }).eq('id', id);
 
-    if (error) {
-      alert("Gagal menyimpan: " + error.message);
-    } else {
-      // Refresh data to keep global state in sync
-      await fetchData();
+    if (!error) {
+      setAdsPerformance(prev => prev.map(ad => ad.id === id ? { ...ad, campaign_id: cId, creator_id: crId, kurs: numKurs } : ad));
       cancelEdit();
+    } else {
+      alert("Gagal menyimpan: " + error.message);
     }
     setIsSaving(false);
   };
@@ -130,16 +143,16 @@ export default function AdsReportPage() {
     setDeletingId(id);
     
     const { error } = await supabase.from('ads_performance').delete().eq('id', id);
-    if (error) {
-      alert("Gagal menghapus data: " + error.message);
+    if (!error) {
+      setAdsPerformance(prev => prev.filter(ad => ad.id !== id));
     } else {
-      await fetchData();
+      alert("Gagal menghapus data: " + error.message);
     }
     setDeletingId(null);
   };
 
   // Filter ads performance
-  const filteredAds = ads_performance.filter(ad => {
+  const filteredAds = adsPerformance.filter(ad => {
     if (!deferredSearchQuery) return true;
     const q = deferredSearchQuery.toLowerCase();
     return (
@@ -152,29 +165,34 @@ export default function AdsReportPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-end">
+      <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Ads Report Management</h1>
-          <p className="text-slate-500 mt-1">Pusat kendali seluruh data performa iklan mentah. Edit Campaign, Kreator, dan Kurs jika ada kesalahan mapping dari Ad Name.</p>
+          <h1 className="text-3xl font-bold tracking-tight mb-2">Laporan Ads & Performa</h1>
+          <p className="text-slate-500">Pemetaan Manual Ad ID dari TikTok Ads Manager ke Creator & Campaign.</p>
+        </div>
+        <div className="relative w-72">
+          <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Cari Ad Name, ID..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 border rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
+          />
         </div>
       </div>
 
+      {isLoading ? (
+        <div className="flex justify-center py-20">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        </div>
+      ) : (
       <Card className="border-slate-200 shadow-sm">
         <CardHeader className="pb-3 border-b border-slate-100 flex flex-row items-center justify-between">
           <CardTitle className="flex items-center gap-2 text-lg">
             <FileSpreadsheet className="w-5 h-5 text-indigo-600" />
             Database Iklan ({filteredAds.length} baris)
           </CardTitle>
-          <div className="relative w-72">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input 
-              type="text" 
-              placeholder="Cari Ad Name atau Ad ID..." 
-              className="w-full pl-9 pr-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
         </CardHeader>
         <CardContent className="p-0">
           <div className="max-h-[70vh] overflow-y-auto">
@@ -312,6 +330,7 @@ export default function AdsReportPage() {
           </div>
         </CardContent>
       </Card>
+      )}
     </div>
   );
 }

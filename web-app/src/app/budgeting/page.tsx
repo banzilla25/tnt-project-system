@@ -10,7 +10,11 @@ import { Save, Plus, Search, CheckCircle2 } from "lucide-react";
 import { CreatorPayment, AdsSpend } from "@/types/database";
 
 export default function BudgetingPage() {
-  const { campaigns, vw_campaign_summary, campaign_creators, creators, creator_payments, ads_spends, updateCreatorPayment, addAdsSpend } = useDatabaseStore();
+  const { 
+    campaigns, vw_campaign_summary, campaign_creators, creators, creator_payments, ads_spends, 
+    updateCreatorPayment, addAdsSpend,
+    fetchCampaignDetails, fetchCreatorPayments, fetchAdsSpends
+  } = useDatabaseStore();
   
   const [selectedCampaignId, setSelectedCampaignId] = useState<number | ''>('');
   const [activeTab, setActiveTab] = useState<'creator' | 'ads'>('creator');
@@ -21,6 +25,22 @@ export default function BudgetingPage() {
   const [newAdsNominal, setNewAdsNominal] = useState("");
   const [newAdsTanggal, setNewAdsTanggal] = useState("");
   const [newAdsStatus, setNewAdsStatus] = useState<'not_yet' | 'half_paid' | 'pay_off'>('pay_off');
+  const [isLoadingData, setIsLoadingData] = useState(false);
+
+  useEffect(() => {
+    if (selectedCampaignId) {
+      const loadCampaignData = async () => {
+        setIsLoadingData(true);
+        await Promise.all([
+          fetchCampaignDetails(Number(selectedCampaignId)),
+          fetchCreatorPayments(Number(selectedCampaignId)),
+          fetchAdsSpends(Number(selectedCampaignId))
+        ]);
+        setIsLoadingData(false);
+      };
+      loadCampaignData();
+    }
+  }, [selectedCampaignId, fetchCampaignDetails, fetchCreatorPayments, fetchAdsSpends]);
   
   const activeCampaigns = vw_campaign_summary.filter(c => c.status === 'aktif');
   

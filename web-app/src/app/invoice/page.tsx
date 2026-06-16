@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useDatabaseStore } from "@/store/useDatabaseStore";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
@@ -9,8 +9,22 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { createClient } from "@/utils/supabase/client";
 
 export default function InvoicePage() {
-  const { payout_requests, payout_creator, campaigns, creators, campaign_creators, fetchData } = useDatabaseStore();
+  const { campaigns } = useDatabaseStore();
   const supabase = createClient();
+  
+  const [payout_requests, setPayoutRequests] = useState<any[]>([]);
+  const [payout_creator, setPayoutCreator] = useState<any[]>([]);
+
+  const fetchInvoiceData = async () => {
+    const { data: pr } = await supabase.from('payout_requests').select('*').order('created_at', { ascending: false });
+    const { data: pc } = await supabase.from('payout_creator').select('*');
+    if (pr) setPayoutRequests(pr);
+    if (pc) setPayoutCreator(pc);
+  };
+
+  useEffect(() => {
+    fetchInvoiceData();
+  }, []);
 
   const pendingRequests = payout_requests.filter(r => r.status === 'pending');
   const historyRequests = payout_requests.filter(r => r.status !== 'pending').sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
@@ -23,14 +37,22 @@ export default function InvoicePage() {
   const [buktiUrl, setBuktiUrl] = useState('');
   const [statusBayar, setStatusBayar] = useState<Record<number, 'sebagian' | 'lunas'>>({});
 
-  const openApproval = (req: any) => {
+  const openApproval = async (req: any) => {
     let rincian: any[] = [];
     if (req.jenis_topup === 'creator') {
-      rincian = payout_creator.filter(pc => pc.payout_id === req.id).map(pc => {
-        const cc = campaign_creators.find(c => c.id === pc.campaign_creator_id);
-        const creator = creators.find(cr => cr.id === cc?.creator_id);
-        return { ...pc, creator_username: creator?.username, cc_id: cc?.id };
+      const pcList = payout_creator.filter(pc => pc.payout_id === req.id);
+      
+      const rincianPromises = pcList.map(async pc => {
+        const { data: ccData } = await supabase.from('campaign_creators').select('*, creators(*)').eq('id', pc.campaign_creator_id).single();
+        return { 
+          ...pc, 
+          creator_username: ccData?.creators?.username, 
+          cc_id: pc.campaign_creator_id 
+        };
       });
+      
+      rincian = await Promise.all(rincianPromises);
+      
       // Set default status to lunas
       const defaultStatus: any = {};
       rincian.forEach(r => defaultStatus[r.id] = 'lunas');
@@ -63,7 +85,7 @@ export default function InvoicePage() {
       }
 
       setApprovalModal(null);
-      fetchData(); // Refresh data
+      fetchInvoiceData(); // Refresh data
     } catch (err: any) {
       alert("Error approving: " + err.message);
     } finally {
@@ -76,7 +98,7 @@ export default function InvoicePage() {
       setProcessingId(reqId);
       await supabase.from('payout_requests').update({ status: 'rejected' }).eq('id', reqId);
       setProcessingId(null);
-      fetchData();
+      fetchInvoiceData();
     }
   };
 
