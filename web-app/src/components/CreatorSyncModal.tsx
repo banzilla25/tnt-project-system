@@ -355,7 +355,7 @@ export function CreatorSyncModal({ onComplete }: { onComplete?: () => void }) {
               </div>
               <h3 className="text-xl font-bold">Sinkronisasi Berhasil!</h3>
               <p className="text-sm text-slate-500 text-center">
-                Sebanyak {preview.length - errors.length} dari {preview.length} data kreator telah diproses ke dalam sistem.
+                Sebanyak {preview.length} data kreator telah berhasil diproses ke dalam sistem.
               </p>
 
               {errors.length > 0 && (
