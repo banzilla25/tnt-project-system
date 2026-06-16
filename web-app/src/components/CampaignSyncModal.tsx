@@ -139,11 +139,15 @@ export function CampaignSyncModal({ campaignId: initialCampaignId, onComplete }:
       const existingCcMap = new Map(existingCampaignCreators?.map(cc => [cc.creator_id, cc.id]));
 
       // 3. Siapkan data upsert untuk campaign_creators
-      const campaignCreatorsData = preview.map(row => {
+      const toInsert: any[] = [];
+      const toUpdate: any[] = [];
+      
+      preview.forEach(row => {
         const creatorId = creatorMap.get(row.username.toLowerCase());
+        if (!creatorId) return; // Skip if invalid
+        
         const existingCcId = existingCcMap.get(creatorId);
-        return {
-          ...(existingCcId ? { id: existingCcId } : {}),
+        const payload = {
           campaign_id: campaignId,
           creator_id: creatorId,
           approval: row.approval,
@@ -155,16 +159,30 @@ export function CampaignSyncModal({ campaignId: initialCampaignId, onComplete }:
           client_approval: 'not_required',
           status_bayar: 'belum'
         };
-      }).filter(d => d.creator_id); // Pastikan creator_id valid
+        
+        if (existingCcId) {
+          toUpdate.push({ id: existingCcId, ...payload });
+        } else {
+          toInsert.push(payload);
+        }
+      });
 
-      // 4. Batch upsert campaign_creators (chunk per 500)
-      for (let i = 0; i < campaignCreatorsData.length; i += 500) {
-        setCommitStatus(`Menyinkronkan data ke Campaign... (${i}/${campaignCreatorsData.length})`);
-        const chunk = campaignCreatorsData.slice(i, i + 500);
+      // 4. Batch update existing
+      for (let i = 0; i < toUpdate.length; i += 500) {
+        setCommitStatus(`Menyinkronkan data lama ke Campaign... (${i}/${toUpdate.length})`);
+        const chunk = toUpdate.slice(i, i + 500);
         const { error } = await supabase.from('campaign_creators').upsert(chunk);
         if (error) throw error;
-        
-        setCommitProgress(Math.min(i + 500, campaignCreatorsData.length));
+        setCommitProgress(Math.min(i + 500, toUpdate.length));
+      }
+
+      // 5. Batch insert new
+      for (let i = 0; i < toInsert.length; i += 500) {
+        setCommitStatus(`Menambahkan data baru ke Campaign... (${i}/${toInsert.length})`);
+        const chunk = toInsert.slice(i, i + 500);
+        const { error } = await supabase.from('campaign_creators').insert(chunk);
+        if (error) throw error;
+        setCommitProgress(toUpdate.length + Math.min(i + 500, toInsert.length));
       }
 
       setCommitStatus('Memperbarui tampilan...');
