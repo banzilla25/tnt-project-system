@@ -135,10 +135,15 @@ export function CampaignSyncModal({ campaignId: initialCampaignId, onComplete }:
       }
 
       setCommitStatus('Menyusun data campaign...');
+      const { data: existingCampaignCreators } = await supabase.from('campaign_creators').select('id, creator_id').eq('campaign_id', campaignId);
+      const existingCcMap = new Map(existingCampaignCreators?.map(cc => [cc.creator_id, cc.id]));
+
       // 3. Siapkan data upsert untuk campaign_creators
       const campaignCreatorsData = preview.map(row => {
         const creatorId = creatorMap.get(row.username.toLowerCase());
+        const existingCcId = existingCcMap.get(creatorId);
         return {
+          ...(existingCcId ? { id: existingCcId } : {}),
           campaign_id: campaignId,
           creator_id: creatorId,
           approval: row.approval,
@@ -156,7 +161,7 @@ export function CampaignSyncModal({ campaignId: initialCampaignId, onComplete }:
       for (let i = 0; i < campaignCreatorsData.length; i += 500) {
         setCommitStatus(`Menyinkronkan data ke Campaign... (${i}/${campaignCreatorsData.length})`);
         const chunk = campaignCreatorsData.slice(i, i + 500);
-        const { error } = await supabase.from('campaign_creators').upsert(chunk, { onConflict: 'campaign_id,creator_id' });
+        const { error } = await supabase.from('campaign_creators').upsert(chunk);
         if (error) throw error;
         
         setCommitProgress(Math.min(i + 500, campaignCreatorsData.length));
