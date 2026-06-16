@@ -86,6 +86,8 @@ export async function getPortalData(campaignId: number) {
 
   // Fetch creator addresses (Pengiriman sampel)
   // Karena tidak ada direct relation dari creator_addresses ke campaigns, kita ambil via campaign_creators
+  const ccIds = ccData?.map((cc: any) => cc.id) || [];
+
   const { data: addrData } = await supabase
     .from('creator_addresses')
     .select(`
@@ -104,9 +106,8 @@ export async function getPortalData(campaignId: number) {
       proses,
       tanggal_kirim,
       is_cancel
-    `);
-
-  const ccIds = ccData?.map((cc: any) => cc.id) || [];
+    `)
+    .in('campaign_creator_id', ccIds.length > 0 ? ccIds : [0]);
   const samples = addrData?.filter((addr: any) => ccIds.includes(addr.campaign_creator_id)).map((addr: any) => {
     const cc = ccData?.find((c: any) => c.id === addr.campaign_creator_id);
     const creatorInfo = Array.isArray(cc?.creators) ? cc.creators[0] : cc?.creators;
@@ -116,14 +117,14 @@ export async function getPortalData(campaignId: number) {
     };
   }) || [];
 
-  // Fetch Live Schedules
   const { data: liveData } = await supabase
     .from('live_schedules')
     .select(`
       id,
       campaign_creator_id,
       tanggal_live
-    `);
+    `)
+    .in('campaign_creator_id', ccIds.length > 0 ? ccIds : [0]);
   
   const schedules = liveData?.filter((l: any) => ccIds.includes(l.campaign_creator_id)).map((l: any) => {
     const cc = ccData?.find((c: any) => c.id === l.campaign_creator_id);
