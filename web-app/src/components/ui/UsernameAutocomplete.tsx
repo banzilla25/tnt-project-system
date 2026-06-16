@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 
 export function UsernameAutocomplete({
   value,
@@ -24,13 +24,26 @@ export function UsernameAutocomplete({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [onCancel]);
 
-  // If query is empty, show top 5 options. If typed, filter.
-  let filtered = [];
-  if (query.trim() === '') {
-    filtered = options.slice(0, 5);
-  } else {
-    filtered = options.filter(o => o.toLowerCase().includes(query.toLowerCase())).slice(0, 5);
-  }
+  // Optimize: Pre-compute lowercase options only when options change
+  const searchItems = useMemo(() => {
+    return options.map(o => ({ original: o, lower: o.toLowerCase() }));
+  }, [options]);
+
+  // Optimize: Stop loop early when we hit 5 matches, instead of filtering all 10,000 rows
+  const filtered = useMemo(() => {
+    if (query.trim() === '') return searchItems.slice(0, 5).map(s => s.original);
+    
+    const qLower = query.toLowerCase();
+    const result: string[] = [];
+    
+    for (let i = 0; i < searchItems.length; i++) {
+      if (searchItems[i].lower.includes(qLower)) {
+        result.push(searchItems[i].original);
+        if (result.length >= 5) break; // Break early! Huge performance boost!
+      }
+    }
+    return result;
+  }, [query, searchItems]);
 
   return (
     <div ref={ref} className="relative z-50 min-w-[150px]">
