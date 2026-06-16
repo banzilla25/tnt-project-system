@@ -44,7 +44,8 @@ export default function CampaignLayout({ children }: { children: React.ReactNode
     target_creator: '',
     budget_creator_plafon: '',
     budget_ads_plafon: '',
-    require_client_approval: false
+    require_client_approval: false,
+    pin: ''
   });
 
   useEffect(() => {
@@ -59,7 +60,8 @@ export default function CampaignLayout({ children }: { children: React.ReactNode
         target_creator: campaign.target_creator?.toString() || '',
         budget_creator_plafon: campaign.budget_creator_plafon?.toString() || '',
         budget_ads_plafon: campaign.budget_ads_plafon?.toString() || '',
-        require_client_approval: campaign.require_client_approval || false
+        require_client_approval: campaign.require_client_approval || false,
+        pin: campaign.pin || ''
       });
     }
   }, [campaign, isSettingsOpen]);
@@ -76,7 +78,8 @@ export default function CampaignLayout({ children }: { children: React.ReactNode
       target_creator: formData.target_creator ? Number(formData.target_creator) : null,
       budget_creator_plafon: Number(formData.budget_creator_plafon || 0),
       budget_ads_plafon: Number(formData.budget_ads_plafon || 0),
-      require_client_approval: formData.require_client_approval
+      require_client_approval: formData.require_client_approval,
+      pin: formData.pin
     });
     setIsSettingsOpen(false);
   };
@@ -123,6 +126,10 @@ export default function CampaignLayout({ children }: { children: React.ReactNode
                         <option value="false">Tidak (Langsung Jalan)</option>
                         <option value="true">Ya (Wajib di-Approve Client)</option>
                       </select>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">PIN Akses Klien</label>
+                      <input required type="text" className="w-full p-2 border rounded font-mono" value={formData.pin} onChange={e => setFormData({...formData, pin: e.target.value})} placeholder="Contoh: 1234" />
                     </div>
                     <div className="space-y-2">
                       <label className="text-sm font-medium">Start Date</label>
