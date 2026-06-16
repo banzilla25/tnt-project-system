@@ -258,6 +258,7 @@ export default function CreatorPoolPage() {
             </div>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       <div className="flex items-center gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex-wrap">

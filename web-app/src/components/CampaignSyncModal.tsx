@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/Dialog";
 import { Button } from "@/components/ui/Button";
-import { Upload, Download, Loader2, ArrowRight } from "lucide-react";
 import { Upload, Download, Loader2, ArrowRight, FileSpreadsheet, FolderKanban, AlertCircle } from "lucide-react";
 import { downloadCampaignSyncTemplate, parseCampaignSyncFile, parseFileHeaders, ParsedCampaignCreatorRow, CampaignColumnMapping } from "@/utils/importCampaignSync";
 import { createClient } from "@/utils/supabase/client";

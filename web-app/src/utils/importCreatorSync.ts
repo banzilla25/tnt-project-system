@@ -171,10 +171,7 @@ export const parseCreatorSyncFile = async (file: File, mapping: ColumnMapping): 
           validData.push({
             username,
             followers,
-    validData.push({
-      username,
-      followers,
-      tier: tier || null,
+            tier: tier || null,
       level,
       ratecard,
       audience_age: mapping.audience_age ? (row[mapping.audience_age] || '').toString().trim() || null : null,
