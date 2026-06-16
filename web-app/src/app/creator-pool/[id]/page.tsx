@@ -190,6 +190,9 @@ export default function CreatorProfilePage() {
   const [noteForm, setNoteForm] = useState({ isi: '', penulis: '' });
   const [noteOpen, setNoteOpen] = useState(false);
 
+  const [nicheForm, setNicheForm] = useState<number[]>([]);
+  const [nicheOpen, setNicheOpen] = useState(false);
+
   const [campForm, setCampForm] = useState({ campaign_id: '', price: 0, qty_vt: 1 });
   const [campOpen, setCampOpen] = useState(false);
 
@@ -222,6 +225,14 @@ export default function CreatorProfilePage() {
   const handleUpdateRekening = async () => {
     await updateCreator(creatorId, { rekening: rekForm.rekening, nama_asli: rekForm.nama_asli });
     setRekOpen(false);
+  };
+
+  const handleUpdateNiche = async () => {
+    await useDatabaseStore.getState().updateCreatorNiches(creatorId, nicheForm);
+    setNicheOpen(false);
+    // Ideally we should refetch or update localData here, but since it's a quick patch,
+    // reloading the page or letting the user refresh is fine, or we can update localData manually.
+    window.location.reload();
   };
 
   const handleAddNote = async () => {
@@ -386,7 +397,38 @@ export default function CreatorProfilePage() {
               </div>
 
               <div>
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Niche</p>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Niche</p>
+                  <Dialog open={nicheOpen} onOpenChange={(v) => { 
+                    setNicheOpen(v); 
+                    if(v) setNicheForm(localData?.creatorNiches?.map((cn: any) => cn.niche_id) || []);
+                  }}>
+                    <DialogTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-5 w-5"><Edit2 className="h-3 w-3"/></Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader><DialogTitle>Update Niche Kreator</DialogTitle></DialogHeader>
+                      <div className="space-y-4 py-4">
+                        <div className="grid grid-cols-2 gap-2 max-h-60 overflow-y-auto p-1">
+                          {niches.map(niche => (
+                            <label key={niche.id} className="flex items-center gap-2 text-sm p-2 border rounded cursor-pointer hover:bg-slate-50">
+                              <input 
+                                type="checkbox" 
+                                checked={nicheForm.includes(niche.id)}
+                                onChange={(e) => {
+                                  if(e.target.checked) setNicheForm([...nicheForm, niche.id]);
+                                  else setNicheForm(nicheForm.filter(id => id !== niche.id));
+                                }}
+                              />
+                              {niche.nama}
+                            </label>
+                          ))}
+                        </div>
+                        <Button onClick={handleUpdateNiche} className="w-full">Simpan Niche</Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                </div>
                 <div className="flex flex-wrap gap-2">
                   {displayNiches.length > 0 ? displayNiches.map((n, i) => (
                     <Badge key={i} variant="outline">{n}</Badge>
