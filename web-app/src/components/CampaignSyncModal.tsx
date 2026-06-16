@@ -335,8 +335,16 @@ export function CampaignSyncModal({ campaignId: initialCampaignId, onComplete }:
               </div>
               <h3 className="text-xl font-bold">Sinkronisasi Berhasil!</h3>
               <p className="text-sm text-slate-500 text-center">
-                Sebanyak {preview.length} data telah berhasil dimasukkan/diperbarui ke dalam sistem.
+                Sebanyak {preview.length - errors.length} dari {preview.length} data telah diproses ke dalam sistem.
               </p>
+              
+              {errors.length > 0 && (
+                <div className="w-full bg-red-50 text-red-600 p-3 rounded text-xs space-y-1 max-h-40 overflow-y-auto text-left border border-red-100">
+                  <p className="font-semibold mb-1">Peringatan / Data yang dilewati:</p>
+                  {errors.map((e, i) => <p key={i}>- {e}</p>)}
+                </div>
+              )}
+
               <Button onClick={() => { setOpen(false); onComplete?.(); }} className="mt-4 px-8">
                 Selesai & Tutup
               </Button>
