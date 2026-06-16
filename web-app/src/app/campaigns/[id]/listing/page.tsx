@@ -43,10 +43,10 @@ function CampaignListingContent() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editPrice, setEditPrice] = useState('0');
   const [editQtyVt, setEditQtyVt] = useState('1');
-  const [editApproval, setEditApproval] = useState('');
-  const [editClientApproval, setEditClientApproval] = useState('');
-  const [editSampleProgress, setEditSampleProgress] = useState('Belum');
-  const [editStatusBayar, setEditStatusBayar] = useState('belum');
+  const [editApproval, setEditApproval] = useState<any>('');
+  const [editClientApproval, setEditClientApproval] = useState<any>('');
+  const [editSampleProgress, setEditSampleProgress] = useState<any>('Belum');
+  const [editStatusBayar, setEditStatusBayar] = useState<any>('belum');
   const [editNotesManager, setEditNotesManager] = useState('');
   const [editNotesPic, setEditNotesPic] = useState('');
 
