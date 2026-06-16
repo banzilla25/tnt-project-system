@@ -92,12 +92,12 @@ export const parseCampaignSyncFile = async (file: File, mapping: CampaignColumnM
     const approvalRaw = mapping.approval ? (row[mapping.approval] || '').toString().toLowerCase().trim() : '';
     let approval: 'pending' | 'approved' | 'alternate' | 'not_approved' = 'pending';
     
-    if (approvalRaw.includes('approve') || approvalRaw.includes('acc') || approvalRaw === 'ok') {
+    if (approvalRaw.includes('not') || approvalRaw.includes('reject') || approvalRaw.includes('tolak') || approvalRaw.includes('belum')) {
+      approval = 'not_approved';
+    } else if (approvalRaw.includes('approve') || approvalRaw.includes('acc') || approvalRaw === 'ok') {
       approval = 'approved';
     } else if (approvalRaw.includes('alternate') || approvalRaw.includes('alt')) {
       approval = 'alternate';
-    } else if (approvalRaw.includes('not') || approvalRaw.includes('reject') || approvalRaw.includes('tolak')) {
-      approval = 'not_approved';
     }
 
     const notes_manager = mapping.notes_manager ? (row[mapping.notes_manager] || '').toString().trim() || null : null;
