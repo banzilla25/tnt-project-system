@@ -34,6 +34,7 @@ export function CampaignSyncModal({ campaignId: initialCampaignId, onComplete }:
   const [isProcessing, setIsProcessing] = useState(false);
   const [isCommitting, setIsCommitting] = useState(false);
   const [commitProgress, setCommitProgress] = useState(0);
+  const [commitStatus, setCommitStatus] = useState('');
   const [editingRowIndex, setEditingRowIndex] = useState<number | null>(null);
 
   const updatePreviewUsername = (index: number, newUsername: string) => {
@@ -96,6 +97,7 @@ export function CampaignSyncModal({ campaignId: initialCampaignId, onComplete }:
     if (preview.length === 0 || campaignId === 0) return;
     setIsCommitting(true);
     setCommitProgress(0);
+    setCommitStatus('Menyiapkan data sinkronisasi...');
     try {
       // 1. Dapatkan daftar kreator baru yang belum ada di database
       const existingCreatorUsernames = new Set(creators.map(c => c.username.toLowerCase()));
@@ -104,21 +106,25 @@ export function CampaignSyncModal({ campaignId: initialCampaignId, onComplete }:
       let creatorMap = new Map(creators.map(c => [c.username.toLowerCase(), c.id]));
 
       // 2. Batch insert kreator baru (chunk per 100 untuk aman)
-      for (let i = 0; i < newUsernames.length; i += 100) {
-        const chunk = newUsernames.slice(i, i + 100);
-        const insertData = chunk.map(username => ({
-          username,
-          link_account: `https://www.tiktok.com/@${username}`,
-          tipe_kreator: 'eksternal'
-        }));
-        
-        const { data: newC, error: errC } = await supabase.from('creators').insert(insertData).select('id, username');
-        if (errC) throw errC;
-        if (newC) {
-          newC.forEach(c => creatorMap.set(c.username.toLowerCase(), c.id));
+      if (newUsernames.length > 0) {
+        for (let i = 0; i < newUsernames.length; i += 100) {
+          setCommitStatus(`Menyimpan ${newUsernames.length} kreator baru ke database... (${i}/${newUsernames.length})`);
+          const chunk = newUsernames.slice(i, i + 100);
+          const insertData = chunk.map(username => ({
+            username,
+            link_account: `https://www.tiktok.com/@${username}`,
+            tipe_kreator: 'eksternal'
+          }));
+          
+          const { data: newC, error: errC } = await supabase.from('creators').insert(insertData).select('id, username');
+          if (errC) throw errC;
+          if (newC) {
+            newC.forEach(c => creatorMap.set(c.username.toLowerCase(), c.id));
+          }
         }
       }
 
+      setCommitStatus('Menyusun data campaign...');
       // 3. Siapkan data upsert untuk campaign_creators
       const campaignCreatorsData = preview.map(row => {
         const creatorId = creatorMap.get(row.username.toLowerCase());
@@ -138,6 +144,7 @@ export function CampaignSyncModal({ campaignId: initialCampaignId, onComplete }:
 
       // 4. Batch upsert campaign_creators (chunk per 500)
       for (let i = 0; i < campaignCreatorsData.length; i += 500) {
+        setCommitStatus(`Menyinkronkan data ke Campaign... (${i}/${campaignCreatorsData.length})`);
         const chunk = campaignCreatorsData.slice(i, i + 500);
         const { error } = await supabase.from('campaign_creators').upsert(chunk, { onConflict: 'campaign_id,creator_id' });
         if (error) throw error;
@@ -145,12 +152,14 @@ export function CampaignSyncModal({ campaignId: initialCampaignId, onComplete }:
         setCommitProgress(Math.min(i + 500, campaignCreatorsData.length));
       }
 
+      setCommitStatus('Memperbarui tampilan...');
       await fetchData();
       setStep(4);
     } catch (e: any) {
       setErrors([e.message || "Terjadi kesalahan saat commit ke database."]);
     } finally {
       setIsCommitting(false);
+      setCommitStatus('');
     }
   };
 
@@ -264,7 +273,7 @@ export function CampaignSyncModal({ campaignId: initialCampaignId, onComplete }:
                 <div className="flex gap-2">
                   <Button variant="outline" onClick={() => setStep(2)}>Ubah Mapping</Button>
                   <Button onClick={handleCommit} disabled={isCommitting} className="gap-2">
-                    {isCommitting ? <><Loader2 className="w-4 h-4 animate-spin" /> {Math.round((commitProgress / preview.length) * 100)}% ({commitProgress}/{preview.length})</> : <><Upload className="w-4 h-4" /> Mulai Sinkronisasi</>}
+                    {isCommitting ? <><Loader2 className="w-4 h-4 animate-spin" /> {commitStatus || 'Memproses...'} {commitProgress > 0 ? `(${Math.round((commitProgress / preview.length) * 100)}%)` : ''}</> : <><Upload className="w-4 h-4" /> Mulai Sinkronisasi</>}
                   </Button>
                 </div>
               </div>
