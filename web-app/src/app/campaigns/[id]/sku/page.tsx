@@ -16,8 +16,17 @@ export default function SkuPage() {
 
   const campaignSkus = skus.filter(s => s.campaign_id === campaignId);
 
-  const [isAdding, setIsAdding] = useState(false);
   const [newSku, setNewSku] = useState({
+    nama_produk: '',
+    product_id: '',
+    satuan_bundle: '',
+    commission: '',
+    link_gmv_max: '',
+    link_tap: ''
+  });
+
+  const [editingSkuId, setEditingSkuId] = useState<number | null>(null);
+  const [editSkuData, setEditSkuData] = useState({
     nama_produk: '',
     product_id: '',
     satuan_bundle: '',
@@ -49,6 +58,34 @@ export default function SkuPage() {
       await supabase.from('skus').delete().eq('id', skuId);
       fetchData();
     }
+  };
+
+  const startEdit = (sku: any) => {
+    setEditingSkuId(sku.id);
+    setEditSkuData({
+      nama_produk: sku.nama_produk || '',
+      product_id: sku.product_id || '',
+      satuan_bundle: sku.satuan_bundle || '',
+      commission: sku.commission ? sku.commission.toString() : '',
+      link_gmv_max: sku.link_gmv_max || '',
+      link_tap: sku.link_tap || ''
+    });
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingSkuId || !editSkuData.nama_produk || !editSkuData.product_id) return;
+
+    await supabase.from('skus').update({
+      nama_produk: editSkuData.nama_produk,
+      product_id: editSkuData.product_id,
+      satuan_bundle: editSkuData.satuan_bundle || null,
+      commission: editSkuData.commission ? Number(editSkuData.commission) : null,
+      link_gmv_max: editSkuData.link_gmv_max || null,
+      link_tap: editSkuData.link_tap || null
+    }).eq('id', editingSkuId);
+
+    setEditingSkuId(null);
+    fetchData();
   };
 
   return (
@@ -104,20 +141,41 @@ export default function SkuPage() {
               </TableRow>
             ) : (
               campaignSkus.map((sku) => (
-                <TableRow key={sku.id}>
-                  <TableCell className="font-medium">{sku.nama_produk}</TableCell>
-                  <TableCell className="font-mono text-slate-500 text-sm">{sku.product_id}</TableCell>
-                  <TableCell>{sku.satuan_bundle || '-'}</TableCell>
-                  <TableCell>{sku.commission ? `${sku.commission}%` : '-'}</TableCell>
-                  <TableCell className="text-right">
-                    <Button size="icon" variant="ghost" className="h-8 w-8 text-slate-400" title="Belum diimplementasi di Fase 2">
-                      <Edit2 className="w-4 h-4" />
-                    </Button>
-                    <Button size="icon" variant="ghost" onClick={() => handleDelete(sku.id)} className="h-8 w-8 text-red-500">
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
+                sku.id === editingSkuId ? (
+                  <TableRow key={sku.id} className="bg-blue-50/20">
+                    <TableCell>
+                      <input type="text" className="w-full p-2 text-sm border rounded" value={editSkuData.nama_produk} onChange={e => setEditSkuData({...editSkuData, nama_produk: e.target.value})} />
+                    </TableCell>
+                    <TableCell>
+                      <input type="text" className="w-full p-2 text-sm border rounded" value={editSkuData.product_id} onChange={e => setEditSkuData({...editSkuData, product_id: e.target.value})} />
+                    </TableCell>
+                    <TableCell>
+                      <input type="text" className="w-full p-2 text-sm border rounded" value={editSkuData.satuan_bundle} onChange={e => setEditSkuData({...editSkuData, satuan_bundle: e.target.value})} />
+                    </TableCell>
+                    <TableCell>
+                      <input type="number" className="w-full p-2 text-sm border rounded" value={editSkuData.commission} onChange={e => setEditSkuData({...editSkuData, commission: e.target.value})} />
+                    </TableCell>
+                    <TableCell className="text-right whitespace-nowrap">
+                      <Button size="sm" onClick={handleSaveEdit} className="mr-2 h-8">Simpan</Button>
+                      <Button size="sm" variant="ghost" onClick={() => setEditingSkuId(null)} className="h-8">Batal</Button>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  <TableRow key={sku.id}>
+                    <TableCell className="font-medium">{sku.nama_produk}</TableCell>
+                    <TableCell className="font-mono text-slate-500 text-sm">{sku.product_id}</TableCell>
+                    <TableCell>{sku.satuan_bundle || '-'}</TableCell>
+                    <TableCell>{sku.commission ? `${sku.commission}%` : '-'}</TableCell>
+                    <TableCell className="text-right">
+                      <Button size="icon" variant="ghost" className="h-8 w-8 text-blue-500" onClick={() => startEdit(sku)} title="Edit SKU">
+                        <Edit2 className="w-4 h-4" />
+                      </Button>
+                      <Button size="icon" variant="ghost" onClick={() => handleDelete(sku.id)} className="h-8 w-8 text-red-500" title="Hapus SKU">
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                )
               ))
             )}
           </TableBody>
