@@ -2,12 +2,13 @@
 
 import React, { useState, useEffect } from "react";
 import { useDatabaseStore } from "@/store/useDatabaseStore";
+import { useDraftLocalStorage } from "@/hooks/useDraftLocalStorage";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/Table";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { createClient } from "@/utils/supabase/client";
 import { useParams } from "next/navigation";
-import { AlertCircle, Link as LinkIcon, Save, Edit2 } from "lucide-react";
+import { AlertCircle, Link as LinkIcon, Save, Edit2, Loader2 } from "lucide-react";
 
 export default function CampaignVideoPage() {
   const { id } = useParams();
@@ -26,7 +27,7 @@ export default function CampaignVideoPage() {
   const isAwareness = campaign?.tipe_campaign === 'awareness';
 
   const [saving, setSaving] = useState<Record<number, boolean>>({});
-  const [localVideos, setLocalVideos] = useState<any[]>([]);
+  const [localVideos, setLocalVideos] = useDraftLocalStorage<any[]>(`draft_videos_campaign_${campaignId}`, []);
   const [listingData, setListingData] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -76,7 +77,8 @@ export default function CampaignVideoPage() {
 
       setListingData(allApproved);
       const allVideos = allApproved.flatMap(cc => cc.videos || []);
-      setLocalVideos(allVideos);
+      
+      setLocalVideos((prev: any[]) => prev && prev.length > 0 ? prev : allVideos);
       setIsLoading(false);
     };
 
@@ -96,7 +98,7 @@ export default function CampaignVideoPage() {
   });
 
   const handleVideoChange = (ccId: number, urutan: number, field: string, value: string) => {
-    setLocalVideos(prev => {
+    setLocalVideos((prev: any[]) => {
       const exists = prev.find(v => v.campaign_creator_id === ccId && v.urutan === urutan);
       if (exists) {
         return prev.map(v => 
@@ -116,7 +118,7 @@ export default function CampaignVideoPage() {
     return link && (link.includes('vt.tiktok.com') || link.includes('vm.tiktok.com'));
   };
 
-  const saveVideos = async (ccId: number) => {
+  const handleSaveVT = async (ccId: number) => {
     setSaving(prev => ({ ...prev, [ccId]: true }));
     try {
       const creatorVideos = localVideos.filter(vid => vid.campaign_creator_id === ccId);
@@ -130,7 +132,6 @@ export default function CampaignVideoPage() {
             vt_approval: v.vt_approval
           }).eq('id', v.id);
         } else {
-          // Hanya insert jika ada isinya
           if (v.concept || v.link_video) {
             await supabase.from('videos').insert({
               campaign_creator_id: ccId,
@@ -143,8 +144,12 @@ export default function CampaignVideoPage() {
           }
         }
       }
-      // Re-fetch everything to ensure it syncs properly
+      
       await fetchData(); 
+      
+      // Update local storage to remove this creator's drafted items
+      setLocalVideos((prev: any[]) => prev.filter(v => v.campaign_creator_id !== ccId));
+      
       alert('Perubahan berhasil disimpan');
     } catch (error) {
       console.error('Error saving videos:', error);
@@ -155,7 +160,7 @@ export default function CampaignVideoPage() {
   };
 
   const handleAddVideoRow = (ccId: number) => {
-    setLocalVideos(prev => {
+    setLocalVideos((prev: any[]) => {
       const creatorVideos = prev.filter(v => v.campaign_creator_id === ccId);
       const nextUrutan = creatorVideos.length > 0 ? Math.max(...creatorVideos.map(v => v.urutan)) + 1 : 1;
       return [...prev, {
@@ -201,11 +206,9 @@ export default function CampaignVideoPage() {
               const creator = cc.creators;
               if (!creator) return null;
               
-              // Load videos from state
               let creatorVideos = localVideos.filter(v => v.campaign_creator_id === cc.id);
               creatorVideos.sort((a, b) => a.urutan - b.urutan);
               if (creatorVideos.length === 0) {
-                // If empty, provide an initial empty object for the UI without inserting
                 creatorVideos = [{ campaign_creator_id: cc.id, urutan: 1, concept: '', link_video: '', vt_approval: 'pending' }];
               }
 
@@ -216,7 +219,7 @@ export default function CampaignVideoPage() {
                       <h3 className="font-bold text-lg">@{creator.username}</h3>
                       <p className="text-sm text-slate-500">Target Video SOW: {cc.qty_vt} | Realita: {localVideos.filter(v => v.campaign_creator_id === cc.id && v.link_video).length}</p>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex items-center gap-4">
                       <Button 
                         variant="outline"
                         onClick={() => handleAddVideoRow(cc.id)}
@@ -225,11 +228,12 @@ export default function CampaignVideoPage() {
                         + Tambah Baris
                       </Button>
                       <Button 
-                        onClick={() => saveVideos(cc.id)}
+                        onClick={() => handleSaveVT(cc.id)}
                         disabled={saving[cc.id]}
                         className="gap-2"
                       >
-                        <Save className="w-4 h-4" /> {saving[cc.id] ? 'Menyimpan...' : 'Simpan Perubahan'}
+                        {saving[cc.id] ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                        {saving[cc.id] ? 'Menyimpan...' : 'Simpan Perubahan'}
                       </Button>
                     </div>
                   </div>

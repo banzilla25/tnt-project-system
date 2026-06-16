@@ -2,6 +2,7 @@
 
 import { useDatabaseStore } from "@/store/useDatabaseStore";
 import { getCreatorType, getLatestSnapshot, computeCampaignGMV, computeHighestVideoGMV, getJenisKerjasama } from "@/utils/computed";
+import { useDraftLocalStorage } from "@/hooks/useDraftLocalStorage";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -187,7 +188,7 @@ export default function CreatorProfilePage() {
   const [rekForm, setRekForm] = useState({ rekening: '', nama_asli: '' });
   const [rekOpen, setRekOpen] = useState(false);
 
-  const [noteForm, setNoteForm] = useState({ isi: '', penulis: '' });
+  const [noteForm, setNoteForm, clearNoteDraft] = useDraftLocalStorage(`draft_note_creator_${creatorId}`, { isi: '', penulis: '' });
   const [noteOpen, setNoteOpen] = useState(false);
 
   const [nicheForm, setNicheForm] = useState<number[]>([]);
@@ -243,7 +244,7 @@ export default function CreatorProfilePage() {
       penulis: noteForm.penulis
     });
     setNoteOpen(false);
-    setNoteForm({ isi: '', penulis: '' });
+    clearNoteDraft();
   };
 
   const handleTarikCampaign = async () => {
@@ -505,7 +506,12 @@ export default function CreatorProfilePage() {
                   <Button variant="ghost" size="sm">Tambah</Button>
                 </DialogTrigger>
                 <DialogContent>
-                  <DialogHeader><DialogTitle>Tambah Catatan Evaluasi</DialogTitle></DialogHeader>
+                  <DialogHeader>
+                    <DialogTitle className="flex justify-between items-center w-full">
+                      Tambah Catatan Evaluasi
+                      {noteForm.isi && <span className="text-xs font-normal text-amber-600 bg-amber-50 px-2 py-1 rounded">Tersimpan di Draft Lokal ✓</span>}
+                    </DialogTitle>
+                  </DialogHeader>
                   <div className="space-y-4 py-4">
                     <div className="space-y-2">
                       <label className="text-sm">Nama Anda (Penulis)</label>
