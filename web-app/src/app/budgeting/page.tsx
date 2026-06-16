@@ -8,13 +8,17 @@ import { Badge } from "@/components/ui/Badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/Table";
 import { Save, Plus, Search, CheckCircle2 } from "lucide-react";
 import { CreatorPayment, AdsSpend } from "@/types/database";
+import { createClient } from "@/utils/supabase/client";
 
 export default function BudgetingPage() {
   const { 
-    campaigns, vw_campaign_summary, campaign_creators, creators, creator_payments, ads_spends, 
+    campaigns, vw_campaign_summary, creator_payments, ads_spends, 
     updateCreatorPayment, addAdsSpend,
-    fetchCampaignDetails, fetchCreatorPayments, fetchAdsSpends
+    fetchCreatorPayments, fetchAdsSpends
   } = useDatabaseStore();
+  const supabase = createClient();
+  const [campaign_creators, setCampaignCreators] = useState<any[]>([]);
+  const [creators, setCreators] = useState<any[]>([]);
   
   const [selectedCampaignId, setSelectedCampaignId] = useState<number | ''>('');
   const [activeTab, setActiveTab] = useState<'creator' | 'ads'>('creator');
@@ -31,8 +35,12 @@ export default function BudgetingPage() {
     if (selectedCampaignId) {
       const loadCampaignData = async () => {
         setIsLoadingData(true);
+        const { data: ccData } = await supabase.from('campaign_creators').select('*, creators(*)').eq('campaign_id', selectedCampaignId);
+        if (ccData) {
+          setCampaignCreators(ccData);
+          setCreators(ccData.map((cc: any) => cc.creators).filter(Boolean));
+        }
         await Promise.all([
-          fetchCampaignDetails(Number(selectedCampaignId)),
           fetchCreatorPayments(Number(selectedCampaignId)),
           fetchAdsSpends(Number(selectedCampaignId))
         ]);
@@ -40,7 +48,7 @@ export default function BudgetingPage() {
       };
       loadCampaignData();
     }
-  }, [selectedCampaignId, fetchCampaignDetails, fetchCreatorPayments, fetchAdsSpends]);
+  }, [selectedCampaignId, fetchCreatorPayments, fetchAdsSpends]);
   
   const activeCampaigns = vw_campaign_summary.filter(c => c.status === 'aktif');
   

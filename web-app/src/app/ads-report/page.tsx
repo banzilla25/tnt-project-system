@@ -101,8 +101,6 @@ export default function AdsReportPage() {
   const [editKurs, setEditKurs] = useState<string>('');
   const [isSaving, setIsSaving] = useState(false);
 
-  const supabase = createClient();
-
   const startEdit = (ad: any) => {
     setEditingId(ad.id);
     setEditCampaignId(ad.campaign_id || '');
