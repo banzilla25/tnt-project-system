@@ -14,7 +14,7 @@ const navItems = [
   { name: 'Ads Report', href: '/ads-report', icon: FolderKanban, activePhase: true },
   { name: 'Budgeting & Topup', href: '/budgeting', icon: Wallet, activePhase: true },
   { name: 'Invoice & Payout', href: '/invoice', icon: Receipt, activePhase: true },
-  { name: 'Pengaturan', href: '/settings', icon: Settings, activePhase: false },
+  { name: 'Pengaturan', href: '/settings', icon: Settings, activePhase: true },
 ];
 
 export function Sidebar() {
