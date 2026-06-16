@@ -27,6 +27,7 @@ type DatabaseState = DatabaseSchema & {
   // Actions for Campaign Listing
   addCampaignCreator: (cc: Omit<CampaignCreator, 'id' | 'created_at'>) => Promise<void>;
   updateCampaignCreator: (id: number, updates: Partial<CampaignCreator>, changedBy: string) => Promise<void>;
+  deleteCampaignCreator: (id: number) => Promise<void>;
   addVideo: (video: Omit<Video, 'id' | 'created_at'>) => Promise<void>;
   updateVideoApproval: (id: number, approval: Video['vt_approval'], changedBy: string) => Promise<void>;
   

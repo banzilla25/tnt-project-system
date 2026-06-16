@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { ChevronDown, ChevronRight, Edit2, Check, X, Loader2 } from "lucide-react";
+import { ChevronDown, ChevronRight, Edit2, Check, X, Loader2, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -201,6 +201,19 @@ function CampaignListingContent() {
 
   const cancelEdit = () => {
     setEditingId(null);
+  };
+
+  const handleDeleteCreator = async (ccId: number) => {
+    if (!confirm('Yakin ingin mengeluarkan kreator ini dari campaign? Data performa campaign kreator ini akan ikut terhapus. (Kreator tetap ada di Pool)')) return;
+    try {
+      await useDatabaseStore.getState().deleteCampaignCreator(ccId);
+      // Refresh to show changes immediately
+      setPage(0);
+      fetchListing(0, true);
+      fetchCounts();
+    } catch (err) {
+      alert('Gagal menghapus kreator.');
+    }
   };
 
   const handleAddCreator = async (e: React.FormEvent) => {
@@ -525,12 +538,17 @@ function CampaignListingContent() {
                         {isEditing ? (
                           <div className="flex justify-end gap-1">
                             <Button size="icon" variant="ghost" onClick={() => saveEdit(cc.id)} className="h-8 w-8 text-green-600"><Check className="w-4 h-4" /></Button>
-                            <Button size="icon" variant="ghost" onClick={cancelEdit} className="h-8 w-8 text-red-600"><X className="w-4 h-4" /></Button>
+                            <Button size="icon" variant="ghost" onClick={cancelEdit} className="h-8 w-8 text-slate-400"><X className="w-4 h-4" /></Button>
                           </div>
                         ) : (
-                          <Button size="icon" variant="ghost" onClick={() => startEdit(cc)} className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Edit2 className="w-4 h-4 text-slate-400" />
-                          </Button>
+                          <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Button size="icon" variant="ghost" onClick={() => startEdit(cc)} className="h-8 w-8">
+                              <Edit2 className="w-4 h-4 text-slate-400 hover:text-blue-600" />
+                            </Button>
+                            <Button size="icon" variant="ghost" onClick={() => handleDeleteCreator(cc.id)} className="h-8 w-8">
+                              <Trash2 className="w-4 h-4 text-slate-400 hover:text-red-600" />
+                            </Button>
+                          </div>
                         )}
                       </TableCell>
                     </TableRow>
