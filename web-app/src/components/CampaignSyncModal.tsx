@@ -95,58 +95,54 @@ export function CampaignSyncModal({ campaignId: initialCampaignId, onComplete }:
   const handleCommit = async () => {
     if (preview.length === 0 || campaignId === 0) return;
     setIsCommitting(true);
+    setCommitProgress(0);
     try {
-      const usernames = preview.map(p => p.username);
-      const { data: existingCreators } = await supabase.from('creators').select('id, username').in('username', usernames);
-      const creatorMap = new Map(existingCreators?.map(c => [c.username, c.id]));
+      // 1. Dapatkan daftar kreator baru yang belum ada di database
+      const existingCreatorUsernames = new Set(creators.map(c => c.username.toLowerCase()));
+      const newUsernames = Array.from(new Set(preview.map(p => p.username))).filter(u => !existingCreatorUsernames.has(u.toLowerCase()));
+      
+      let creatorMap = new Map(creators.map(c => [c.username.toLowerCase(), c.id]));
 
-      const { data: existingCampaignCreators } = await supabase.from('campaign_creators').select('id, creator_id').eq('campaign_id', campaignId);
-      const campaignCreatorSet = new Set(existingCampaignCreators?.map(cc => cc.creator_id));
-
-      setCommitProgress(0);
-
-      for (let i = 0; i < preview.length; i++) {
-        const row = preview[i];
-        let creatorId = creatorMap.get(row.username);
+      // 2. Batch insert kreator baru (chunk per 100 untuk aman)
+      for (let i = 0; i < newUsernames.length; i += 100) {
+        const chunk = newUsernames.slice(i, i + 100);
+        const insertData = chunk.map(username => ({
+          username,
+          link_account: `https://www.tiktok.com/@${username}`,
+          tipe_kreator: 'eksternal'
+        }));
         
-        if (!creatorId) {
-          const { data: newC, error: errC } = await supabase.from('creators').insert({
-            username: row.username,
-            link_account: `https://www.tiktok.com/@${row.username}`,
-            tipe_kreator: 'eksternal'
-          }).select().single();
-          
-          if (errC) { 
-            setErrors(prev => [...prev, `Gagal buat kreator global ${row.username}`]); 
-            continue; 
-          }
-          creatorId = newC.id;
-          creatorMap.set(row.username, creatorId);
+        const { data: newC, error: errC } = await supabase.from('creators').insert(insertData).select('id, username');
+        if (errC) throw errC;
+        if (newC) {
+          newC.forEach(c => creatorMap.set(c.username.toLowerCase(), c.id));
         }
+      }
 
-        if (campaignCreatorSet.has(creatorId)) {
-          await supabase.from('campaign_creators').update({
-            approval: row.approval,
-            notes_manager: row.notes_manager,
-            notes_pic: row.notes_pic,
-            ...(row.sample_progress && { sample_progress: row.sample_progress })
-          }).eq('campaign_id', campaignId).eq('creator_id', creatorId);
-        } else {
-          await supabase.from('campaign_creators').insert({
-            campaign_id: campaignId,
-            creator_id: creatorId,
-            approval: row.approval,
-            notes_manager: row.notes_manager,
-            notes_pic: row.notes_pic,
-            sample_progress: row.sample_progress || 'Belum',
-            price: 0,
-            qty_vt: 1,
-            client_approval: 'not_required',
-            status_bayar: 'belum'
-          });
-          campaignCreatorSet.add(creatorId);
-        }
-        setCommitProgress(i + 1);
+      // 3. Siapkan data upsert untuk campaign_creators
+      const campaignCreatorsData = preview.map(row => {
+        const creatorId = creatorMap.get(row.username.toLowerCase());
+        return {
+          campaign_id: campaignId,
+          creator_id: creatorId,
+          approval: row.approval,
+          notes_manager: row.notes_manager,
+          notes_pic: row.notes_pic,
+          sample_progress: row.sample_progress || 'Belum',
+          price: 0,
+          qty_vt: 1,
+          client_approval: 'not_required',
+          status_bayar: 'belum'
+        };
+      }).filter(d => d.creator_id); // Pastikan creator_id valid
+
+      // 4. Batch upsert campaign_creators (chunk per 500)
+      for (let i = 0; i < campaignCreatorsData.length; i += 500) {
+        const chunk = campaignCreatorsData.slice(i, i + 500);
+        const { error } = await supabase.from('campaign_creators').upsert(chunk, { onConflict: 'campaign_id,creator_id' });
+        if (error) throw error;
+        
+        setCommitProgress(Math.min(i + 500, campaignCreatorsData.length));
       }
 
       await fetchData();
