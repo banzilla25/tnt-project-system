@@ -45,7 +45,7 @@ function CampaignListingContent() {
   const [editQtyVt, setEditQtyVt] = useState('1');
   const [editApproval, setEditApproval] = useState<any>('');
   const [editClientApproval, setEditClientApproval] = useState<any>('');
-  const [editSampleProgress, setEditSampleProgress] = useState<any>('Belum');
+  const [editSampleProgress, setEditSampleProgress] = useState<any>('Done Req Sample');
   const [editStatusBayar, setEditStatusBayar] = useState<any>('belum');
   const [editNotesManager, setEditNotesManager] = useState('');
   const [editNotesPic, setEditNotesPic] = useState('');
@@ -189,7 +189,7 @@ function CampaignListingContent() {
     setEditQtyVt(cc.qty_vt?.toString() || '1');
     setEditApproval(cc.approval);
     setEditClientApproval(cc.client_approval || 'not_required');
-    setEditSampleProgress(cc.sample_progress || 'Belum');
+    setEditSampleProgress(cc.sample_progress || 'Done Req Sample');
     setEditStatusBayar(cc.status_bayar || 'belum');
     setEditNotesManager(cc.notes_manager || '');
     setEditNotesPic(cc.notes_pic || '');
@@ -654,15 +654,19 @@ function CampaignListingContent() {
                                       <h5 className="text-[10px] font-bold text-slate-400 uppercase mb-1">Progress Sample</h5>
                                       {isEditing ? (
                                         <select value={editSampleProgress} onChange={e=>setEditSampleProgress(e.target.value)} className="w-full text-sm p-1 border rounded bg-white">
-                                          <option value="Belum">Belum Diajukan</option>
-                                          <option value="Diajukan">Diajukan</option>
-                                          <option value="Dikirim">Dikirim</option>
-                                          <option value="Diterima">Diterima</option>
-                                          <option value="Retur">Retur</option>
-                                          <option value="Mandiri">Mandiri / Beli Sendiri</option>
+                                          <option value="Done Req Sample">Done Req Sample</option>
+                                          <option value="Sudah Proses Pengiriman">Sudah Proses Pengiriman</option>
+                                          <option value="Sampai">Sampai</option>
+                                          <option value="Kendala [FU!]">Kendala [FU!]</option>
                                         </select>
                                       ) : (
-                                        <p className="text-sm font-medium text-slate-800">{cc.sample_progress || '-'}</p>
+                                        <Badge variant={
+                                          cc.sample_progress === 'Sampai' ? 'success' : 
+                                          cc.sample_progress === 'Kendala [FU!]' ? 'destructive' : 
+                                          cc.sample_progress === 'Sudah Proses Pengiriman' ? 'warning' : 'secondary'
+                                        }>
+                                          {cc.sample_progress || '-'}
+                                        </Badge>
                                       )}
                                     </div>
                                     <div className="bg-slate-50 border border-slate-100 rounded-lg p-3 md:col-span-2">
