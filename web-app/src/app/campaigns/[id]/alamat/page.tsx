@@ -152,7 +152,7 @@ export default function AlamatPage() {
         if (!isExist) {
           await supabase.from('creator_address_book').insert({
             creator_id: cc.creator_id,
-            label: 'Alamat Campaign ' + campaignName,
+            label: 'Alamat Campaign ' + (campaign?.nama || ''),
             nama_penerima: formData.nama_penerima,
             alamat_jalan: formData.nama_jalan,
             kecamatan: formData.kecamatan,
