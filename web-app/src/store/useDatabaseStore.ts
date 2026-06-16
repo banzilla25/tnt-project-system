@@ -71,6 +71,7 @@ export const useDatabaseStore = create<DatabaseState>((set, get) => ({
   niches: [],
   creator_niches: [],
   creator_notes: [],
+  creator_address_book: [],
   campaign_creators: [],
   videos: [],
   audit_logs: [],
@@ -376,6 +377,15 @@ export const useDatabaseStore = create<DatabaseState>((set, get) => ({
     if (!error) {
       set((state) => ({
         campaign_creators: state.campaign_creators.map(c => c.id === id ? { ...c, ...updates } : c)
+      }));
+    }
+  },
+
+  deleteCampaignCreator: async (id) => {
+    const { error } = await supabase.from('campaign_creators').delete().eq('id', id);
+    if (!error) {
+      set((state) => ({
+        campaign_creators: state.campaign_creators.filter(c => c.id !== id)
       }));
     }
   },

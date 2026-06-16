@@ -16,6 +16,7 @@ export default function SkuPage() {
 
   const campaignSkus = skus.filter(s => s.campaign_id === campaignId);
 
+  const [isAdding, setIsAdding] = useState(false);
   const [newSku, setNewSku] = useState({
     nama_produk: '',
     product_id: '',

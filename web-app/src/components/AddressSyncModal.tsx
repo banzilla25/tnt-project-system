@@ -107,8 +107,9 @@ export function AddressSyncModal({ campaignId: initialCampaignId, onComplete }: 
       const addressMap = new Map(addresses?.map(a => [a.campaign_creator_id, a.id]));
       const usernameToCcId = new Map<string, number>();
       ccs?.forEach(cc => {
-        if (cc.creators && !Array.isArray(cc.creators) && cc.creators.username) {
-          usernameToCcId.set(cc.creators.username.toLowerCase(), cc.id);
+        const creator = cc.creators as any;
+        if (creator && !Array.isArray(creator) && creator.username) {
+          usernameToCcId.set(creator.username.toLowerCase(), cc.id);
         }
       });
 

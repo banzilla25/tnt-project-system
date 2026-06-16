@@ -41,6 +41,7 @@ export default function CreatorPoolPage() {
 
   // Add Creator State
   const [isAdding, setIsAdding] = useState(false);
+  const [addModalOpen, setAddModalOpen] = useState(false);
   const [form, setForm] = useState({ username: "", nama_asli: "", nomor: "", audience_age: "", level: "", gmv_30d: "", niche_ids: [] as number[] });
 
   const fetchCreators = useCallback(async (pageNum: number, isReset: boolean = false) => {
@@ -161,13 +162,13 @@ export default function CreatorPoolPage() {
     setIsAdding(true);
     try {
       await addCreatorFull(
-        { username: form.username.replace('@', ''), nama_asli: form.nama_asli, link_account: `https://tiktok.com/@${form.username.replace('@', '')}`, rekening: null },
+        { username: form.username.replace('@', ''), nama_asli: form.nama_asli, link_account: `https://tiktok.com/@${form.username.replace('@', '')}`, rekening: null } as any,
         { 
           audience_age: form.audience_age || null, 
           level: parseInt(form.level) || null, 
           gmv_30d: parseInt(form.gmv_30d) || 0,
           tanggal_update: new Date().toISOString().split('T')[0]
-        },
+        } as any,
         form.nomor,
         form.niche_ids
       );

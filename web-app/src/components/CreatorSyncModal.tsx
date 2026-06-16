@@ -9,7 +9,7 @@ import { createClient } from "@/utils/supabase/client";
 
 const supabase = createClient();
 
-export function CreatorSyncModal({ onComplete }: { onComplete: () => void }) {
+export function CreatorSyncModal({ onComplete }: { onComplete?: () => void }) {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<1|2|3>(1);
   const [file, setFile] = useState<File | null>(null);
@@ -139,7 +139,7 @@ export function CreatorSyncModal({ onComplete }: { onComplete: () => void }) {
       }
 
       setOpen(false);
-      onComplete();
+      onComplete?.();
     } catch (e: any) {
       setErrors([e.message || "Terjadi kesalahan saat commit ke database."]);
     } finally {

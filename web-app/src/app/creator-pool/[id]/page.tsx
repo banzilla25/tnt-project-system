@@ -221,21 +221,22 @@ export default function CreatorProfilePage() {
   if (!creator) return <div className="p-8 text-center">Creator tidak ditemukan.</div>;
 
   const handleUpdateSnapshot = async () => {
-    const { error } = await addCreatorSnapshot({
-      creator_id: creatorId,
-      audience_age: snapForm.audience_age || null,
-      followers: snapForm.followers ? parseInt(snapForm.followers) : null,
-      tier: snapForm.tier || null,
-      level: snapForm.level ? parseInt(snapForm.level) : null,
-      ratecard: snapForm.ratecard ? parseInt(snapForm.ratecard) : (snapForm.ratecard === '0' ? 0 : null),
-      gmv_30d: snapForm.gmv_30d ? parseInt(snapForm.gmv_30d) : null
-    });
+    try {
+      await addCreatorSnapshot({
+        creator_id: creatorId,
+        audience_age: snapForm.audience_age || null,
+        followers: snapForm.followers ? parseInt(snapForm.followers) : null,
+        tier: snapForm.tier || null,
+        level: snapForm.level ? parseInt(snapForm.level) : null,
+        ratecard: snapForm.ratecard ? parseInt(snapForm.ratecard) : (snapForm.ratecard === '0' ? 0 : null),
+        gmv_30d: snapForm.gmv_30d ? parseInt(snapForm.gmv_30d) : null
+      } as any);
 
-    if (error) {
-      alert("Gagal update profil: " + error.message);
-    } else {
       setSnapOpen(false);
+      window.location.reload();
       setSnapForm({ audience_age: '', level: '', gmv_30d: '', followers: '', tier: '', ratecard: '' });
+    } catch (e: any) {
+      alert("Gagal update profil: " + e.message);
     }
   };
 
