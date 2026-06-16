@@ -36,6 +36,7 @@ export function CreatorSyncModal({ onComplete }: { onComplete?: () => void }) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isCommitting, setIsCommitting] = useState(false);
   const [commitProgress, setCommitProgress] = useState(0);
+  const [commitStatus, setCommitStatus] = useState('');
   const [editingRowIndex, setEditingRowIndex] = useState<number | null>(null);
 
   const updatePreviewUsername = (index: number, newUsername: string) => {
@@ -101,15 +102,24 @@ export function CreatorSyncModal({ onComplete }: { onComplete?: () => void }) {
     setIsCommitting(true);
     try {
       // Fetch existing creators to map IDs
-      const usernames = preview.map(p => p.username);
-      const { data: existingCreators } = await supabase.from('creators').select('id, username').in('username', usernames);
-      const creatorMap = new Map(existingCreators?.map(c => [c.username, c.id]));
+      setCommitStatus('Mengecek data kreator di database...');
+      const usernamesArray = Array.from(new Set(preview.map(p => p.username)));
+      const existingCreators: any[] = [];
+      
+      for (let i = 0; i < usernamesArray.length; i += 100) {
+        const chunk = usernamesArray.slice(i, i + 100);
+        const { data, error } = await supabase.from('creators').select('id, username').in('username', chunk);
+        if (error) throw error;
+        if (data) existingCreators.push(...data);
+      }
 
+      let creatorMap = new Map(existingCreators.map(c => [c.username.toLowerCase(), c.id]));
       setCommitProgress(0);
 
       for (let i = 0; i < preview.length; i++) {
+        setCommitStatus(`Memproses ${i + 1}/${preview.length}...`);
         const row = preview[i];
-        let creatorId = creatorMap.get(row.username);
+        let creatorId = creatorMap.get(row.username.toLowerCase());
         
         // 1. Upsert Creator
         if (!creatorId) {

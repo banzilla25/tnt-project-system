@@ -99,11 +99,22 @@ export function CampaignSyncModal({ campaignId: initialCampaignId, onComplete }:
     setCommitProgress(0);
     setCommitStatus('Menyiapkan data sinkronisasi...');
     try {
-      // 1. Dapatkan daftar kreator baru yang belum ada di database
-      const existingCreatorUsernames = new Set(creators.map(c => c.username.toLowerCase()));
-      const newUsernames = Array.from(new Set(preview.map(p => p.username))).filter(u => !existingCreatorUsernames.has(u.toLowerCase()));
+      setCommitStatus('Mengecek data kreator di database...');
+      const usernamesArray = Array.from(new Set(preview.map(p => p.username)));
+      const lowercasedUsernames = usernamesArray.map(u => u.toLowerCase());
+      const existingCreators: any[] = [];
       
-      let creatorMap = new Map(creators.map(c => [c.username.toLowerCase(), c.id]));
+      for (let i = 0; i < usernamesArray.length; i += 100) {
+        const chunk = usernamesArray.slice(i, i + 100);
+        const { data, error } = await supabase.from('creators').select('id, username').in('username', chunk);
+        if (error) throw error;
+        if (data) existingCreators.push(...data);
+      }
+
+      const existingCreatorUsernames = new Set(existingCreators.map(c => c.username.toLowerCase()));
+      const newUsernames = usernamesArray.filter(u => !existingCreatorUsernames.has(u.toLowerCase()));
+      
+      let creatorMap = new Map(existingCreators.map(c => [c.username.toLowerCase(), c.id]));
 
       // 2. Batch insert kreator baru (chunk per 100 untuk aman)
       if (newUsernames.length > 0) {

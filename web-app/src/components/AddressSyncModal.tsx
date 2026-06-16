@@ -39,6 +39,7 @@ export function AddressSyncModal({ campaignId: initialCampaignId, onComplete }: 
   const [isProcessing, setIsProcessing] = useState(false);
   const [isCommitting, setIsCommitting] = useState(false);
   const [commitProgress, setCommitProgress] = useState(0);
+  const [commitStatus, setCommitStatus] = useState('');
   const [editingRowIndex, setEditingRowIndex] = useState<number | null>(null);
 
   const updatePreviewUsername = (index: number, newUsername: string) => {
@@ -118,6 +119,21 @@ export function AddressSyncModal({ campaignId: initialCampaignId, onComplete }: 
 
       const addressMap = new Map(addresses?.map(a => [a.campaign_creator_id, a.id]));
       const usernameToCcId = new Map<string, number>();
+      setCommitStatus('Mengecek data kreator di database...');
+      const usernamesArray = Array.from(new Set(preview.map(p => p.username)));
+      const existingCreators: any[] = [];
+      
+      for (let i = 0; i < usernamesArray.length; i += 100) {
+        const chunk = usernamesArray.slice(i, i + 100);
+        const { data, error } = await supabase.from('creators').select('id, username').in('username', chunk);
+        if (error) throw error;
+        if (data) existingCreators.push(...data);
+      }
+
+      const existingCreatorUsernames = new Set(existingCreators.map(c => c.username.toLowerCase()));
+      const newUsernames = usernamesArray.filter(u => !existingCreatorUsernames.has(u.toLowerCase()));
+      
+      let creatorMap = new Map(existingCreators.map(c => [c.username.toLowerCase(), c.id]));
       ccs?.forEach(cc => {
         const creator = cc.creators as any;
         if (creator && !Array.isArray(creator) && creator.username) {
