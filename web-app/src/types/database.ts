@@ -34,6 +34,12 @@ export type Creator = {
   nama_asli: string | null;
   link_account: string | null;
   rekening: string | null;
+  alamat_penerima: string | null;
+  alamat_jalan: string | null;
+  alamat_kecamatan: string | null;
+  alamat_kota: string | null;
+  alamat_provinsi: string | null;
+  alamat_kodepos: string | null;
   created_at: string;
 };
 
@@ -42,7 +48,9 @@ export type CreatorSnapshot = {
   creator_id: number;
   tanggal_update: string;
   audience_age: string | null;
+  followers: number | null;
   level: number | null;
+  ratecard: number | null;
   gmv_30d: number | null; // stored as number, but logic might say "1jt+" in real DB it's bigint so number here is ok
   created_at: string;
 };
@@ -216,6 +224,20 @@ export type LiveSchedule = {
   created_at: string;
 };
 
+export type CreatorAddressBook = {
+  id: number;
+  creator_id: number;
+  label: string | null;
+  nama_penerima: string | null;
+  alamat_jalan: string | null;
+  kecamatan: string | null;
+  kota: string | null;
+  provinsi: string | null;
+  kodepos: string | null;
+  is_primary: boolean;
+  created_at: string;
+};
+
 export interface DatabaseSchema {
   brands: Brand[];
   campaigns: Campaign[];
@@ -236,6 +258,7 @@ export interface DatabaseSchema {
   creator_payments: CreatorPayment[];
   ads_spends: AdsSpend[];
   creator_addresses: CreatorAddress[];
+  creator_address_book: CreatorAddressBook[];
   live_schedules: LiveSchedule[];
   sales: Sales[];
   ads_performance: AdsPerformance[];

@@ -11,6 +11,7 @@ import { createClient } from "@/utils/supabase/client";
 import { Download } from "lucide-react";
 import { exportToCSV } from "@/utils/exportCsv";
 
+
 const supabase = createClient();
 
 export default function AlamatPage() {
@@ -36,6 +37,10 @@ export default function AlamatPage() {
 
   const [localCreators, setLocalCreators] = useState<any[]>([]);
   const [isFetchingCC, setIsFetchingCC] = useState(true);
+
+  // Address Book state
+  const [addressBook, setAddressBook] = useState<any[]>([]);
+  const [selectedBookId, setSelectedBookId] = useState<string>('');
 
   useEffect(() => {
     fetchCreatorAddresses(campaignId);
@@ -99,14 +104,34 @@ export default function AlamatPage() {
     exportToCSV(exportData, `campaign_${campaignId}_alamat`);
   };
 
-  const handleEdit = (ccId: number) => {
+  const handleEdit = async (ccId: number) => {
+    // 1. Fetch address book for this creator
+    const cc = localCreators.find(c => c.id === ccId);
+    const creatorId = cc?.creator_id;
+    if (creatorId) {
+      const { data: book } = await supabase.from('creator_address_book').select('*').eq('creator_id', creatorId).order('is_primary', { ascending: false });
+      setAddressBook(book || []);
+    } else {
+      setAddressBook([]);
+    }
+    setSelectedBookId('');
+
     const existing = creator_addresses.find(a => a.campaign_creator_id === ccId);
     if (existing) {
       setFormData(existing);
       setEditId(existing.id);
     } else {
+      // Find creator's master address as fallback if no address book
+      const creator = cc?.creators;
+      
       setFormData({
         campaign_creator_id: ccId,
+        nama_penerima: creator?.alamat_penerima || '',
+        nama_jalan: creator?.alamat_jalan || '',
+        kecamatan: creator?.alamat_kecamatan || '',
+        kabupaten_kota: creator?.alamat_kota || '',
+        provinsi: creator?.alamat_provinsi || '',
+        kode_pos: creator?.alamat_kodepos || '',
         proses: 'Diproses'
       });
       setEditId(-ccId); // Temp ID for new records
@@ -117,8 +142,47 @@ export default function AlamatPage() {
     setIsSaving(true);
     const existing = creator_addresses.find(a => a.campaign_creator_id === ccId);
     await updateCreatorAddress(existing?.id || null, formData);
+    
+    // Auto-save to address book if not selected from book
+    if (formData.nama_jalan && !selectedBookId) {
+      const cc = localCreators.find(c => c.id === ccId);
+      if (cc && cc.creator_id) {
+        // Check if exactly same address exists in book
+        const isExist = addressBook.find(b => b.alamat_jalan?.toLowerCase() === formData.nama_jalan?.toLowerCase());
+        if (!isExist) {
+          await supabase.from('creator_address_book').insert({
+            creator_id: cc.creator_id,
+            label: 'Alamat Campaign ' + campaignName,
+            nama_penerima: formData.nama_penerima,
+            alamat_jalan: formData.nama_jalan,
+            kecamatan: formData.kecamatan,
+            kota: formData.kabupaten_kota,
+            provinsi: formData.provinsi,
+            kodepos: formData.kode_pos
+          });
+        }
+      }
+    }
+
     setEditId(null);
     setIsSaving(false);
+  };
+
+  const handleSelectBook = (bookId: string) => {
+    setSelectedBookId(bookId);
+    if (!bookId) return;
+    const b = addressBook.find(x => x.id.toString() === bookId);
+    if (b) {
+      setFormData(prev => ({
+        ...prev,
+        nama_penerima: b.nama_penerima || '',
+        nama_jalan: b.alamat_jalan || '',
+        kecamatan: b.kecamatan || '',
+        kabupaten_kota: b.kota || '',
+        provinsi: b.provinsi || '',
+        kode_pos: b.kodepos || ''
+      }));
+    }
   };
 
   if (isLoading && creator_addresses.length === 0) {
@@ -131,6 +195,7 @@ export default function AlamatPage() {
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Data Alamat Pengiriman Sampel</CardTitle>
           <div className="flex gap-2">
+
             <button
               onClick={handleExport}
               className="flex items-center gap-2 px-3 py-2 border border-slate-300 rounded-md text-sm hover:bg-slate-50"
@@ -180,6 +245,18 @@ export default function AlamatPage() {
                         <TableCell>
                           {isEditing ? (
                             <div className="space-y-2">
+                              {addressBook.length > 0 && (
+                                <select 
+                                  value={selectedBookId}
+                                  onChange={e => handleSelectBook(e.target.value)}
+                                  className="w-full text-sm p-2 border border-blue-300 bg-blue-50 rounded text-blue-800 font-medium"
+                                >
+                                  <option value="">-- Ketik Alamat Baru --</option>
+                                  {addressBook.map(b => (
+                                    <option key={b.id} value={b.id.toString()}>{b.label || 'Alamat'} - {b.alamat_jalan?.substring(0,30)}...</option>
+                                  ))}
+                                </select>
+                              )}
                               <input
                                 type="text"
                                 placeholder="Nama Penerima"

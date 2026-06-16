@@ -43,6 +43,7 @@ export default function CreatorProfilePage() {
     videos: any[];
     sales: any[];
     ads: any[];
+    addressBook: any[];
   } | null>(null);
 
   useEffect(() => {
@@ -62,14 +63,16 @@ export default function CreatorProfilePage() {
           { data: creatorNiches },
           { data: notes },
           { data: ccs },
-          { data: ads }
+          { data: ads },
+          { data: addressBookResult }
         ] = await Promise.all([
           supabase.from('creator_snapshots').select('*').eq('creator_id', creatorId),
           supabase.from('creator_contacts').select('*').eq('creator_id', creatorId),
           supabase.from('creator_niches').select('*').eq('creator_id', creatorId),
           supabase.from('creator_notes').select('*').eq('creator_id', creatorId),
           supabase.from('campaign_creators').select('*').eq('creator_id', creatorId),
-          supabase.from('ads_performance').select('*').eq('creator_id', creatorId)
+          supabase.from('ads_performance').select('*').eq('creator_id', creatorId),
+          supabase.from('creator_address_book').select('*').eq('creator_id', creatorId).order('id', { ascending: false })
         ]);
 
         let vids: any[] = [];
@@ -109,7 +112,8 @@ export default function CreatorProfilePage() {
           ccs: ccs || [],
           videos: vids,
           sales: sls,
-          ads: ads || []
+          ads: ads || [],
+          addressBook: addressBookResult || []
         });
       } catch (err) {
         console.error("Error fetching creator data:", err);
@@ -125,7 +129,7 @@ export default function CreatorProfilePage() {
   const creator = localData?.creator;
   const snapshots = localData?.snapshots?.sort((a: any, b: any) => new Date(b.tanggal_update).getTime() - new Date(a.tanggal_update).getTime()) || [];
   const latestSnapshot = snapshots[0] || null;
-  const type = getCreatorType(latestSnapshot?.audience_age || null);
+  const tier = latestSnapshot?.tier || 'Unknown';
   
   const activeContact = localData?.contacts?.find((c: any) => c.status === 'aktif');
   
@@ -174,7 +178,7 @@ export default function CreatorProfilePage() {
     return sortOrder === 'asc' ? comparison : -comparison;
   });
 
-  const [snapForm, setSnapForm] = useState({ audience_age: '', level: '', gmv_30d: '' });
+  const [snapForm, setSnapForm] = useState({ audience_age: '', level: '', gmv_30d: '', followers: '', tier: '', ratecard: '' });
   const [snapOpen, setSnapOpen] = useState(false);
   const [expandedCampaigns, setExpandedCampaigns] = useState<Record<number, boolean>>({});
 
@@ -193,6 +197,18 @@ export default function CreatorProfilePage() {
 
   const [nicheForm, setNicheForm] = useState<number[]>([]);
   const [nicheOpen, setNicheOpen] = useState(false);
+  
+  const [addressOpen, setAddressOpen] = useState(false);
+  const [addressForm, setAddressForm] = useState({
+    id: null as number | null,
+    label: '',
+    nama_penerima: '',
+    alamat_jalan: '',
+    kecamatan: '',
+    kota: '',
+    provinsi: '',
+    kodepos: ''
+  });
 
   const [campForm, setCampForm] = useState({ campaign_id: '', price: 0, qty_vt: 1 });
   const [campOpen, setCampOpen] = useState(false);
@@ -205,15 +221,22 @@ export default function CreatorProfilePage() {
   if (!creator) return <div className="p-8 text-center">Creator tidak ditemukan.</div>;
 
   const handleUpdateSnapshot = async () => {
-    await addCreatorSnapshot({
+    const { error } = await addCreatorSnapshot({
       creator_id: creatorId,
       audience_age: snapForm.audience_age || null,
-      level: parseInt(snapForm.level) || null,
-      gmv_30d: parseInt(snapForm.gmv_30d) || 0,
-      tanggal_update: new Date().toISOString().split('T')[0]
+      followers: snapForm.followers ? parseInt(snapForm.followers) : null,
+      tier: snapForm.tier || null,
+      level: snapForm.level ? parseInt(snapForm.level) : null,
+      ratecard: snapForm.ratecard ? parseInt(snapForm.ratecard) : (snapForm.ratecard === '0' ? 0 : null),
+      gmv_30d: snapForm.gmv_30d ? parseInt(snapForm.gmv_30d) : null
     });
-    setSnapOpen(false);
-    setSnapForm({ audience_age: '', level: '', gmv_30d: '' });
+
+    if (error) {
+      alert("Gagal update profil: " + error.message);
+    } else {
+      setSnapOpen(false);
+      setSnapForm({ audience_age: '', level: '', gmv_30d: '', followers: '', tier: '', ratecard: '' });
+    }
   };
 
   const handleUpdateContact = async () => {
@@ -228,11 +251,45 @@ export default function CreatorProfilePage() {
     setRekOpen(false);
   };
 
+  const handleUpdateAddress = async () => {
+    try {
+      const payload = {
+        creator_id: creatorId,
+        label: addressForm.label,
+        nama_penerima: addressForm.nama_penerima,
+        alamat_jalan: addressForm.alamat_jalan,
+        kecamatan: addressForm.kecamatan,
+        kota: addressForm.kota,
+        provinsi: addressForm.provinsi,
+        kodepos: addressForm.kodepos
+      };
+
+      if (addressForm.id) {
+        await supabase.from('creator_address_book').update(payload).eq('id', addressForm.id);
+      } else {
+        await supabase.from('creator_address_book').insert(payload);
+      }
+
+      // refresh address book
+      const { data } = await supabase.from('creator_address_book').select('*').eq('creator_id', creatorId).order('id', { ascending: false });
+      setLocalData(prev => prev ? { ...prev, addressBook: data || [] } : null);
+      
+      setAddressOpen(false);
+    } catch (e: any) {
+      alert("Gagal update alamat: " + e.message);
+    }
+  };
+
+  const handleDeleteAddress = async (id: number) => {
+    if(!confirm('Yakin hapus alamat ini?')) return;
+    await supabase.from('creator_address_book').delete().eq('id', id);
+    const { data } = await supabase.from('creator_address_book').select('*').eq('creator_id', creatorId).order('id', { ascending: false });
+    setLocalData(prev => prev ? { ...prev, addressBook: data || [] } : null);
+  };
+
   const handleUpdateNiche = async () => {
     await useDatabaseStore.getState().updateCreatorNiches(creatorId, nicheForm);
     setNicheOpen(false);
-    // Ideally we should refetch or update localData here, but since it's a quick patch,
-    // reloading the page or letting the user refresh is fine, or we can update localData manually.
     window.location.reload();
   };
 
@@ -264,7 +321,7 @@ export default function CreatorProfilePage() {
       sample_progress: null,
       gmv_organic_legacy: null,
       gmv_ads_legacy: null,
-      client_approval: 'pending' // default
+      client_approval: 'pending'
     });
     setCampOpen(false);
   };
@@ -277,7 +334,7 @@ export default function CreatorProfilePage() {
       if (match) {
         content_uid = match[1];
       } else if (!/^\d+$/.test(content_uid)) {
-        alert("Link tidak valid. Pastikan Anda memasukkan Link TikTok Panjang atau Angka Content ID.");
+        alert("Link tidak valid.");
         return;
       }
 
@@ -296,7 +353,7 @@ export default function CreatorProfilePage() {
       setVideoLink('');
       setActiveCcId(null);
     } catch (e: any) {
-      alert("Gagal menyimpan video. Mungkin content_uid ini sudah ada?");
+      alert("Gagal menyimpan video.");
     }
   };
 
@@ -318,7 +375,7 @@ export default function CreatorProfilePage() {
         <div>
           <div className="flex items-center gap-3">
             <h1 className="text-3xl font-bold tracking-tight">@{creator.username}</h1>
-            <Badge variant="secondary" className="text-sm">{type}</Badge>
+            <Badge className="bg-gradient-to-r from-blue-600 to-indigo-600 shadow-sm">{tier}</Badge>
           </div>
           <p className="text-slate-500">{creator.nama_asli || 'Nama asli belum diisi'}</p>
         </div>
@@ -330,13 +387,26 @@ export default function CreatorProfilePage() {
             <DialogContent>
               <DialogHeader><DialogTitle>Update Data Snapshot</DialogTitle></DialogHeader>
               <div className="space-y-4 py-4">
-                <div className="space-y-2">
+                <div>
+                  <label className="text-sm font-medium">Followers</label>
+                  <input type="number" value={snapForm.followers} onChange={e=>setSnapForm({...snapForm, followers: e.target.value})} className="w-full p-2 border rounded" placeholder={latestSnapshot?.followers || ''} />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Tier</label>
+                  <input type="text" value={snapForm.tier} onChange={e=>setSnapForm({...snapForm, tier: e.target.value})} className="w-full p-2 border rounded" placeholder={latestSnapshot?.tier || ''} />
+                </div>
+                <div>
                   <label className="text-sm font-medium">Audience Age</label>
                   <input type="text" value={snapForm.audience_age} onChange={e=>setSnapForm({...snapForm, audience_age: e.target.value})} className="w-full p-2 border rounded" placeholder={latestSnapshot?.audience_age || ''} />
                 </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Level TikTok</label>
-                  <input type="number" value={snapForm.level} onChange={e=>setSnapForm({...snapForm, level: e.target.value})} className="w-full p-2 border rounded" placeholder={latestSnapshot?.level?.toString() || '1'} />
+                <div>
+                  <label className="text-sm font-medium">Level Creator</label>
+                  <input type="number" value={snapForm.level} onChange={e=>setSnapForm({...snapForm, level: e.target.value})} className="w-full p-2 border rounded" placeholder={latestSnapshot?.level || ''} />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Ratecard</label>
+                  <input type="number" value={snapForm.ratecard} onChange={e=>setSnapForm({...snapForm, ratecard: e.target.value})} className="w-full p-2 border rounded" placeholder={latestSnapshot?.ratecard?.toString() || ''} />
+                  <p className="text-xs text-slate-500 mt-1">Isi 0 untuk Barter.</p>
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Estimasi GMV 30 Hari Terakhir (Rp)</label>
@@ -379,21 +449,28 @@ export default function CreatorProfilePage() {
       </div>
 
       <div className="grid gap-6 md:grid-cols-3">
-        {/* Kolom Kiri: Info Utama & Kontak */}
         <div className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle>Profil Utama</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl text-center">
-                <div>
-                  <p className="text-xs text-slate-500 mb-1">Audience Age</p>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-col justify-center items-center text-center">
+                  <p className="text-sm text-slate-500 mb-1">Followers</p>
+                  <p className="font-bold text-lg">{latestSnapshot?.followers?.toLocaleString() || '-'}</p>
+                </div>
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-col justify-center items-center text-center">
+                  <p className="text-sm text-slate-500 mb-1">Audience Age</p>
                   <p className="font-bold text-lg">{latestSnapshot?.audience_age || '-'}</p>
                 </div>
-                <div>
-                  <p className="text-xs text-slate-500 mb-1">Level</p>
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-col justify-center items-center text-center">
+                  <p className="text-sm text-slate-500 mb-1">Level</p>
                   <p className="font-bold text-lg">{latestSnapshot?.level || '-'}</p>
+                </div>
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-col justify-center items-center text-center">
+                  <p className="text-sm text-slate-500 mb-1">Ratecard</p>
+                  <p className="font-bold text-lg">{latestSnapshot?.ratecard === 0 ? 'Barter' : (latestSnapshot?.ratecard ? `Rp ${latestSnapshot.ratecard.toLocaleString()}` : '-')}</p>
                 </div>
               </div>
 
@@ -450,7 +527,6 @@ export default function CreatorProfilePage() {
                         <div className="space-y-2">
                           <label className="text-sm">Nomor Baru</label>
                           <input type="text" value={contactForm} onChange={e=>setContactForm(e.target.value)} className="w-full p-2 border rounded" placeholder="08..." />
-                          <p className="text-xs text-slate-500">Nomor lama akan otomatis diarsipkan.</p>
                         </div>
                         <Button onClick={handleUpdateContact} className="w-full">Simpan Kontak</Button>
                       </div>
@@ -499,6 +575,102 @@ export default function CreatorProfilePage() {
           </Card>
 
           <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-lg">Buku Alamat (Address Book)</CardTitle>
+              <Dialog open={addressOpen} onOpenChange={(v) => {
+                setAddressOpen(v);
+                if (v) {
+                  setAddressForm({
+                    id: null,
+                    label: '',
+                    nama_penerima: '',
+                    alamat_jalan: '',
+                    kecamatan: '',
+                    kota: '',
+                    provinsi: '',
+                    kodepos: ''
+                  });
+                }
+              }}>
+                <DialogTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-6 w-6"><Edit2 className="h-3 w-3"/></Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader><DialogTitle>{addressForm.id ? 'Edit Alamat' : 'Tambah Alamat Baru'}</DialogTitle></DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Label (Cth: Rumah, Kantor)</label>
+                      <input type="text" value={addressForm.label} onChange={e=>setAddressForm({...addressForm, label: e.target.value})} className="w-full p-2 border rounded" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Nama Penerima</label>
+                      <input type="text" value={addressForm.nama_penerima} onChange={e=>setAddressForm({...addressForm, nama_penerima: e.target.value})} className="w-full p-2 border rounded" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Alamat Lengkap</label>
+                      <textarea value={addressForm.alamat_jalan} onChange={e=>setAddressForm({...addressForm, alamat_jalan: e.target.value})} className="w-full p-2 border rounded h-20" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Kecamatan</label>
+                        <input type="text" value={addressForm.kecamatan} onChange={e=>setAddressForm({...addressForm, kecamatan: e.target.value})} className="w-full p-2 border rounded" />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Kota/Kabupaten</label>
+                        <input type="text" value={addressForm.kota} onChange={e=>setAddressForm({...addressForm, kota: e.target.value})} className="w-full p-2 border rounded" />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Provinsi</label>
+                        <input type="text" value={addressForm.provinsi} onChange={e=>setAddressForm({...addressForm, provinsi: e.target.value})} className="w-full p-2 border rounded" />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Kode Pos</label>
+                        <input type="text" value={addressForm.kodepos} onChange={e=>setAddressForm({...addressForm, kodepos: e.target.value})} className="w-full p-2 border rounded" />
+                      </div>
+                    </div>
+                    <Button onClick={handleUpdateAddress} className="w-full">Simpan Alamat</Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </CardHeader>
+            <CardContent className="space-y-3 mt-2 max-h-80 overflow-y-auto">
+              {localData?.addressBook?.length === 0 ? (
+                <p className="text-xs text-slate-500 italic">Belum ada alamat tersimpan.</p>
+              ) : (
+                localData?.addressBook?.map((book: any) => (
+                  <div key={book.id} className="border border-slate-100 bg-slate-50 p-3 rounded-lg relative group">
+                    <div className="absolute top-2 right-2 hidden group-hover:flex gap-1">
+                      <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => {
+                        setAddressForm({
+                          id: book.id,
+                          label: book.label || '',
+                          nama_penerima: book.nama_penerima || '',
+                          alamat_jalan: book.alamat_jalan || '',
+                          kecamatan: book.kecamatan || '',
+                          kota: book.kota || '',
+                          provinsi: book.provinsi || '',
+                          kodepos: book.kodepos || ''
+                        });
+                        setAddressOpen(true);
+                      }}><Edit2 className="h-3 w-3"/></Button>
+                      <Button variant="ghost" size="icon" className="h-5 w-5 text-red-500 hover:text-red-700" onClick={() => handleDeleteAddress(book.id)}>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                      </Button>
+                    </div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <Badge variant="outline" className="text-[10px] bg-white">{book.label || 'Alamat'}</Badge>
+                      {book.is_primary && <Badge className="text-[10px] bg-blue-100 text-blue-700 border-none">Utama</Badge>}
+                    </div>
+                    <p className="text-sm font-semibold">{book.nama_penerima || creator?.nama_asli || creator?.username}</p>
+                    <p className="text-xs text-slate-600 mt-1">{book.alamat_jalan}</p>
+                    <p className="text-xs text-slate-500 mt-0.5">{book.kecamatan}, {book.kota}, {book.provinsi} {book.kodepos}</p>
+                  </div>
+                ))
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Catatan Evaluasi</CardTitle>
               <Dialog open={noteOpen} onOpenChange={setNoteOpen}>
@@ -543,7 +715,6 @@ export default function CreatorProfilePage() {
           </Card>
         </div>
 
-        {/* Kolom Kanan: Rekam Jejak & Riwayat Snapshot */}
         <div className="md:col-span-2 space-y-6">
           <Card>
             <CardHeader>
@@ -594,14 +765,14 @@ export default function CreatorProfilePage() {
                             {tr.highestVideoGmv > 0 ? `Rp ${tr.highestVideoGmv.toLocaleString()}` : '-'}
                           </TableCell>
                           <TableCell>
-                            <Badge variant={tr.approval === 'approved' ? 'success' : 'outline'}>
+                            <Badge variant={tr.approval === 'approved' ? 'default' : 'secondary'}>
                               {tr.approval}
                             </Badge>
                           </TableCell>
                         </TableRow>
                         {hasDetails && isExpanded && (
                           <TableRow>
-                            <TableCell colSpan={6} className="bg-slate-50/50 p-4 border-b-2 border-slate-200">
+                            <TableCell colSpan={7} className="bg-slate-50/50 p-4 border-b-2 border-slate-200">
                               <div className="rounded-lg border border-slate-200 overflow-hidden bg-white shadow-sm">
                                 <Table className="text-sm">
                                   <TableHeader className="bg-slate-50">
@@ -629,8 +800,7 @@ export default function CreatorProfilePage() {
                                       if (videoSortField === 'sold') diff = a.itemsSold - b.itemsSold;
                                       if (videoSortField === 'gmv') diff = a.organicGmv - b.organicGmv;
                                       return videoSortOrder === 'asc' ? diff : -diff;
-                                    }).map((v: any) => {
-                                      return (
+                                    }).map((v: any) => (
                                         <TableRow key={v.id}>
                                           <TableCell className="font-medium text-slate-700">VT {v.urutan}</TableCell>
                                           <TableCell>
@@ -650,80 +820,76 @@ export default function CreatorProfilePage() {
                                             {v.organicGmv > 0 ? `Rp ${v.organicGmv.toLocaleString()}` : '-'}
                                           </TableCell>
                                         </TableRow>
-                                      )                                     })}
-                                      <TableRow>
-                                        <TableCell colSpan={5} className="p-0 border-t border-slate-200">
-                                          <div className="bg-white hover:bg-slate-50 transition-colors">
-                                            <Dialog open={videoOpen && activeCcId === tr.id} onOpenChange={(v) => { setVideoOpen(v); if(v) setActiveCcId(tr.id); else setActiveCcId(null); }}>
-                                              <DialogTrigger asChild>
-                                                <button className="w-full text-center text-xs font-semibold text-blue-600 py-2">
-                                                  + Tambah Link Video Manual
-                                                </button>
-                                              </DialogTrigger>
-                                              <DialogContent>
-                                                <DialogHeader><DialogTitle>Input Link Video</DialogTitle></DialogHeader>
-                                                <div className="space-y-4 py-4">
-                                                  <div className="space-y-2">
-                                                    <label className="text-sm font-medium">Link Panjang TikTok / Content ID</label>
-                                                    <input 
-                                                      type="text"
-                                                      className="w-full p-2 border rounded"
-                                                      placeholder="Contoh: https://www.tiktok.com/@user/video/12345" 
-                                                      value={videoLink} 
-                                                      onChange={e => setVideoLink(e.target.value)} 
-                                                    />
-                                                    <p className="text-xs text-slate-500">Sistem akan otomatis mengekstrak Content ID dan mengubahnya menjadi format standar.</p>
-                                                  </div>
-                                                  <Button onClick={handleAddVideo} className="w-full">Simpan Video</Button>
+                                    ))}
+                                    <TableRow>
+                                      <TableCell colSpan={5} className="p-0 border-t border-slate-200">
+                                        <div className="bg-white hover:bg-slate-50 transition-colors">
+                                          <Dialog open={videoOpen && activeCcId === tr.id} onOpenChange={(v) => { setVideoOpen(v); if(v) setActiveCcId(tr.id); else setActiveCcId(null); }}>
+                                            <DialogTrigger asChild>
+                                              <button className="w-full text-center text-xs font-semibold text-blue-600 py-2">
+                                                + Tambah Link Video Manual
+                                              </button>
+                                            </DialogTrigger>
+                                            <DialogContent>
+                                              <DialogHeader><DialogTitle>Input Link Video</DialogTitle></DialogHeader>
+                                              <div className="space-y-4 py-4">
+                                                <div className="space-y-2">
+                                                  <label className="text-sm font-medium">Link Panjang TikTok / Content ID</label>
+                                                  <input 
+                                                    type="text"
+                                                    className="w-full p-2 border rounded"
+                                                    placeholder="Contoh: https://www.tiktok.com/@user/video/12345" 
+                                                    value={videoLink} 
+                                                    onChange={e => setVideoLink(e.target.value)} 
+                                                  />
                                                 </div>
-                                              </DialogContent>
-                                            </Dialog>
-                                          </div>
-                                        </TableCell>
+                                                <Button onClick={handleAddVideo} className="w-full">Simpan Video</Button>
+                                              </div>
+                                            </DialogContent>
+                                          </Dialog>
+                                        </div>
+                                      </TableCell>
+                                    </TableRow>
+                                  </TableBody>
+                                </Table>
+                              </div>
+                              {localData?.ads?.filter((a: any) => a.campaign_id === tr.campaign_id).length > 0 && (
+                                <div className="mt-4 rounded-lg border border-indigo-200 overflow-hidden bg-indigo-50/30 shadow-sm">
+                                  <div className="bg-indigo-100/50 px-4 py-2 border-b border-indigo-200 flex justify-between items-center">
+                                    <h4 className="text-xs font-bold text-indigo-900 uppercase">Riwayat Ads Performance (TikTok)</h4>
+                                  </div>
+                                  <Table className="text-sm">
+                                    <TableHeader className="bg-indigo-50/50">
+                                      <TableRow>
+                                        <TableHead className="h-8 text-xs font-semibold text-slate-500">Ad Name / Ad ID</TableHead>
+                                        <TableHead className="h-8 text-right text-xs font-semibold text-slate-500">Cost (IDR)</TableHead>
+                                        <TableHead className="h-8 text-right text-xs font-semibold text-slate-500">Revenue (IDR)</TableHead>
+                                        <TableHead className="h-8 text-center text-xs font-semibold text-slate-500">ROAS</TableHead>
+                                        <TableHead className="h-8 text-center text-xs font-semibold text-slate-500">Purchases</TableHead>
                                       </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                      {localData?.ads?.filter((a: any) => a.campaign_id === tr.campaign_id).map((ad: any) => {
+                                        const costIdr = ad.cost_usd * ad.kurs;
+                                        const revenueIdr = ad.gross_revenue_usd * ad.kurs;
+                                        const roas = costIdr > 0 ? (revenueIdr / costIdr).toFixed(2) : '-';
+                                        return (
+                                          <TableRow key={ad.id} className="hover:bg-indigo-50">
+                                            <TableCell>
+                                              <p className="font-medium text-slate-700 truncate max-w-[150px]" title={ad.ad_name}>{ad.ad_name}</p>
+                                              <p className="font-mono text-[10px] text-slate-500">{ad.ad_id}</p>
+                                            </TableCell>
+                                            <TableCell className="text-right font-medium text-red-600">Rp {costIdr.toLocaleString()}</TableCell>
+                                            <TableCell className="text-right font-bold text-emerald-600">Rp {revenueIdr.toLocaleString()}</TableCell>
+                                            <TableCell className="text-center font-bold text-indigo-700">{roas}</TableCell>
+                                            <TableCell className="text-center text-slate-600">{ad.purchases}</TableCell>
+                                          </TableRow>
+                                        );
+                                      })}
                                     </TableBody>
                                   </Table>
                                 </div>
-
-                                {/* Bagian Laporan Iklan */}
-                                {localData?.ads?.filter((a: any) => a.campaign_id === tr.campaign_id).length > 0 && (
-                                  <div className="mt-4 rounded-lg border border-indigo-200 overflow-hidden bg-indigo-50/30 shadow-sm">
-                                    <div className="bg-indigo-100/50 px-4 py-2 border-b border-indigo-200 flex justify-between items-center">
-                                      <h4 className="text-xs font-bold text-indigo-900 uppercase">Riwayat Ads Performance (TikTok)</h4>
-                                      <span className="text-[10px] bg-indigo-600 text-white px-2 py-0.5 rounded font-bold">Terverifikasi</span>
-                                    </div>
-                                    <Table className="text-sm">
-                                      <TableHeader className="bg-indigo-50/50">
-                                        <TableRow>
-                                          <TableHead className="h-8 text-xs font-semibold text-slate-500">Ad Name / Ad ID</TableHead>
-                                          <TableHead className="h-8 text-right text-xs font-semibold text-slate-500">Cost (IDR)</TableHead>
-                                          <TableHead className="h-8 text-right text-xs font-semibold text-slate-500">Revenue (IDR)</TableHead>
-                                          <TableHead className="h-8 text-center text-xs font-semibold text-slate-500">ROAS</TableHead>
-                                          <TableHead className="h-8 text-center text-xs font-semibold text-slate-500">Purchases</TableHead>
-                                        </TableRow>
-                                      </TableHeader>
-                                      <TableBody>
-                                        {localData?.ads?.filter((a: any) => a.campaign_id === tr.campaign_id).map((ad: any) => {
-                                          const costIdr = ad.cost_usd * ad.kurs;
-                                          const revenueIdr = ad.gross_revenue_usd * ad.kurs;
-                                          const roas = costIdr > 0 ? (revenueIdr / costIdr).toFixed(2) : '-';
-                                          return (
-                                            <TableRow key={ad.id} className="hover:bg-indigo-50">
-                                              <TableCell>
-                                                <p className="font-medium text-slate-700 truncate max-w-[150px]" title={ad.ad_name}>{ad.ad_name}</p>
-                                                <p className="font-mono text-[10px] text-slate-500">{ad.ad_id}</p>
-                                              </TableCell>
-                                              <TableCell className="text-right font-medium text-red-600">Rp {costIdr.toLocaleString()}</TableCell>
-                                              <TableCell className="text-right font-bold text-emerald-600">Rp {revenueIdr.toLocaleString()}</TableCell>
-                                              <TableCell className="text-center font-bold text-indigo-700">{roas}</TableCell>
-                                              <TableCell className="text-center text-slate-600">{ad.purchases}</TableCell>
-                                            </TableRow>
-                                          );
-                                        })}
-                                      </TableBody>
-                                    </Table>
-                                  </div>
-                                )}
+                              )}
                             </TableCell>
                           </TableRow>
                         )}
@@ -748,8 +914,11 @@ export default function CreatorProfilePage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Tanggal</TableHead>
+                    <TableHead className="text-right">Followers</TableHead>
+                    <TableHead className="text-right">Tier</TableHead>
                     <TableHead className="text-right">Audience Age</TableHead>
                     <TableHead className="text-right">Level</TableHead>
+                    <TableHead className="text-right">Ratecard</TableHead>
                     <TableHead className="text-right">GMV 30 Hari</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -757,8 +926,11 @@ export default function CreatorProfilePage() {
                   {snapshots.map(s => (
                     <TableRow key={s.id}>
                       <TableCell>{new Date(s.tanggal_update).toLocaleDateString('id-ID')}</TableCell>
+                      <TableCell className="text-right">{s.followers?.toLocaleString() || '-'}</TableCell>
+                      <TableCell className="text-right">{s.tier || '-'}</TableCell>
                       <TableCell className="text-right">{s.audience_age || '-'}</TableCell>
                       <TableCell className="text-right">{s.level || '-'}</TableCell>
+                      <TableCell className="text-right">{s.ratecard === 0 ? 'Barter' : (s.ratecard ? `Rp ${s.ratecard.toLocaleString()}` : '-')}</TableCell>
                       <TableCell className="text-right">{s.gmv_30d ? `Rp ${s.gmv_30d.toLocaleString()}` : '-'}</TableCell>
                     </TableRow>
                   ))}

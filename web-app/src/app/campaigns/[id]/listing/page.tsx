@@ -14,6 +14,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { exportToCSV } from "@/utils/exportCsv";
 import { createClient } from "@/utils/supabase/client";
 
+
 const supabase = createClient();
 const PAGE_SIZE = 50;
 
@@ -40,10 +41,14 @@ function CampaignListingContent() {
 
   const [expandedRows, setExpandedRows] = useState<Record<number, boolean>>({});
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [editPrice, setEditPrice] = useState<string>('');
-  const [editQtyVt, setEditQtyVt] = useState<string>('1');
-  const [editApproval, setEditApproval] = useState<any>('');
-  const [editClientApproval, setEditClientApproval] = useState<any>('');
+  const [editPrice, setEditPrice] = useState('0');
+  const [editQtyVt, setEditQtyVt] = useState('1');
+  const [editApproval, setEditApproval] = useState('');
+  const [editClientApproval, setEditClientApproval] = useState('');
+  const [editSampleProgress, setEditSampleProgress] = useState('Belum');
+  const [editStatusBayar, setEditStatusBayar] = useState('belum');
+  const [editNotesManager, setEditNotesManager] = useState('');
+  const [editNotesPic, setEditNotesPic] = useState('');
 
   const [filterType, setFilterType] = useState<'all' | 'regular' | 'auto_detect'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'alternate' | 'not_approved'>('all');
@@ -180,10 +185,14 @@ function CampaignListingContent() {
 
   const startEdit = (cc: any) => {
     setEditingId(cc.id);
-    setEditPrice(cc.price.toString());
+    setEditPrice(cc.price?.toString() || '0');
     setEditQtyVt(cc.qty_vt?.toString() || '1');
     setEditApproval(cc.approval);
     setEditClientApproval(cc.client_approval || 'not_required');
+    setEditSampleProgress(cc.sample_progress || 'Belum');
+    setEditStatusBayar(cc.status_bayar || 'belum');
+    setEditNotesManager(cc.notes_manager || '');
+    setEditNotesPic(cc.notes_pic || '');
   };
 
   const saveEdit = async (ccId: number) => {
@@ -191,6 +200,10 @@ function CampaignListingContent() {
       price: Number(editPrice),
       qty_vt: Number(editQtyVt),
       approval: editApproval,
+      sample_progress: editSampleProgress,
+      status_bayar: editStatusBayar,
+      notes_manager: editNotesManager,
+      notes_pic: editNotesPic,
       ...(isClientApprovalRequired && { client_approval: editClientApproval })
     }, 'Staf Internal'); // Hardcoded user for Phase 2
     setEditingId(null);
@@ -316,6 +329,7 @@ function CampaignListingContent() {
               Bulk Approve Klien
             </Button>
           )}
+
           <Button onClick={() => {
             setIsAddModalOpen(true);
             setSearchQuery('');
@@ -626,19 +640,46 @@ function CampaignListingContent() {
                                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                     <div className="bg-slate-50 border border-slate-100 rounded-lg p-3">
                                       <h5 className="text-[10px] font-bold text-slate-400 uppercase mb-1">Status Pembayaran</h5>
-                                      <p className="text-sm font-medium text-slate-800 capitalize">{cc.status_bayar || '-'}</p>
+                                      {isEditing ? (
+                                        <select value={editStatusBayar} onChange={e=>setEditStatusBayar(e.target.value)} className="w-full text-sm p-1 border rounded bg-white">
+                                          <option value="belum">Belum</option>
+                                          <option value="dp">DP</option>
+                                          <option value="lunas">Lunas</option>
+                                        </select>
+                                      ) : (
+                                        <p className="text-sm font-medium text-slate-800 capitalize">{cc.status_bayar || '-'}</p>
+                                      )}
                                     </div>
                                     <div className="bg-slate-50 border border-slate-100 rounded-lg p-3">
                                       <h5 className="text-[10px] font-bold text-slate-400 uppercase mb-1">Progress Sample</h5>
-                                      <p className="text-sm font-medium text-slate-800">{cc.sample_progress || '-'}</p>
+                                      {isEditing ? (
+                                        <select value={editSampleProgress} onChange={e=>setEditSampleProgress(e.target.value)} className="w-full text-sm p-1 border rounded bg-white">
+                                          <option value="Belum">Belum Diajukan</option>
+                                          <option value="Diajukan">Diajukan</option>
+                                          <option value="Dikirim">Dikirim</option>
+                                          <option value="Diterima">Diterima</option>
+                                          <option value="Retur">Retur</option>
+                                          <option value="Mandiri">Mandiri / Beli Sendiri</option>
+                                        </select>
+                                      ) : (
+                                        <p className="text-sm font-medium text-slate-800">{cc.sample_progress || '-'}</p>
+                                      )}
                                     </div>
                                     <div className="bg-slate-50 border border-slate-100 rounded-lg p-3 md:col-span-2">
                                       <h5 className="text-[10px] font-bold text-slate-400 uppercase mb-1">Notes Manager</h5>
-                                      <p className="text-sm font-medium text-slate-700 whitespace-pre-wrap">{cc.notes_manager || '-'}</p>
+                                      {isEditing ? (
+                                        <textarea value={editNotesManager} onChange={e=>setEditNotesManager(e.target.value)} className="w-full text-sm p-1 border rounded h-16 bg-white" placeholder="Catatan Manager..." />
+                                      ) : (
+                                        <p className="text-sm font-medium text-slate-700 whitespace-pre-wrap">{cc.notes_manager || '-'}</p>
+                                      )}
                                     </div>
                                     <div className="bg-slate-50 border border-slate-100 rounded-lg p-3 md:col-span-4">
                                       <h5 className="text-[10px] font-bold text-slate-400 uppercase mb-1">Notes PIC ({cc.pic_assist || 'Belum di-assign'})</h5>
-                                      <p className="text-sm font-medium text-slate-700 whitespace-pre-wrap">{cc.notes_pic || '-'}</p>
+                                      {isEditing ? (
+                                        <textarea value={editNotesPic} onChange={e=>setEditNotesPic(e.target.value)} className="w-full text-sm p-1 border rounded h-16 bg-white" placeholder="Catatan PIC..." />
+                                      ) : (
+                                        <p className="text-sm font-medium text-slate-700 whitespace-pre-wrap">{cc.notes_pic || '-'}</p>
+                                      )}
                                     </div>
                                   </div>
                                 </div>

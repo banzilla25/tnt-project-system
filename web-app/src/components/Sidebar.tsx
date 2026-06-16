@@ -8,6 +8,7 @@ import { cn } from '@/utils/cn';
 const navItems = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard, activePhase: true },
   { name: 'Creator Pool', href: '/creator-pool', icon: Users, activePhase: true },
+  { name: 'Migrasi Data', href: '/import-data', icon: FolderKanban, activePhase: true },
   { name: 'Campaign', href: '/campaigns', icon: FolderKanban, activePhase: true },
   { name: 'Master SKU', href: '/skus', icon: Package, activePhase: true },
   { name: 'Input Penjualan', href: '/input-penjualan', icon: Receipt, activePhase: true },

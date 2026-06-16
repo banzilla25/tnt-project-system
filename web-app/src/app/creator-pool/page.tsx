@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Button } from "@/components/ui/Button";
 import { createClient } from "@/utils/supabase/client";
 import { exportToCSV } from "@/utils/exportCsv";
+import { CreatorSyncModal } from "@/components/CreatorSyncModal";
 
 const supabase = createClient();
 const PAGE_SIZE = 48;
@@ -47,7 +48,7 @@ export default function CreatorPoolPage() {
     try {
       let query: any = supabase.from('creators').select(`
         id, username, nama_asli, link_account,
-        creator_snapshots ( audience_age, level, tanggal_update ),
+        creator_snapshots ( audience_age, level, tanggal_update, followers, tier ),
         creator_niches ( niche_id ),
         campaign_creators ( campaign_id )
       `);
@@ -65,7 +66,7 @@ export default function CreatorPoolPage() {
         // We redefine query to use inner join on campaign_creators
         query = supabase.from('creators').select(`
           id, username, nama_asli, link_account,
-          creator_snapshots ( audience_age, level, tanggal_update ),
+          creator_snapshots ( audience_age, level, tanggal_update, followers, tier ),
           creator_niches ( niche_id ),
           campaign_creators!inner ( campaign_id )
         `).eq('campaign_creators.campaign_id', filterCampaign);
@@ -81,7 +82,7 @@ export default function CreatorPoolPage() {
         // If both are set, Supabase allows chaining.
         const baseSelect = `
           id, username, nama_asli, link_account,
-          creator_snapshots ( audience_age, level, tanggal_update ),
+          creator_snapshots ( audience_age, level, tanggal_update, followers, tier ),
           creator_niches!inner ( niche_id )
           ${filterCampaign ? ', campaign_creators!inner ( campaign_id )' : ''}
         `;
@@ -198,6 +199,7 @@ export default function CreatorPoolPage() {
           <p className="text-slate-500">Database aset creator lintas campaign. (Paginated)</p>
         </div>
         <div className="flex items-center gap-2">
+          <CreatorSyncModal onComplete={() => fetchCreators(0, true)} />
           <Button variant="outline" className="flex items-center gap-2" onClick={handleExport}>
             <Download className="w-4 h-4" /> Export CSV
           </Button>
@@ -306,7 +308,7 @@ export default function CreatorPoolPage() {
           // Extract nested data safely
           const snaps = creator.creator_snapshots || [];
           const snapshot = snaps.length > 0 ? snaps.sort((a:any, b:any) => new Date(b.tanggal_update).getTime() - new Date(a.tanggal_update).getTime())[0] : null;
-          const type = getCreatorType(snapshot?.audience_age || null);
+          const tier = snapshot?.tier || 'Unknown';
           const cNiches = (creator.creator_niches || []).map((cn:any) => niches.find(n => n.id === cn.niche_id)?.nama).filter(Boolean);
 
           return (
@@ -319,7 +321,7 @@ export default function CreatorPoolPage() {
                         <h3 className="font-bold text-lg truncate max-w-[200px]">@{creator.username}</h3>
                         {creator.nama_asli && <p className="text-sm text-slate-500 truncate max-w-[200px]">{creator.nama_asli}</p>}
                       </div>
-                      <Badge variant="secondary">{type}</Badge>
+                      <Badge variant="secondary">{tier}</Badge>
                     </div>
                     
                     <div className="flex gap-2 mb-4 flex-wrap">
