@@ -139,8 +139,8 @@ export function CampaignSyncModal({ campaignId: initialCampaignId, onComplete }:
       const existingCcMap = new Map(existingCampaignCreators?.map(cc => [cc.creator_id, cc.id]));
 
       // 3. Siapkan data upsert untuk campaign_creators
-      const toInsert: any[] = [];
-      const toUpdate: any[] = [];
+      const toInsertMap = new Map();
+      const toUpdateMap = new Map();
       
       preview.forEach(row => {
         const creatorId = creatorMap.get(row.username.toLowerCase());
@@ -161,11 +161,14 @@ export function CampaignSyncModal({ campaignId: initialCampaignId, onComplete }:
         };
         
         if (existingCcId) {
-          toUpdate.push({ id: existingCcId, ...payload });
+          toUpdateMap.set(existingCcId, { id: existingCcId, ...payload });
         } else {
-          toInsert.push(payload);
+          toInsertMap.set(creatorId, payload);
         }
       });
+
+      const toUpdate = Array.from(toUpdateMap.values());
+      const toInsert = Array.from(toInsertMap.values());
 
       // 4. Batch update existing
       for (let i = 0; i < toUpdate.length; i += 500) {
