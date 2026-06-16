@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/Dialog";
 import { Button } from "@/components/ui/Button";
 import { Upload, Download, Loader2, ArrowRight, FileSpreadsheet, FolderKanban, AlertCircle, CheckCircle } from "lucide-react";
@@ -36,6 +36,44 @@ export function CampaignSyncModal({ campaignId: initialCampaignId, onComplete }:
   const [commitProgress, setCommitProgress] = useState(0);
   const [commitStatus, setCommitStatus] = useState('');
   const [editingRowIndex, setEditingRowIndex] = useState<number | null>(null);
+
+  type SyncMode = 'excel_acuan' | 'db_acuan' | 'update_tambah';
+  const [syncMode, setSyncMode] = useState<SyncMode>('update_tambah');
+  const [existingDbCreators, setExistingDbCreators] = useState<any[]>([]);
+  const [summaryStats, setSummaryStats] = useState({ baru: 0, update: 0, abaikan: 0, hapus: 0 });
+
+  useEffect(() => {
+    if (preview.length === 0) return;
+    
+    const dbUsernames = new Set(existingDbCreators.map(cc => cc.creators?.username?.toLowerCase()).filter(Boolean));
+    const excelUsernames = new Set(preview.map(p => p.username.toLowerCase()));
+    
+    let baru = 0;
+    let update = 0;
+    let abaikan = 0;
+    let hapus = 0;
+
+    preview.forEach(p => {
+      const u = p.username.toLowerCase();
+      if (dbUsernames.has(u)) {
+        update++;
+      } else {
+        if (syncMode === 'db_acuan') abaikan++;
+        else baru++;
+      }
+    });
+
+    if (syncMode === 'excel_acuan') {
+      existingDbCreators.forEach(cc => {
+        const u = cc.creators?.username?.toLowerCase();
+        if (u && !excelUsernames.has(u)) {
+          hapus++;
+        }
+      });
+    }
+
+    setSummaryStats({ baru, update, abaikan, hapus });
+  }, [preview, existingDbCreators, syncMode]);
 
   const updatePreviewUsername = (index: number, newUsername: string) => {
     const newPreview = [...preview];
@@ -85,6 +123,11 @@ export function CampaignSyncModal({ campaignId: initialCampaignId, onComplete }:
       const res = await parseCampaignSyncFile(file, mapping);
       setPreview(res.validData);
       setErrors(res.errors);
+      
+      // Ambil data database untuk summary
+      const { data: ccData } = await supabase.from('campaign_creators').select('id, creator_id, creators(username)').eq('campaign_id', campaignId);
+      setExistingDbCreators(ccData || []);
+
       setStep(3);
     } catch (err: any) {
       setErrors([err.message || "Gagal memproses file"]);
@@ -112,7 +155,12 @@ export function CampaignSyncModal({ campaignId: initialCampaignId, onComplete }:
       }
 
       const existingCreatorUsernames = new Set(existingCreators.map(c => c.username.toLowerCase()));
-      const newUsernames = usernamesArray.filter(u => !existingCreatorUsernames.has(u.toLowerCase()));
+      let newUsernames = usernamesArray.filter(u => !existingCreatorUsernames.has(u.toLowerCase()));
+      
+      // Jika db_acuan, abaikan orang baru
+      if (syncMode === 'db_acuan') {
+        newUsernames = [];
+      }
       
       let creatorMap = new Map(existingCreators.map(c => [c.username.toLowerCase(), c.id]));
 
@@ -163,7 +211,10 @@ export function CampaignSyncModal({ campaignId: initialCampaignId, onComplete }:
         if (existingCcId) {
           toUpdateMap.set(existingCcId, { id: existingCcId, ...payload });
         } else {
-          toInsertMap.set(creatorId, payload);
+          // Jika db_acuan, JANGAN tambahkan orang baru ke dalam campaign
+          if (syncMode !== 'db_acuan') {
+            toInsertMap.set(creatorId, payload);
+          }
         }
       });
 
@@ -186,6 +237,30 @@ export function CampaignSyncModal({ campaignId: initialCampaignId, onComplete }:
         const { error } = await supabase.from('campaign_creators').insert(chunk);
         if (error) throw error;
         setCommitProgress(toUpdate.length + Math.min(i + 500, toInsert.length));
+      }
+
+      // 6. Delete sisa jika excel_acuan
+      if (syncMode === 'excel_acuan') {
+        const excelUsernamesSet = new Set(usernamesArray.map(u => u.toLowerCase()));
+        const toDeleteIds: number[] = [];
+        
+        existingDbCreators.forEach(cc => {
+          const u = cc.creators?.username?.toLowerCase();
+          if (u && !excelUsernamesSet.has(u)) {
+            toDeleteIds.push(cc.id);
+          }
+        });
+
+        if (toDeleteIds.length > 0) {
+          for (let i = 0; i < toDeleteIds.length; i += 500) {
+            setCommitStatus(`Membersihkan data sisa dari Campaign... (${i}/${toDeleteIds.length})`);
+            const chunk = toDeleteIds.slice(i, i + 500);
+            const { error } = await supabase.from('campaign_creators').delete().in('id', chunk);
+            if (error) {
+               setErrors(prev => [...prev, `Gagal menghapus data sisa: ${error.message} (Mungkin kreator sudah memiliki invoice/resi)`]);
+            }
+          }
+        }
       }
 
       setCommitStatus('Memperbarui tampilan...');
@@ -305,7 +380,7 @@ export function CampaignSyncModal({ campaignId: initialCampaignId, onComplete }:
           {step === 3 && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <p className="text-sm font-medium">Preview Data ({preview.length} baris siap diproses)</p>
+                <p className="text-sm font-medium">Pilih Mode Import</p>
                 <div className="flex gap-2">
                   <Button variant="outline" onClick={() => setStep(2)}>Ubah Mapping</Button>
                   <Button onClick={handleCommit} disabled={isCommitting} className="gap-2">
@@ -314,7 +389,52 @@ export function CampaignSyncModal({ campaignId: initialCampaignId, onComplete }:
                 </div>
               </div>
 
-              {/* Summary Counts */}
+              {/* Mode Selection UI */}
+              <div className="space-y-3 bg-slate-50 border border-slate-200 p-4 rounded-xl">
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input type="radio" name="syncMode" value="update_tambah" checked={syncMode === 'update_tambah'} onChange={() => setSyncMode('update_tambah')} className="mt-1" />
+                  <div>
+                    <p className="text-sm font-bold text-slate-800">Update & Tambah Data (Standar)</p>
+                    <p className="text-xs text-slate-500">Kreator baru ditambahkan, kreator lama di-update sesuai Excel. Tidak ada yang dihapus dari Database.</p>
+                  </div>
+                </label>
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input type="radio" name="syncMode" value="excel_acuan" checked={syncMode === 'excel_acuan'} onChange={() => setSyncMode('excel_acuan')} className="mt-1" />
+                  <div>
+                    <p className="text-sm font-bold text-slate-800">Excel Sebagai Acuan Utama (Mirroring)</p>
+                    <p className="text-xs text-slate-500">Database akan disamakan PERSIS dengan Excel. Kreator yang ada di DB tapi tidak ada di Excel akan <span className="font-bold text-red-500">DIHAPUS</span> dari Campaign.</p>
+                  </div>
+                </label>
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input type="radio" name="syncMode" value="db_acuan" checked={syncMode === 'db_acuan'} onChange={() => setSyncMode('db_acuan')} className="mt-1" />
+                  <div>
+                    <p className="text-sm font-bold text-slate-800">Database Sebagai Acuan Utama (Update Only)</p>
+                    <p className="text-xs text-slate-500">Hanya mengupdate kreator yang SUDAH ADA di Database. Kreator baru yang ada di Excel akan diabaikan.</p>
+                  </div>
+                </label>
+              </div>
+
+              {/* Summary Stats Box */}
+              <div className="grid grid-cols-4 gap-4">
+                <div className="bg-blue-50 border border-blue-100 p-3 rounded-lg text-center">
+                  <p className="text-xs font-semibold text-blue-600 uppercase">Akan Dibuat Baru</p>
+                  <p className="text-xl font-bold text-blue-700">{summaryStats.baru}</p>
+                </div>
+                <div className="bg-green-50 border border-green-100 p-3 rounded-lg text-center">
+                  <p className="text-xs font-semibold text-green-600 uppercase">Akan Di-Update</p>
+                  <p className="text-xl font-bold text-green-700">{summaryStats.update}</p>
+                </div>
+                <div className="bg-slate-50 border border-slate-200 p-3 rounded-lg text-center">
+                  <p className="text-xs font-semibold text-slate-600 uppercase">Akan Diabaikan</p>
+                  <p className="text-xl font-bold text-slate-700">{summaryStats.abaikan}</p>
+                </div>
+                <div className="bg-red-50 border border-red-100 p-3 rounded-lg text-center">
+                  <p className="text-xs font-semibold text-red-600 uppercase">Akan Dihapus</p>
+                  <p className="text-xl font-bold text-red-700">{summaryStats.hapus}</p>
+                </div>
+              </div>
+              
+              <p className="text-sm font-medium mt-4 border-t pt-4">Preview Breakdown Approval dari Excel ({preview.length} baris)</p>
               <div className="grid grid-cols-4 gap-4 mb-4">
                 <div className="bg-green-50 border border-green-100 p-3 rounded-lg text-center">
                   <p className="text-xs font-semibold text-green-600 uppercase">Approved</p>
