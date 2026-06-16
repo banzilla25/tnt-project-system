@@ -115,8 +115,7 @@ export function CreatorSyncModal({ onComplete }: { onComplete?: () => void }) {
         if (!creatorId) {
           const { data: newC, error: errC } = await supabase.from('creators').insert({
             username: row.username,
-            link_account: `https://www.tiktok.com/@${row.username}`,
-            tipe_kreator: 'eksternal' // default fallback if needed
+            link_account: `https://www.tiktok.com/@${row.username}`
           }).select().single();
           if (errC) { setErrors(prev => [...prev, `Gagal buat kreator ${row.username}`]); continue; }
           creatorId = newC.id;

@@ -112,8 +112,7 @@ export function CampaignSyncModal({ campaignId: initialCampaignId, onComplete }:
           const chunk = newUsernames.slice(i, i + 100);
           const insertData = chunk.map(username => ({
             username,
-            link_account: `https://www.tiktok.com/@${username}`,
-            tipe_kreator: 'eksternal'
+            link_account: `https://www.tiktok.com/@${username}`
           }));
           
           const { data: newC, error: errC } = await supabase.from('creators').insert(insertData).select('id, username');
