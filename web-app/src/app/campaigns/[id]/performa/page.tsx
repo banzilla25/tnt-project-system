@@ -6,9 +6,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/Table";
 import { createClient } from "@/utils/supabase/client";
 import { useParams } from "next/navigation";
-import { TrendingUp, BarChart3, Activity, ArrowUpDown, ChevronDown, ChevronRight, Edit2, Check, X, Loader2, Eye, Users, PlaySquare } from "lucide-react";
+import { TrendingUp, BarChart3, Activity, ArrowUpDown, ChevronDown, ChevronRight, Edit2, Check, X, Loader2, Eye, Users, PlaySquare, Download, Search } from "lucide-react";
 import Link from "next/link";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { exportToCSV } from "@/utils/exportCsv";
+import { Button } from "@/components/ui/Button";
 
 const supabase = createClient();
 
@@ -157,6 +159,18 @@ function CampaignPerformaContent() {
     setEditingKursId(null);
   };
 
+  const handleExport = () => {
+    const exportData = creatorStats.map(c => ({
+      'Username': c.username,
+      'GMV Organic': c.gmvOrganic,
+      'GMV Ads': c.gmvAds,
+      'Total GMV': c.totalGmv,
+      'Total Views': c.videoViews,
+      'Total VT': c.totalVt
+    }));
+    exportToCSV(exportData, `campaign_${campaignId}_performance`);
+  };
+
   if (!campaign) return null;
 
   const isAwareness = campaign.tipe_campaign === 'awareness' || campaign.tipe_campaign === 'gmv_awareness';
@@ -267,6 +281,9 @@ function CampaignPerformaContent() {
           </h2>
           <p className="text-sm text-slate-500">Analitik 100% otomatis dari data impor secara <span className="font-bold text-green-600 border-b border-green-600">Real-Time</span>.</p>
         </div>
+        <Button variant="outline" className="flex items-center gap-2" onClick={handleExport}>
+          <Download className="w-4 h-4" /> Export CSV
+        </Button>
       </div>
 
       {isAwareness ? (

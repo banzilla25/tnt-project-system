@@ -7,10 +7,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { ChevronDown, ChevronRight, Edit2, Check, X, Loader2, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, Edit2, Check, X, Loader2, Trash2, Download } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { exportToCSV } from "@/utils/exportCsv";
 import { createClient } from "@/utils/supabase/client";
 
 const supabase = createClient();
@@ -250,6 +251,26 @@ function CampaignListingContent() {
     fetchCounts();
   };
 
+  const handleExport = () => {
+    const exportData = listingData.map((cc) => {
+      const creator = cc.creators || {};
+      const snapshot = creator.creator_snapshots?.[0] || {};
+      return {
+        'Username': creator.username || '',
+        'Nama Asli': creator.nama_asli || '',
+        'Link Account': creator.link_account || '',
+        'Level': snapshot.level || '',
+        'Followers': snapshot.followers || 0,
+        'Tier Rate Card': cc.tier,
+        'Price': cc.price,
+        'Qty VT': cc.qty_vt,
+        'Status Klien': cc.client_approval,
+        'Status Internal': cc.approval
+      };
+    });
+    exportToCSV(exportData, `campaign_${campaignId}_creators`);
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-start mb-6 gap-4">
@@ -258,6 +279,9 @@ function CampaignListingContent() {
           <p className="text-sm text-slate-500">Kelola status dan rate card creator di campaign ini. (Paginated)</p>
         </div>
         <div className="flex flex-wrap gap-2 items-center justify-end">
+          <Button variant="outline" className="flex items-center gap-2" onClick={handleExport}>
+            <Download className="w-4 h-4" /> Export
+          </Button>
           <input 
             type="text" 
             placeholder="Cari username..." 

@@ -4,12 +4,13 @@ import { useDatabaseStore } from "@/store/useDatabaseStore";
 import { getCreatorType } from "@/utils/computed";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import { Search, Loader2 } from "lucide-react";
+import { Search, Loader2, Download } from "lucide-react";
 import Link from "next/link";
 import { useState, useEffect, useCallback } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/Dialog";
 import { Button } from "@/components/ui/Button";
 import { createClient } from "@/utils/supabase/client";
+import { exportToCSV } from "@/utils/exportCsv";
 
 const supabase = createClient();
 const PAGE_SIZE = 48;
@@ -140,6 +141,17 @@ export default function CreatorPoolPage() {
     fetchCreators(nextPage, false);
   };
 
+  const handleExport = () => {
+    const exportData = data.map(c => ({
+      'Username': c.username,
+      'Nama Asli': c.nama_asli || '',
+      'Audience Age': c.creator_snapshots?.[0]?.audience_age || '',
+      'Level': c.creator_snapshots?.[0]?.level || '',
+      'GMV 30D': c.creator_snapshots?.[0]?.gmv_30d || 0
+    }));
+    exportToCSV(exportData, 'creator_pool_export');
+  };
+
   const handleAddCreator = async () => {
     if (!form.username) {
       alert("Username harus diisi");
@@ -185,18 +197,22 @@ export default function CreatorPoolPage() {
           <h1 className="text-3xl font-bold tracking-tight">Creator Pool</h1>
           <p className="text-slate-500">Database aset creator lintas campaign. (Paginated)</p>
         </div>
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button>+ Tambah Kreator Baru</Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle>Tambah Kreator Baru</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Username TikTok</label>
-                <div className="relative">
+        <div className="flex items-center gap-2">
+          <Button variant="outline" className="flex items-center gap-2" onClick={handleExport}>
+            <Download className="w-4 h-4" /> Export CSV
+          </Button>
+          <Dialog open={addModalOpen} onOpenChange={setAddModalOpen}>
+            <DialogTrigger asChild>
+              <Button>+ Tambah Kreator Baru</Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Tambah Kreator Baru</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Username TikTok</label>
+                  <div className="relative">
                   <span className="absolute left-3 top-2 text-slate-500">@</span>
                   <input type="text" value={form.username} onChange={e => setForm({...form, username: e.target.value})} className="w-full pl-8 p-2 border rounded text-sm" placeholder="username" />
                 </div>

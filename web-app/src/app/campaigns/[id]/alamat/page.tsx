@@ -8,6 +8,8 @@ import { Badge } from "@/components/ui/Badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/Table";
 import { CreatorAddress } from "@/types/database";
 import { createClient } from "@/utils/supabase/client";
+import { Download } from "lucide-react";
+import { exportToCSV } from "@/utils/exportCsv";
 
 const supabase = createClient();
 
@@ -79,6 +81,24 @@ export default function AlamatPage() {
     return true;
   });
 
+  const handleExport = () => {
+    const exportData = approvedCCs.map(cc => {
+      const addr = creator_addresses.find(a => a.campaign_creator_id === cc.id);
+      return {
+        'Username': cc.creators?.username,
+        'Nama Penerima': addr?.nama_penerima || '',
+        'Alamat': addr?.nama_jalan || '',
+        'Kecamatan': addr?.kecamatan || '',
+        'Kota/Kabupaten': addr?.kabupaten_kota || '',
+        'Provinsi': addr?.provinsi || '',
+        'Kode Pos': addr?.kode_pos || '',
+        'Resi': addr?.resi || '',
+        'Status': addr?.proses || 'Diproses'
+      };
+    });
+    exportToCSV(exportData, `campaign_${campaignId}_alamat`);
+  };
+
   const handleEdit = (ccId: number) => {
     const existing = creator_addresses.find(a => a.campaign_creator_id === ccId);
     if (existing) {
@@ -110,13 +130,21 @@ export default function AlamatPage() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Data Alamat Pengiriman Sampel</CardTitle>
-          <input 
-            type="text" 
-            placeholder="Cari username..." 
-            value={searchQuery} 
-            onChange={e => setSearchQuery(e.target.value)} 
-            className="p-2 border border-slate-300 rounded-md text-sm min-w-[200px]"
-          />
+          <div className="flex gap-2">
+            <button
+              onClick={handleExport}
+              className="flex items-center gap-2 px-3 py-2 border border-slate-300 rounded-md text-sm hover:bg-slate-50"
+            >
+              <Download className="w-4 h-4" /> Export CSV
+            </button>
+            <input 
+              type="text" 
+              placeholder="Cari username..." 
+              value={searchQuery} 
+              onChange={e => setSearchQuery(e.target.value)} 
+              className="p-2 border border-slate-300 rounded-md text-sm min-w-[200px]"
+            />
+          </div>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
