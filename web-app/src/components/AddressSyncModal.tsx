@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/Dialog";
 import { Button } from "@/components/ui/Button";
-import { Upload, Download, Loader2, ArrowRight } from "lucide-react";
+import { Upload, Download, Loader2, CheckCircle, ArrowRight } from "lucide-react";
 import { downloadAddressSyncTemplate, parseAddressSyncFile, AddressColumnMapping, ParsedAddressRow } from "@/utils/importAddressSync";
 import { parseFileHeaders } from "@/utils/importCampaignSync";
 import { createClient } from "@/utils/supabase/client";
@@ -15,7 +15,7 @@ export function AddressSyncModal({ campaignId: initialCampaignId, onComplete }: 
   const { campaigns, fetchData } = useDatabaseStore();
   const [campaignId, setCampaignId] = useState(initialCampaignId || 0);
   const [open, setOpen] = useState(false);
-  const [step, setStep] = useState<1|2|3>(1);
+  const [step, setStep] = useState<1|2|3|4>(1);
   const [file, setFile] = useState<File | null>(null);
   
   const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
@@ -35,6 +35,7 @@ export function AddressSyncModal({ campaignId: initialCampaignId, onComplete }: 
   const [errors, setErrors] = useState<string[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isCommitting, setIsCommitting] = useState(false);
+  const [commitProgress, setCommitProgress] = useState(0);
 
   const campaignName = campaigns.find(c => c.id === campaignId)?.nama || '...';
 
@@ -114,7 +115,10 @@ export function AddressSyncModal({ campaignId: initialCampaignId, onComplete }: 
       });
 
       let skippedCount = 0;
-      for (const row of preview) {
+      setCommitProgress(0);
+
+      for (let i = 0; i < preview.length; i++) {
+        const row = preview[i];
         const ccId = usernameToCcId.get(row.username.toLowerCase());
         if (!ccId) {
           skippedCount++;
@@ -160,15 +164,14 @@ export function AddressSyncModal({ campaignId: initialCampaignId, onComplete }: 
             });
           }
         }
+        setCommitProgress(i + 1);
       }
 
       if (skippedCount > 0) {
         setErrors([`Perhatian: Ada ${skippedCount} baris yang diabaikan (kreator tidak ditemukan, reject, atau pending di campaign ini).`]);
-      } else {
-        await fetchData();
-        setOpen(false);
-        onComplete?.();
       }
+      await fetchData();
+      setStep(4);
     } catch (e: any) {
       setErrors([e.message || "Terjadi kesalahan saat commit ke database."]);
     } finally {
@@ -287,8 +290,7 @@ export function AddressSyncModal({ campaignId: initialCampaignId, onComplete }: 
                 <div className="flex gap-2">
                   <Button variant="outline" onClick={() => setStep(2)}>Ubah Mapping</Button>
                   <Button onClick={handleCommit} disabled={isCommitting} className="gap-2">
-                    {isCommitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-                    Mulai Sinkronisasi
+                    {isCommitting ? <><Loader2 className="w-4 h-4 animate-spin" /> {Math.round((commitProgress / preview.length) * 100)}% ({commitProgress}/{preview.length})</> : <><Upload className="w-4 h-4" /> Mulai Sinkronisasi</>}
                   </Button>
                 </div>
               </div>
@@ -301,9 +303,9 @@ export function AddressSyncModal({ campaignId: initialCampaignId, onComplete }: 
               )}
 
               {preview.length > 0 && (
-                <div className="border rounded overflow-x-auto">
+                <div className="border rounded max-h-96 overflow-y-auto">
                   <table className="w-full text-sm text-left whitespace-nowrap">
-                    <thead className="bg-slate-50 border-b">
+                    <thead className="bg-slate-50 border-b sticky top-0 z-10">
                       <tr>
                         <th className="p-2 font-medium">Username</th>
                         <th className="p-2 font-medium">Nama Penerima</th>
@@ -335,6 +337,21 @@ export function AddressSyncModal({ campaignId: initialCampaignId, onComplete }: 
                   {preview.length > 10 && <p className="text-xs text-slate-500 text-center p-2 border-t bg-slate-50">Menampilkan 10 baris pertama.</p>}
                 </div>
               )}
+            </div>
+          )}
+
+          {step === 4 && (
+            <div className="flex flex-col items-center justify-center p-8 space-y-4">
+              <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center">
+                <CheckCircle className="w-8 h-8" />
+              </div>
+              <h3 className="text-xl font-bold">Sinkronisasi Berhasil!</h3>
+              <p className="text-sm text-slate-500 text-center">
+                Proses selesai. {errors.length > 0 ? errors[0] : `Sebanyak ${preview.length} data alamat telah berhasil disinkronkan ke dalam sistem.`}
+              </p>
+              <Button onClick={() => { setOpen(false); onComplete?.(); }} className="mt-4 px-8">
+                Selesai & Tutup
+              </Button>
             </div>
           )}
         </div>
