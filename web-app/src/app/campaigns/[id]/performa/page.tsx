@@ -35,6 +35,8 @@ function CampaignPerformaContent() {
   const [awarenessSummary, setAwarenessSummary] = useState<any[]>([]);
   const [totalAwareness, setTotalAwareness] = useState<any>(null);
 
+  const [salesDataForVt, setSalesDataForVt] = useState<any[]>([]);
+
   const [adsPerf, setAdsPerf] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -61,16 +63,22 @@ function CampaignPerformaContent() {
         queries.push(supabase.from('campaign_total_awareness').select('*').eq('campaign_id', campaignId).maybeSingle());
       }
 
+      queries.push(supabase.from('sales').select('creator_username, content_uid').eq('campaign_id', campaignId).not('content_uid', 'is', null));
+
       const results = await Promise.all(queries);
 
       if (results[0].data) setSalesSummary(results[0].data);
       if (results[1].data) setTotalSales(results[1].data);
       if (results[2].data) setAdsPerf(results[2].data);
 
+      let nextIdx = 3;
       if (isAwareness) {
-        if (results[3]?.data) setAwarenessSummary(results[3].data);
-        if (results[4]?.data) setTotalAwareness(results[4].data);
+        if (results[nextIdx]?.data) setAwarenessSummary(results[nextIdx].data);
+        if (results[nextIdx+1]?.data) setTotalAwareness(results[nextIdx+1].data);
+        nextIdx += 2;
       }
+      
+      if (results[nextIdx]?.data) setSalesDataForVt(results[nextIdx].data);
 
       // 2. Fetch Approved Creators (Paginated to handle >1000)
       let allApproved: any[] = [];
@@ -198,7 +206,23 @@ function CampaignPerformaContent() {
     
     const totalGmv = gmvOrganic + gmvAds;
     const roas = costAds > 0 ? (gmvAds / costAds).toFixed(2) : '-';
-    const totalVt = cc.videos?.length || 0;
+    
+    const dbVideos = cc.videos || [];
+    const autoSalesVideos = salesDataForVt.filter(s => s.creator_username === username);
+    const uniqueUids = new Set<string>();
+    let totalVtCount = dbVideos.length;
+    
+    autoSalesVideos.forEach(s => {
+       if (!uniqueUids.has(s.content_uid)) {
+           uniqueUids.add(s.content_uid);
+           const existsInDb = dbVideos.some((v: any) => v.content_uid === s.content_uid);
+           if (!existsInDb) {
+               totalVtCount++;
+           }
+       }
+    });
+    
+    const totalVt = isAwareness ? trackedVideos : totalVtCount;
 
     return {
       ccId: cc.id,

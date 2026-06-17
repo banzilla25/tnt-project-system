@@ -84,6 +84,17 @@ export default function CampaignVideoPage() {
 
       setHasMore(results.length === PAGE_SIZE);
 
+      const creatorUsernames = results.map((cc: any) => cc.creators?.username).filter(Boolean);
+      let localSalesData: any[] = [];
+      if (creatorUsernames.length > 0) {
+        const { data: sData } = await supabaseClient
+          .from('sales')
+          .select('id, campaign_id, creator_username, content_uid, gmv, quantity, raw_data')
+          .eq('campaign_id', campaignId)
+          .in('creator_username', creatorUsernames);
+        if (sData) localSalesData = sData;
+      }
+
       const allVideosFromDb = results.flatMap((cc: any) => cc.videos || []);
       
       // Auto-detect videos from sales
@@ -92,7 +103,7 @@ export default function CampaignVideoPage() {
         const creator = cc.creators;
         if (!creator) return;
         
-        const creatorSales = sales.filter((s: any) => s.campaign_id === campaignId && s.creator_username === creator.username && s.content_uid);
+        const creatorSales = localSalesData.filter((s: any) => s.creator_username === creator.username && s.content_uid);
         const uniqueUids = new Set<string>();
         
         creatorSales.forEach((s: any) => {
@@ -117,6 +128,14 @@ export default function CampaignVideoPage() {
 
       const allVideos = [...allVideosFromDb, ...autoVideos];
       setLocalVideos((prev: any[]) => prev && prev.length > 0 ? prev : allVideos);
+      
+      // We also need to store this localSalesData so the render function can calculate GMV per video
+      setListingData(prev => {
+         return results.map((cc: any) => ({
+             ...cc,
+             _localSales: localSalesData.filter((s: any) => s.creator_username === cc.creators?.username)
+         }));
+      });
     } catch (e) {
       console.error(e);
     } finally {
@@ -378,7 +397,7 @@ export default function CampaignVideoPage() {
                                     {v.id || hasContentUid ? (
                                       <div className="space-y-1">
                                         <div className="text-sm font-semibold text-green-700">
-                                          Rp {sales.filter(s => s.content_uid && v.content_uid && s.content_uid === v.content_uid).reduce((sum, row) => sum + row.gmv, 0).toLocaleString()}
+                                          Rp {(cc._localSales || []).filter((s: any) => s.content_uid && v.content_uid && s.content_uid === v.content_uid).reduce((sum: number, row: any) => sum + row.gmv, 0).toLocaleString()}
                                         </div>
                                         <div className="text-[10px] text-slate-500">Organic Sales</div>
                                       </div>
