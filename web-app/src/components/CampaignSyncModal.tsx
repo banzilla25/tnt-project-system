@@ -239,26 +239,45 @@ export function CampaignSyncModal({ campaignId: initialCampaignId, onComplete }:
         setCommitProgress(toUpdate.length + Math.min(i + 500, toInsert.length));
       }
 
-      // 6. Update status menjadi 'pending' untuk sisa data jika excel_acuan (Bukan delete agar video/sales tidak error)
+      // 6. Penanganan sisa jika excel_acuan (Delete jika kosong, Pending jika ada video/sales)
       if (syncMode === 'excel_acuan') {
         const excelUsernamesSet = new Set(usernamesArray.map(u => u.toLowerCase()));
-        const toPendingIds: number[] = [];
+        const sisaIds: number[] = [];
         
         existingDbCreators.forEach(cc => {
           const u = cc.creators?.username?.toLowerCase();
           if (u && !excelUsernamesSet.has(u)) {
-            // Jika dia sebelumnya approved tapi hilang dari excel, kita jadikan pending
-            toPendingIds.push(cc.id);
+            sisaIds.push(cc.id);
           }
         });
 
-        if (toPendingIds.length > 0) {
-          for (let i = 0; i < toPendingIds.length; i += 500) {
-            setCommitStatus(`Mengubah status kreator yang tidak ada di Excel menjadi Pending... (${i}/${toPendingIds.length})`);
-            const chunk = toPendingIds.slice(i, i + 500);
-            const { error } = await supabase.from('campaign_creators').update({ approval: 'pending' }).in('id', chunk);
-            if (error) {
-               setErrors(prev => [...prev, `Gagal mengubah status: ${error.message}`]);
+        if (sisaIds.length > 0) {
+          setCommitStatus('Mengecek riwayat video kreator sisa...');
+          const { data: vids } = await supabase.from('videos').select('campaign_creator_id').in('campaign_creator_id', sisaIds);
+          const hasVideoSet = new Set(vids?.map(v => v.campaign_creator_id) || []);
+
+          const toPendingIds = sisaIds.filter(id => hasVideoSet.has(id));
+          const toDeleteIds = sisaIds.filter(id => !hasVideoSet.has(id));
+
+          if (toDeleteIds.length > 0) {
+            for (let i = 0; i < toDeleteIds.length; i += 500) {
+              setCommitStatus(`Membersihkan data sisa yang kosong... (${i}/${toDeleteIds.length})`);
+              const chunk = toDeleteIds.slice(i, i + 500);
+              const { error } = await supabase.from('campaign_creators').delete().in('id', chunk);
+              if (error) {
+                 setErrors(prev => [...prev, `Gagal menghapus data: ${error.message}`]);
+              }
+            }
+          }
+
+          if (toPendingIds.length > 0) {
+            for (let i = 0; i < toPendingIds.length; i += 500) {
+              setCommitStatus(`Mengubah status kreator ber-video menjadi Pending... (${i}/${toPendingIds.length})`);
+              const chunk = toPendingIds.slice(i, i + 500);
+              const { error } = await supabase.from('campaign_creators').update({ approval: 'pending' }).in('id', chunk);
+              if (error) {
+                 setErrors(prev => [...prev, `Gagal mengubah status: ${error.message}`]);
+              }
             }
           }
         }
