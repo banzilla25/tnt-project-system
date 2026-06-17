@@ -30,9 +30,9 @@ export async function loginPortal(campaignId: number, pin: string) {
   const cookieStore = await cookies();
   cookieStore.set(`portal_pin_${campaignId}`, pin, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: false, // Set to false to support HTTP/Not Secure connections temporarily
     maxAge: 60 * 60 * 24 * 7, // 1 minggu
-    path: `/portal/${campaignId}`
+    path: '/'
   });
 
   return { success: true };
