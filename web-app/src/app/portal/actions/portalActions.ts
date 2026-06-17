@@ -104,6 +104,7 @@ export async function getPortalData(campaignId: number) {
       catatan,
       resi,
       proses,
+      produk_dikirim,
       tanggal_kirim,
       is_cancel
     `)
@@ -135,14 +136,21 @@ export async function getPortalData(campaignId: number) {
     };
   }) || [];
 
+  // Fetch SKUs for dropdown
+  const { data: skusData } = await supabase
+    .from('skus')
+    .select('id, product_id, nama_produk')
+    .eq('campaign_id', campaignId);
+
   return { 
     authenticated: true, 
     campaign, 
-    summary, 
+    summary: summary || {}, 
     dailyPerf: dailyPerf || [], 
     approvalList: ccData || [], 
     samples,
-    schedules
+    schedules,
+    skus: skusData || []
   };
 }
 
@@ -166,7 +174,7 @@ export async function submitClientApproval(campaignId: number, campaignCreatorId
   return { success: true };
 }
 
-export async function updateResiByClient(campaignId: number, addressId: number, resi: string, proses: string) {
+export async function updateResiByClient(campaignId: number, addressId: number, resi: string, proses: string, produk_dikirim?: string) {
   const cookieStore = await cookies();
   const pin = cookieStore.get(`portal_pin_${campaignId}`)?.value;
   if (!pin) throw new Error('Not authenticated');
@@ -187,14 +195,20 @@ export async function updateResiByClient(campaignId: number, addressId: number, 
     throw new Error('Unauthorized address modification');
   }
 
+  const updateData: any = { 
+    resi: resi, 
+    proses: proses,
+    tanggal_kirim: proses === 'Dikirim' ? new Date().toISOString() : undefined
+  };
+  
+  if (produk_dikirim !== undefined) {
+    updateData.produk_dikirim = produk_dikirim;
+  }
+
   // Update
   const { error } = await supabase
     .from('creator_addresses')
-    .update({ 
-      resi: resi, 
-      proses: proses,
-      tanggal_kirim: proses === 'Dikirim' ? new Date().toISOString() : undefined
-    })
+    .update(updateData)
     .eq('id', addressId);
 
   if (error) throw error;

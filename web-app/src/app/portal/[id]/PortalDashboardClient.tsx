@@ -13,7 +13,7 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
   const [activeTab, setActiveTab] = useState<'performa' | 'approval' | 'sampel' | 'live'>('performa');
   const [isApproving, setIsApproving] = useState<number | null>(null);
 
-  const { campaign, summary, dailyPerf, approvalList, samples, schedules } = data;
+  const { campaign, summary, dailyPerf, approvalList, samples, schedules, skus } = data;
   const percentGmv = summary.target_gmv ? Math.round((summary.total_gmv_achievement / summary.target_gmv) * 100) : 0;
   const percentVideo = summary.target_video ? Math.round((summary.achievement_video / summary.target_video) * 100) : 0;
 
@@ -29,9 +29,9 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
     }
   };
 
-  const handleUpdateResi = async (addrId: number, resi: string, proses: string) => {
+  const handleUpdateResi = async (addrId: number, resi: string, proses: string, produk?: string) => {
     try {
-      await updateResiByClient(campaignId, addrId, resi, proses);
+      await updateResiByClient(campaignId, addrId, resi, proses, produk);
       router.refresh();
     } catch (err) {
       alert("Gagal memperbarui status pengiriman. Silakan coba lagi.");
@@ -270,6 +270,7 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                       <TableRow>
                         <TableHead className="w-48">Kreator</TableHead>
                         <TableHead>Alamat Pengiriman</TableHead>
+                        <TableHead className="w-48">Produk Dikirim</TableHead>
                         <TableHead className="w-48">No. Resi</TableHead>
                         <TableHead className="w-40">Status</TableHead>
                       </TableRow>
@@ -300,6 +301,22 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                               )}
                             </TableCell>
                             <TableCell className="align-top font-mono text-sm">
+                              <select
+                                className="w-full text-sm p-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                                defaultValue={addr.produk_dikirim || ''}
+                                onChange={(e) => {
+                                  if (e.target.value !== addr.produk_dikirim) {
+                                    handleUpdateResi(addr.id, addr.resi || '', addr.proses || 'Diproses', e.target.value);
+                                  }
+                                }}
+                              >
+                                <option value="">-- Pilih Produk --</option>
+                                {skus?.map((s: any) => (
+                                  <option key={s.id} value={s.nama_produk}>{s.nama_produk}</option>
+                                ))}
+                              </select>
+                            </TableCell>
+                            <TableCell className="align-top font-mono text-sm">
                               <input
                                 type="text"
                                 className="w-full text-sm p-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none"
@@ -307,7 +324,7 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                                 defaultValue={addr.resi || ''}
                                 onBlur={(e) => {
                                   if (e.target.value !== addr.resi) {
-                                    handleUpdateResi(addr.id, e.target.value, addr.proses || 'Diproses');
+                                    handleUpdateResi(addr.id, e.target.value, addr.proses || 'Diproses', addr.produk_dikirim || '');
                                   }
                                 }}
                               />
@@ -317,7 +334,7 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                                 className={`w-full text-sm p-2 border rounded font-medium outline-none transition-colors
                                   ${addr.proses === 'Dikirim' || addr.proses === 'Diterima' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-slate-50 text-slate-700 border-slate-300'}`}
                                 defaultValue={addr.proses || 'Diproses'}
-                                onChange={(e) => handleUpdateResi(addr.id, addr.resi || '', e.target.value)}
+                                onChange={(e) => handleUpdateResi(addr.id, addr.resi || '', e.target.value, addr.produk_dikirim || '')}
                               >
                                 <option value="Diproses">Diproses</option>
                                 <option value="Dikirim">Dikirim</option>

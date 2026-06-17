@@ -25,10 +25,12 @@ export default function AlamatPage() {
     fetchCreatorAddresses,
     updateCreatorAddress,
     isLoading,
-    campaigns
+    campaigns,
+    skus
   } = useDatabaseStore();
 
   const campaign = campaigns.find(c => c.id === campaignId);
+  const campaignSkus = skus.filter(s => s.campaign_id === campaignId);
 
   const [editId, setEditId] = useState<number | null>(null);
   const [formData, setFormData] = useState<Partial<CreatorAddress>>({});
@@ -97,8 +99,10 @@ export default function AlamatPage() {
         'Kota/Kabupaten': addr?.kabupaten_kota || '',
         'Provinsi': addr?.provinsi || '',
         'Kode Pos': addr?.kode_pos || '',
+        'Produk Dikirim': addr?.produk_dikirim || '',
         'Resi': addr?.resi || '',
-        'Status': addr?.proses || 'Diproses'
+        'Status Pengiriman': addr?.proses || 'Diproses',
+        'Tanggal Kirim': addr?.tanggal_kirim || '',
       };
     });
     exportToCSV(exportData, `campaign_${campaignId}_alamat`);
@@ -316,6 +320,23 @@ export default function AlamatPage() {
                               ) : (
                                 <span className="text-slate-400 italic">Belum ada alamat di-input</span>
                               )}
+                            </div>
+                          )}
+
+                          {isEditing ? (
+                            <select
+                              className="w-full text-sm p-2 border rounded mt-3"
+                              value={formData.produk_dikirim || ''}
+                              onChange={e => setFormData({ ...formData, produk_dikirim: e.target.value })}
+                            >
+                              <option value="">-- Pilih Produk Dikirim --</option>
+                              {campaignSkus.map(s => (
+                                <option key={s.id} value={s.nama_produk}>{s.nama_produk}</option>
+                              ))}
+                            </select>
+                          ) : (
+                            <div className="mt-3 text-sm">
+                              <span className="font-medium text-slate-600">Produk:</span> {addr?.produk_dikirim || <span className="text-slate-400 italic">Belum dipilih</span>}
                             </div>
                           )}
                         </TableCell>

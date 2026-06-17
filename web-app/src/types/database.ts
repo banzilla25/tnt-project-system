@@ -213,6 +213,7 @@ export type CreatorAddress = {
   kecamatan: string | null;
   kelurahan: string | null;
   kode_pos: string | null;
+  produk_dikirim: string | null;
   proses: string | null;
   tanggal_kirim: string | null;
   resi: string | null;
