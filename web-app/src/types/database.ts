@@ -101,6 +101,9 @@ export type CampaignCreator = {
   gmv_organic_legacy: number | null;
   gmv_ads_legacy: number | null;
   client_approval: 'pending' | 'approved' | 'rejected' | 'not_required';
+  added_by: string | null;
+  last_updated_by: string | null;
+  last_updated_at: string | null;
   created_at: string;
 };
 

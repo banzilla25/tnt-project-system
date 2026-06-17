@@ -331,9 +331,7 @@ function CampaignListingContent() {
           )}
 
           <Button onClick={() => {
-            setIsAddModalOpen(true);
-            setSearchQuery('');
-            setNewCreatorId('');
+            router.push(`/campaigns/${campaignId}/import`);
           }}>
             + Tambah Creator
           </Button>

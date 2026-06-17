@@ -1,0 +1,439 @@
+"use client";
+
+import React, { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import { createClient } from "@/utils/supabase/client";
+import { ArrowLeft, Save, Play, Plus, Trash2, AlertCircle, CheckCircle2 } from "lucide-react";
+import { useDatabaseStore } from "@/store/useDatabaseStore";
+
+type SpreadsheetRow = {
+  id: string;
+  username: string;
+  followers: string;
+  level: string;
+  audience_age: string;
+  gmv_30d: string;
+  whatsapp: string;
+  ratecard: string;
+  
+  status?: 'baru' | 'update' | 'abaikan' | 'error';
+  errorMsg?: string;
+  existingInfo?: string;
+};
+
+const getEmptyRow = (): SpreadsheetRow => ({
+  id: Math.random().toString(36).substring(2, 9),
+  username: '',
+  followers: '',
+  level: '',
+  audience_age: '',
+  gmv_30d: '',
+  whatsapp: '',
+  ratecard: ''
+});
+
+export default function SpreadsheetImportClient({ campaignId }: { campaignId: number }) {
+  const router = useRouter();
+  const supabase = createClient();
+  const { fetchData } = useDatabaseStore();
+  
+  const [picName, setPicName] = useState('');
+  const [picSuggestions, setPicSuggestions] = useState<string[]>([]);
+  
+  const [rows, setRows] = useState<SpreadsheetRow[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(`tnt_import_draft_${campaignId}`);
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        } catch (e) {}
+      }
+    }
+    return Array(5).fill(null).map(getEmptyRow);
+  });
+  
+  const [step, setStep] = useState<1 | 2>(1); // 1 = Entry, 2 = Confirm
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+
+  useEffect(() => {
+    // Auto-save
+    if (rows.length > 0) {
+      localStorage.setItem(`tnt_import_draft_${campaignId}`, JSON.stringify(rows));
+    }
+    
+    // Fetch PIC suggestions
+    const fetchPics = async () => {
+      const { data } = await supabase.from('campaign_creators')
+        .select('added_by')
+        .not('added_by', 'is', null);
+      if (data) {
+        const unique = Array.from(new Set(data.map(d => d.added_by).filter(Boolean)));
+        setPicSuggestions(unique as string[]);
+      }
+    };
+    fetchPics();
+  }, [rows, campaignId, supabase]);
+
+  // Clean empty rows and verify
+  const handleVerify = async () => {
+    if (!picName.trim()) {
+      alert("Mohon isi Nama Tim Peng-import (PIC) terlebih dahulu!");
+      return;
+    }
+    
+    let filledRows = [...rows].filter(r => r.username.trim() !== '');
+    if (filledRows.length === 0) {
+      alert("Tidak ada data username yang diisi!");
+      return;
+    }
+
+    setIsVerifying(true);
+    
+    // Check missing whatsapp
+    let hasError = false;
+    filledRows = filledRows.map(r => {
+      let err = '';
+      if (!r.whatsapp.trim()) err = "No. Whatsapp wajib diisi!";
+      if (r.username.includes(' ')) err = "Username tidak boleh ada spasi";
+      if (err) hasError = true;
+      return { ...r, status: err ? 'error' : undefined, errorMsg: err };
+    });
+
+    if (hasError) {
+      setRows(rows.map(r => {
+        const f = filledRows.find(fr => fr.id === r.id);
+        return f ? f : r;
+      }));
+      setIsVerifying(false);
+      alert("Ada data yang masih error (merah). Silakan perbaiki terlebih dahulu.");
+      return;
+    }
+
+    // Verify against DB
+    const usernames = filledRows.map(r => r.username);
+    const { data: dbCreators } = await supabase.from('creators').select('id, username').in('username', usernames);
+    const creatorMap = new Map((dbCreators || []).map(c => [c.username, c.id]));
+
+    const { data: campaignCreators } = await supabase.from('campaign_creators').select('creator_id, added_by, added_at, last_updated_by, last_updated_at').eq('campaign_id', campaignId);
+    const existingCcMap = new Map((campaignCreators || []).map(cc => [cc.creator_id, cc]));
+
+    filledRows = filledRows.map(r => {
+      const cId = creatorMap.get(r.username);
+      if (!cId) {
+        return { ...r, status: 'baru', existingInfo: 'Belum terdaftar' };
+      }
+      
+      const cc = existingCcMap.get(cId);
+      if (!cc) {
+        return { ...r, status: 'baru', existingInfo: 'Ada di DB, baru untuk Campaign ini' };
+      }
+
+      // Already in campaign
+      return { 
+        ...r, 
+        status: 'update', 
+        existingInfo: `Diinput oleh ${cc.added_by || 'Sistem'} pada ${new Date(cc.added_at || new Date()).toLocaleDateString()}` 
+      };
+    });
+
+    // Update state to show verified rows
+    setRows(rows.map(r => {
+      const f = filledRows.find(fr => fr.id === r.id);
+      return f ? f : r;
+    }));
+    
+    setIsVerifying(false);
+    setStep(2);
+  };
+
+  const handleImport = async () => {
+    setIsImporting(true);
+    try {
+      const filledRows = rows.filter(r => r.username.trim() !== '' && r.status !== 'error');
+      
+      // 1. Upsert Creators
+      const uniqueUsernames = Array.from(new Set(filledRows.map(r => r.username)));
+      const { data: cData, error: cErr } = await supabase.from('creators').upsert(
+        uniqueUsernames.map(u => ({ username: u, link_account: `https://www.tiktok.com/@${u}` })),
+        { onConflict: 'username' }
+      ).select('id, username');
+      
+      if (cErr) throw cErr;
+      const cMap = new Map(cData?.map(c => [c.username, c.id]));
+
+      // 2. Insert Snapshots & Contacts
+      const snapshots = [];
+      const contacts = [];
+      for (const r of filledRows) {
+        const cId = cMap.get(r.username);
+        if (!cId) continue;
+        
+        snapshots.push({
+          creator_id: cId,
+          followers: parseInt(r.followers) || 0,
+          level: parseInt(r.level) || null,
+          audience_age: r.audience_age || null,
+          gmv_30d: parseInt(r.gmv_30d) || null,
+          ratecard: parseInt(r.ratecard) || 0
+        });
+
+        if (r.whatsapp) {
+          contacts.push({
+            creator_id: cId,
+            nomor: r.whatsapp,
+            status: 'aktif',
+            tanggal_mulai: new Date().toISOString()
+          });
+        }
+      }
+
+      if (snapshots.length > 0) await supabase.from('creator_snapshots').insert(snapshots);
+      // For contacts we just insert, maybe archive old ones later, but insert is fine for now
+      if (contacts.length > 0) await supabase.from('creator_contacts').insert(contacts);
+
+      // 3. Upsert Campaign Creators
+      const campaignCreators = [];
+      for (const r of filledRows) {
+        const cId = cMap.get(r.username);
+        if (!cId) continue;
+        
+        if (r.status === 'baru') {
+           campaignCreators.push({
+             campaign_id: campaignId,
+             creator_id: cId,
+             price: parseInt(r.ratecard) || 0,
+             qty_vt: 1,
+             approval: 'pending',
+             added_by: picName,
+             added_at: new Date().toISOString(),
+             last_updated_by: picName,
+             last_updated_at: new Date().toISOString()
+           });
+        } else if (r.status === 'update') {
+           // We just update the last_updated_by using a match. But Supabase upsert needs primary key (id).
+           // Since we don't have the PK here easily, we will do an update statement.
+           await supabase.from('campaign_creators')
+             .update({ last_updated_by: picName, last_updated_at: new Date().toISOString() })
+             .eq('campaign_id', campaignId)
+             .eq('creator_id', cId);
+        }
+      }
+
+      const newCc = campaignCreators.filter(c => c);
+      if (newCc.length > 0) {
+        await supabase.from('campaign_creators').insert(newCc);
+      }
+
+      alert("Data berhasil diimport!");
+      localStorage.removeItem(`tnt_import_draft_${campaignId}`);
+      router.push(`/campaigns/${campaignId}/listing`);
+      
+    } catch (e: any) {
+      alert("Gagal import: " + e.message);
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center gap-4">
+        <Button variant="outline" onClick={() => router.push(`/campaigns/${campaignId}/listing`)}>
+          <ArrowLeft className="w-4 h-4 mr-2" /> Kembali
+        </Button>
+        <div>
+          <h2 className="text-2xl font-bold text-slate-800">Tambah Creator (Mode Spreadsheet)</h2>
+          <p className="text-sm text-slate-500">Auto-saved. Aman dari refresh.</p>
+        </div>
+      </div>
+
+      <Card>
+        <CardContent className="p-6">
+          <div className="mb-6 max-w-sm">
+            <label className="block text-sm font-semibold mb-2">Nama Tim Peng-import (PIC)</label>
+            <input 
+              type="text" 
+              list="pic-list"
+              value={picName}
+              onChange={e => setPicName(e.target.value)}
+              className="w-full border border-slate-300 rounded-md p-2 focus:ring-2 focus:ring-blue-500"
+              placeholder="Contoh: Tim A"
+            />
+            <datalist id="pic-list">
+              {picSuggestions.map(p => <option key={p} value={p} />)}
+            </datalist>
+          </div>
+
+          {step === 1 && (
+            <div className="overflow-x-auto border border-slate-200 rounded-lg shadow-sm">
+              <table className="w-full text-sm text-left">
+                <thead className="bg-slate-50 border-b border-slate-200">
+                  <tr>
+                    <th className="p-3 font-semibold text-slate-700 w-10">No</th>
+                    <th className="p-3 font-semibold text-slate-700 min-w-[150px]">Username <span className="text-red-500">*</span></th>
+                    <th className="p-3 font-semibold text-slate-700 min-w-[150px]">No. Whatsapp <span className="text-red-500">*</span></th>
+                    <th className="p-3 font-semibold text-slate-700 min-w-[120px]">Followers</th>
+                    <th className="p-3 font-semibold text-slate-700 min-w-[100px]">Level</th>
+                    <th className="p-3 font-semibold text-slate-700 min-w-[120px]">Audiens Age</th>
+                    <th className="p-3 font-semibold text-slate-700 min-w-[150px]">GMV 30 Days</th>
+                    <th className="p-3 font-semibold text-slate-700 min-w-[150px]">Ratecard (Rp)</th>
+                    <th className="p-3 w-10"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((row, idx) => (
+                    <tr key={row.id} className={`border-b border-slate-100 last:border-0 hover:bg-slate-50 transition-colors ${row.status === 'error' ? 'bg-red-50' : ''}`}>
+                      <td className="p-2 text-center text-slate-400 font-medium">
+                        {idx + 1}
+                        {row.status === 'error' && <AlertCircle className="w-4 h-4 text-red-500 inline ml-1" title={row.errorMsg} />}
+                      </td>
+                      <td className="p-2">
+                        <input type="text" value={row.username} 
+                          onBlur={async (e) => {
+                             const val = e.target.value.trim();
+                             if (!val || row.whatsapp) return;
+                             // Auto-fetch whatsapp
+                             const { data: c } = await supabase.from('creators').select('id').eq('username', val).single();
+                             if (c) {
+                               const { data: contact } = await supabase.from('creator_contacts').select('nomor').eq('creator_id', c.id).eq('status', 'aktif').order('id', {ascending: false}).limit(1).single();
+                               if (contact && contact.nomor) {
+                                  const newRows = [...rows];
+                                  newRows[idx].whatsapp = contact.nomor;
+                                  setRows(newRows);
+                               }
+                             }
+                          }}
+                          onChange={e => {
+                          const newRows = [...rows];
+                          newRows[idx].username = e.target.value.replace('@', '').toLowerCase();
+                          newRows[idx].status = undefined; // reset status on edit
+                          setRows(newRows);
+                        }} className="w-full border-none bg-transparent focus:ring-1 focus:ring-blue-500 p-1 rounded" placeholder="username" />
+                      </td>
+                      <td className="p-2">
+                        <input type="text" value={row.whatsapp} onChange={e => {
+                          const newRows = [...rows];
+                          newRows[idx].whatsapp = e.target.value;
+                          setRows(newRows);
+                        }} className="w-full border-none bg-transparent focus:ring-1 focus:ring-blue-500 p-1 rounded" placeholder="08..." />
+                      </td>
+                      <td className="p-2">
+                        <input type="number" value={row.followers} onChange={e => {
+                          const newRows = [...rows];
+                          newRows[idx].followers = e.target.value;
+                          setRows(newRows);
+                        }} className="w-full border-none bg-transparent focus:ring-1 focus:ring-blue-500 p-1 rounded" placeholder="10000" />
+                      </td>
+                      <td className="p-2">
+                        <input type="number" value={row.level} onChange={e => {
+                          const newRows = [...rows];
+                          newRows[idx].level = e.target.value;
+                          setRows(newRows);
+                        }} className="w-full border-none bg-transparent focus:ring-1 focus:ring-blue-500 p-1 rounded" placeholder="2" />
+                      </td>
+                      <td className="p-2">
+                        <input type="text" value={row.audience_age} onChange={e => {
+                          const newRows = [...rows];
+                          newRows[idx].audience_age = e.target.value;
+                          setRows(newRows);
+                        }} className="w-full border-none bg-transparent focus:ring-1 focus:ring-blue-500 p-1 rounded" placeholder="18-24" />
+                      </td>
+                      <td className="p-2">
+                        <input type="number" value={row.gmv_30d} onChange={e => {
+                          const newRows = [...rows];
+                          newRows[idx].gmv_30d = e.target.value;
+                          setRows(newRows);
+                        }} className="w-full border-none bg-transparent focus:ring-1 focus:ring-blue-500 p-1 rounded" placeholder="5000000" />
+                      </td>
+                      <td className="p-2">
+                        <input type="number" value={row.ratecard} onChange={e => {
+                          const newRows = [...rows];
+                          newRows[idx].ratecard = e.target.value;
+                          setRows(newRows);
+                        }} className="w-full border-none bg-transparent focus:ring-1 focus:ring-blue-500 p-1 rounded" placeholder="150000" />
+                      </td>
+                      <td className="p-2 text-center">
+                        <button onClick={() => setRows(rows.filter(r => r.id !== row.id))} className="text-red-400 hover:text-red-600 p-1 rounded transition-colors">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div className="p-3 bg-slate-50 flex items-center gap-3">
+                <Button variant="outline" size="sm" onClick={() => setRows([...rows, getEmptyRow()])}>
+                  <Plus className="w-4 h-4 mr-1" /> Tambah Baris
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => setRows([...rows, getEmptyRow(), getEmptyRow(), getEmptyRow(), getEmptyRow(), getEmptyRow()])}>
+                  + 5 Baris
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {step === 1 && (
+            <div className="mt-6 flex justify-end">
+              <Button onClick={handleVerify} disabled={isVerifying} className="bg-indigo-600 hover:bg-indigo-700">
+                {isVerifying ? 'Memeriksa...' : 'Verifikasi Data'} <Play className="w-4 h-4 ml-2" />
+              </Button>
+            </div>
+          )}
+
+          {step === 2 && (
+            <div className="space-y-6">
+              <div className="bg-blue-50 text-blue-800 p-4 rounded-lg flex items-start gap-3">
+                <CheckCircle2 className="w-5 h-5 mt-0.5" />
+                <div>
+                  <h4 className="font-semibold">Verifikasi Selesai</h4>
+                  <p className="text-sm mt-1">Silakan periksa kembali status kreator di bawah ini sebelum melakukan Import.</p>
+                </div>
+              </div>
+
+              <div className="border border-slate-200 rounded-lg overflow-hidden">
+                <table className="w-full text-sm text-left">
+                  <thead className="bg-slate-50 border-b border-slate-200">
+                    <tr>
+                      <th className="p-3 font-semibold text-slate-700">Username</th>
+                      <th className="p-3 font-semibold text-slate-700">Followers</th>
+                      <th className="p-3 font-semibold text-slate-700">No. WhatsApp</th>
+                      <th className="p-3 font-semibold text-slate-700">Status</th>
+                      <th className="p-3 font-semibold text-slate-700">Keterangan</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.filter(r => r.username.trim() !== '').map(row => (
+                      <tr key={row.id} className="border-b border-slate-100 last:border-0">
+                        <td className="p-3 font-medium text-slate-800">@{row.username}</td>
+                        <td className="p-3">{row.followers || '-'}</td>
+                        <td className="p-3">{row.whatsapp}</td>
+                        <td className="p-3">
+                          {row.status === 'baru' && <span className="px-2 py-1 bg-emerald-100 text-emerald-700 rounded text-xs font-medium">Baru</span>}
+                          {row.status === 'update' && <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium">Update Data</span>}
+                        </td>
+                        <td className="p-3 text-xs text-slate-500">{row.existingInfo}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="flex justify-end gap-3 mt-6">
+                <Button variant="outline" onClick={() => setStep(1)} disabled={isImporting}>
+                  Kembali Edit
+                </Button>
+                <Button onClick={handleImport} disabled={isImporting} className="bg-indigo-600 hover:bg-indigo-700">
+                  {isImporting ? 'Menyimpan...' : 'Import Sekarang'} <Save className="w-4 h-4 ml-2" />
+                </Button>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
