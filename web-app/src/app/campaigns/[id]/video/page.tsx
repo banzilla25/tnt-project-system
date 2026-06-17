@@ -18,6 +18,7 @@ export default function CampaignVideoPage() {
     creators, 
     videos,
     sales,
+    skus,
     fetchData,
     campaigns
   } = useDatabaseStore();
@@ -201,19 +202,18 @@ export default function CampaignVideoPage() {
             concept: v.concept,
             link_video: v.link_video,
             content_uid: v.content_uid,
-            vt_approval: v.vt_approval
+            sku_id: v.sku_id ? Number(v.sku_id) : null
           }).eq('id', v.id);
         } else {
-          if (v.concept || v.link_video) {
-            await supabase.from('videos').insert({
-              campaign_creator_id: ccId,
-              urutan: v.urutan,
-              concept: v.concept,
-              link_video: v.link_video,
-              content_uid: v.content_uid,
-              vt_approval: v.vt_approval
-            });
-          }
+          await supabase.from('videos').insert({
+            campaign_creator_id: ccId,
+            urutan: v.urutan,
+            concept: v.concept,
+            link_video: v.link_video,
+            content_uid: v.content_uid,
+            sku_id: v.sku_id ? Number(v.sku_id) : null,
+            vt_approval: 'approved'
+          });
         }
       }
       
@@ -331,12 +331,12 @@ export default function CampaignVideoPage() {
                           {isAwareness ? (
                             <>
                               <TableHead>Performa Views</TableHead>
-                              <TableHead>Tanggal Live</TableHead>
+                              <TableHead>Produk</TableHead>
                             </>
                           ) : (
                             <>
                               <TableHead>Performa GMV</TableHead>
-                              <TableHead>Approval Klien</TableHead>
+                              <TableHead>Produk</TableHead>
                             </>
                           )}
                         </TableRow>
@@ -401,7 +401,16 @@ export default function CampaignVideoPage() {
                                     )}
                                   </TableCell>
                                   <TableCell>
-                                    <span className="text-sm text-slate-600">-</span>
+                                    <select 
+                                      className="w-full p-2 border border-slate-300 rounded text-sm bg-white"
+                                      value={v.sku_id || ''}
+                                      onChange={(e) => handleVideoChange(cc.id, v.urutan, 'sku_id', e.target.value)}
+                                    >
+                                      <option value="">Pilih Produk...</option>
+                                      {skus.filter(s => s.campaign_id === campaignId).map(sku => (
+                                        <option key={sku.id} value={sku.id}>{sku.nama_produk}</option>
+                                      ))}
+                                    </select>
                                   </TableCell>
                                 </>
                               ) : (
@@ -420,16 +429,14 @@ export default function CampaignVideoPage() {
                                   </TableCell>
                                   <TableCell>
                                     <select 
-                                      className={`w-full p-2 border rounded text-sm font-medium ${
-                                        v.vt_approval === 'approved' ? 'bg-green-50 text-green-700 border-green-200' : 
-                                        v.vt_approval === 'reject' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-slate-50 text-slate-700 border-slate-200'
-                                      }`}
-                                      value={v.vt_approval || 'pending'}
-                                      onChange={(e) => handleVideoChange(cc.id, v.urutan, 'vt_approval', e.target.value)}
+                                      className="w-full p-2 border border-slate-300 rounded text-sm bg-white"
+                                      value={v.sku_id || ''}
+                                      onChange={(e) => handleVideoChange(cc.id, v.urutan, 'sku_id', e.target.value)}
                                     >
-                                      <option value="pending">Pending</option>
-                                      <option value="approved">Approved</option>
-                                      <option value="reject">Reject</option>
+                                      <option value="">Pilih Produk...</option>
+                                      {skus.filter(s => s.campaign_id === campaignId).map(sku => (
+                                        <option key={sku.id} value={sku.id}>{sku.nama_produk}</option>
+                                      ))}
                                     </select>
                                   </TableCell>
                                 </>

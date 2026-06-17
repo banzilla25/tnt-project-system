@@ -114,6 +114,7 @@ export type Video = {
   concept: string | null;
   link_video: string | null;
   content_uid: string | null;
+  sku_id: number | null;
   vt_approval: 'pending' | 'approved' | 'reject';
   created_at: string;
 };
