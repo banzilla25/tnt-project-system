@@ -73,13 +73,9 @@ export default function CampaignVideoPage() {
 
       const results = data || [];
       if (isReset) {
-        setListingData(results);
+        // Handled below with _localSales
       } else {
-        setListingData(prev => {
-          // Hindari duplikat
-          const existingIds = new Set(prev.map(p => p.id));
-          return [...prev, ...results.filter((r: any) => !existingIds.has(r.id))];
-        });
+        // Handled below with _localSales
       }
 
       setHasMore(results.length === PAGE_SIZE);
@@ -127,14 +123,31 @@ export default function CampaignVideoPage() {
       });
 
       const allVideos = [...allVideosFromDb, ...autoVideos];
-      setLocalVideos((prev: any[]) => prev && prev.length > 0 ? prev : allVideos);
+      
+      if (isReset) {
+         setLocalVideos(allVideos);
+      } else {
+         setLocalVideos((prev: any[]) => {
+            const existingIds = new Set(prev.map(p => p.id));
+            return [...prev, ...allVideos.filter(v => !existingIds.has(v.id))];
+         });
+      }
       
       // We also need to store this localSalesData so the render function can calculate GMV per video
       setListingData(prev => {
-         return results.map((cc: any) => ({
-             ...cc,
-             _localSales: localSalesData.filter((s: any) => s.creator_username === cc.creators?.username)
-         }));
+         if (isReset) {
+            return results.map((cc: any) => ({
+                ...cc,
+                _localSales: localSalesData.filter((s: any) => s.creator_username === cc.creators?.username)
+            }));
+         } else {
+            const existingIds = new Set(prev.map(p => p.id));
+            const newResults = results.filter((r: any) => !existingIds.has(r.id)).map((cc: any) => ({
+                ...cc,
+                _localSales: localSalesData.filter((s: any) => s.creator_username === cc.creators?.username)
+            }));
+            return [...prev, ...newResults];
+         }
       });
     } catch (e) {
       console.error(e);
