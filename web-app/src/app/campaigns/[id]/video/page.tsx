@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/Button";
 import { createClient } from "@/utils/supabase/client";
 import { useParams } from "next/navigation";
 import { AlertCircle, Link as LinkIcon, Save, Edit2, Loader2, ChevronDown } from "lucide-react";
-import { useDebounce } from "@/hooks/useDebounce";
 
 export default function CampaignVideoPage() {
   const { id } = useParams();
@@ -37,8 +36,15 @@ export default function CampaignVideoPage() {
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const debouncedSearch = useDebounce(searchQuery, 500);
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const PAGE_SIZE = 50;
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
 
   const fetchApprovedCreators = async (pageNum: number, isReset: boolean = false) => {
     setIsLoading(true);
