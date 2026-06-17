@@ -348,7 +348,8 @@ export default function CreatorProfilePage() {
         link_video: longLink,
         urutan: 1,
         vt_approval: 'pending',
-        concept: null
+        concept: null,
+        sku_id: null
       });
       setVideoOpen(false);
       setVideoLink('');
