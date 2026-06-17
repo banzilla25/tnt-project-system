@@ -322,7 +322,10 @@ export default function CreatorProfilePage() {
       sample_progress: null,
       gmv_organic_legacy: null,
       gmv_ads_legacy: null,
-      client_approval: 'pending'
+      client_approval: 'pending',
+      added_by: null,
+      last_updated_by: null,
+      last_updated_at: null
     });
     setCampOpen(false);
   };

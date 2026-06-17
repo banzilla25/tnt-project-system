@@ -289,7 +289,7 @@ export default function SpreadsheetImportClient({ campaignId }: { campaignId: nu
                     <tr key={row.id} className={`border-b border-slate-100 last:border-0 hover:bg-slate-50 transition-colors ${row.status === 'error' ? 'bg-red-50' : ''}`}>
                       <td className="p-2 text-center text-slate-400 font-medium">
                         {idx + 1}
-                        {row.status === 'error' && <AlertCircle className="w-4 h-4 text-red-500 inline ml-1" title={row.errorMsg} />}
+                        {row.status === 'error' && <span title={row.errorMsg}><AlertCircle className="w-4 h-4 text-red-500 inline ml-1" /></span>}
                       </td>
                       <td className="p-2">
                         <input type="text" value={row.username} 

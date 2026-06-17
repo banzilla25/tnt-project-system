@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { ChevronDown, ChevronRight, Edit2, Check, X, Loader2, Trash2, Download } from "lucide-react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { exportToCSV } from "@/utils/exportCsv";
 import { createClient } from "@/utils/supabase/client";
@@ -28,6 +28,7 @@ export default function CampaignListingPage() {
 
 function CampaignListingContent() {
   const { id } = useParams();
+  const router = useRouter();
   const campaignId = Number(id);
   
   const { 
@@ -249,7 +250,10 @@ function CampaignListingContent() {
       gmv_organic_legacy: 0,
       gmv_ads_legacy: 0,
       status_bayar: 'belum',
-      client_approval: 'not_required'
+      client_approval: 'not_required',
+      added_by: null,
+      last_updated_by: null,
+      last_updated_at: null
     });
     
     setIsAddModalOpen(false);
