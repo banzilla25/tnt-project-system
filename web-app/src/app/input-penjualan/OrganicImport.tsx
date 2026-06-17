@@ -55,9 +55,12 @@ export default function OrganicImport() {
   const [showErrorLogs, setShowErrorLogs] = useState(false);
   
   // Ambil tabel SKU dari store global
-  const { skus } = useDatabaseStore();
-  
+  const { skus, campaigns, fetchData } = useDatabaseStore();
   const supabase = createClient();
+  
+  // State for inline SKU registration
+  const [skuCampaignSelect, setSkuCampaignSelect] = useState<Record<string, string>>({});
+  const [isRegisteringSku, setIsRegisteringSku] = useState<string | null>(null);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -116,6 +119,32 @@ export default function OrganicImport() {
         setLoading(false);
       }
     }, 100);
+  };
+
+  const handleRegisterSku = async (productId: string, productName: string) => {
+    const campaignId = skuCampaignSelect[productId];
+    if (!campaignId) {
+      alert("Mohon pilih Campaign terlebih dahulu untuk SKU ini!");
+      return;
+    }
+    
+    setIsRegisteringSku(productId);
+    try {
+      const { error } = await supabase.from('skus').insert({
+        product_id: productId,
+        nama_produk: productName,
+        campaign_id: parseInt(campaignId)
+      });
+      if (error) throw error;
+      
+      alert(`SKU ${productName} berhasil didaftarkan! Memuat ulang data...`);
+      await fetchData(); // Refresh global state to get new SKU
+      processFileLocally(); // Re-scan the file
+    } catch (e: any) {
+      alert("Gagal mendaftarkan SKU: " + e.message);
+    } finally {
+      setIsRegisteringSku(null);
+    }
   };
 
   const generatePreview = (data: any[]) => {
@@ -534,6 +563,7 @@ export default function OrganicImport() {
                           <th className="px-4 py-2 text-left font-medium w-16">Status</th>
                           <th className="px-4 py-2 text-left font-medium">Product ID</th>
                           <th className="px-4 py-2 text-left font-medium">Nama Produk</th>
+                          <th className="px-4 py-2 text-left font-medium w-64">Daftarkan ke Campaign</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
@@ -542,6 +572,27 @@ export default function OrganicImport() {
                             <td className="px-4 py-2"><span className="inline-flex px-2 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-700">DITOLAK</span></td>
                             <td className="px-4 py-2 font-mono text-red-700">{sku.id}</td>
                             <td className="px-4 py-2 text-red-900 max-w-[150px] truncate" title={sku.name}>{sku.name}</td>
+                            <td className="px-4 py-2">
+                              <div className="flex items-center gap-2">
+                                <select 
+                                  className="border border-slate-200 rounded px-2 py-1 bg-white text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-500 w-36"
+                                  value={skuCampaignSelect[sku.id] || ''}
+                                  onChange={(e) => setSkuCampaignSelect(prev => ({...prev, [sku.id]: e.target.value}))}
+                                >
+                                  <option value="">-- Pilih Campaign --</option>
+                                  {campaigns.map(c => (
+                                    <option key={c.id} value={c.id}>{c.nama}</option>
+                                  ))}
+                                </select>
+                                <button 
+                                  onClick={() => handleRegisterSku(sku.id, sku.name)}
+                                  disabled={isRegisteringSku === sku.id || !skuCampaignSelect[sku.id]}
+                                  className="bg-blue-600 text-white px-3 py-1 rounded text-xs font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                                >
+                                  {isRegisteringSku === sku.id ? '...' : 'Simpan'}
+                                </button>
+                              </div>
+                            </td>
                           </tr>
                         ))}
                         {stats.mappedSkus.map(sku => (
@@ -549,6 +600,9 @@ export default function OrganicImport() {
                             <td className="px-4 py-2"><span className="inline-flex px-2 py-0.5 rounded text-[10px] font-bold bg-green-100 text-green-700">TERDAFTAR</span></td>
                             <td className="px-4 py-2 font-mono text-slate-600">{sku.id}</td>
                             <td className="px-4 py-2 text-slate-700 max-w-[150px] truncate" title={sku.name}>{sku.name}</td>
+                            <td className="px-4 py-2">
+                              <span className="text-[10px] text-slate-400 font-medium italic">Terkoneksi</span>
+                            </td>
                           </tr>
                         ))}
                       </tbody>
