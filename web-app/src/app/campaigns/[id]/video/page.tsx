@@ -84,7 +84,38 @@ export default function CampaignVideoPage() {
 
       setHasMore(results.length === PAGE_SIZE);
 
-      const allVideos = results.flatMap((cc: any) => cc.videos || []);
+      const allVideosFromDb = results.flatMap((cc: any) => cc.videos || []);
+      
+      // Auto-detect videos from sales
+      const autoVideos: any[] = [];
+      results.forEach((cc: any) => {
+        const creator = cc.creators;
+        if (!creator) return;
+        
+        const creatorSales = sales.filter((s: any) => s.campaign_id === campaignId && s.creator_username === creator.username && s.content_uid);
+        const uniqueUids = new Set<string>();
+        
+        creatorSales.forEach((s: any) => {
+          if (!uniqueUids.has(s.content_uid)) {
+            uniqueUids.add(s.content_uid);
+            
+            const existsInDb = allVideosFromDb.some((v: any) => v.content_uid === s.content_uid && v.campaign_creator_id === cc.id);
+            if (!existsInDb) {
+               autoVideos.push({
+                 id: `auto_${s.content_uid}`,
+                 campaign_creator_id: cc.id,
+                 urutan: 999, // Will be re-assigned later
+                 concept: 'Auto-detected from Sales CSV',
+                 link_video: `https://www.tiktok.com/@${creator.username}/video/${s.content_uid}`,
+                 content_uid: s.content_uid,
+                 vt_approval: 'approved'
+               });
+            }
+          }
+        });
+      });
+
+      const allVideos = [...allVideosFromDb, ...autoVideos];
       setLocalVideos((prev: any[]) => prev && prev.length > 0 ? prev : allVideos);
     } catch (e) {
       console.error(e);
@@ -133,7 +164,7 @@ export default function CampaignVideoPage() {
       const creatorVideos = localVideos.filter(vid => vid.campaign_creator_id === ccId);
       
       for (const v of creatorVideos) {
-        if (v.id) {
+        if (v.id && typeof v.id === 'number') {
           await supabase.from('videos').update({
             concept: v.concept,
             link_video: v.link_video,
@@ -216,6 +247,17 @@ export default function CampaignVideoPage() {
               if (!creator) return null;
               
               let creatorVideos = localVideos.filter(v => v.campaign_creator_id === cc.id);
+              
+              // Re-assign urutan for auto videos so they appear at the bottom sequentially
+              let maxUrutan = Math.max(0, ...creatorVideos.filter(v => typeof v.id === 'number').map(v => v.urutan));
+              creatorVideos = creatorVideos.map(v => {
+                if (typeof v.id === 'string' && v.id.startsWith('auto_')) {
+                   maxUrutan++;
+                   return { ...v, urutan: maxUrutan };
+                }
+                return v;
+              });
+
               creatorVideos.sort((a, b) => a.urutan - b.urutan);
               if (creatorVideos.length === 0) {
                 creatorVideos = [{ campaign_creator_id: cc.id, urutan: 1, concept: '', link_video: '', vt_approval: 'pending' }];
@@ -317,7 +359,7 @@ export default function CampaignVideoPage() {
                               {isAwareness ? (
                                 <>
                                   <TableCell>
-                                    {v.id ? (
+                                    {v.id || hasContentUid ? (
                                       <div className="space-y-1">
                                         <div className="text-sm font-semibold text-slate-700">-</div>
                                         <div className="text-[10px] text-slate-500">Tayangan</div>
@@ -333,7 +375,7 @@ export default function CampaignVideoPage() {
                               ) : (
                                 <>
                                   <TableCell>
-                                    {v.id ? (
+                                    {v.id || hasContentUid ? (
                                       <div className="space-y-1">
                                         <div className="text-sm font-semibold text-green-700">
                                           Rp {sales.filter(s => s.content_uid && v.content_uid && s.content_uid === v.content_uid).reduce((sum, row) => sum + row.gmv, 0).toLocaleString()}
