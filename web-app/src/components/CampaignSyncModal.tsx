@@ -124,9 +124,21 @@ export function CampaignSyncModal({ campaignId: initialCampaignId, onComplete }:
       setPreview(res.validData);
       setErrors(res.errors);
       
-      // Ambil data database untuk summary
-      const { data: ccData } = await supabase.from('campaign_creators').select('id, creator_id, creators(username)').eq('campaign_id', campaignId);
-      setExistingDbCreators(ccData || []);
+      // Ambil data database untuk summary (harus di-paginate karena batas 1000 row)
+      let allCcData: any[] = [];
+      let hasMore = true;
+      let from = 0;
+      while (hasMore) {
+        const { data } = await supabase.from('campaign_creators').select('id, creator_id, creators(username)').eq('campaign_id', campaignId).range(from, from + 999);
+        if (data && data.length > 0) {
+          allCcData.push(...data);
+          if (data.length < 1000) hasMore = false;
+          else from += 1000;
+        } else {
+          hasMore = false;
+        }
+      }
+      setExistingDbCreators(allCcData);
 
       setStep(3);
     } catch (err: any) {
@@ -183,8 +195,7 @@ export function CampaignSyncModal({ campaignId: initialCampaignId, onComplete }:
       }
 
       setCommitStatus('Menyusun data campaign...');
-      const { data: existingCampaignCreators } = await supabase.from('campaign_creators').select('id, creator_id').eq('campaign_id', campaignId);
-      const existingCcMap = new Map(existingCampaignCreators?.map(cc => [cc.creator_id, cc.id]));
+      const existingCcMap = new Map(existingDbCreators.map(cc => [cc.creator_id, cc.id]));
 
       // 3. Siapkan data upsert untuk campaign_creators
       const toInsertMap = new Map();
