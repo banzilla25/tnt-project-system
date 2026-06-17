@@ -8,7 +8,8 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { createClient } from "@/utils/supabase/client";
 import { useParams } from "next/navigation";
-import { AlertCircle, Link as LinkIcon, Save, Edit2, Loader2 } from "lucide-react";
+import { AlertCircle, Link as LinkIcon, Save, Edit2, Loader2, ChevronDown } from "lucide-react";
+import { useDebounce } from "@/hooks/useDebounce";
 
 export default function CampaignVideoPage() {
   const { id } = useParams();
@@ -33,69 +34,71 @@ export default function CampaignVideoPage() {
 
   const supabase = createClient();
 
-  useEffect(() => {
-    const fetchApprovedCreators = async () => {
-      setIsLoading(true);
-      let allApproved: any[] = [];
-      let from = 0;
-      let to = 999;
-      let hasMore = true;
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearch = useDebounce(searchQuery, 500);
+  const PAGE_SIZE = 50;
 
+  const fetchApprovedCreators = async (pageNum: number, isReset: boolean = false) => {
+    setIsLoading(true);
+    try {
       const supabaseClient = createClient();
+      let query: any = supabaseClient
+        .from('campaign_creators')
+        .select('*, creators!inner(*), videos(*)')
+        .eq('campaign_id', campaignId)
+        .eq('approval', 'approved');
 
-      while (hasMore) {
-        let query = supabaseClient
-          .from('campaign_creators')
-          .select('*, creators!inner(*), videos(*)')
-          .eq('campaign_id', campaignId)
-          .eq('approval', 'approved')
-          .range(from, to);
-
-        if (campaign?.require_client_approval) {
-          query = query.eq('client_approval', 'approved');
-        }
-
-        const { data, error } = await query;
-
-        if (error) {
-          console.error("Error fetching approved creators:", error);
-          break;
-        }
-
-        if (data && data.length > 0) {
-          allApproved = [...allApproved, ...data];
-          if (data.length < 1000) {
-            hasMore = false;
-          } else {
-            from += 1000;
-            to += 1000;
-          }
-        } else {
-          hasMore = false;
-        }
+      if (campaign?.require_client_approval) {
+        query = query.eq('client_approval', 'approved');
       }
 
-      setListingData(allApproved);
-      const allVideos = allApproved.flatMap(cc => cc.videos || []);
-      
+      if (debouncedSearch) {
+        query = query.ilike('creators.username', `%${debouncedSearch}%`);
+      }
+
+      const from = pageNum * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+      query = query.order('id', { ascending: false }).range(from, to);
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      const results = data || [];
+      if (isReset) {
+        setListingData(results);
+      } else {
+        setListingData(prev => {
+          // Hindari duplikat
+          const existingIds = new Set(prev.map(p => p.id));
+          return [...prev, ...results.filter((r: any) => !existingIds.has(r.id))];
+        });
+      }
+
+      setHasMore(results.length === PAGE_SIZE);
+
+      const allVideos = results.flatMap((cc: any) => cc.videos || []);
       setLocalVideos((prev: any[]) => prev && prev.length > 0 ? prev : allVideos);
+    } catch (e) {
+      console.error(e);
+    } finally {
       setIsLoading(false);
-    };
+    }
+  };
 
+  useEffect(() => {
     if (campaignId) {
-      fetchApprovedCreators();
+      setPage(0);
+      fetchApprovedCreators(0, true);
     }
-  }, [campaignId, campaign?.require_client_approval]);
+  }, [campaignId, campaign?.require_client_approval, debouncedSearch]);
 
-  const [searchQuery, setSearchQuery] = useState('');
-
-  const filteredData = listingData.filter(cc => {
-    if (searchQuery) {
-      const creator = cc.creators;
-      if (!creator || !creator.username.toLowerCase().includes(searchQuery.toLowerCase())) return false;
-    }
-    return true;
-  });
+  const handleLoadMore = () => {
+    const next = page + 1;
+    setPage(next);
+    fetchApprovedCreators(next, false);
+  };
 
   const handleVideoChange = (ccId: number, urutan: number, field: string, value: string) => {
     setLocalVideos((prev: any[]) => {
@@ -196,13 +199,13 @@ export default function CampaignVideoPage() {
           <div className="text-center py-12 text-slate-500">
             Memuat data creator...
           </div>
-        ) : filteredData.length === 0 ? (
+        ) : listingData.length === 0 ? (
           <div className="text-center py-12 text-slate-500">
             Belum ada creator yang berstatus "Approved" di campaign ini.
           </div>
         ) : (
-          <div className="space-y-12">
-            {filteredData.map(cc => {
+          <div className="space-y-12 pb-6">
+            {listingData.map(cc => {
               const creator = cc.creators;
               if (!creator) return null;
               
@@ -251,9 +254,11 @@ export default function CampaignVideoPage() {
                               <TableHead>Tanggal Live</TableHead>
                             </>
                           ) : (
-                            <TableHead>Performa GMV</TableHead>
+                            <>
+                              <TableHead>Performa GMV</TableHead>
+                              <TableHead>Approval Klien</TableHead>
+                            </>
                           )}
-                          <TableHead>Approval</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -320,33 +325,35 @@ export default function CampaignVideoPage() {
                                   </TableCell>
                                 </>
                               ) : (
-                                <TableCell>
-                                  {v.id ? (
-                                    <div className="space-y-1">
-                                      <div className="text-sm font-semibold text-green-700">
-                                        Rp {sales.filter(s => s.content_uid && v.content_uid && s.content_uid === v.content_uid).reduce((sum, row) => sum + row.gmv, 0).toLocaleString()}
+                                <>
+                                  <TableCell>
+                                    {v.id ? (
+                                      <div className="space-y-1">
+                                        <div className="text-sm font-semibold text-green-700">
+                                          Rp {sales.filter(s => s.content_uid && v.content_uid && s.content_uid === v.content_uid).reduce((sum, row) => sum + row.gmv, 0).toLocaleString()}
+                                        </div>
+                                        <div className="text-[10px] text-slate-500">Organic Sales</div>
                                       </div>
-                                      <div className="text-[10px] text-slate-500">Organic Sales</div>
-                                    </div>
-                                  ) : (
-                                    <span className="text-xs text-slate-400">Simpan video dulu</span>
-                                  )}
-                                </TableCell>
+                                    ) : (
+                                      <span className="text-xs text-slate-400">Simpan video dulu</span>
+                                    )}
+                                  </TableCell>
+                                  <TableCell>
+                                    <select 
+                                      className={`w-full p-2 border rounded text-sm font-medium ${
+                                        v.vt_approval === 'approved' ? 'bg-green-50 text-green-700 border-green-200' : 
+                                        v.vt_approval === 'reject' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-slate-50 text-slate-700 border-slate-200'
+                                      }`}
+                                      value={v.vt_approval || 'pending'}
+                                      onChange={(e) => handleVideoChange(cc.id, v.urutan, 'vt_approval', e.target.value)}
+                                    >
+                                      <option value="pending">Pending</option>
+                                      <option value="approved">Approved</option>
+                                      <option value="reject">Reject</option>
+                                    </select>
+                                  </TableCell>
+                                </>
                               )}
-                              <TableCell>
-                                <select 
-                                  className={`w-full p-2 border rounded text-sm font-medium ${
-                                    v.vt_approval === 'approved' ? 'bg-green-50 text-green-700 border-green-200' : 
-                                    v.vt_approval === 'reject' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-slate-50 text-slate-700 border-slate-200'
-                                  }`}
-                                  value={v.vt_approval || 'pending'}
-                                  onChange={(e) => handleVideoChange(cc.id, v.urutan, 'vt_approval', e.target.value)}
-                                >
-                                  <option value="pending">Pending</option>
-                                  <option value="approved">Approved</option>
-                                  <option value="reject">Reject</option>
-                                </select>
-                              </TableCell>
                             </TableRow>
                           );
                         })}
@@ -356,6 +363,15 @@ export default function CampaignVideoPage() {
                 </div>
               );
             })}
+            
+            {hasMore && (
+              <div className="flex justify-center mt-6">
+                <Button onClick={handleLoadMore} variant="outline" className="gap-2" disabled={isLoading}>
+                  {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ChevronDown className="w-4 h-4" />}
+                  Tampilkan Lebih Banyak
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </div>
