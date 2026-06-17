@@ -239,25 +239,26 @@ export function CampaignSyncModal({ campaignId: initialCampaignId, onComplete }:
         setCommitProgress(toUpdate.length + Math.min(i + 500, toInsert.length));
       }
 
-      // 6. Delete sisa jika excel_acuan
+      // 6. Update status menjadi 'pending' untuk sisa data jika excel_acuan (Bukan delete agar video/sales tidak error)
       if (syncMode === 'excel_acuan') {
         const excelUsernamesSet = new Set(usernamesArray.map(u => u.toLowerCase()));
-        const toDeleteIds: number[] = [];
+        const toPendingIds: number[] = [];
         
         existingDbCreators.forEach(cc => {
           const u = cc.creators?.username?.toLowerCase();
           if (u && !excelUsernamesSet.has(u)) {
-            toDeleteIds.push(cc.id);
+            // Jika dia sebelumnya approved tapi hilang dari excel, kita jadikan pending
+            toPendingIds.push(cc.id);
           }
         });
 
-        if (toDeleteIds.length > 0) {
-          for (let i = 0; i < toDeleteIds.length; i += 500) {
-            setCommitStatus(`Membersihkan data sisa dari Campaign... (${i}/${toDeleteIds.length})`);
-            const chunk = toDeleteIds.slice(i, i + 500);
-            const { error } = await supabase.from('campaign_creators').delete().in('id', chunk);
+        if (toPendingIds.length > 0) {
+          for (let i = 0; i < toPendingIds.length; i += 500) {
+            setCommitStatus(`Mengubah status kreator yang tidak ada di Excel menjadi Pending... (${i}/${toPendingIds.length})`);
+            const chunk = toPendingIds.slice(i, i + 500);
+            const { error } = await supabase.from('campaign_creators').update({ approval: 'pending' }).in('id', chunk);
             if (error) {
-               setErrors(prev => [...prev, `Gagal menghapus data sisa: ${error.message} (Mungkin kreator sudah memiliki Video / Data Penjualan Organik)`]);
+               setErrors(prev => [...prev, `Gagal mengubah status: ${error.message}`]);
             }
           }
         }
