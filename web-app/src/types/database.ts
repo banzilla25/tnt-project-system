@@ -40,6 +40,9 @@ export type Creator = {
   alamat_kota: string | null;
   alamat_provinsi: string | null;
   alamat_kodepos: string | null;
+  added_by: string | null;
+  last_updated_by: string | null;
+  last_updated_at: string | null;
   created_at: string;
 };
 
@@ -101,9 +104,6 @@ export type CampaignCreator = {
   gmv_organic_legacy: number | null;
   gmv_ads_legacy: number | null;
   client_approval: 'pending' | 'approved' | 'rejected' | 'not_required';
-  added_by: string | null;
-  last_updated_by: string | null;
-  last_updated_at: string | null;
   created_at: string;
 };
 

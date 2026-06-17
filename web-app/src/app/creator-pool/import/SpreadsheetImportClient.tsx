@@ -1,12 +1,11 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/Card";
+import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { createClient } from "@/utils/supabase/client";
 import { ArrowLeft, Save, Play, Plus, Trash2, AlertCircle, CheckCircle2 } from "lucide-react";
-import { useDatabaseStore } from "@/store/useDatabaseStore";
 
 type SpreadsheetRow = {
   id: string;
@@ -18,7 +17,7 @@ type SpreadsheetRow = {
   whatsapp: string;
   ratecard: string;
   
-  status?: 'baru' | 'update' | 'abaikan' | 'error';
+  status?: 'baru' | 'update' | 'error';
   errorMsg?: string;
   existingInfo?: string;
 };
@@ -34,17 +33,16 @@ const getEmptyRow = (): SpreadsheetRow => ({
   ratecard: ''
 });
 
-export default function SpreadsheetImportClient({ campaignId }: { campaignId: number }) {
+export default function SpreadsheetImportClient() {
   const router = useRouter();
   const supabase = createClient();
-  const { fetchData } = useDatabaseStore();
   
   const [picName, setPicName] = useState('');
   const [picSuggestions, setPicSuggestions] = useState<string[]>([]);
   
   const [rows, setRows] = useState<SpreadsheetRow[]>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem(`tnt_import_draft_${campaignId}`);
+      const saved = localStorage.getItem(`tnt_import_draft_global`);
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
@@ -55,30 +53,29 @@ export default function SpreadsheetImportClient({ campaignId }: { campaignId: nu
     return Array(5).fill(null).map(getEmptyRow);
   });
   
-  const [step, setStep] = useState<1 | 2>(1); // 1 = Entry, 2 = Confirm
+  const [step, setStep] = useState<1 | 2>(1);
   const [isVerifying, setIsVerifying] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
 
   useEffect(() => {
-    // Auto-save
     if (rows.length > 0) {
-      localStorage.setItem(`tnt_import_draft_${campaignId}`, JSON.stringify(rows));
+      localStorage.setItem(`tnt_import_draft_global`, JSON.stringify(rows));
     }
     
-    // Fetch PIC suggestions
     const fetchPics = async () => {
-      const { data } = await supabase.from('campaign_creators')
-        .select('added_by')
-        .not('added_by', 'is', null);
+      const { data } = await supabase.from('creators').select('added_by, last_updated_by');
       if (data) {
-        const unique = Array.from(new Set(data.map(d => d.added_by).filter(Boolean)));
-        setPicSuggestions(unique as string[]);
+        const unique = new Set<string>();
+        data.forEach(d => {
+          if (d.added_by) unique.add(d.added_by);
+          if (d.last_updated_by) unique.add(d.last_updated_by);
+        });
+        setPicSuggestions(Array.from(unique));
       }
     };
     fetchPics();
-  }, [rows, campaignId, supabase]);
+  }, [rows, supabase]);
 
-  // Clean empty rows and verify
   const handleVerify = async () => {
     if (!picName.trim()) {
       alert("Mohon isi Nama Tim Peng-import (PIC) terlebih dahulu!");
@@ -93,7 +90,6 @@ export default function SpreadsheetImportClient({ campaignId }: { campaignId: nu
 
     setIsVerifying(true);
     
-    // Check missing whatsapp
     let hasError = false;
     filledRows = filledRows.map(r => {
       let err = '';
@@ -113,34 +109,27 @@ export default function SpreadsheetImportClient({ campaignId }: { campaignId: nu
       return;
     }
 
-    // Verify against DB
     const usernames = filledRows.map(r => r.username);
-    const { data: dbCreators } = await supabase.from('creators').select('id, username').in('username', usernames);
-    const creatorMap = new Map((dbCreators || []).map(c => [c.username, c.id]));
-
-    const { data: campaignCreators } = await supabase.from('campaign_creators').select('creator_id, added_by, added_at, last_updated_by, last_updated_at').eq('campaign_id', campaignId);
-    const existingCcMap = new Map((campaignCreators || []).map(cc => [cc.creator_id, cc]));
+    const { data: dbCreators } = await supabase.from('creators').select('id, username, added_by, added_at, last_updated_by, last_updated_at').in('username', usernames);
+    const creatorMap = new Map((dbCreators || []).map(c => [c.username, c]));
 
     filledRows = filledRows.map(r => {
-      const cId = creatorMap.get(r.username);
-      if (!cId) {
-        return { ...r, status: 'baru', existingInfo: 'Belum terdaftar' };
+      const c = creatorMap.get(r.username);
+      if (!c) {
+        return { ...r, status: 'baru', existingInfo: 'Belum terdaftar di database' };
       }
       
-      const cc = existingCcMap.get(cId);
-      if (!cc) {
-        return { ...r, status: 'baru', existingInfo: 'Ada di DB, baru untuk Campaign ini' };
-      }
+      const lastUpdate = c.last_updated_by ? `diupdate oleh ${c.last_updated_by}` : (c.added_by ? `diinput oleh ${c.added_by}` : 'Sistem');
+      const lastDate = c.last_updated_at || c.added_at;
+      const dateStr = lastDate ? new Date(lastDate).toLocaleDateString() : '';
 
-      // Already in campaign
       return { 
         ...r, 
         status: 'update', 
-        existingInfo: `Diinput oleh ${cc.added_by || 'Sistem'} pada ${new Date(cc.added_at || new Date()).toLocaleDateString()}` 
+        existingInfo: `Data Kreator ${lastUpdate} ${dateStr}`
       };
     });
 
-    // Update state to show verified rows
     setRows(rows.map(r => {
       const f = filledRows.find(fr => fr.id === r.id);
       return f ? f : r;
@@ -155,17 +144,40 @@ export default function SpreadsheetImportClient({ campaignId }: { campaignId: nu
     try {
       const filledRows = rows.filter(r => r.username.trim() !== '' && r.status !== 'error');
       
-      // 1. Upsert Creators
       const uniqueUsernames = Array.from(new Set(filledRows.map(r => r.username)));
+      
+      // Upsert Creators
+      const creatorPayloads = [];
+      const dbCreatorsRes = await supabase.from('creators').select('username').in('username', uniqueUsernames);
+      const existingUsernames = new Set((dbCreatorsRes.data || []).map(c => c.username));
+
+      for (const r of filledRows) {
+        if (!existingUsernames.has(r.username)) {
+           creatorPayloads.push({
+             username: r.username,
+             link_account: `https://www.tiktok.com/@${r.username}`,
+             added_by: picName,
+             added_at: new Date().toISOString()
+           });
+           existingUsernames.add(r.username); // prevent duplicate in same batch
+        } else {
+           creatorPayloads.push({
+             username: r.username,
+             link_account: `https://www.tiktok.com/@${r.username}`,
+             last_updated_by: picName,
+             last_updated_at: new Date().toISOString()
+           });
+        }
+      }
+
       const { data: cData, error: cErr } = await supabase.from('creators').upsert(
-        uniqueUsernames.map(u => ({ username: u, link_account: `https://www.tiktok.com/@${u}` })),
+        creatorPayloads,
         { onConflict: 'username' }
       ).select('id, username');
       
       if (cErr) throw cErr;
       const cMap = new Map(cData?.map(c => [c.username, c.id]));
 
-      // 2. Insert Snapshots & Contacts
       const snapshots = [];
       const contacts = [];
       for (const r of filledRows) {
@@ -174,11 +186,11 @@ export default function SpreadsheetImportClient({ campaignId }: { campaignId: nu
         
         snapshots.push({
           creator_id: cId,
-          followers: parseInt(r.followers) || 0,
+          followers: parseInt(r.followers) || null,
           level: parseInt(r.level) || null,
           audience_age: r.audience_age || null,
           gmv_30d: parseInt(r.gmv_30d) || null,
-          ratecard: parseInt(r.ratecard) || 0
+          ratecard: parseInt(r.ratecard) || null
         });
 
         if (r.whatsapp) {
@@ -192,45 +204,11 @@ export default function SpreadsheetImportClient({ campaignId }: { campaignId: nu
       }
 
       if (snapshots.length > 0) await supabase.from('creator_snapshots').insert(snapshots);
-      // For contacts we just insert, maybe archive old ones later, but insert is fine for now
       if (contacts.length > 0) await supabase.from('creator_contacts').insert(contacts);
 
-      // 3. Upsert Campaign Creators
-      const campaignCreators = [];
-      for (const r of filledRows) {
-        const cId = cMap.get(r.username);
-        if (!cId) continue;
-        
-        if (r.status === 'baru') {
-           campaignCreators.push({
-             campaign_id: campaignId,
-             creator_id: cId,
-             price: parseInt(r.ratecard) || 0,
-             qty_vt: 1,
-             approval: 'pending',
-             added_by: picName,
-             added_at: new Date().toISOString(),
-             last_updated_by: picName,
-             last_updated_at: new Date().toISOString()
-           });
-        } else if (r.status === 'update') {
-           // We just update the last_updated_by using a match. But Supabase upsert needs primary key (id).
-           // Since we don't have the PK here easily, we will do an update statement.
-           await supabase.from('campaign_creators')
-             .update({ last_updated_by: picName, last_updated_at: new Date().toISOString() })
-             .eq('campaign_id', campaignId)
-             .eq('creator_id', cId);
-        }
-      }
-
-      const newCc = campaignCreators.filter(c => c);
-      if (newCc.length > 0) {
-        await supabase.from('campaign_creators').insert(newCc);
-      }
-
       alert("Data berhasil diimport!");
-      localStorage.removeItem(`tnt_import_draft_${campaignId}`);
-      router.push(`/campaigns/${campaignId}/listing`);
+      localStorage.removeItem(`tnt_import_draft_global`);
+      router.push(`/creator-pool`);
       
     } catch (e: any) {
       alert("Gagal import: " + e.message);
@@ -240,14 +218,14 @@ export default function SpreadsheetImportClient({ campaignId }: { campaignId: nu
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-7xl mx-auto py-6 px-4">
       <div className="flex items-center gap-4">
-        <Button variant="outline" onClick={() => router.push(`/campaigns/${campaignId}/listing`)}>
+        <Button variant="outline" onClick={() => router.push(`/creator-pool`)}>
           <ArrowLeft className="w-4 h-4 mr-2" /> Kembali
         </Button>
         <div>
-          <h2 className="text-2xl font-bold text-slate-800">Tambah Creator (Mode Spreadsheet)</h2>
-          <p className="text-sm text-slate-500">Auto-saved. Aman dari refresh.</p>
+          <h2 className="text-2xl font-bold text-slate-800">Import / Update Kreator Baru</h2>
+          <p className="text-sm text-slate-500">Mode Spreadsheet. Auto-saved.</p>
         </div>
       </div>
 
@@ -295,22 +273,35 @@ export default function SpreadsheetImportClient({ campaignId }: { campaignId: nu
                         <input type="text" value={row.username} 
                           onBlur={async (e) => {
                              const val = e.target.value.trim();
-                             if (!val || row.whatsapp) return;
-                             // Auto-fetch whatsapp
+                             if (!val) return;
                              const { data: c } = await supabase.from('creators').select('id').eq('username', val).single();
                              if (c) {
-                               const { data: contact } = await supabase.from('creator_contacts').select('nomor').eq('creator_id', c.id).eq('status', 'aktif').order('id', {ascending: false}).limit(1).single();
-                               if (contact && contact.nomor) {
-                                  const newRows = [...rows];
-                                  newRows[idx].whatsapp = contact.nomor;
-                                  setRows(newRows);
+                               const newRows = [...rows];
+                               let updated = false;
+
+                               if (!row.whatsapp) {
+                                 const { data: contact } = await supabase.from('creator_contacts').select('nomor').eq('creator_id', c.id).eq('status', 'aktif').order('id', {ascending: false}).limit(1).single();
+                                 if (contact && contact.nomor) {
+                                    newRows[idx].whatsapp = contact.nomor;
+                                    updated = true;
+                                 }
                                }
+
+                               if (!row.ratecard) {
+                                 const { data: snap } = await supabase.from('creator_snapshots').select('ratecard').eq('creator_id', c.id).not('ratecard', 'is', null).order('id', {ascending: false}).limit(1).single();
+                                 if (snap && snap.ratecard) {
+                                    newRows[idx].ratecard = snap.ratecard.toString();
+                                    updated = true;
+                                 }
+                               }
+
+                               if(updated) setRows(newRows);
                              }
                           }}
                           onChange={e => {
                           const newRows = [...rows];
                           newRows[idx].username = e.target.value.replace('@', '').toLowerCase();
-                          newRows[idx].status = undefined; // reset status on edit
+                          newRows[idx].status = undefined;
                           setRows(newRows);
                         }} className="w-full border-none bg-transparent focus:ring-1 focus:ring-blue-500 p-1 rounded" placeholder="username" />
                       </td>
