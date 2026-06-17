@@ -257,7 +257,7 @@ export function CampaignSyncModal({ campaignId: initialCampaignId, onComplete }:
             const chunk = toDeleteIds.slice(i, i + 500);
             const { error } = await supabase.from('campaign_creators').delete().in('id', chunk);
             if (error) {
-               setErrors(prev => [...prev, `Gagal menghapus data sisa: ${error.message} (Mungkin kreator sudah memiliki invoice/resi)`]);
+               setErrors(prev => [...prev, `Gagal menghapus data sisa: ${error.message} (Mungkin kreator sudah memiliki Video / Data Penjualan Organik)`]);
             }
           }
         }
