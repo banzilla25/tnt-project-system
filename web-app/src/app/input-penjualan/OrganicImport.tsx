@@ -46,6 +46,7 @@ export default function OrganicImport() {
   const [files, setFiles] = useState<File[]>([]);
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState({ current: 0, total: 0 });
+  const [previewPage, setPreviewPage] = useState(1);
   
   const [previewPayload, setPreviewPayload] = useState<PreviewRow[]>([]);
   const [stats, setStats] = useState<PreviewStats | null>(null);
@@ -361,6 +362,7 @@ export default function OrganicImport() {
     setPreviewPayload([]);
     setStats(null);
     setResult(null);
+    setPreviewPage(1);
   };
 
   return (
@@ -554,6 +556,49 @@ export default function OrganicImport() {
                   </div>
                 )}
               </div>
+            </div>
+
+            {/* PREVIEW TABLE */}
+            <div className="bg-white border border-slate-200 rounded-xl overflow-hidden mt-6 shadow-sm">
+              <div className="p-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
+                <h3 className="font-semibold text-slate-800">Preview Data yang akan Di-import</h3>
+                <div className="text-sm text-slate-500">
+                  Total {previewPayload.length.toLocaleString()} baris valid
+                </div>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm text-left">
+                  <thead className="bg-slate-50 border-b border-slate-200 text-slate-600">
+                    <tr>
+                      <th className="p-3 font-semibold">No</th>
+                      <th className="p-3 font-semibold">Tanggal</th>
+                      <th className="p-3 font-semibold">Kreator</th>
+                      <th className="p-3 font-semibold">ID Konten/Order</th>
+                      <th className="p-3 font-semibold">GMV (Rp)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {previewPayload.slice((previewPage - 1) * 50, previewPage * 50).map((row, idx) => (
+                      <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50">
+                        <td className="p-3 text-slate-400">{(previewPage - 1) * 50 + idx + 1}</td>
+                        <td className="p-3">{new Date(row.tanggal).toLocaleDateString('id-ID')}</td>
+                        <td className="p-3 font-medium text-slate-700">@{row.creator_username}</td>
+                        <td className="p-3 font-mono text-xs text-slate-500">{row.order_id || row.content_uid}</td>
+                        <td className="p-3 text-emerald-600 font-semibold">{row.gmv.toLocaleString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {previewPayload.length > 50 && (
+                <div className="p-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
+                  <span className="text-sm text-slate-500">Halaman {previewPage} dari {Math.ceil(previewPayload.length / 50)}</span>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={() => setPreviewPage(p => Math.max(1, p - 1))} disabled={previewPage === 1}>Sebelumnya</Button>
+                    <Button variant="outline" size="sm" onClick={() => setPreviewPage(p => Math.min(Math.ceil(previewPayload.length / 50), p + 1))} disabled={previewPage >= Math.ceil(previewPayload.length / 50)}>Selanjutnya</Button>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="flex gap-3 pt-4 border-t border-slate-100">

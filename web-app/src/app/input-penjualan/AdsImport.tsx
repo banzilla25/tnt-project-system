@@ -92,6 +92,10 @@ export default function AdsImport() {
   const [unmappedAds, setUnmappedAds] = useState<{adName: string, adId: string}[]>([]);
   const [mappings, setMappings] = useState<Record<string, number>>({});
   const [showErrorLogs, setShowErrorLogs] = useState(false);
+  
+  const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
+  const [searchQuery, setSearchQuery] = useState('');
+  const [previewPage, setPreviewPage] = useState(1);
 
   const supabase = createClient();
 
@@ -135,6 +139,9 @@ export default function AdsImport() {
       
       setMappings(knownMappingMap);
       setUnmappedAds(unknownAdsList);
+      setSelectedIndices(new Set(validData.map((_, i) => i)));
+      setPreviewPage(1);
+      setSearchQuery('');
       setStep(unknownAdsList.length > 0 ? 2 : 3);
       setLoading(false);
     };
@@ -174,10 +181,11 @@ export default function AdsImport() {
       }
 
       // Process Ads Performance
+      const dataToImport = parsedData.filter((_, idx) => selectedIndices.has(idx));
       // To avoid browser freeze on large files, we chunk it
       const chunkSize = 100;
-      for (let i = 0; i < parsedData.length; i += chunkSize) {
-        const chunk = parsedData.slice(i, i + chunkSize);
+      for (let i = 0; i < dataToImport.length; i += chunkSize) {
+        const chunk = dataToImport.slice(i, i + chunkSize);
         
         const safeParseNum = (val: any) => {
           if (!val) return 0;
@@ -238,6 +246,35 @@ export default function AdsImport() {
   };
 
   const creatorOptions = creators.map(c => ({ id: c.id, label: `@${c.username}` }));
+
+  // Helper for Step 3 Table
+  const safeParseNum = (val: any) => {
+    if (!val) return 0;
+    if (typeof val === 'number') return val;
+    const cleaned = String(val).replace(/[^0-9.-]+/g, "");
+    return Number(cleaned) || 0;
+  };
+
+  const getAdName = (row: any) => row['Ad name'] || row['Ad Name'] || row['Ad Group Name'] || '';
+  
+  const filteredAds = parsedData.map((row, index) => ({ row, index })).filter(({ row }) => {
+    const adName = getAdName(row).toLowerCase();
+    const creatorId = mappings[getAdName(row)];
+    const creatorName = creatorId ? creators.find(c => c.id === creatorId)?.username?.toLowerCase() || '' : '';
+    const q = searchQuery.toLowerCase();
+    return adName.includes(q) || creatorName.includes(q);
+  });
+  
+  const isAllVisibleSelected = filteredAds.length > 0 && filteredAds.every(({ index }) => selectedIndices.has(index));
+  const handleSelectAllVisible = () => {
+    const s = new Set(selectedIndices);
+    if (isAllVisibleSelected) {
+      filteredAds.forEach(({index}) => s.delete(index));
+    } else {
+      filteredAds.forEach(({index}) => s.add(index));
+    }
+    setSelectedIndices(s);
+  };
 
   return (
     <Card>
@@ -325,16 +362,120 @@ export default function AdsImport() {
         )}
 
         {step === 3 && (
-          <div className="space-y-6 animate-in zoom-in-95 duration-300 py-8 text-center">
-            <div className="mx-auto w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-4">
-              <CheckCircle2 className="w-8 h-8" />
+          <div className="space-y-4 animate-in zoom-in-95 duration-300">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2"><CheckCircle2 className="w-6 h-6 text-green-500" /> Preview & Seleksi Data Ads</h3>
+                <p className="text-sm text-slate-500 mt-1">
+                  Pilih baris yang ingin Bapak import. Data Ad Name yang <strong>belum dimapping</strong> akan tetap masuk ke Campaign, tapi tidak terikat ke kreator manapun.
+                </p>
+              </div>
             </div>
-            <h3 className="text-xl font-bold text-slate-800">Semua Data Siap Diimpor!</h3>
-            <p className="text-slate-500">Terdapat <strong>{parsedData.length} baris</strong> performa iklan yang akan dimasukkan ke database dengan metode Upsert (Mencegah duplikat).</p>
-            
-            <div className="flex justify-center gap-3 mt-6">
+
+            <div className="flex items-center justify-between bg-slate-50 p-3 rounded-xl border border-slate-200">
+              <div className="flex items-center gap-4">
+                <div className="text-sm">
+                  <span className="font-semibold text-indigo-700">{selectedIndices.size}</span> baris dipilih dari total {parsedData.length} baris
+                </div>
+              </div>
+              <input 
+                type="text" 
+                placeholder="Cari Ad Name atau Username..." 
+                className="p-2 text-sm border border-slate-300 rounded-lg w-64 focus:ring-1 focus:ring-indigo-500"
+                value={searchQuery}
+                onChange={e => { setSearchQuery(e.target.value); setPreviewPage(1); }}
+              />
+            </div>
+
+            <div className="border border-slate-200 rounded-xl overflow-hidden">
+              <div className="overflow-x-auto max-h-[500px]">
+                <table className="w-full text-sm text-left">
+                  <thead className="bg-slate-100 border-b border-slate-200 text-slate-700 sticky top-0 z-10 shadow-sm">
+                    <tr>
+                      <th className="p-3 w-10 text-center">
+                        <input 
+                          type="checkbox" 
+                          className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" 
+                          checked={isAllVisibleSelected}
+                          onChange={handleSelectAllVisible}
+                        />
+                      </th>
+                      <th className="p-3 font-semibold">Ad Name</th>
+                      <th className="p-3 font-semibold">Kreator (Mapped)</th>
+                      <th className="p-3 font-semibold">Cost (USD)</th>
+                      <th className="p-3 font-semibold">Revenue (USD)</th>
+                      <th className="p-3 font-semibold">Conversions</th>
+                      <th className="p-3 font-semibold">Video Views / Impr</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {filteredAds.slice((previewPage - 1) * 50, previewPage * 50).map(({ row, index }) => {
+                      const adName = getAdName(row);
+                      const creatorId = mappings[adName];
+                      const creatorName = creatorId ? creators.find(c => c.id === creatorId)?.username : null;
+                      const costUsd = safeParseNum(row['Cost'] || row['Spend'] || row['Amount Spent (USD)']);
+                      const revenueUsd = safeParseNum(row['Gross revenue (Shop)'] || row['Total Revenue']);
+                      const purchases = safeParseNum(row['Purchases (Shop)'] || row['Purchases'] || row['Conversions']);
+                      const impr = safeParseNum(row['Impressions']);
+                      const isSelected = selectedIndices.has(index);
+
+                      return (
+                        <tr key={index} className={`hover:bg-indigo-50/50 transition-colors cursor-pointer ${isSelected ? 'bg-indigo-50/30' : ''}`} onClick={() => {
+                          const s = new Set(selectedIndices);
+                          if (isSelected) s.delete(index); else s.add(index);
+                          setSelectedIndices(s);
+                        }}>
+                          <td className="p-3 text-center" onClick={e => e.stopPropagation()}>
+                            <input 
+                              type="checkbox" 
+                              className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                              checked={isSelected}
+                              onChange={() => {
+                                const s = new Set(selectedIndices);
+                                if (isSelected) s.delete(index); else s.add(index);
+                                setSelectedIndices(s);
+                              }}
+                            />
+                          </td>
+                          <td className="p-3 max-w-[200px] truncate" title={adName}>{adName}</td>
+                          <td className="p-3">
+                            {creatorName ? (
+                              <span className="font-medium text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded text-xs">@{creatorName}</span>
+                            ) : (
+                              <span className="text-slate-400 italic text-xs">Unmapped</span>
+                            )}
+                          </td>
+                          <td className="p-3 font-mono text-xs text-rose-600">${costUsd.toFixed(2)}</td>
+                          <td className="p-3 font-mono text-xs text-emerald-600">${revenueUsd.toFixed(2)}</td>
+                          <td className="p-3">{purchases}</td>
+                          <td className="p-3 text-slate-500">{impr.toLocaleString()}</td>
+                        </tr>
+                      );
+                    })}
+                    {filteredAds.length === 0 && (
+                      <tr>
+                        <td colSpan={7} className="p-8 text-center text-slate-500">Tidak ada baris yang cocok dengan pencarian.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              {filteredAds.length > 50 && (
+                <div className="p-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
+                  <span className="text-sm text-slate-500">Halaman {previewPage} dari {Math.ceil(filteredAds.length / 50)}</span>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={() => setPreviewPage(p => Math.max(1, p - 1))} disabled={previewPage === 1}>Sebelumnya</Button>
+                    <Button variant="outline" size="sm" onClick={() => setPreviewPage(p => Math.min(Math.ceil(filteredAds.length / 50), p + 1))} disabled={previewPage >= Math.ceil(filteredAds.length / 50)}>Selanjutnya</Button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6">
               <Button variant="outline" className="h-12 px-6 rounded-xl" onClick={() => setStep(unmappedAds.length > 0 ? 2 : 1)}>Kembali</Button>
-              <Button className="h-12 px-8 rounded-xl bg-indigo-600" onClick={executeImport}>Mulai Import <ArrowRight className="w-4 h-4 ml-2" /></Button>
+              <Button className="h-12 px-8 rounded-xl bg-indigo-600" onClick={executeImport} disabled={selectedIndices.size === 0}>
+                Mulai Import {selectedIndices.size} Baris <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
             </div>
           </div>
         )}
