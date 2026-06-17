@@ -356,7 +356,7 @@ export default function OrganicImport() {
   };
 
   const reset = () => {
-    setFile(null);
+    setFiles([]);
     setStep(1);
     setPreviewPayload([]);
     setStats(null);
