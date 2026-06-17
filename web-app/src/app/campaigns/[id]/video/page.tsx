@@ -86,7 +86,7 @@ export default function CampaignVideoPage() {
       if (creatorUsernames.length > 0) {
         const { data: sData } = await supabaseClient
           .from('sales')
-          .select('id, campaign_id, creator_username, content_uid, gmv, quantity, raw_data')
+          .select('id, campaign_id, creator_username, content_uid, gmv, quantity, raw_data, product_id')
           .eq('campaign_id', campaignId)
           .in('creator_username', creatorUsernames);
         if (sData) localSalesData = sData;
@@ -109,6 +109,9 @@ export default function CampaignVideoPage() {
             
             const existsInDb = allVideosFromDb.some((v: any) => v.content_uid === s.content_uid && v.campaign_creator_id === cc.id);
             if (!existsInDb) {
+               // Try to match product_id from sales to skus table
+               const matchingSku = skus.find(sku => sku.product_id === s.product_id && sku.campaign_id === campaignId);
+               
                autoVideos.push({
                  id: `auto_${s.content_uid}`,
                  campaign_creator_id: cc.id,
@@ -116,6 +119,7 @@ export default function CampaignVideoPage() {
                  concept: 'Auto-detected from Sales CSV',
                  link_video: `https://www.tiktok.com/@${creator.username}/video/${s.content_uid}`,
                  content_uid: s.content_uid,
+                 sku_id: matchingSku ? matchingSku.id : null,
                  vt_approval: 'approved'
                });
             }
