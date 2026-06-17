@@ -243,7 +243,7 @@ export default function SpreadsheetImportClient() {
            const nicheName = r.niche.trim().toLowerCase();
            const nId = nicheMap.get(nicheName);
            if (cId && nId) {
-             creatorNiches.push({ creator_id: cId, niche_id: nId });
+             creatorNiches.push({ creator_id: cId, niche_id: nId, peringkat: 1 });
            }
         }
         if (creatorNiches.length > 0) {
