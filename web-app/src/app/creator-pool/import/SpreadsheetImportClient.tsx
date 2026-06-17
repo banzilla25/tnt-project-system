@@ -110,7 +110,7 @@ export default function SpreadsheetImportClient() {
     }
 
     const usernames = filledRows.map(r => r.username);
-    const { data: dbCreators } = await supabase.from('creators').select('id, username, added_by, added_at, last_updated_by, last_updated_at').in('username', usernames);
+    const { data: dbCreators } = await supabase.from('creators').select('id, username, added_by, created_at, last_updated_by, last_updated_at').in('username', usernames);
     const creatorMap = new Map((dbCreators || []).map(c => [c.username, c]));
 
     filledRows = filledRows.map(r => {
@@ -120,7 +120,7 @@ export default function SpreadsheetImportClient() {
       }
       
       const lastUpdate = c.last_updated_by ? `diupdate oleh ${c.last_updated_by}` : (c.added_by ? `diinput oleh ${c.added_by}` : 'Sistem');
-      const lastDate = c.last_updated_at || c.added_at;
+      const lastDate = c.last_updated_at || c.created_at;
       const dateStr = lastDate ? new Date(lastDate).toLocaleDateString() : '';
 
       return { 
@@ -156,8 +156,7 @@ export default function SpreadsheetImportClient() {
            creatorPayloads.push({
              username: r.username,
              link_account: `https://www.tiktok.com/@${r.username}`,
-             added_by: picName,
-             added_at: new Date().toISOString()
+             added_by: picName
            });
            existingUsernames.add(r.username); // prevent duplicate in same batch
         } else {
