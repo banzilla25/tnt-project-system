@@ -43,7 +43,7 @@ type PreviewStats = {
 
 export default function OrganicImport() {
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState({ current: 0, total: 0 });
   
@@ -59,49 +59,59 @@ export default function OrganicImport() {
   const supabase = createClient();
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0]);
+    if (e.target.files && e.target.files.length > 0) {
+      setFiles(Array.from(e.target.files));
     }
   };
 
   const processFileLocally = () => {
-    if (!file) return;
+    if (files.length === 0) return;
     setLoading(true);
 
-    // Memberikan jeda 100ms agar browser sempat me-render animasi loading sebelum CPU terkunci oleh XLSX
-    setTimeout(() => {
-      const ext = file.name.split('.').pop()?.toLowerCase();
-
-      if (ext === 'csv') {
-        Papa.parse(file, {
-          header: true,
-          skipEmptyLines: true,
-          complete: (results) => {
-            generatePreview(results.data);
-          },
-          error: (err) => {
-            alert("Error parsing CSV: " + err.message);
-            setLoading(false);
+    // Memberikan jeda 100ms agar browser sempat me-render animasi loading sebelum CPU terkunci
+    setTimeout(async () => {
+      let allData: any[] = [];
+      try {
+        for (const file of files) {
+          const ext = file.name.split('.').pop()?.toLowerCase();
+          
+          if (ext === 'csv') {
+            const data = await new Promise<any[]>((resolve, reject) => {
+              Papa.parse(file, {
+                header: true,
+                skipEmptyLines: true,
+                complete: (results) => resolve(results.data),
+                error: (err) => reject(err)
+              });
+            });
+            allData = allData.concat(data);
+          } else if (ext === 'xlsx' || ext === 'xls') {
+            const data = await new Promise<any[]>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = (e) => {
+                try {
+                  const dataArr = new Uint8Array(e.target?.result as ArrayBuffer);
+                  const workbook = XLSX.read(dataArr, { type: 'array' });
+                  const firstSheetName = workbook.SheetNames[0];
+                  const worksheet = workbook.Sheets[firstSheetName];
+                  const jsonData = XLSX.utils.sheet_to_json(worksheet);
+                  resolve(jsonData as any[]);
+                } catch (error) {
+                  reject(error);
+                }
+              };
+              reader.onerror = reject;
+              reader.readAsArrayBuffer(file);
+            });
+            allData = allData.concat(data);
+          } else {
+            alert(`Format file ${file.name} tidak didukung. File ini akan dilewati.`);
           }
-        });
-      } else if (ext === 'xlsx' || ext === 'xls') {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          try {
-            const data = new Uint8Array(e.target?.result as ArrayBuffer);
-            const workbook = XLSX.read(data, { type: 'array' });
-            const firstSheetName = workbook.SheetNames[0];
-            const worksheet = workbook.Sheets[firstSheetName];
-            const jsonData = XLSX.utils.sheet_to_json(worksheet);
-            generatePreview(jsonData);
-          } catch (error: any) {
-            alert("Error membaca Excel: " + error.message);
-            setLoading(false);
-          }
-        };
-        reader.readAsArrayBuffer(file);
-      } else {
-        alert("Format file tidak didukung. Gunakan CSV atau XLSX.");
+        }
+        
+        generatePreview(allData);
+      } catch (error: any) {
+        alert("Error membaca file: " + error.message);
         setLoading(false);
       }
     }, 100);
@@ -390,6 +400,7 @@ export default function OrganicImport() {
               <p className="text-sm text-slate-500 mb-6">Mendukung format .csv dan .xlsx dari TikTok</p>
               <input 
                 type="file" 
+                multiple
                 accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" 
                 className="hidden" 
                 id="organic-upload"
@@ -398,12 +409,17 @@ export default function OrganicImport() {
               <Button variant="secondary" className="pointer-events-none rounded-xl">
                 Pilih File Komputer
               </Button>
-              {file && <p className="mt-4 text-sm text-indigo-600 font-bold bg-indigo-100/50 py-2 px-4 rounded-lg inline-block">Terpilih: {file.name}</p>}
+              {files.length > 0 && (
+                <div className="mt-4 text-sm text-indigo-600 font-bold bg-indigo-100/50 py-2 px-4 rounded-lg inline-block">
+                  Terpilih: {files.length} file <br/>
+                  <span className="text-xs font-normal text-indigo-500">{files.map(f => f.name).join(', ')}</span>
+                </div>
+              )}
             </div>
 
             <Button 
               className="w-full h-12 rounded-xl text-base bg-indigo-600 hover:bg-indigo-700 text-white" 
-              disabled={!file || loading} 
+              disabled={files.length === 0 || loading} 
               onClick={processFileLocally}
             >
               {loading ? <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> Menganalisa File (Harap Tunggu)...</> : 'Lanjut ke Preview'}
