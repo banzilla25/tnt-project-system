@@ -51,6 +51,7 @@ export type CreatorSnapshot = {
   followers: number | null;
   level: number | null;
   ratecard: number | null;
+  tier: string | null;
   gmv_30d: number | null; // stored as number, but logic might say "1jt+" in real DB it's bigint so number here is ok
   created_at: string;
 };
