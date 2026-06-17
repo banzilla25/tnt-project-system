@@ -65,6 +65,19 @@ export async function getPortalData(campaignId: number) {
     .eq('campaign_id', campaignId)
     .single();
 
+  // Fetch modern sales/awareness data from CSV imports
+  const { data: totalSales } = await supabase
+    .from('campaign_total_sales')
+    .select('*')
+    .eq('campaign_id', campaignId)
+    .maybeSingle();
+
+  const { data: totalAwareness } = await supabase
+    .from('campaign_total_awareness')
+    .select('*')
+    .eq('campaign_id', campaignId)
+    .maybeSingle();
+
   // Fetch daily performance
   const { data: dailyPerf } = await supabase
     .from('daily_performance')
@@ -146,6 +159,8 @@ export async function getPortalData(campaignId: number) {
     authenticated: true, 
     campaign, 
     summary: summary || {}, 
+    totalSales: totalSales || null,
+    totalAwareness: totalAwareness || null,
     dailyPerf: dailyPerf || [], 
     approvalList: ccData || [], 
     samples,

@@ -13,9 +13,17 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
   const [activeTab, setActiveTab] = useState<'performa' | 'approval' | 'sampel' | 'live'>('performa');
   const [isApproving, setIsApproving] = useState<number | null>(null);
 
-  const { campaign, summary, dailyPerf, approvalList, samples, schedules, skus } = data;
-  const percentGmv = summary.target_gmv ? Math.round((summary.total_gmv_achievement / summary.target_gmv) * 100) : 0;
-  const percentVideo = summary.target_video ? Math.round((summary.achievement_video / summary.target_video) * 100) : 0;
+  const { campaign, summary, dailyPerf, approvalList, samples, schedules, skus, totalSales, totalAwareness } = data;
+  
+  // Calculate display values based on campaign type and modern tracking data
+  const isAwareness = campaign?.tipe_campaign === 'awareness' || campaign?.tipe_campaign === 'gmv_awareness';
+  const displayTotalGmv = isAwareness ? (totalAwareness?.total_gmv || summary.total_gmv_achievement || 0) : (totalSales?.total_gmv || summary.total_gmv_achievement || 0);
+  const displayTotalVideo = isAwareness ? (totalAwareness?.total_video || summary.achievement_video || 0) : (summary.achievement_video || 0);
+  const displayOrganic = isAwareness ? (totalAwareness?.total_organic || summary.total_daily_organic || 0) : (totalSales?.total_organic || summary.total_daily_organic || 0);
+  const displayAds = isAwareness ? (totalAwareness?.total_ads || summary.total_daily_vsa || 0) : (totalSales?.total_ads || summary.total_daily_vsa || 0);
+
+  const percentGmv = summary.target_gmv ? Math.round((displayTotalGmv / summary.target_gmv) * 100) : 0;
+  const percentVideo = summary.target_video ? Math.round((displayTotalVideo / summary.target_video) * 100) : 0;
 
   const handleApproval = async (ccId: number, status: 'approved' | 'rejected') => {
     setIsApproving(ccId);
@@ -107,7 +115,7 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                   <div className="flex justify-between items-start">
                     <div>
                       <p className="text-sm font-medium text-slate-600">Total GMV</p>
-                      <h3 className="text-3xl font-bold mt-2 text-slate-900">Rp {summary.total_gmv_achievement?.toLocaleString() || 0}</h3>
+                      <h3 className="text-3xl font-bold mt-2 text-slate-900">Rp {displayTotalGmv.toLocaleString()}</h3>
                       <div className="mt-2 text-sm text-slate-500">
                         Target: Rp {summary.target_gmv?.toLocaleString() || '-'} 
                         <span className={`ml-2 font-bold ${percentGmv >= 100 ? 'text-green-600' : 'text-blue-600'}`}>({percentGmv}%)</span>
@@ -126,7 +134,7 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                   <div className="flex justify-between items-start">
                     <div>
                       <p className="text-sm font-medium text-slate-600">Video Tayang</p>
-                      <h3 className="text-3xl font-bold mt-2 text-slate-900">{summary.achievement_video || 0} Video</h3>
+                      <h3 className="text-3xl font-bold mt-2 text-slate-900">{displayTotalVideo} Video</h3>
                       <div className="mt-2 text-sm text-slate-500">
                         Target: {summary.target_video || '-'} Video
                         <span className="ml-2 font-bold text-purple-600">({percentVideo}%)</span>
@@ -165,11 +173,11 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="p-4 border rounded-xl bg-slate-50">
                     <p className="text-sm text-slate-500">Organik (Affiliate)</p>
-                    <p className="text-2xl font-bold text-slate-800 mt-1">Rp {(summary.total_daily_organic || 0).toLocaleString()}</p>
+                    <p className="text-2xl font-bold text-slate-800 mt-1">Rp {displayOrganic.toLocaleString()}</p>
                   </div>
                   <div className="p-4 border rounded-xl bg-slate-50">
                     <p className="text-sm text-slate-500">Iklan (Ads Manager)</p>
-                    <p className="text-2xl font-bold text-slate-800 mt-1">Rp {(summary.total_daily_vsa || 0).toLocaleString()}</p>
+                    <p className="text-2xl font-bold text-slate-800 mt-1">Rp {displayAds.toLocaleString()}</p>
                   </div>
                 </div>
               </CardContent>
