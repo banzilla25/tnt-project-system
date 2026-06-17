@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { createClient } from "@/utils/supabase/client";
 import { ArrowLeft, Save, Play, Plus, Trash2, AlertCircle, CheckCircle2 } from "lucide-react";
+import { useDatabaseStore } from "@/store/useDatabaseStore";
 
 type SpreadsheetRow = {
   id: string;
@@ -14,6 +15,7 @@ type SpreadsheetRow = {
   level: string;
   audience_age: string;
   gmv_30d: string;
+  niche: string;
   whatsapp: string;
   ratecard: string;
   
@@ -29,6 +31,7 @@ const getEmptyRow = (): SpreadsheetRow => ({
   level: '',
   audience_age: '',
   gmv_30d: '',
+  niche: '',
   whatsapp: '',
   ratecard: ''
 });
@@ -36,6 +39,7 @@ const getEmptyRow = (): SpreadsheetRow => ({
 export default function SpreadsheetImportClient() {
   const router = useRouter();
   const supabase = createClient();
+  const { niches, fetchData } = useDatabaseStore();
   
   const [picName, setPicName] = useState('');
   const [picSuggestions, setPicSuggestions] = useState<string[]>([]);
@@ -56,6 +60,17 @@ export default function SpreadsheetImportClient() {
   const [step, setStep] = useState<1 | 2>(1);
   const [isVerifying, setIsVerifying] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+
+  const updateRow = (id: string, field: keyof SpreadsheetRow, value: string) => {
+    setRows(prev => prev.map(r => {
+      if (r.id === id) {
+        const updated = { ...r, [field]: value };
+        if (field === 'username') updated.status = undefined;
+        return updated;
+      }
+      return r;
+    }));
+  };
 
   useEffect(() => {
     if (rows.length > 0) {
@@ -93,6 +108,7 @@ export default function SpreadsheetImportClient() {
     let hasError = false;
     filledRows = filledRows.map(r => {
       let err = '';
+      if (!r.niche.trim()) err = "Niche wajib diisi!";
       if (!r.whatsapp.trim()) err = "No. Whatsapp wajib diisi!";
       if (r.username.includes(' ')) err = "Username tidak boleh ada spasi";
       if (err) hasError = true;
@@ -197,16 +213,49 @@ export default function SpreadsheetImportClient() {
             creator_id: cId,
             nomor: r.whatsapp,
             status: 'aktif',
-            tanggal_mulai: new Date().toISOString()
+            created_at: new Date().toISOString()
           });
         }
       }
 
-      if (snapshots.length > 0) await supabase.from('creator_snapshots').insert(snapshots);
-      if (contacts.length > 0) await supabase.from('creator_contacts').insert(contacts);
+      if (snapshots.length > 0) {
+        await supabase.from('creator_snapshots').insert(snapshots);
+      }
+      if (contacts.length > 0) {
+        const updatedCreatorIds = cData.map(c => c.id);
+        await supabase.from('creator_contacts').delete().in('creator_id', updatedCreatorIds);
+        await supabase.from('creator_contacts').insert(contacts);
+      }
 
-      alert("Data berhasil diimport!");
+      const typedNiches = new Set(filledRows.map(r => r.niche.trim()).filter(Boolean));
+      if (typedNiches.size > 0) {
+        const { data: dbNiches } = await supabase.from('niches').select('id, name');
+        const existingNicheNames = new Set((dbNiches || []).map(n => n.name.toLowerCase()));
+        const missingNiches = Array.from(typedNiches).filter(n => !existingNicheNames.has(n.toLowerCase()));
+        if (missingNiches.length > 0) {
+          await supabase.from('niches').insert(missingNiches.map(name => ({ name })));
+        }
+        const { data: finalNiches } = await supabase.from('niches').select('id, name');
+        const nicheMap = new Map((finalNiches || []).map(n => [n.name.toLowerCase(), n.id]));
+        const creatorNiches = [];
+        for (const r of filledRows) {
+           const cId = cMap.get(r.username);
+           const nicheName = r.niche.trim().toLowerCase();
+           const nId = nicheMap.get(nicheName);
+           if (cId && nId) {
+             creatorNiches.push({ creator_id: cId, niche_id: nId });
+           }
+        }
+        if (creatorNiches.length > 0) {
+          const updatedCreatorIds = Array.from(new Set(creatorNiches.map(cn => cn.creator_id)));
+          await supabase.from('creator_niches').delete().in('creator_id', updatedCreatorIds);
+          await supabase.from('creator_niches').insert(creatorNiches);
+        }
+      }
+      
+      await fetchData();
       localStorage.removeItem(`tnt_import_draft_global`);
+      alert("Berhasil menyimpan data kreator!");
       router.push(`/creator-pool`);
       
     } catch (e: any) {
@@ -256,8 +305,9 @@ export default function SpreadsheetImportClient() {
                     <th className="p-3 font-semibold text-slate-700 min-w-[120px]">Followers</th>
                     <th className="p-3 font-semibold text-slate-700 min-w-[100px]">Level</th>
                     <th className="p-3 font-semibold text-slate-700 min-w-[120px]">Audiens Age</th>
-                    <th className="p-3 font-semibold text-slate-700 min-w-[150px]">GMV 30 Days</th>
-                    <th className="p-3 font-semibold text-slate-700 min-w-[150px]">Ratecard (Rp)</th>
+                    <th className="px-3 py-3 font-semibold text-slate-600 text-left w-32 border-b-2 border-slate-200">GMV 30 Days</th>
+                    <th className="px-3 py-3 font-semibold text-rose-600 text-left w-36 border-b-2 border-rose-200">Niche *</th>
+                    <th className="px-3 py-3 font-semibold text-slate-600 text-left w-32 border-b-2 border-slate-200">Ratecard (Rp)</th>
                     <th className="p-3 w-10"></th>
                   </tr>
                 </thead>
@@ -297,54 +347,28 @@ export default function SpreadsheetImportClient() {
                                if(updated) setRows(newRows);
                              }
                           }}
-                          onChange={e => {
-                          const newRows = [...rows];
-                          newRows[idx].username = e.target.value.replace('@', '').toLowerCase();
-                          newRows[idx].status = undefined;
-                          setRows(newRows);
-                        }} className="w-full border-none bg-transparent focus:ring-1 focus:ring-blue-500 p-1 rounded" placeholder="username" />
+                          onChange={e => updateRow(row.id, 'username', e.target.value.replace('@', '').toLowerCase())} className="w-full border-none bg-transparent focus:ring-1 focus:ring-blue-500 p-1 rounded" placeholder="username" />
                       </td>
                       <td className="p-2">
-                        <input type="text" value={row.whatsapp} onChange={e => {
-                          const newRows = [...rows];
-                          newRows[idx].whatsapp = e.target.value;
-                          setRows(newRows);
-                        }} className="w-full border-none bg-transparent focus:ring-1 focus:ring-blue-500 p-1 rounded" placeholder="08..." />
+                        <input type="text" value={row.whatsapp} onChange={e => updateRow(row.id, 'whatsapp', e.target.value)} className="w-full border-none bg-transparent focus:ring-1 focus:ring-blue-500 p-1 rounded" placeholder="08..." />
                       </td>
                       <td className="p-2">
-                        <input type="number" value={row.followers} onChange={e => {
-                          const newRows = [...rows];
-                          newRows[idx].followers = e.target.value;
-                          setRows(newRows);
-                        }} className="w-full border-none bg-transparent focus:ring-1 focus:ring-blue-500 p-1 rounded" placeholder="10000" />
+                        <input type="number" value={row.followers} onChange={e => updateRow(row.id, 'followers', e.target.value)} className="w-full border-none bg-transparent focus:ring-1 focus:ring-blue-500 p-1 rounded" placeholder="10000" />
                       </td>
                       <td className="p-2">
-                        <input type="number" value={row.level} onChange={e => {
-                          const newRows = [...rows];
-                          newRows[idx].level = e.target.value;
-                          setRows(newRows);
-                        }} className="w-full border-none bg-transparent focus:ring-1 focus:ring-blue-500 p-1 rounded" placeholder="2" />
+                        <input type="number" value={row.level} onChange={e => updateRow(row.id, 'level', e.target.value)} className="w-full border-none bg-transparent focus:ring-1 focus:ring-blue-500 p-1 rounded" placeholder="2" />
                       </td>
                       <td className="p-2">
-                        <input type="text" value={row.audience_age} onChange={e => {
-                          const newRows = [...rows];
-                          newRows[idx].audience_age = e.target.value;
-                          setRows(newRows);
-                        }} className="w-full border-none bg-transparent focus:ring-1 focus:ring-blue-500 p-1 rounded" placeholder="18-24" />
+                        <input type="text" value={row.audience_age} onChange={e => updateRow(row.id, 'audience_age', e.target.value)} className="w-full border-none bg-transparent focus:ring-1 focus:ring-blue-500 p-1 rounded" placeholder="18-24" />
                       </td>
-                      <td className="p-2">
-                        <input type="number" value={row.gmv_30d} onChange={e => {
-                          const newRows = [...rows];
-                          newRows[idx].gmv_30d = e.target.value;
-                          setRows(newRows);
-                        }} className="w-full border-none bg-transparent focus:ring-1 focus:ring-blue-500 p-1 rounded" placeholder="5000000" />
+                      <td className="p-0 border-r border-slate-200">
+                        <input type="number" className="w-full h-full p-2 bg-transparent border-none outline-none" value={row.gmv_30d} onChange={(e) => updateRow(row.id, 'gmv_30d', e.target.value)} placeholder="5000000" />
                       </td>
-                      <td className="p-2">
-                        <input type="number" value={row.ratecard} onChange={e => {
-                          const newRows = [...rows];
-                          newRows[idx].ratecard = e.target.value;
-                          setRows(newRows);
-                        }} className="w-full border-none bg-transparent focus:ring-1 focus:ring-blue-500 p-1 rounded" placeholder="150000" />
+                      <td className="p-0 border-r border-rose-100 bg-rose-50/30">
+                        <input type="text" list="niche-options" className="w-full h-full p-2 bg-transparent border-none outline-none" value={row.niche} onChange={(e) => updateRow(row.id, 'niche', e.target.value)} placeholder="Ketik..." />
+                      </td>
+                      <td className="p-0 border-r border-slate-200">
+                        <input type="number" className="w-full h-full p-2 bg-transparent border-none outline-none" value={row.ratecard} onChange={(e) => updateRow(row.id, 'ratecard', e.target.value)} placeholder="150000" />
                       </td>
                       <td className="p-2 text-center">
                         <button onClick={() => setRows(rows.filter(r => r.id !== row.id))} className="text-red-400 hover:text-red-600 p-1 rounded transition-colors">
@@ -359,7 +383,7 @@ export default function SpreadsheetImportClient() {
                 <Button variant="outline" size="sm" onClick={() => setRows([...rows, getEmptyRow()])}>
                   <Plus className="w-4 h-4 mr-1" /> Tambah Baris
                 </Button>
-                <Button variant="outline" size="sm" onClick={() => setRows([...rows, getEmptyRow(), getEmptyRow(), getEmptyRow(), getEmptyRow(), getEmptyRow()])}>
+                <Button variant="outline" size="sm" onClick={() => setRows([...rows, ...Array(5).fill(null).map(getEmptyRow)])}>
                   + 5 Baris
                 </Button>
               </div>
@@ -391,6 +415,7 @@ export default function SpreadsheetImportClient() {
                       <th className="p-3 font-semibold text-slate-700">Username</th>
                       <th className="p-3 font-semibold text-slate-700">Followers</th>
                       <th className="p-3 font-semibold text-slate-700">No. WhatsApp</th>
+                      <th className="p-3 font-semibold text-slate-700">Niche</th>
                       <th className="p-3 font-semibold text-slate-700">Status</th>
                       <th className="p-3 font-semibold text-slate-700">Keterangan</th>
                     </tr>
@@ -401,6 +426,7 @@ export default function SpreadsheetImportClient() {
                         <td className="p-3 font-medium text-slate-800">@{row.username}</td>
                         <td className="p-3">{row.followers || '-'}</td>
                         <td className="p-3">{row.whatsapp}</td>
+                        <td className="p-3">{row.niche}</td>
                         <td className="p-3">
                           {row.status === 'baru' && <span className="px-2 py-1 bg-emerald-100 text-emerald-700 rounded text-xs font-medium">Baru</span>}
                           {row.status === 'update' && <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium">Update Data</span>}
@@ -424,6 +450,12 @@ export default function SpreadsheetImportClient() {
           )}
         </CardContent>
       </Card>
+      
+      <datalist id="niche-options">
+        {niches.map(n => (
+          <option key={n.id} value={n.name} />
+        ))}
+      </datalist>
     </div>
   );
 }
