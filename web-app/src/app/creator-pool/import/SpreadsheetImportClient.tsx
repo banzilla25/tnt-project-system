@@ -229,14 +229,14 @@ export default function SpreadsheetImportClient() {
 
       const typedNiches = new Set(filledRows.map(r => r.niche.trim()).filter(Boolean));
       if (typedNiches.size > 0) {
-        const { data: dbNiches } = await supabase.from('niches').select('id, name');
-        const existingNicheNames = new Set((dbNiches || []).map(n => n.name.toLowerCase()));
+        const { data: dbNiches } = await supabase.from('niches').select('id, nama');
+        const existingNicheNames = new Set((dbNiches || []).map(n => n.nama.toLowerCase()));
         const missingNiches = Array.from(typedNiches).filter(n => !existingNicheNames.has(n.toLowerCase()));
         if (missingNiches.length > 0) {
-          await supabase.from('niches').insert(missingNiches.map(name => ({ name })));
+          await supabase.from('niches').insert(missingNiches.map(name => ({ nama: name })));
         }
-        const { data: finalNiches } = await supabase.from('niches').select('id, name');
-        const nicheMap = new Map((finalNiches || []).map(n => [n.name.toLowerCase(), n.id]));
+        const { data: finalNiches } = await supabase.from('niches').select('id, nama');
+        const nicheMap = new Map((finalNiches || []).map(n => [n.nama.toLowerCase(), n.id]));
         const creatorNiches = [];
         for (const r of filledRows) {
            const cId = cMap.get(r.username);
@@ -453,7 +453,7 @@ export default function SpreadsheetImportClient() {
       
       <datalist id="niche-options">
         {niches.map(n => (
-          <option key={n.id} value={n.name} />
+          <option key={n.id} value={n.nama} />
         ))}
       </datalist>
     </div>
