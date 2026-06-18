@@ -97,7 +97,7 @@ export default function SkuPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Master SKU</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Master Produk</h1>
           <p className="text-slate-500">Kelola data SKU (Product ID) dan komisi untuk tracking GMV.</p>
         </div>
         <Dialog open={isOpen} onOpenChange={(open) => {

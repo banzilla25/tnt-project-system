@@ -29,7 +29,7 @@ export default function CampaignLayout({ children }: { children: React.ReactNode
     { name: 'Keuangan', href: `/campaigns/${campaignId}/keuangan`, disabled: false },
     { name: 'Sampel & Alamat', href: `/campaigns/${campaignId}/alamat`, disabled: false },
     { name: 'Jadwal Live', href: `/campaigns/${campaignId}/live`, disabled: false },
-    { name: 'SKU', href: `/campaigns/${campaignId}/sku`, disabled: false },
+    { name: 'Produk', href: `/campaigns/${campaignId}/sku`, disabled: false },
   ];
 
   const portalLink = typeof window !== 'undefined' ? `${window.location.origin}/portal/${campaign?.id || campaignId}` : `/portal/${campaign?.id || campaignId}`;

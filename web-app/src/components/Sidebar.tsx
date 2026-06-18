@@ -10,7 +10,7 @@ const navItems = [
   { name: 'Creator Pool', href: '/creator-pool', icon: Users, activePhase: true },
   { name: 'Migrasi Data', href: '/import-data', icon: FolderKanban, activePhase: true },
   { name: 'Campaign', href: '/campaigns', icon: FolderKanban, activePhase: true },
-  { name: 'Master SKU', href: '/skus', icon: Package, activePhase: true },
+  { name: 'Master Produk', href: '/skus', icon: Package, activePhase: true },
   { name: 'Input Penjualan', href: '/input-penjualan', icon: Receipt, activePhase: true },
   { name: 'Ads Report', href: '/ads-report', icon: FolderKanban, activePhase: true },
   { name: 'Budgeting & Topup', href: '/budgeting', icon: Wallet, activePhase: true },
