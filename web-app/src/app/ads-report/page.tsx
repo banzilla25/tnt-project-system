@@ -27,7 +27,20 @@ function SearchableSelect({ options, value, onChange, placeholder }: { options: 
   const selectedOption = options.find(o => o.id === value);
   const displayValue = open ? search : (selectedOption ? selectedOption.label : "");
 
-  const filteredOptions = options.filter(o => o.label.toLowerCase().includes(deferredSearch.toLowerCase()));
+  const qLower = deferredSearch.toLowerCase().replace(/\s+/g, '');
+  const chars = qLower.split('');
+  
+  const filteredOptions = options.filter(o => {
+    if (qLower === '') return true;
+    const target = o.label.toLowerCase();
+    let qIndex = 0;
+    for (let i = 0; i < target.length && qIndex < chars.length; i++) {
+      if (target[i] === chars[qIndex]) {
+        qIndex++;
+      }
+    }
+    return qIndex === chars.length;
+  }).sort((a, b) => a.label.length - b.label.length);
 
   return (
     <div className="relative w-full" ref={wrapperRef}>
