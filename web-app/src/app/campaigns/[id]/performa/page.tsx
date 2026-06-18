@@ -55,7 +55,7 @@ function CampaignPerformaContent() {
       const queries = [
         supabase.from('campaign_sales_summary').select('*').eq('campaign_id', campaignId),
         supabase.from('campaign_total_sales').select('*').eq('campaign_id', campaignId).maybeSingle(),
-        supabase.from('ads_performance').select('*').eq('campaign_id', campaignId)
+        supabase.from('ads_performance').select('*, creators(username)').eq('campaign_id', campaignId)
       ];
 
       if (isAwareness) {
@@ -513,7 +513,7 @@ function CampaignPerformaContent() {
                 </TableHeader>
                 <TableBody>
                   {adsPerf.map((ad, i) => {
-                    const creator = creators.find(c => c.id === ad.creator_id);
+                    const creatorUsername = ad.creators?.username;
                     const costIdr = ad.cost_usd * ad.kurs;
                     const revenueIdr = ad.gross_revenue_usd * ad.kurs;
                     const roas = costIdr > 0 ? (revenueIdr / costIdr).toFixed(2) : '-';
@@ -524,7 +524,7 @@ function CampaignPerformaContent() {
                         <TableCell className="font-medium text-slate-700 truncate max-w-[200px]" title={ad.ad_name}>{ad.ad_name}</TableCell>
                         <TableCell className="font-mono text-xs text-slate-500">{ad.ad_id}</TableCell>
                         <TableCell>
-                          {creator ? <span className="font-medium text-indigo-600">@{creator.username}</span> : <span className="text-amber-500 italic text-xs">Belum di-map</span>}
+                          {creatorUsername ? <span className="font-medium text-indigo-600">@{creatorUsername}</span> : <span className="text-amber-500 italic text-xs">Belum di-map</span>}
                         </TableCell>
                         <TableCell className="text-right text-red-600 font-medium">${ad.cost_usd.toFixed(2)}</TableCell>
                         <TableCell className="text-right text-emerald-600 font-bold">${ad.gross_revenue_usd.toFixed(2)}</TableCell>
