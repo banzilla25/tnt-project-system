@@ -31,7 +31,7 @@ function CampaignKeuanganContent() {
   const [saving, setSaving] = useState<Record<number, boolean>>({});
 
   // Form states per creator mapping
-  const [editForms, setEditForms] = useState<Record<number, { nominal_pelunasan: string; status_bayar: string; tgl_pembayaran: string }>>({});
+  const [editForms, setEditForms] = useState<Record<number, { price: string; nominal_pelunasan: string; status_bayar: string; tgl_pembayaran: string }>>({});
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -56,6 +56,7 @@ function CampaignKeuanganContent() {
       const forms: Record<number, any> = {};
       (data || []).forEach(cc => {
         forms[cc.id] = {
+          price: cc.price?.toString() || '0',
           nominal_pelunasan: cc.nominal_pelunasan?.toString() || '0',
           status_bayar: cc.status_bayar || 'belum',
           tgl_pembayaran: cc.tgl_pembayaran || ''
@@ -91,10 +92,12 @@ function CampaignKeuanganContent() {
     try {
       const form = editForms[ccId];
       const nominal = form.nominal_pelunasan ? parseInt(form.nominal_pelunasan.replace(/[^0-9]/g, '')) : 0;
+      const price = form.price ? parseInt(form.price.replace(/[^0-9]/g, '')) : 0;
       
       const { error } = await supabase
         .from('campaign_creators')
         .update({
+          price: price,
           status_bayar: form.status_bayar as any,
           nominal_pelunasan: nominal,
           tgl_pembayaran: form.tgl_pembayaran || null
@@ -105,7 +108,7 @@ function CampaignKeuanganContent() {
       
       // Update local state without refetching all
       setCreators(prev => prev.map(c => 
-        c.id === ccId ? { ...c, status_bayar: form.status_bayar, nominal_pelunasan: nominal, tgl_pembayaran: form.tgl_pembayaran } : c
+        c.id === ccId ? { ...c, price: price, status_bayar: form.status_bayar, nominal_pelunasan: nominal, tgl_pembayaran: form.tgl_pembayaran } : c
       ));
 
       alert('Berhasil disimpan');
@@ -209,8 +212,13 @@ function CampaignKeuanganContent() {
                     <TableRow key={cc.id} className="hover:bg-slate-50/50">
                       <TableCell className="text-center text-slate-500">{idx + 1}</TableCell>
                       <TableCell className="font-medium">@{cc.creators?.username}</TableCell>
-                      <TableCell className="text-right font-bold">
-                        {cc.price === 0 ? 'Barter' : `Rp ${(cc.price || 0).toLocaleString()}`}
+                      <TableCell className="text-right">
+                        <input 
+                          type="text" 
+                          className="w-full p-2 border rounded text-sm text-right font-bold text-blue-700"
+                          value={form.price}
+                          onChange={e => handleFormChange(cc.id, 'price', e.target.value)}
+                        />
                       </TableCell>
                       <TableCell>
                         <input 
