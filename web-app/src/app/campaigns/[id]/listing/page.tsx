@@ -169,9 +169,10 @@ function CampaignListingContent() {
         setFilteredCreators([]);
         return;
       }
+      const fuzzyPattern = '%' + searchQuery.split('').join('%') + '%';
       const { data } = await supabase.from('creators')
         .select('id, username')
-        .ilike('username', `%${searchQuery}%`)
+        .ilike('username', fuzzyPattern)
         .limit(10);
       setFilteredCreators(data || []);
     };
