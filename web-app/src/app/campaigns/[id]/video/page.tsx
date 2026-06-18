@@ -397,7 +397,13 @@ export default function CampaignVideoPage() {
                                   <TableCell>
                                     {v.id || hasContentUid ? (
                                       <div className="space-y-1">
-                                        <div className="text-sm font-semibold text-slate-700">-</div>
+                                        <div className="text-sm font-semibold text-slate-700">
+                                          {(() => {
+                                            const sales = (cc._localSales || []).filter((s: any) => s.content_uid && v.content_uid && s.content_uid === v.content_uid);
+                                            const maxViews = sales.length > 0 ? Math.max(...sales.map((s: any) => parseInt(s.raw_data?.['Video views']?.toString().replace(/[^0-9]/g, '')) || 0)) : 0;
+                                            return maxViews > 0 ? maxViews.toLocaleString() : '-';
+                                          })()}
+                                        </div>
                                         <div className="text-[10px] text-slate-500">Tayangan</div>
                                       </div>
                                     ) : (
