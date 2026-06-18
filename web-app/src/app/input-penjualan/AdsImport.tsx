@@ -9,12 +9,13 @@ import * as XLSX from "xlsx";
 import { createClient } from "@/utils/supabase/client";
 import { useDatabaseStore } from "@/store/useDatabaseStore";
 
-// Komponen mini untuk Searchable Select
-function SearchableSelect({ options, value, onChange, placeholder }: { options: {id: number, label: string}[], value: number | '', onChange: (val: number) => void, placeholder: string }) {
+// Komponen mini untuk Searchable Select (Dynamic Fetch)
+function SearchableSelect({ value, initialLabel, onChange, placeholder }: { value: number | '', initialLabel?: string, onChange: (val: number | '') => void, placeholder: string }) {
   const [search, setSearch] = useState("");
-  const deferredSearch = useDeferredValue(search);
   const [open, setOpen] = useState(false);
+  const [options, setOptions] = useState<{id: number, label: string}[]>([]);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const supabase = createClient();
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -26,24 +27,32 @@ function SearchableSelect({ options, value, onChange, placeholder }: { options: 
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const selectedOption = options.find(o => o.id === value);
-  const displayValue = open ? search : (selectedOption ? selectedOption.label : "");
-
-  // Hanya memproses filter menggunakan nilai yang didefer (terjeda otomatis agar tidak menghalangi ketikan)
-  const qLower = deferredSearch.toLowerCase().replace(/\s+/g, '');
-  const chars = qLower.split('');
-  
-  const filteredOptions = options.filter(o => {
-    if (qLower === '') return true;
-    const target = o.label.toLowerCase();
-    let qIndex = 0;
-    for (let i = 0; i < target.length && qIndex < chars.length; i++) {
-      if (target[i] === chars[qIndex]) {
-        qIndex++;
+  useEffect(() => {
+    const fetchOptions = async () => {
+      const trimmed = search.trim().replace(/\s+/g, '');
+      if (!trimmed) {
+        setOptions([]);
+        return;
       }
-    }
-    return qIndex === chars.length;
-  }).sort((a, b) => a.label.length - b.label.length);
+      
+      const fuzzyPattern = '%' + trimmed.split('').join('%') + '%';
+      
+      const { data } = await supabase.from('creators')
+        .select('id, username')
+        .ilike('username', fuzzyPattern)
+        .limit(20);
+        
+      if (data) {
+        const sorted = data.map(d => ({ id: d.id, label: `@${d.username}` })).sort((a, b) => a.label.length - b.label.length).slice(0, 5);
+        setOptions(sorted);
+      }
+    };
+
+    const handler = setTimeout(fetchOptions, 300);
+    return () => clearTimeout(handler);
+  }, [search]);
+
+  const displayValue = open ? search : (value ? (options.find(o => o.id === value)?.label || initialLabel || search) : "");
 
   return (
     <div className="relative w-full" ref={wrapperRef}>
@@ -59,29 +68,26 @@ function SearchableSelect({ options, value, onChange, placeholder }: { options: 
         }}
       />
       {open && (
-        <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
-          {filteredOptions.length === 0 ? (
-            <div className="p-2 text-sm text-slate-500 text-center">Tidak ditemukan</div>
+        <div className="absolute z-10 w-[250px] mt-1 bg-white border border-slate-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
+          {options.length === 0 ? (
+            <div className="p-2 text-xs text-slate-500 text-center">
+              {search.trim() ? "Tidak ditemukan" : "Ketik untuk mencari..."}
+            </div>
           ) : (
             <>
-              {filteredOptions.slice(0, 50).map(opt => (
+              {options.map(opt => (
                 <div
                   key={opt.id}
-                  className="p-2 text-sm hover:bg-slate-50 cursor-pointer"
+                  className="p-2 text-xs hover:bg-slate-50 cursor-pointer"
                   onClick={() => {
                     onChange(opt.id);
+                    setSearch(opt.label);
                     setOpen(false);
-                    setSearch("");
                   }}
                 >
                   {opt.label}
                 </div>
               ))}
-              {filteredOptions.length > 50 && (
-                <div className="p-2 text-xs text-slate-400 text-center border-t border-slate-100 bg-slate-50 italic">
-                  + {filteredOptions.length - 50} hasil lainnya. Ketik lebih spesifik.
-                </div>
-              )}
             </>
           )}
         </div>
@@ -132,12 +138,11 @@ export default function AdsImport() {
       const validData = data.filter(row => Object.keys(row).length > 0 && (row['Ad ID'] || row['Ad ID (Shop)'] || row['Ad name']));
       setParsedData(validData);
 
-      // Fetch existing mappings
       const { data: dbMappings } = await supabase.from('ad_name_mapping').select('*');
       const knownMappingMap: Record<string, number> = {};
       dbMappings?.forEach(m => knownMappingMap[m.ad_name] = m.creator_id);
 
-      let unknownAdsMap = new Map<string, string>(); // Ad Name -> Ad ID
+      let unknownAdsMap = new Map<string, string>(); 
 
       for (const row of validData) {
         const adName = row['Ad name'] || row['Ad Name'] || row['Ad Group Name'] || '';
@@ -187,15 +192,12 @@ export default function AdsImport() {
       let skippedCount = 0;
       let errors: string[] = [];
 
-      // Save new mappings first
       const newMappings = unmappedAds.filter(ad => mappings[ad.adName]).map(ad => ({ ad_name: ad.adName, creator_id: mappings[ad.adName] }));
       for (const mapping of newMappings) {
         await supabase.from('ad_name_mapping').upsert(mapping, { onConflict: 'ad_name' });
       }
 
-      // Process Ads Performance
       const dataToImport = parsedData.filter((_, idx) => selectedIndices.has(idx));
-      // To avoid browser freeze on large files, we chunk it
       const chunkSize = 100;
       for (let i = 0; i < dataToImport.length; i += chunkSize) {
         const chunk = dataToImport.slice(i, i + chunkSize);
@@ -222,7 +224,7 @@ export default function AdsImport() {
             campaign_id: Number(selectedCampaign),
             ad_name: adName,
             creator_id: creatorId,
-            tanggal: new Date().toISOString().split('T')[0], // For simplicity using current date, can extract from filename/row if available
+            tanggal: new Date().toISOString().split('T')[0],
             cost_usd: costUsd,
             gross_revenue_usd: grossRevenueUsd,
             purchases,
@@ -232,7 +234,6 @@ export default function AdsImport() {
           };
         });
 
-        // Upsert into Supabase matching on ad_id
         const { error } = await supabase.from('ads_performance').upsert(inserts, { onConflict: 'ad_id' });
         
         if (error) {
@@ -245,7 +246,6 @@ export default function AdsImport() {
       setResult({ success: successCount, skipped: skippedCount, errors });
       setStep(5);
       
-      // Refresh global state so Ads Report and Performa reflect the new data immediately
       if (successCount > 0) {
         const { fetchData } = useDatabaseStore.getState();
         await fetchData();
@@ -258,9 +258,6 @@ export default function AdsImport() {
     }
   };
 
-  const creatorOptions = creators.map(c => ({ id: c.id, label: `@${c.username}` }));
-
-  // Helper for Step 3 Table
   const safeParseNum = (val: any) => {
     if (!val) return 0;
     if (typeof val === 'number') return val;
@@ -355,10 +352,10 @@ export default function AdsImport() {
                       <td className="px-4 py-3 font-medium text-slate-700 max-w-[200px] truncate" title={ad.adName}>{ad.adName}</td>
                       <td className="px-4 py-3">
                         <SearchableSelect 
-                          options={creatorOptions} 
-                          value={mappings[ad.adName] || ''} 
-                          onChange={(val) => setMappings({...mappings, [ad.adName]: val})}
-                          placeholder="Ketik username..."
+                          value={mappings[ad.adName] || ''}
+                          initialLabel={mappings[ad.adName] ? `@${creators.find(c => c.id === mappings[ad.adName])?.username}` : ''}
+                          onChange={(val) => setMappings({...mappings, [ad.adName]: val as number})}
+                          placeholder="Ketik username kreator..."
                         />
                       </td>
                     </tr>

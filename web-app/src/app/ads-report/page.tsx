@@ -7,12 +7,13 @@ import { useDatabaseStore } from "@/store/useDatabaseStore";
 import { createClient } from "@/utils/supabase/client";
 import { Edit2, Check, X, Search, FileSpreadsheet, Loader2, Trash2 } from "lucide-react";
 
-// Komponen mini untuk Searchable Select
-function SearchableSelect({ options, value, onChange, placeholder }: { options: {id: number, label: string}[], value: number | '', onChange: (val: number | '') => void, placeholder: string }) {
+// Komponen mini untuk Searchable Select (Dynamic Fetch)
+function SearchableSelect({ value, initialLabel, onChange, placeholder }: { value: number | '', initialLabel?: string, onChange: (val: number | '') => void, placeholder: string }) {
   const [search, setSearch] = useState("");
-  const deferredSearch = useDeferredValue(search);
   const [open, setOpen] = useState(false);
+  const [options, setOptions] = useState<{id: number, label: string}[]>([]);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const supabase = createClient();
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -24,23 +25,33 @@ function SearchableSelect({ options, value, onChange, placeholder }: { options: 
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const selectedOption = options.find(o => o.id === value);
-  const displayValue = open ? search : (selectedOption ? selectedOption.label : "");
-
-  const qLower = deferredSearch.toLowerCase().replace(/\s+/g, '');
-  const chars = qLower.split('');
-  
-  const filteredOptions = options.filter(o => {
-    if (qLower === '') return true;
-    const target = o.label.toLowerCase();
-    let qIndex = 0;
-    for (let i = 0; i < target.length && qIndex < chars.length; i++) {
-      if (target[i] === chars[qIndex]) {
-        qIndex++;
+  useEffect(() => {
+    const fetchOptions = async () => {
+      const trimmed = search.trim().replace(/\s+/g, '');
+      if (!trimmed) {
+        setOptions([]);
+        return;
       }
-    }
-    return qIndex === chars.length;
-  }).sort((a, b) => a.label.length - b.label.length);
+      
+      const fuzzyPattern = '%' + trimmed.split('').join('%') + '%';
+      
+      const { data } = await supabase.from('creators')
+        .select('id, username')
+        .ilike('username', fuzzyPattern)
+        .limit(20);
+        
+      if (data) {
+        // Sort locally by length so exact/shortest match floats to the top
+        const sorted = data.map(d => ({ id: d.id, label: `@${d.username}` })).sort((a, b) => a.label.length - b.label.length).slice(0, 5);
+        setOptions(sorted);
+      }
+    };
+
+    const handler = setTimeout(fetchOptions, 300);
+    return () => clearTimeout(handler);
+  }, [search]);
+
+  const displayValue = open ? search : (value ? (options.find(o => o.id === value)?.label || initialLabel || search) : "");
 
   return (
     <div className="relative w-full" ref={wrapperRef}>
@@ -57,28 +68,25 @@ function SearchableSelect({ options, value, onChange, placeholder }: { options: 
       />
       {open && (
         <div className="absolute z-10 w-[250px] mt-1 bg-white border border-slate-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
-          {filteredOptions.length === 0 ? (
-            <div className="p-2 text-xs text-slate-500 text-center">Tidak ditemukan</div>
+          {options.length === 0 ? (
+            <div className="p-2 text-xs text-slate-500 text-center">
+              {search.trim() ? "Tidak ditemukan" : "Ketik untuk mencari..."}
+            </div>
           ) : (
             <>
-              {filteredOptions.slice(0, 50).map(opt => (
+              {options.map(opt => (
                 <div
                   key={opt.id}
                   className="p-2 text-xs hover:bg-slate-50 cursor-pointer"
                   onClick={() => {
                     onChange(opt.id);
+                    setSearch(opt.label);
                     setOpen(false);
-                    setSearch("");
                   }}
                 >
                   {opt.label}
                 </div>
               ))}
-              {filteredOptions.length > 50 && (
-                <div className="p-2 text-xs text-slate-400 text-center border-t border-slate-100 bg-slate-50 italic">
-                  + {filteredOptions.length - 50} hasil lainnya
-                </div>
-              )}
             </>
           )}
         </div>
@@ -172,7 +180,7 @@ export default function AdsReportPage() {
     );
   }).sort((a, b) => new Date(b.tanggal || '1970-01-01').getTime() - new Date(a.tanggal || '1970-01-01').getTime());
 
-  const creatorOptions = creators.map(c => ({ id: c.id, label: `@${c.username}` }));
+  // const creatorOptions = creators.map(c => ({ id: c.id, label: `@${c.username}` }));
 
   return (
     <div className="space-y-6">
@@ -255,8 +263,8 @@ export default function AdsReportPage() {
                       <TableCell>
                         {isEditing ? (
                           <SearchableSelect 
-                            options={creatorOptions}
                             value={editCreatorId}
+                            initialLabel={creator ? `@${creator.username}` : ''}
                             onChange={(val) => setEditCreatorId(val)}
                             placeholder="Cari Username..."
                           />
