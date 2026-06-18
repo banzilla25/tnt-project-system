@@ -91,11 +91,13 @@ export async function uploadOrganik(jsonData: any[]) {
         contentUid = row['Content ID']?.toString() || '';
         tanggal = row['Time Created'] ? new Date(row['Time Created']).toISOString() : new Date().toISOString();
         contentType = row['Content Type'] || 'Video';
-        orderId = row['Order ID']?.toString() || '';
+        let orderIdRaw = row['Order ID']?.toString() || '';
         const skuIdStr = row['SKU ID']?.toString() || '';
-        if (skuIdStr) {
-          orderId = `${orderId}_${skuIdStr}`;
-        }
+        const creatorStr = creatorUsername || '';
+        const prodIdStr = rawProductId || '';
+        
+        // Super Composite Key: Order ID + SKU ID + Creator + Product ID
+        orderId = `${orderIdRaw}_${skuIdStr}_${creatorStr}_${prodIdStr}`;
         orderStatus = row['Order settlement status'] || '';
       } else {
         // Awareness Format
