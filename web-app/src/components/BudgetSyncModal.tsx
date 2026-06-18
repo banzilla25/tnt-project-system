@@ -112,37 +112,43 @@ export function BudgetSyncModal({ campaignId: initialCampaignId, onComplete }: {
       if (u) ccMap.set(u, cc);
     });
 
-    for (let i = 0; i < preview.length; i++) {
-      const row = preview[i];
-      setCommitStatus(`Memproses ${row.username} (${i + 1}/${preview.length})`);
-      setCommitProgress(Math.round(((i + 1) / preview.length) * 100));
+    // Process in chunks of 50 to speed up significantly
+    const CHUNK_SIZE = 50;
+    
+    for (let i = 0; i < preview.length; i += CHUNK_SIZE) {
+      const chunk = preview.slice(i, i + CHUNK_SIZE);
+      
+      setCommitStatus(`Memproses ${i + 1} - ${Math.min(i + CHUNK_SIZE, preview.length)} dari ${preview.length}`);
+      setCommitProgress(Math.round(((i + CHUNK_SIZE) / preview.length) * 100));
 
-      const cc = ccMap.get(row.username.toLowerCase());
-      if (!cc) {
-        notFound++;
-        continue;
-      }
-
-      try {
-        const updateData: any = {};
-        if (row.ratecard !== null) updateData.price = row.ratecard;
-        if (row.pelunasan !== null) updateData.nominal_pelunasan = row.pelunasan;
-        if (row.status_bayar) updateData.status_bayar = row.status_bayar;
-        if (row.tgl_pembayaran) updateData.tgl_pembayaran = row.tgl_pembayaran;
-
-        const { error } = await supabase
-          .from('campaign_creators')
-          .update(updateData)
-          .eq('id', cc.id);
-
-        if (error) {
-          errorCount++;
-        } else {
-          updated++;
+      await Promise.all(chunk.map(async (row) => {
+        const cc = ccMap.get(row.username.toLowerCase());
+        if (!cc) {
+          notFound++;
+          return;
         }
-      } catch {
-        errorCount++;
-      }
+
+        try {
+          const updateData: any = {};
+          if (row.ratecard !== null) updateData.price = row.ratecard;
+          if (row.pelunasan !== null) updateData.nominal_pelunasan = row.pelunasan;
+          if (row.status_bayar) updateData.status_bayar = row.status_bayar;
+          if (row.tgl_pembayaran) updateData.tgl_pembayaran = row.tgl_pembayaran;
+
+          const { error } = await supabase
+            .from('campaign_creators')
+            .update(updateData)
+            .eq('id', cc.id);
+
+          if (error) {
+            errorCount++;
+          } else {
+            updated++;
+          }
+        } catch {
+          errorCount++;
+        }
+      }));
     }
 
     setResultStats({ updated, notFound, errors: errorCount });
