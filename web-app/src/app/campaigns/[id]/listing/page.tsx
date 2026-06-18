@@ -173,8 +173,15 @@ function CampaignListingContent() {
       const { data } = await supabase.from('creators')
         .select('id, username')
         .ilike('username', fuzzyPattern)
-        .limit(10);
-      setFilteredCreators(data || []);
+        .limit(30);
+      
+      if (data) {
+        // Sort locally by length to bring the closest match to the top
+        const sorted = data.sort((a, b) => a.username.length - b.username.length).slice(0, 10);
+        setFilteredCreators(sorted);
+      } else {
+        setFilteredCreators([]);
+      }
     };
     const handler = setTimeout(searchAvailable, 300);
     return () => clearTimeout(handler);

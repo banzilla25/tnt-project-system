@@ -42,10 +42,12 @@ export function UsernameAutocomplete({
       const { data } = await supabase.from('creators')
         .select('username')
         .ilike('username', fuzzyPattern)
-        .limit(5);
+        .limit(20);
         
       if (data) {
-        setResults(data.map(d => d.username));
+        // Sort locally by length so exact/shortest match floats to the top
+        const sorted = data.map(d => d.username).sort((a, b) => a.length - b.length).slice(0, 5);
+        setResults(sorted);
       }
     };
 
