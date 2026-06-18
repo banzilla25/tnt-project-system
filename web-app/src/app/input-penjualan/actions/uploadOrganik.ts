@@ -92,6 +92,10 @@ export async function uploadOrganik(jsonData: any[]) {
         tanggal = row['Time Created'] ? new Date(row['Time Created']).toISOString() : new Date().toISOString();
         contentType = row['Content Type'] || 'Video';
         orderId = row['Order ID']?.toString() || '';
+        const skuIdStr = row['SKU ID']?.toString() || '';
+        if (skuIdStr) {
+          orderId = `${orderId}_${skuIdStr}`;
+        }
         orderStatus = row['Order settlement status'] || '';
       } else {
         // Awareness Format
