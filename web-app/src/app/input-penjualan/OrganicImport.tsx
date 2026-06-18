@@ -238,7 +238,10 @@ export default function OrganicImport() {
         contentUid = row['Content ID']?.toString() || '';
         tanggal = parseTikTokDate(row['Time Created']?.toString() || '');
         contentType = row['Content Type'] || 'Video';
-        orderId = row['Order ID']?.toString() || '';
+        // Super Composite Key sama persis dengan backend: Order ID + SKU ID + Creator + Product ID
+        const orderIdRaw = row['Order ID']?.toString() || '';
+        const skuIdStr = row['SKU ID']?.toString() || '';
+        orderId = `${orderIdRaw}_${skuIdStr}_${creatorUsername}_${rawProductId}`;
         orderStatus = row['Order settlement status'] || row['Order Status'] || '';
       } else {
         // Awareness Format
@@ -304,6 +307,17 @@ export default function OrganicImport() {
       });
     }
 
+    // ====== DEDUP ANTAR FILE ======
+    // Jika user upload beberapa file, hapus baris duplikat berdasarkan composite key (order_id)
+    const seenOrderIds = new Set<string>();
+    const dedupedPayload = payload.filter(row => {
+      if (!row.order_id) return true; // baris tanpa order_id tetap diproses
+      if (seenOrderIds.has(row.order_id)) return false; // buang duplikat
+      seenOrderIds.add(row.order_id);
+      return true;
+    });
+    const dupCount = payload.length - dedupedPayload.length;
+
     // Top 3 Creators by GMV
     const topCreators = Array.from(creatorGmvMap.entries())
       .map(([username, gmv]) => ({ username, gmv }))
@@ -320,12 +334,12 @@ export default function OrganicImport() {
       dateRangeStr = `${formatDate(minDate)} - ${formatDate(maxDate)}`;
     }
 
-    setPreviewPayload(payload);
+    setPreviewPayload(dedupedPayload);
     setStats({
       totalRows: data.length,
-      validRows: payload.length,
+      validRows: dedupedPayload.length,
       refunds: refundCount,
-      unmappedRows: unmappedRowsCount,
+      unmappedRows: unmappedRowsCount + dupCount,
       totalGmv,
       uniqueCreators: uniqueCreators.size,
       mappedSkus: mappedSkusArray,
