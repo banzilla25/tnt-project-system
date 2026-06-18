@@ -7,12 +7,14 @@ import { Button } from "@/components/ui/Button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/Dialog";
 import Link from "next/link";
 import { useState } from "react";
+import { Trash2, Archive, CheckCircle2, Activity } from "lucide-react";
 
 export default function CampaignsPage() {
   const { campaigns, brands, addCampaign, addBrand } = useDatabaseStore();
   const [isOpen, setIsOpen] = useState(false);
   const [isAddingNewBrand, setIsAddingNewBrand] = useState(false);
   const [newBrandName, setNewBrandName] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'aktif' | 'selesai' | 'arsip'>('aktif');
   const [formData, setFormData] = useState({
     nama: '',
     brand_id: '',
@@ -30,6 +32,15 @@ export default function CampaignsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Cek duplikasi nama campaign (case-insensitive)
+    const isDuplicate = campaigns.some(
+      c => c.nama.toLowerCase() === formData.nama.toLowerCase()
+    );
+    if (isDuplicate) {
+      alert(`❌ Nama campaign "${formData.nama}" sudah ada! Nama campaign harus unik (huruf besar/kecil tidak dibedakan).`);
+      return;
+    }
     
     let finalBrandId = Number(formData.brand_id);
     
@@ -112,7 +123,7 @@ export default function CampaignsPage() {
                       }
                     }}>
                       <option value="">Pilih Brand...</option>
-                      {brands.map(b => (
+                      {brands.filter(b => b.status === 'aktif').map(b => (
                         <option key={b.id} value={b.id}>{b.nama}</option>
                       ))}
                       <option value="new" className="font-bold text-blue-600">+ Tambah Brand Baru</option>
@@ -186,8 +197,34 @@ export default function CampaignsPage() {
         </Dialog>
       </div>
 
+      {/* Filter Tabs */}
+      <div className="flex items-center gap-2 border-b border-slate-200 pb-0">
+        {([
+          { key: 'aktif', label: 'Aktif', icon: <Activity className="w-3.5 h-3.5" /> },
+          { key: 'selesai', label: 'Selesai', icon: <CheckCircle2 className="w-3.5 h-3.5" /> },
+          { key: 'arsip', label: 'Arsip', icon: <Archive className="w-3.5 h-3.5" /> },
+        ] as const).map(tab => (
+          <button
+            key={tab.key}
+            onClick={() => setStatusFilter(tab.key)}
+            className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors ${
+              statusFilter === tab.key
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            {tab.icon} {tab.label}
+            <span className={`ml-1 text-xs px-1.5 py-0.5 rounded-full ${
+              statusFilter === tab.key ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-500'
+            }`}>
+              {campaigns.filter(c => c.status === tab.key).length}
+            </span>
+          </button>
+        ))}
+      </div>
+
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {campaigns.map(campaign => {
+        {campaigns.filter(c => c.status === statusFilter).map(campaign => {
           const brand = brands.find(b => b.id === campaign.brand_id);
           return <CampaignCardItem key={campaign.id} campaign={campaign} brand={brand} />;
         })}
@@ -197,9 +234,10 @@ export default function CampaignsPage() {
 }
 
 function CampaignCardItem({ campaign, brand }: { campaign: any, brand: any }) {
-  const { updateCampaign } = useDatabaseStore();
+  const { updateCampaign, deleteCampaign, campaigns } = useDatabaseStore();
   const [isExpanded, setIsExpanded] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [formData, setFormData] = useState({
     nama: campaign.nama,
     tipe_campaign: campaign.tipe_campaign,
@@ -218,6 +256,16 @@ function CampaignCardItem({ campaign, brand }: { campaign: any, brand: any }) {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
+
+    // Cek duplikasi nama (case-insensitive), kecuali nama campaign sendiri
+    const isDuplicate = campaigns.some(
+      c => c.id !== campaign.id && c.nama.toLowerCase() === formData.nama.toLowerCase()
+    );
+    if (isDuplicate) {
+      alert(`❌ Nama campaign "${formData.nama}" sudah dipakai campaign lain!`);
+      setSaving(false);
+      return;
+    }
     await updateCampaign(campaign.id, {
       nama: formData.nama,
       tipe_campaign: formData.tipe_campaign as any,
@@ -234,6 +282,20 @@ function CampaignCardItem({ campaign, brand }: { campaign: any, brand: any }) {
     });
     setSaving(false);
     setIsExpanded(false);
+  };
+
+  const handleDelete = async () => {
+    const step1 = confirm(`⚠️ Anda yakin ingin MENGHAPUS campaign "${campaign.nama}"?\n\nSEMUA data terkait akan ikut terhapus:\n• Daftar kreator di campaign ini\n• Data video & VT\n• Data performa & GMV\n• Data sampel & alamat pengiriman\n• Jadwal Live\n• Data keuangan (Rate Card & Pelunasan)\n\nAksi ini TIDAK BISA dibatalkan!`);
+    if (!step1) return;
+    const step2 = confirm(`🚨 KONFIRMASI AKHIR\n\nKetuk OK untuk benar-benar menghapus "${campaign.nama}" beserta seluruh datanya secara permanen.`);
+    if (!step2) return;
+    setIsDeleting(true);
+    try {
+      await deleteCampaign(campaign.id);
+    } catch (err: any) {
+      alert('Gagal menghapus campaign. Mungkin ada data yang masih terkait di database.');
+      setIsDeleting(false);
+    }
   };
 
   return (
@@ -325,6 +387,7 @@ function CampaignCardItem({ campaign, brand }: { campaign: any, brand: any }) {
                   <select required className="w-full p-2 text-sm border rounded" value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})}>
                     <option value="aktif">Aktif</option>
                     <option value="selesai">Selesai</option>
+                    <option value="arsip">Arsip</option>
                   </select>
                 </div>
                 <div className="space-y-2">
@@ -385,6 +448,20 @@ function CampaignCardItem({ campaign, brand }: { campaign: any, brand: any }) {
                 {saving ? 'Menyimpan...' : 'Simpan Pengaturan'}
               </Button>
             </form>
+
+            {/* Danger Zone */}
+            <div className="mt-4 pt-4 border-t border-red-100">
+              <p className="text-xs text-red-500 font-semibold mb-2 uppercase tracking-wide">⚠️ Zona Berbahaya</p>
+              <button
+                onClick={handleDelete}
+                disabled={isDeleting}
+                className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-semibold text-red-600 border border-red-300 rounded-md hover:bg-red-50 disabled:opacity-50 transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+                {isDeleting ? 'Menghapus...' : 'Hapus Campaign Ini'}
+              </button>
+              <p className="text-xs text-slate-400 mt-1 text-center">Hapus campaign beserta SEMUA data terkait secara permanen</p>
+            </div>
           </div>
         )}
       </div>

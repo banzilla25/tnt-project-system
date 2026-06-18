@@ -23,6 +23,7 @@ type DatabaseState = DatabaseSchema & {
   // Actions for Campaigns
   addCampaign: (campaign: Omit<DatabaseSchema['campaigns'][0], 'id' | 'created_at'>) => Promise<DatabaseSchema['campaigns'][0] | null>;
   updateCampaign: (id: number, updates: Partial<DatabaseSchema['campaigns'][0]>) => Promise<void>;
+  deleteCampaign: (id: number) => Promise<void>;
   
   // Actions for Campaign Listing
   addCampaignCreator: (cc: Omit<CampaignCreator, 'id' | 'created_at'>) => Promise<void>;
@@ -351,6 +352,18 @@ export const useDatabaseStore = create<DatabaseState>((set, get) => ({
       set((state) => ({
         campaigns: state.campaigns.map(c => c.id === id ? { ...c, ...updates } : c)
       }));
+    }
+  },
+
+  deleteCampaign: async (id) => {
+    const { error } = await supabase.from('campaigns').delete().eq('id', id);
+    if (!error) {
+      set((state) => ({
+        campaigns: state.campaigns.filter(c => c.id !== id),
+        vw_campaign_summary: state.vw_campaign_summary.filter(c => c.campaign_id !== id)
+      }));
+    } else {
+      throw error;
     }
   },
 
