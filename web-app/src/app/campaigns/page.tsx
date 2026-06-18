@@ -261,10 +261,40 @@ function CampaignCardItem({ campaign, brand }: { campaign: any, brand: any }) {
                 {new Date(campaign.start_date).toLocaleDateString('id-ID', { month: 'short', day: 'numeric' })} - {new Date(campaign.end_date).toLocaleDateString('id-ID', { month: 'short', day: 'numeric' })}
               </span>
             </div>
-            {campaign.target_gmv && (
+            {Number(campaign.target_gmv) > 0 && (
               <div className="flex justify-between text-sm">
                 <span className="text-slate-500">Target GMV</span>
-                <span className="font-bold text-slate-900">Rp {campaign.target_gmv.toLocaleString()}</span>
+                <span className="font-bold text-slate-900">Rp {Number(campaign.target_gmv).toLocaleString()}</span>
+              </div>
+            )}
+            {Number(campaign.target_video) > 0 && (
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-500">Target Video</span>
+                <span className="font-bold text-slate-900">{Number(campaign.target_video).toLocaleString()} Pcs</span>
+              </div>
+            )}
+            {Number(campaign.target_creator) > 0 && (
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-500">Target Kreator</span>
+                <span className="font-bold text-slate-900">{Number(campaign.target_creator).toLocaleString()} Org</span>
+              </div>
+            )}
+            {Number(campaign.target_views) > 0 && (
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-500">Target Views</span>
+                <span className="font-bold text-slate-900">{Number(campaign.target_views).toLocaleString()}</span>
+              </div>
+            )}
+            {Number(campaign.budget_creator_plafon) > 0 && (
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-500">Budget Creator</span>
+                <span className="font-bold text-slate-900">Rp {Number(campaign.budget_creator_plafon).toLocaleString()}</span>
+              </div>
+            )}
+            {Number(campaign.budget_ads_plafon) > 0 && (
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-500">Budget Ads</span>
+                <span className="font-bold text-slate-900">Rp {Number(campaign.budget_ads_plafon).toLocaleString()}</span>
               </div>
             )}
           </div>
