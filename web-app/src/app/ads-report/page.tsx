@@ -109,7 +109,7 @@ export default function AdsReportPage() {
   useEffect(() => {
     const fetchAds = async () => {
       setIsLoading(true);
-      const { data } = await supabase.from('ads_performance').select('*').order('tanggal', { ascending: false }).limit(2000);
+      const { data } = await supabase.from('ads_performance').select('*, creators(username)').order('tanggal', { ascending: false }).limit(2000);
       if (data) setAdsPerformance(data);
       setIsLoading(false);
     };
@@ -142,6 +142,12 @@ export default function AdsReportPage() {
     const cId = editCampaignId === '' ? null : Number(editCampaignId);
     const crId = editCreatorId === '' ? null : Number(editCreatorId);
 
+    let newUsername = null;
+    if (crId) {
+      const { data: creatorData } = await supabase.from('creators').select('username').eq('id', crId).single();
+      if (creatorData) newUsername = creatorData.username;
+    }
+
     const { error } = await supabase.from('ads_performance').update({
       campaign_id: cId,
       creator_id: crId,
@@ -149,7 +155,13 @@ export default function AdsReportPage() {
     }).eq('id', id);
 
     if (!error) {
-      setAdsPerformance(prev => prev.map(ad => ad.id === id ? { ...ad, campaign_id: cId, creator_id: crId, kurs: numKurs } : ad));
+      setAdsPerformance(prev => prev.map(ad => ad.id === id ? { 
+        ...ad, 
+        campaign_id: cId, 
+        creator_id: crId, 
+        kurs: numKurs,
+        creators: newUsername ? { username: newUsername } : null
+      } : ad));
       cancelEdit();
     } else {
       alert("Gagal menyimpan: " + error.message);
@@ -232,7 +244,7 @@ export default function AdsReportPage() {
               <TableBody>
                 {filteredAds.slice(0, 100).map((ad) => {
                   const isEditing = editingId === ad.id;
-                  const creator = creators.find(c => c.id === ad.creator_id);
+                  const creatorUsername = ad.creators?.username;
                   const campaign = campaigns.find(c => c.id === ad.campaign_id);
 
                   return (
@@ -264,12 +276,12 @@ export default function AdsReportPage() {
                         {isEditing ? (
                           <SearchableSelect 
                             value={editCreatorId}
-                            initialLabel={creator ? `@${creator.username}` : ''}
+                            initialLabel={creatorUsername ? `@${creatorUsername}` : ''}
                             onChange={(val) => setEditCreatorId(val)}
                             placeholder="Cari Username..."
                           />
                         ) : (
-                          <span className="text-xs font-medium text-indigo-600">{creator ? `@${creator.username}` : <span className="text-amber-500 italic">Unmapped</span>}</span>
+                          <span className="text-xs font-medium text-indigo-600">{creatorUsername ? `@${creatorUsername}` : <span className="text-amber-500 italic">Unmapped</span>}</span>
                         )}
                       </TableCell>
 
