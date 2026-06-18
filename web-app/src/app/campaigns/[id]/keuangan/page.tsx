@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useDatabaseStore } from "@/store/useDatabaseStore";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/Table";
 import { Button } from "@/components/ui/Button";
-import { Loader2, Save } from "lucide-react";
+import { Loader2, Save, Search } from "lucide-react";
 import { useParams } from "next/navigation";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { createClient } from "@/utils/supabase/client";
@@ -32,6 +32,8 @@ function CampaignKeuanganContent() {
 
   // Form states per creator mapping
   const [editForms, setEditForms] = useState<Record<number, { price: string; nominal_pelunasan: string; status_bayar: string; tgl_pembayaran: string }>>({});
+  
+  const [searchQuery, setSearchQuery] = useState('');
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -130,6 +132,11 @@ function CampaignKeuanganContent() {
   const totalPelunasan = creators.reduce((sum, c) => sum + (Number(c.nominal_pelunasan) || 0), 0);
   const sisaBelumTerbayar = totalRatecard - totalPelunasan;
 
+  const filteredCreators = creators.filter(cc => {
+    if (!searchQuery) return true;
+    return cc.creators?.username?.toLowerCase().includes(searchQuery.toLowerCase());
+  });
+
   return (
     <div className="space-y-6 pb-20">
       
@@ -173,8 +180,18 @@ function CampaignKeuanganContent() {
 
       {/* Tabel Detail Keuangan */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+        <div className="p-4 border-b border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center bg-slate-50 gap-4">
           <h3 className="font-semibold text-slate-800">Detail Pembayaran per Kreator</h3>
+          <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-md px-3 py-1.5 focus-within:ring-2 focus-within:ring-blue-500 w-full md:w-72">
+            <Search className="w-4 h-4 text-slate-400" />
+            <input 
+              type="text"
+              placeholder="Cari berdasarkan Username..."
+              className="w-full text-sm outline-none bg-transparent"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+            />
+          </div>
         </div>
         
         <div className="overflow-x-auto">
@@ -197,14 +214,14 @@ function CampaignKeuanganContent() {
                     <Loader2 className="w-6 h-6 animate-spin mx-auto text-slate-400" />
                   </TableCell>
                 </TableRow>
-              ) : creators.length === 0 ? (
+              ) : filteredCreators.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="h-32 text-center text-slate-500">
-                    Belum ada kreator yang di-Approve.
+                    {creators.length === 0 ? 'Belum ada kreator yang di-Approve.' : 'Tidak ditemukan kreator dengan username tersebut.'}
                   </TableCell>
                 </TableRow>
               ) : (
-                creators.map((cc, idx) => {
+                filteredCreators.map((cc, idx) => {
                   const form = editForms[cc.id];
                   if (!form) return null;
                   
