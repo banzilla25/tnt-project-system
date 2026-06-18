@@ -120,6 +120,7 @@ export function CreatorSyncModal({ onComplete }: { onComplete?: () => void }) {
       const chunkArray = (arr: any[], size: number) => Array.from({ length: Math.ceil(arr.length / size) }, (v, i) => arr.slice(i * size, i * size + size));
       const chunks = chunkArray(uniquePreview, 50);
 
+      let processedCount = 0;
       for (let c = 0; c < chunks.length; c++) {
         setCommitStatus(`Memproses gerbong ${c + 1} dari ${chunks.length}...`);
         
@@ -199,7 +200,14 @@ export function CreatorSyncModal({ onComplete }: { onComplete?: () => void }) {
           }
         }));
         
-        setCommitProgress(((c + 1) / chunks.length) * 100);
+        processedCount += chunks[c].length;
+        // Kita set commitProgress dengan jumlah baris yang sudah diproses agar UI percentage calculation (commitProgress / preview.length) bekerja dengan benar.
+        // Jika ada baris duplikat yang di-skip, progress bisa loncat langsung selesai di akhir, jadi kita pastikan di c terakhir mencapai preview.length.
+        if (c === chunks.length - 1) {
+           setCommitProgress(preview.length);
+        } else {
+           setCommitProgress(Math.floor((processedCount / uniquePreview.length) * preview.length));
+        }
       };
 
       setStep(4);
