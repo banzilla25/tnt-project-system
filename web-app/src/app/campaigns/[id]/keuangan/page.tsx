@@ -230,13 +230,19 @@ function CampaignKeuanganContent() {
                       </TableCell>
                       <TableCell>
                         <select 
-                          className="w-full p-2 border rounded text-sm bg-white"
+                          className={`w-full p-2 border rounded text-sm font-semibold ${
+                            form.status_bayar === 'lunas' ? 'bg-green-100 text-green-800 border-green-300' :
+                            form.status_bayar === 'sebagian' ? 'bg-yellow-100 text-yellow-800 border-yellow-300' :
+                            form.status_bayar === 'no_payment' ? 'bg-slate-800 text-white border-slate-700' :
+                            'bg-red-50 text-red-700 border-red-200'
+                          }`}
                           value={form.status_bayar}
                           onChange={e => handleFormChange(cc.id, 'status_bayar', e.target.value)}
                         >
-                          <option value="belum">Belum Dibayar</option>
-                          <option value="sebagian">Bayar Sebagian</option>
-                          <option value="lunas">Lunas</option>
+                          <option value="belum">Not Yet</option>
+                          <option value="sebagian">Half Paid</option>
+                          <option value="lunas">Paid Off</option>
+                          <option value="no_payment">No Payment</option>
                         </select>
                       </TableCell>
                       <TableCell>
