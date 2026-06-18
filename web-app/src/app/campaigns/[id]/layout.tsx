@@ -19,7 +19,7 @@ export default function CampaignLayout({ children }: { children: React.ReactNode
   const campaign = campaigns.find(c => c.id === campaignId);
   const brand = brands.find(b => b.id === campaign?.brand_id);
 
-  if (!campaign) return <div className="p-8">Campaign tidak ditemukan.</div>;
+
 
   const tabs = [
     { name: 'Listing & Seleksi', href: `/campaigns/${campaignId}/listing`, disabled: false },
@@ -32,7 +32,7 @@ export default function CampaignLayout({ children }: { children: React.ReactNode
     { name: 'SKU', href: `/campaigns/${campaignId}/sku`, disabled: false },
   ];
 
-  const portalLink = typeof window !== 'undefined' ? `${window.location.origin}/portal/${campaign.id}` : `/portal/${campaign.id}`;
+  const portalLink = typeof window !== 'undefined' ? `${window.location.origin}/portal/${campaign?.id || campaignId}` : `/portal/${campaign?.id || campaignId}`;
   
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [formData, setFormData] = useState({
@@ -53,10 +53,10 @@ export default function CampaignLayout({ children }: { children: React.ReactNode
   useEffect(() => {
     if (campaign && isSettingsOpen) {
       setFormData({
-        nama: campaign.nama,
-        tipe_campaign: campaign.tipe_campaign,
-        start_date: campaign.start_date,
-        end_date: campaign.end_date,
+        nama: campaign.nama || '',
+        tipe_campaign: campaign.tipe_campaign || 'sales',
+        start_date: campaign.start_date || '',
+        end_date: campaign.end_date || '',
         target_gmv: campaign.target_gmv?.toString() || '',
         target_video: campaign.target_video?.toString() || '',
         target_creator: campaign.target_creator?.toString() || '',
@@ -87,6 +87,8 @@ export default function CampaignLayout({ children }: { children: React.ReactNode
     });
     setIsSettingsOpen(false);
   };
+
+  if (!campaign) return <div className="p-8">Campaign tidak ditemukan.</div>;
 
   return (
     <div className="space-y-6">
