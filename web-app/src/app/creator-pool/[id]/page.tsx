@@ -322,6 +322,8 @@ export default function CreatorProfilePage() {
       sample_progress: null,
       gmv_organic_legacy: null,
       gmv_ads_legacy: null,
+      nominal_pelunasan: 0,
+      tgl_pembayaran: null,
       client_approval: 'pending'
     });
     setCampOpen(false);
@@ -730,6 +732,8 @@ export default function CreatorProfilePage() {
                       <TableHead className="cursor-pointer hover:bg-slate-50 transition-colors select-none" onClick={() => handleSort('campaign_name')}>Campaign <ArrowUpDown className="w-3 h-3 inline ml-1"/></TableHead>
                       <TableHead>Kerjasama</TableHead>
                       <TableHead className="cursor-pointer hover:bg-slate-50 transition-colors select-none" onClick={() => handleSort('price')}>Rate/Price <ArrowUpDown className="w-3 h-3 inline ml-1"/></TableHead>
+                      <TableHead className="text-right">Pelunasan</TableHead>
+                      <TableHead>Status Bayar</TableHead>
                       <TableHead className="text-center">Total VT</TableHead>
                       <TableHead className="text-right cursor-pointer hover:bg-slate-50 transition-colors select-none" onClick={() => handleSort('gmv')}>Total GMV Campaign <ArrowUpDown className="w-3 h-3 inline ml-1"/></TableHead>
                       <TableHead className="text-right cursor-pointer hover:bg-slate-50 transition-colors select-none" onClick={() => handleSort('highestVideoGmv')}>GMV Video Tertinggi <ArrowUpDown className="w-3 h-3 inline ml-1"/></TableHead>
@@ -757,6 +761,14 @@ export default function CreatorProfilePage() {
                           </TableCell>
                           <TableCell className="capitalize">{tr.jenis_kerjasama}</TableCell>
                           <TableCell>Rp {tr.price.toLocaleString()}</TableCell>
+                          <TableCell className="text-right font-medium text-slate-700">
+                            {tr.nominal_pelunasan ? `Rp ${tr.nominal_pelunasan.toLocaleString()}` : '-'}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={tr.status_bayar === 'lunas' ? 'success' : tr.status_bayar === 'sebagian' ? 'warning' : 'outline'}>
+                              {tr.status_bayar === 'lunas' ? 'Lunas' : tr.status_bayar === 'sebagian' ? 'Sebagian' : 'Belum'}
+                            </Badge>
+                          </TableCell>
                           <TableCell className="text-center font-medium">
                             {localData?.videos?.filter((v: any) => v.campaign_creator_id === tr.id).length || 0}
                           </TableCell>
@@ -774,7 +786,7 @@ export default function CreatorProfilePage() {
                         </TableRow>
                         {hasDetails && isExpanded && (
                           <TableRow>
-                            <TableCell colSpan={7} className="bg-slate-50/50 p-4 border-b-2 border-slate-200">
+                            <TableCell colSpan={9} className="bg-slate-50/50 p-4 border-b-2 border-slate-200">
                               <div className="rounded-lg border border-slate-200 overflow-hidden bg-white shadow-sm">
                                 <Table className="text-sm">
                                   <TableHeader className="bg-slate-50">

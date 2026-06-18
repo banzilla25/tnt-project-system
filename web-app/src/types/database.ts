@@ -98,6 +98,8 @@ export type CampaignCreator = {
   content_type: string | null;
   approval: 'pending' | 'approved' | 'alternate' | 'not_approved';
   status_bayar: 'belum' | 'sebagian' | 'lunas';
+  nominal_pelunasan: number | null;
+  tgl_pembayaran: string | null;
   pic_assist: string | null;
   notes_manager: string | null;
   notes_pic: string | null;

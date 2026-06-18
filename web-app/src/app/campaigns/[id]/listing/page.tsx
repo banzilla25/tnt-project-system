@@ -249,7 +249,9 @@ function CampaignListingContent() {
       gmv_organic_legacy: 0,
       gmv_ads_legacy: 0,
       status_bayar: 'belum',
-      client_approval: 'not_required'
+      nominal_pelunasan: 0,
+      tgl_pembayaran: null,
+      client_approval: isClientApprovalRequired ? 'pending' : 'not_required'
     });
     
     setIsAddModalOpen(false);

@@ -26,6 +26,7 @@ export default function CampaignLayout({ children }: { children: React.ReactNode
     { name: 'Video & VT', href: `/campaigns/${campaignId}/video`, disabled: false },
     { name: 'Performa', href: `/campaigns/${campaignId}/performa`, disabled: false },
     { name: 'Harian (Daily)', href: `/campaigns/${campaignId}/daily`, disabled: false },
+    { name: 'Keuangan', href: `/campaigns/${campaignId}/keuangan`, disabled: false },
     { name: 'Sampel & Alamat', href: `/campaigns/${campaignId}/alamat`, disabled: false },
     { name: 'Jadwal Live', href: `/campaigns/${campaignId}/live`, disabled: false },
     { name: 'SKU', href: `/campaigns/${campaignId}/sku`, disabled: false },
