@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { ChevronDown, ChevronRight, Edit2, Check, X, Loader2, Trash2, Download } from "lucide-react";
+import { ChevronDown, ChevronRight, Edit2, Check, X, Loader2, Trash2, Download, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -54,6 +54,16 @@ function CampaignListingContent() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'alternate' | 'not_approved'>('all');
   const [tableSearch, setTableSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [sortConfig, setSortConfig] = useState<{ key: string; dir: 'asc' | 'desc' }>({ key: 'id', dir: 'desc' });
+
+  const toggleSort = (key: string) => {
+    setSortConfig(prev => prev.key === key ? { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' });
+  };
+
+  const SortIcon = ({ col }: { col: string }) => {
+    if (sortConfig.key !== col) return <ArrowUpDown className="w-3 h-3 ml-1 text-slate-400" />;
+    return sortConfig.dir === 'asc' ? <ArrowUp className="w-3 h-3 ml-1 text-blue-500" /> : <ArrowDown className="w-3 h-3 ml-1 text-blue-500" />;
+  };
 
   // Data State
   const [listingData, setListingData] = useState<any[]>([]);
@@ -132,7 +142,16 @@ function CampaignListingContent() {
       // Pagination
       const from = pageNum * PAGE_SIZE;
       const to = from + PAGE_SIZE - 1;
-      query = query.order('id', { ascending: false }).range(from, to);
+      // Sorting - map UI key to actual DB column
+      const sortMap: Record<string, string> = {
+        'id': 'id',
+        'username': 'creator_id', // We'll sort by ID as proxy for username server-side
+        'price': 'price',
+        'qty_vt': 'qty_vt',
+        'approval': 'approval'
+      };
+      const dbCol = sortMap[sortConfig.key] || 'id';
+      query = query.order(dbCol, { ascending: sortConfig.dir === 'asc' }).range(from, to);
 
       const { data, error } = await query;
       if (error) throw error;
@@ -149,12 +168,12 @@ function CampaignListingContent() {
     } finally {
       setIsLoading(false);
     }
-  }, [campaignId, filterType, statusFilter, debouncedSearch]);
+  }, [campaignId, filterType, statusFilter, debouncedSearch, sortConfig]);
 
   useEffect(() => {
     setPage(0);
     fetchListing(0, true);
-  }, [debouncedSearch, filterType, statusFilter, fetchListing]);
+  }, [debouncedSearch, filterType, statusFilter, sortConfig, fetchListing]);
 
   const handleLoadMore = () => {
     const next = page + 1;
@@ -457,12 +476,28 @@ function CampaignListingContent() {
           <TableHeader className="bg-slate-50">
             <TableRow>
               <TableHead className="w-10"></TableHead>
-              <TableHead>Creator</TableHead>
+              <TableHead>
+                <button onClick={() => toggleSort('username')} className="flex items-center text-left font-semibold hover:text-blue-600 transition-colors">
+                  Creator <SortIcon col="username" />
+                </button>
+              </TableHead>
               <TableHead>Kerjasama</TableHead>
-              <TableHead>Price (Rp)</TableHead>
-              <TableHead>Qty VT SOW</TableHead>
+              <TableHead>
+                <button onClick={() => toggleSort('price')} className="flex items-center font-semibold hover:text-blue-600 transition-colors">
+                  Price (Rp) <SortIcon col="price" />
+                </button>
+              </TableHead>
+              <TableHead>
+                <button onClick={() => toggleSort('qty_vt')} className="flex items-center font-semibold hover:text-blue-600 transition-colors">
+                  Qty VT SOW <SortIcon col="qty_vt" />
+                </button>
+              </TableHead>
               <TableHead>Tipe Konten</TableHead>
-              <TableHead>Approval</TableHead>
+              <TableHead>
+                <button onClick={() => toggleSort('approval')} className="flex items-center font-semibold hover:text-blue-600 transition-colors">
+                  Approval <SortIcon col="approval" />
+                </button>
+              </TableHead>
               {isClientApprovalRequired && <TableHead>Client Status</TableHead>}
               <TableHead className="text-right">GMV Creator</TableHead>
               <TableHead className="text-right">Aksi</TableHead>

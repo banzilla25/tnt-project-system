@@ -6,7 +6,7 @@ import { useDatabaseStore } from "@/store/useDatabaseStore";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/Table";
-import { Calendar, Trash2, Plus } from "lucide-react";
+import { Calendar, Trash2, Plus, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 
 const supabase = createClient();
@@ -34,6 +34,16 @@ export default function LiveSchedulePage() {
 
   const [localCreators, setLocalCreators] = useState<any[]>([]);
   const [isFetchingCC, setIsFetchingCC] = useState(true);
+  const [sortConfig, setSortConfig] = useState<{ key: string; dir: 'asc' | 'desc' }>({ key: 'username', dir: 'asc' });
+
+  const toggleSort = (key: string) => {
+    setSortConfig(prev => prev.key === key ? { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' });
+  };
+
+  const SortIcon = ({ col }: { col: string }) => {
+    if (sortConfig.key !== col) return <ArrowUpDown className="w-3 h-3 ml-1 text-slate-400" />;
+    return sortConfig.dir === 'asc' ? <ArrowUp className="w-3 h-3 ml-1 text-blue-500" /> : <ArrowDown className="w-3 h-3 ml-1 text-blue-500" />;
+  };
 
   useEffect(() => {
     fetchLiveSchedules(campaignId);
@@ -72,12 +82,25 @@ export default function LiveSchedulePage() {
     fetchCCs();
   }, [campaignId, campaign?.require_client_approval]);
 
-  const approvedCCs = localCreators.filter(cc => {
-    if (searchQuery) {
-      if (!cc.creators?.username.toLowerCase().includes(searchQuery.toLowerCase())) return false;
-    }
-    return true;
-  });
+  const approvedCCs = localCreators
+    .filter(cc => {
+      if (searchQuery) {
+        if (!cc.creators?.username.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      const dir = sortConfig.dir === 'asc' ? 1 : -1;
+      if (sortConfig.key === 'username') {
+        return (a.creators?.username || '').localeCompare(b.creators?.username || '') * dir;
+      }
+      if (sortConfig.key === 'jadwal') {
+        const countA = live_schedules.filter(l => l.campaign_creator_id === a.id).length;
+        const countB = live_schedules.filter(l => l.campaign_creator_id === b.id).length;
+        return (countA - countB) * dir;
+      }
+      return 0;
+    });
 
   const handleAddSchedule = async (ccId: number) => {
     const date = dateInputs[ccId];
@@ -125,8 +148,16 @@ export default function LiveSchedulePage() {
             <Table>
               <TableHeader className="bg-slate-50">
                 <TableRow>
-                  <TableHead className="w-64">Kreator</TableHead>
-                  <TableHead>Jadwal Terdaftar</TableHead>
+                  <TableHead className="w-64">
+                    <button onClick={() => toggleSort('username')} className="flex items-center font-semibold hover:text-blue-600 transition-colors">
+                      Kreator <SortIcon col="username" />
+                    </button>
+                  </TableHead>
+                  <TableHead>
+                    <button onClick={() => toggleSort('jadwal')} className="flex items-center font-semibold hover:text-blue-600 transition-colors">
+                      Jadwal Terdaftar <SortIcon col="jadwal" />
+                    </button>
+                  </TableHead>
                   <TableHead className="w-64">Tambah Jadwal</TableHead>
                 </TableRow>
               </TableHeader>

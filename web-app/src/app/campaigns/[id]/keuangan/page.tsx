@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useDatabaseStore } from "@/store/useDatabaseStore";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/Table";
 import { Button } from "@/components/ui/Button";
-import { Loader2, Save, Search } from "lucide-react";
+import { Loader2, Save, Search, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
 import { useParams } from "next/navigation";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { createClient } from "@/utils/supabase/client";
@@ -34,6 +34,22 @@ function CampaignKeuanganContent() {
   const [editForms, setEditForms] = useState<Record<number, { price: string; nominal_pelunasan: string; status_bayar: string; tgl_pembayaran: string }>>({});
   
   const [searchQuery, setSearchQuery] = useState('');
+  const [sortConfig, setSortConfig] = useState<{ key: string; dir: 'asc' | 'desc' }>({ key: '', dir: 'asc' });
+
+  const toggleSort = (key: string) => {
+    setSortConfig(prev =>
+      prev.key === key
+        ? { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' }
+        : { key, dir: 'asc' }
+    );
+  };
+
+  const SortIcon = ({ col }: { col: string }) => {
+    if (sortConfig.key !== col) return <ArrowUpDown className="w-3.5 h-3.5 ml-1 inline text-slate-400" />;
+    return sortConfig.dir === 'asc'
+      ? <ArrowUp className="w-3.5 h-3.5 ml-1 inline text-blue-600" />
+      : <ArrowDown className="w-3.5 h-3.5 ml-1 inline text-blue-600" />;
+  };
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -137,6 +153,28 @@ function CampaignKeuanganContent() {
     return cc.creators?.username?.toLowerCase().includes(searchQuery.toLowerCase());
   });
 
+  const sortedCreators = [...filteredCreators].sort((a, b) => {
+    if (!sortConfig.key) return 0;
+    let valA: string | number;
+    let valB: string | number;
+    if (sortConfig.key === 'username') {
+      valA = a.creators?.username ?? '';
+      valB = b.creators?.username ?? '';
+      return sortConfig.dir === 'asc'
+        ? String(valA).localeCompare(String(valB))
+        : String(valB).localeCompare(String(valA));
+    } else if (sortConfig.key === 'price') {
+      valA = Number(a.price) || 0;
+      valB = Number(b.price) || 0;
+    } else if (sortConfig.key === 'pelunasan') {
+      valA = Number(a.nominal_pelunasan) || 0;
+      valB = Number(b.nominal_pelunasan) || 0;
+    } else {
+      return 0;
+    }
+    return sortConfig.dir === 'asc' ? (valA as number) - (valB as number) : (valB as number) - (valA as number);
+  });
+
   return (
     <div className="space-y-6 pb-20">
       
@@ -199,9 +237,30 @@ function CampaignKeuanganContent() {
             <TableHeader>
               <TableRow>
                 <TableHead className="w-12 text-center">No</TableHead>
-                <TableHead>Username ID</TableHead>
-                <TableHead className="text-right">Total Rate Card</TableHead>
-                <TableHead className="w-48">Pelunasan</TableHead>
+                <TableHead>
+                  <button
+                    onClick={() => toggleSort('username')}
+                    className="flex items-center gap-0.5 hover:text-blue-600 transition-colors font-semibold"
+                  >
+                    Username ID<SortIcon col="username" />
+                  </button>
+                </TableHead>
+                <TableHead className="text-right">
+                  <button
+                    onClick={() => toggleSort('price')}
+                    className="flex items-center gap-0.5 hover:text-blue-600 transition-colors font-semibold ml-auto"
+                  >
+                    Total Rate Card<SortIcon col="price" />
+                  </button>
+                </TableHead>
+                <TableHead className="w-48">
+                  <button
+                    onClick={() => toggleSort('pelunasan')}
+                    className="flex items-center gap-0.5 hover:text-blue-600 transition-colors font-semibold"
+                  >
+                    Pelunasan<SortIcon col="pelunasan" />
+                  </button>
+                </TableHead>
                 <TableHead className="w-40">Status Bayar</TableHead>
                 <TableHead className="w-40">Tgl Pembayaran</TableHead>
                 <TableHead className="w-24 text-center">Aksi</TableHead>
@@ -221,7 +280,7 @@ function CampaignKeuanganContent() {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredCreators.map((cc, idx) => {
+                sortedCreators.map((cc, idx) => {
                   const form = editForms[cc.id];
                   if (!form) return null;
                   

@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/Table";
 import { CreatorAddress } from "@/types/database";
 import { createClient } from "@/utils/supabase/client";
-import { Download } from "lucide-react";
+import { Download, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
 import { exportToCSV } from "@/utils/exportCsv";
 
 
@@ -39,6 +39,16 @@ export default function AlamatPage() {
 
   const [localCreators, setLocalCreators] = useState<any[]>([]);
   const [isFetchingCC, setIsFetchingCC] = useState(true);
+  const [sortConfig, setSortConfig] = useState<{ key: string; dir: 'asc' | 'desc' }>({ key: 'username', dir: 'asc' });
+
+  const toggleSort = (key: string) => {
+    setSortConfig(prev => prev.key === key ? { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' });
+  };
+
+  const SortIcon = ({ col }: { col: string }) => {
+    if (sortConfig.key !== col) return <ArrowUpDown className="w-3 h-3 ml-1 text-slate-400" />;
+    return sortConfig.dir === 'asc' ? <ArrowUp className="w-3 h-3 ml-1 text-blue-500" /> : <ArrowDown className="w-3 h-3 ml-1 text-blue-500" />;
+  };
 
   // Address Book state
   const [addressBook, setAddressBook] = useState<any[]>([]);
@@ -81,12 +91,25 @@ export default function AlamatPage() {
     fetchCCs();
   }, [campaignId, campaign?.require_client_approval]);
 
-  const approvedCCs = localCreators.filter(cc => {
-    if (searchQuery) {
-      if (!cc.creators?.username.toLowerCase().includes(searchQuery.toLowerCase())) return false;
-    }
-    return true;
-  });
+  const approvedCCs = localCreators
+    .filter(cc => {
+      if (searchQuery) {
+        if (!cc.creators?.username.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      const dir = sortConfig.dir === 'asc' ? 1 : -1;
+      if (sortConfig.key === 'username') {
+        return (a.creators?.username || '').localeCompare(b.creators?.username || '') * dir;
+      }
+      if (sortConfig.key === 'status') {
+        const addrA = creator_addresses.find(x => x.campaign_creator_id === a.id)?.proses || '';
+        const addrB = creator_addresses.find(x => x.campaign_creator_id === b.id)?.proses || '';
+        return addrA.localeCompare(addrB) * dir;
+      }
+      return 0;
+    });
 
   const handleExport = () => {
     const exportData = approvedCCs.map(cc => {
@@ -220,10 +243,18 @@ export default function AlamatPage() {
             <Table>
               <TableHeader className="bg-slate-50">
                 <TableRow>
-                  <TableHead className="w-48">Kreator</TableHead>
+                  <TableHead className="w-48">
+                    <button onClick={() => toggleSort('username')} className="flex items-center font-semibold hover:text-blue-600 transition-colors">
+                      Kreator <SortIcon col="username" />
+                    </button>
+                  </TableHead>
                   <TableHead>Alamat Lengkap</TableHead>
                   <TableHead className="w-32">Resi</TableHead>
-                  <TableHead className="w-32">Status</TableHead>
+                  <TableHead className="w-32">
+                    <button onClick={() => toggleSort('status')} className="flex items-center font-semibold hover:text-blue-600 transition-colors">
+                      Status <SortIcon col="status" />
+                    </button>
+                  </TableHead>
                   <TableHead className="w-24 text-right">Aksi</TableHead>
                 </TableRow>
               </TableHeader>
