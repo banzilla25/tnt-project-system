@@ -16,6 +16,7 @@ export type Campaign = {
   target_gmv: number | null;
   target_video: number | null;
   target_creator: number | null;
+  target_views: number | null;
   budget_creator_plafon: number;
   budget_ads_plafon: number;
   vsa_gmv_max: number | null;

@@ -22,6 +22,7 @@ export default function CampaignsPage() {
     target_gmv: '',
     target_video: '',
     target_creator: '',
+    target_views: '',
     budget_creator_plafon: '',
     budget_ads_plafon: '',
     require_client_approval: false
@@ -57,6 +58,7 @@ export default function CampaignsPage() {
       target_gmv: formData.target_gmv ? Number(formData.target_gmv) : null,
       target_video: formData.target_video ? Number(formData.target_video) : null,
       target_creator: formData.target_creator ? Number(formData.target_creator) : null,
+      target_views: formData.target_views ? Number(formData.target_views) : null,
       budget_creator_plafon: Number(formData.budget_creator_plafon || 0),
       budget_ads_plafon: Number(formData.budget_ads_plafon || 0),
       require_client_approval: formData.require_client_approval,
@@ -73,7 +75,7 @@ export default function CampaignsPage() {
     setNewBrandName('');
     setFormData({
       nama: '', brand_id: '', tipe_campaign: 'sales', start_date: '', end_date: '',
-      target_gmv: '', target_video: '', target_creator: '', budget_creator_plafon: '', budget_ads_plafon: '', require_client_approval: false
+      target_gmv: '', target_video: '', target_creator: '', target_views: '', budget_creator_plafon: '', budget_ads_plafon: '', require_client_approval: false
     });
   };
 
@@ -158,6 +160,14 @@ export default function CampaignsPage() {
                     <input type="number" min="0" className="w-full p-2 border rounded" value={formData.target_video} onChange={e => setFormData({...formData, target_video: e.target.value})} placeholder="Opsional" />
                   </div>
                   <div className="space-y-2">
+                    <label className="text-sm font-medium">Target Kreator (Orang)</label>
+                    <input type="number" min="0" className="w-full p-2 border rounded" value={formData.target_creator} onChange={e => setFormData({...formData, target_creator: e.target.value})} placeholder="Opsional" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Target Views</label>
+                    <input type="number" min="0" className="w-full p-2 border rounded" value={formData.target_views} onChange={e => setFormData({...formData, target_views: e.target.value})} placeholder="Opsional" />
+                  </div>
+                  <div className="space-y-2">
                     <label className="text-sm font-medium">Budget Kreator Plafon (Rp)</label>
                     <input required type="number" min="0" className="w-full p-2 border rounded" value={formData.budget_creator_plafon} onChange={e => setFormData({...formData, budget_creator_plafon: e.target.value})} />
                   </div>
@@ -199,6 +209,7 @@ function CampaignCardItem({ campaign, brand }: { campaign: any, brand: any }) {
     target_gmv: campaign.target_gmv || '',
     target_video: campaign.target_video || '',
     target_creator: campaign.target_creator || '',
+    target_views: campaign.target_views || '',
     budget_creator_plafon: campaign.budget_creator_plafon || '',
     budget_ads_plafon: campaign.budget_ads_plafon || '',
     require_client_approval: campaign.require_client_approval || false
@@ -216,6 +227,7 @@ function CampaignCardItem({ campaign, brand }: { campaign: any, brand: any }) {
       target_gmv: formData.target_gmv ? Number(formData.target_gmv) : null,
       target_video: formData.target_video ? Number(formData.target_video) : null,
       target_creator: formData.target_creator ? Number(formData.target_creator) : null,
+      target_views: formData.target_views ? Number(formData.target_views) : null,
       budget_creator_plafon: Number(formData.budget_creator_plafon || 0),
       budget_ads_plafon: Number(formData.budget_ads_plafon || 0),
       require_client_approval: formData.require_client_approval
@@ -306,17 +318,21 @@ function CampaignCardItem({ campaign, brand }: { campaign: any, brand: any }) {
               <div className="border-t pt-3 space-y-3">
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Target & Plafon</p>
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-2">
-                    <label className="text-xs font-medium">Target GMV</label>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-500 mb-1">Target GMV (Rp)</label>
                     <input type="number" min="0" className="w-full p-2 text-sm border rounded" value={formData.target_gmv} onChange={e => setFormData({...formData, target_gmv: e.target.value})} />
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-xs font-medium">Target Video</label>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-500 mb-1">Target Video (Pcs)</label>
                     <input type="number" min="0" className="w-full p-2 text-sm border rounded" value={formData.target_video} onChange={e => setFormData({...formData, target_video: e.target.value})} />
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-xs font-medium">Target Creator</label>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-500 mb-1">Target Kreator</label>
                     <input type="number" min="0" className="w-full p-2 text-sm border rounded" value={formData.target_creator} onChange={e => setFormData({...formData, target_creator: e.target.value})} />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-500 mb-1">Target Views</label>
+                    <input type="number" min="0" className="w-full p-2 text-sm border rounded" value={formData.target_views} onChange={e => setFormData({...formData, target_views: e.target.value})} />
                   </div>
                   <div className="space-y-2">
                     <label className="text-xs font-medium">Client Approval</label>
