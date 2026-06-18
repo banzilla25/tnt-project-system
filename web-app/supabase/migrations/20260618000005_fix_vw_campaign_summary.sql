@@ -14,11 +14,8 @@ creators_count AS (
 legacy_gmv AS (
     SELECT campaign_id, SUM(COALESCE(gmv_organic_legacy, 0) + COALESCE(gmv_ads_legacy, 0)) as total_legacy_gmv FROM campaign_creators GROUP BY campaign_id
 ),
-video_stats AS (
-  SELECT cc.campaign_id, COALESCE(SUM(v.organic_sales_video + v.organic_sales_livestream + v.ads_sales_video + v.ads_sales_livestream), 0) AS tracked_creator_gmv, COALESCE(SUM(v.ads_sales_video + v.ads_sales_livestream), 0) AS tracked_ads_sales FROM campaign_creators cc LEFT JOIN videos v ON cc.id = v.campaign_creator_id GROUP BY cc.campaign_id
-),
 payment_stats AS (
-  SELECT cc.campaign_id, COALESCE(SUM(p.nominal), 0) AS total_pembayaran_kreator FROM campaign_creators cc LEFT JOIN pembayaran p ON cc.id = p.campaign_creator_id GROUP BY cc.campaign_id
+  SELECT campaign_id, COALESCE(SUM(nominal_pelunasan), 0) AS total_pembayaran_kreator FROM campaign_creators GROUP BY campaign_id
 ),
 daily_stats AS (
   SELECT campaign_id, COALESCE(SUM(organic_sales), 0) as total_daily_organic, COALESCE(SUM(vsa_sales), 0) as total_daily_vsa FROM daily_performance GROUP BY campaign_id
@@ -35,26 +32,30 @@ SELECT
     c.target_creator,
     c.budget_creator_plafon,
     c.budget_ads_plafon,
+    
     -- Phase 2 stats
     COALESCE(o.total_organic_gmv, 0) + COALESCE(a.total_ads_gmv_idr, 0) + COALESCE(l.total_legacy_gmv, 0) as total_gmv_achievement,
     COALESCE(vc.total_video_tayang, 0) as achievement_video,
     COALESCE(cr.total_creator_approved, 0) as achievement_creator,
     COALESCE(a.total_ads_cost_idr, 0) as budget_ads_terpakai,
     c.budget_ads_plafon - COALESCE(a.total_ads_cost_idr, 0) as sisa_budget_ads,
+    
     -- Phase 5 stats
-    COALESCE(vs.tracked_creator_gmv, 0) AS tracked_creator_gmv,
+    (COALESCE(o.total_organic_gmv, 0) + COALESCE(a.total_ads_gmv_idr, 0) + COALESCE(l.total_legacy_gmv, 0)) AS tracked_creator_gmv,
     COALESCE(ds.total_daily_organic, 0) AS total_daily_organic,
     COALESCE(ds.total_daily_vsa, 0) AS total_daily_vsa,
     (COALESCE(ds.total_daily_organic, 0) + COALESCE(ds.total_daily_vsa, 0)) AS official_daily_gmv,
-    GREATEST((COALESCE(ds.total_daily_organic, 0) + COALESCE(ds.total_daily_vsa, 0)), COALESCE(vs.tracked_creator_gmv, 0)) AS total_gmv,
+    GREATEST(
+        (COALESCE(ds.total_daily_organic, 0) + COALESCE(ds.total_daily_vsa, 0)), 
+        (COALESCE(o.total_organic_gmv, 0) + COALESCE(a.total_ads_gmv_idr, 0) + COALESCE(l.total_legacy_gmv, 0))
+    ) AS total_gmv,
     COALESCE(ps.total_pembayaran_kreator, 0) AS total_pembayaran_kreator,
-    COALESCE(vs.tracked_ads_sales, 0) AS total_ads_spend
+    COALESCE(a.total_ads_cost_idr, 0) AS total_ads_spend
 FROM campaigns c
 LEFT JOIN organic_sales o ON c.id = o.campaign_id
 LEFT JOIN ads_sales a ON c.id = a.campaign_id
 LEFT JOIN videos_count vc ON c.id = vc.campaign_id
 LEFT JOIN creators_count cr ON c.id = cr.campaign_id
 LEFT JOIN legacy_gmv l ON c.id = l.campaign_id
-LEFT JOIN video_stats vs ON c.id = vs.campaign_id
 LEFT JOIN payment_stats ps ON c.id = ps.campaign_id
 LEFT JOIN daily_stats ds ON c.id = ds.campaign_id;
