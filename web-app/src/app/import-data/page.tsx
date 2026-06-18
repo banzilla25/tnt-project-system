@@ -6,12 +6,14 @@ import { FolderKanban, Users, MapPin, TrendingUp, AlertCircle, UploadCloud, Chec
 import { CreatorSyncModal } from '@/components/CreatorSyncModal';
 import { CampaignSyncModal } from '@/components/CampaignSyncModal';
 import { AddressSyncModal } from '@/components/AddressSyncModal';
+import { BudgetSyncModal } from '@/components/BudgetSyncModal';
 import { downloadCreatorSyncTemplate } from '@/utils/importCreatorSync';
 import { downloadCampaignSyncTemplate } from '@/utils/importCampaignSync';
 import { downloadAddressSyncTemplate } from '@/utils/importAddressSync';
+import { downloadBudgetSyncTemplate } from '@/utils/importBudgetSync';
 
 export default function ImportDataPage() {
-  const [activeTab, setActiveTab] = useState<'creator' | 'listing' | 'alamat' | 'organik'>('creator');
+  const [activeTab, setActiveTab] = useState<'creator' | 'listing' | 'alamat' | 'budget' | 'organik'>('creator');
 
   return (
     <div className="space-y-6">
@@ -51,12 +53,12 @@ export default function ImportDataPage() {
         </button>
 
         <button 
-          disabled
-          className={`p-4 rounded-xl border text-left opacity-60 bg-slate-50 cursor-not-allowed`}
+          onClick={() => setActiveTab('budget')}
+          className={`p-4 rounded-xl border text-left transition-colors flex flex-col gap-2 ${activeTab === 'budget' ? 'bg-blue-600 border-blue-600 text-white shadow-md' : 'bg-white border-slate-200 hover:border-blue-300'}`}
         >
-          <TrendingUp className="w-6 h-6 text-slate-400" />
-          <h3 className="font-bold text-slate-500">Migrasi Organik</h3>
-          <p className="text-xs text-slate-400">Pindah ke menu Input Penjualan</p>
+          <TrendingUp className="w-6 h-6" />
+          <h3 className="font-bold">Migrasi Budget Creator</h3>
+          <p className={`text-xs ${activeTab === 'budget' ? 'text-blue-100' : 'text-slate-500'}`}>Import data pembayaran kreator</p>
         </button>
       </div>
 
@@ -143,6 +145,37 @@ export default function ImportDataPage() {
               <AddressSyncModal />
               <button 
                 onClick={downloadAddressSyncTemplate}
+                className="flex items-center gap-2 px-4 py-2 border border-slate-300 rounded-md text-sm font-medium hover:bg-slate-50 transition-colors"
+              >
+                <Download className="w-4 h-4" /> Unduh Template CSV
+              </button>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'budget' && (
+          <div className="space-y-6 max-w-3xl">
+            <div>
+              <h2 className="text-2xl font-bold mb-2">Migrasi Budget Creator</h2>
+              <p className="text-slate-600">Import data pembayaran kreator (Ratecard, Pelunasan, Status Bayar, Tanggal Pembayaran) dari Spreadsheet ke dalam sebuah Campaign.</p>
+            </div>
+
+            <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 flex gap-3 text-blue-800 text-sm">
+              <AlertCircle className="w-5 h-5 shrink-0" />
+              <div>
+                <p className="font-semibold">Cara Kerja:</p>
+                <ul className="list-disc list-inside ml-1 mt-1 space-y-1 text-slate-700">
+                  <li>Sistem mencocokkan <strong>Username</strong> di file dengan kreator yang sudah <strong>Approved</strong> di Campaign terpilih.</li>
+                  <li>Kolom Ratecard, Pelunasan, Status Bayar, dan Tanggal akan di-update sekaligus.</li>
+                  <li>Username yang tidak ditemukan di Campaign akan dilewati (tidak error).</li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-4 mt-6">
+              <BudgetSyncModal />
+              <button 
+                onClick={downloadBudgetSyncTemplate}
                 className="flex items-center gap-2 px-4 py-2 border border-slate-300 rounded-md text-sm font-medium hover:bg-slate-50 transition-colors"
               >
                 <Download className="w-4 h-4" /> Unduh Template CSV
