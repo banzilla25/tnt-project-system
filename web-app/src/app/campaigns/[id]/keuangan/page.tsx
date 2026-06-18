@@ -44,7 +44,7 @@ function CampaignKeuanganContent() {
           status_bayar,
           nominal_pelunasan,
           tgl_pembayaran,
-          creators ( username, avatar_url )
+          creators ( username )
         `)
         .eq('campaign_id', campaignId)
         .eq('approval', 'approved');
