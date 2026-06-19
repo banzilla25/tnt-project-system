@@ -1,0 +1,319 @@
+"use client";
+
+import { useState } from "react";
+import { Button } from "@/components/ui/Button";
+import { approveUser, rejectUser, deactivateUser, assignCampaignsToUser } from "./actions";
+import { Check, X, ShieldAlert, UserCog, UserCheck, Search, ShieldCheck } from "lucide-react";
+
+export default function ManajemenAkunClient({ 
+  initialProfiles, 
+  campaigns, 
+  initialUserCampaigns 
+}: { 
+  initialProfiles: any[], 
+  campaigns: any[],
+  initialUserCampaigns: any[]
+}) {
+  const [activeTab, setActiveTab] = useState<'persetujuan' | 'assignment'>('persetujuan');
+  const [loadingId, setLoadingId] = useState<string | null>(null);
+
+  const pendingUsers = initialProfiles.filter(p => p.status === 'pending');
+  const activeUsers = initialProfiles.filter(p => p.status === 'approved');
+
+  const handleApprove = async (id: string) => {
+    if (!confirm('Yakin ingin menyetujui akun ini?')) return;
+    setLoadingId(id);
+    try {
+      await approveUser(id);
+    } catch (e: any) {
+      alert("Error: " + e.message);
+    }
+    setLoadingId(null);
+  };
+
+  const handleReject = async (id: string) => {
+    if (!confirm('Tolak akun ini? Data akan dihapus secara permanen.')) return;
+    setLoadingId(id);
+    try {
+      await rejectUser(id);
+    } catch (e: any) {
+      alert("Error: " + e.message);
+    }
+    setLoadingId(null);
+  };
+
+  const handleDeactivate = async (id: string) => {
+    if (!confirm('Yakin ingin menonaktifkan akun ini? Mereka tidak akan bisa login lagi.')) return;
+    setLoadingId(id);
+    try {
+      await deactivateUser(id);
+    } catch (e: any) {
+      alert("Error: " + e.message);
+    }
+    setLoadingId(null);
+  };
+
+  return (
+    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+      <div className="flex border-b border-slate-200">
+        <button 
+          onClick={() => setActiveTab('persetujuan')}
+          className={`flex-1 py-4 px-6 font-semibold text-sm flex items-center justify-center gap-2 border-b-2 transition-colors ${activeTab === 'persetujuan' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}
+        >
+          <UserCheck className="w-4 h-4" />
+          Persetujuan Akun
+          {pendingUsers.length > 0 && (
+            <span className="bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full ml-2">
+              {pendingUsers.length} Baru
+            </span>
+          )}
+        </button>
+        <button 
+          onClick={() => setActiveTab('assignment')}
+          className={`flex-1 py-4 px-6 font-semibold text-sm flex items-center justify-center gap-2 border-b-2 transition-colors ${activeTab === 'assignment' ? 'border-amber-600 text-amber-600' : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}
+        >
+          <UserCog className="w-4 h-4" />
+          Assignment Campaign
+        </button>
+      </div>
+
+      <div className="p-6">
+        {activeTab === 'persetujuan' && (
+          <div className="space-y-8">
+            {/* Tabel Pending Users */}
+            <div>
+              <h2 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+                <ShieldAlert className="w-5 h-5 text-amber-500" />
+                Menunggu Persetujuan
+              </h2>
+              {pendingUsers.length === 0 ? (
+                <div className="text-center py-8 text-slate-500 bg-slate-50 rounded-lg border border-dashed border-slate-300">
+                  Tidak ada permintaan akun baru.
+                </div>
+              ) : (
+                <div className="overflow-x-auto border border-slate-200 rounded-lg">
+                  <table className="w-full text-left text-sm">
+                    <thead className="bg-slate-50 text-slate-600 font-medium">
+                      <tr>
+                        <th className="px-4 py-3">Nama Panggilan</th>
+                        <th className="px-4 py-3">Email Google</th>
+                        <th className="px-4 py-3">Tanggal Daftar</th>
+                        <th className="px-4 py-3 text-right">Aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {pendingUsers.map(user => (
+                        <tr key={user.id} className="hover:bg-slate-50">
+                          <td className="px-4 py-3 font-medium text-slate-900 flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-slate-200 overflow-hidden shrink-0">
+                              {user.avatar_url ? <img src={user.avatar_url} alt="" /> : <div className="w-full h-full flex items-center justify-center text-slate-500">{user.nama.charAt(0)}</div>}
+                            </div>
+                            {user.nama}
+                          </td>
+                          <td className="px-4 py-3 text-slate-500">{user.email}</td>
+                          <td className="px-4 py-3 text-slate-500">{new Date(user.created_at).toLocaleDateString('id-ID')}</td>
+                          <td className="px-4 py-3 text-right space-x-2">
+                            <Button 
+                              size="sm" 
+                              onClick={() => handleApprove(user.id)}
+                              disabled={loadingId === user.id}
+                              className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
+                            >
+                              <Check className="w-4 h-4 mr-1" /> Approve
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => handleReject(user.id)}
+                              disabled={loadingId === user.id}
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                            >
+                              <X className="w-4 h-4 mr-1" /> Tolak
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            <div className="border-t border-slate-200 pt-8">
+              <h2 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+                <ShieldCheck className="w-5 h-5 text-emerald-500" />
+                Anggota Aktif
+              </h2>
+              <div className="overflow-x-auto border border-slate-200 rounded-lg">
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-slate-50 text-slate-600 font-medium">
+                    <tr>
+                      <th className="px-4 py-3">User</th>
+                      <th className="px-4 py-3">Role</th>
+                      <th className="px-4 py-3">Tanggal Approve</th>
+                      <th className="px-4 py-3 text-right">Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {activeUsers.map(user => (
+                      <tr key={user.id} className="hover:bg-slate-50">
+                        <td className="px-4 py-3 font-medium text-slate-900 flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-slate-200 overflow-hidden shrink-0">
+                            {user.avatar_url ? <img src={user.avatar_url} alt="" /> : <div className="w-full h-full flex items-center justify-center text-slate-500">{user.nama.charAt(0)}</div>}
+                          </div>
+                          <div>
+                            <div>{user.nama}</div>
+                            <div className="text-xs text-slate-400 font-normal">{user.email}</div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className={`px-2 py-1 rounded text-xs font-medium ${user.role === 'manager' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}`}>
+                            {user.role}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-slate-500">
+                          {user.approved_at ? new Date(user.approved_at).toLocaleDateString('id-ID') : '-'}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          {user.role !== 'manager' && (
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => handleDeactivate(user.id)}
+                              disabled={loadingId === user.id}
+                              className="text-slate-500 hover:text-red-600 hover:bg-red-50"
+                            >
+                              Nonaktifkan
+                            </Button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'assignment' && (
+          <div className="space-y-6">
+            <p className="text-sm text-slate-600">
+              Pilih anggota tim di bawah ini untuk mengatur hak akses (*edit data, input organik, kelola keuangan*) di setiap Campaign. Anggota tanpa assignment hanya bisa melihat data saja (Read-only).
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {activeUsers.filter(u => u.role === 'anggota').map(user => (
+                <UserAssignmentCard 
+                  key={user.id} 
+                  user={user} 
+                  campaigns={campaigns} 
+                  userCampaigns={initialUserCampaigns.filter(uc => uc.user_id === user.id)}
+                />
+              ))}
+              {activeUsers.filter(u => u.role === 'anggota').length === 0 && (
+                <div className="col-span-full text-center py-12 bg-slate-50 rounded-lg text-slate-500 border border-slate-200 border-dashed">
+                  Belum ada anggota tim aktif.
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function UserAssignmentCard({ user, campaigns, userCampaigns }: { user: any, campaigns: any[], userCampaigns: any[] }) {
+  // If user has any record with all_campaigns = true
+  const isAllCampaigns = userCampaigns.some(uc => uc.all_campaigns);
+  const assignedCampaignIds = userCampaigns.filter(uc => !uc.all_campaigns).map(uc => uc.campaign_id);
+  
+  const [localAllCampaigns, setLocalAllCampaigns] = useState(isAllCampaigns);
+  const [localCampaignIds, setLocalCampaignIds] = useState<number[]>(assignedCampaignIds);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Check if state changed
+  const hasChanges = localAllCampaigns !== isAllCampaigns || 
+                     localCampaignIds.length !== assignedCampaignIds.length ||
+                     !localCampaignIds.every(id => assignedCampaignIds.includes(id));
+
+  const handleToggleCampaign = (id: number) => {
+    if (localAllCampaigns) return; // disabled
+    if (localCampaignIds.includes(id)) {
+      setLocalCampaignIds(localCampaignIds.filter(cid => cid !== id));
+    } else {
+      setLocalCampaignIds([...localCampaignIds, id]);
+    }
+  };
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      await assignCampaignsToUser(user.id, localCampaignIds, localAllCampaigns);
+    } catch (e: any) {
+      alert("Error saving: " + e.message);
+    }
+    setIsSaving(false);
+  };
+
+  return (
+    <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm flex flex-col">
+      <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold overflow-hidden">
+            {user.avatar_url ? <img src={user.avatar_url} alt="" /> : user.nama.charAt(0)}
+          </div>
+          <div>
+            <div className="font-semibold text-slate-900">{user.nama}</div>
+            <div className="text-xs text-slate-500">{user.email}</div>
+          </div>
+        </div>
+        {hasChanges && (
+          <Button size="sm" onClick={handleSave} disabled={isSaving} className="bg-amber-600 hover:bg-amber-700 text-white">
+            {isSaving ? "Menyimpan..." : "Simpan Perubahan"}
+          </Button>
+        )}
+      </div>
+      
+      <div className="p-4 flex-1">
+        <label className="flex items-center gap-3 p-3 rounded-lg border border-amber-200 bg-amber-50 cursor-pointer mb-4 transition-colors hover:bg-amber-100">
+          <input 
+            type="checkbox" 
+            className="w-4 h-4 text-amber-600 rounded border-amber-300 focus:ring-amber-500" 
+            checked={localAllCampaigns}
+            onChange={(e) => {
+              setLocalAllCampaigns(e.target.checked);
+              if (e.target.checked) setLocalCampaignIds([]);
+            }}
+          />
+          <div>
+            <div className="text-sm font-semibold text-amber-900">Akses Semua Campaign</div>
+            <div className="text-xs text-amber-700">Berikan akses penuh ke semua campaign saat ini dan yang akan datang.</div>
+          </div>
+        </label>
+
+        <div className="space-y-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
+          {campaigns.map(camp => (
+            <label 
+              key={camp.id} 
+              className={`flex items-center gap-3 p-2 rounded-md border ${localAllCampaigns ? 'opacity-50 cursor-not-allowed bg-slate-50 border-transparent' : 'cursor-pointer hover:bg-slate-50 border-slate-100'} transition-colors`}
+            >
+              <input 
+                type="checkbox" 
+                className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500" 
+                checked={localAllCampaigns || localCampaignIds.includes(camp.id)}
+                disabled={localAllCampaigns}
+                onChange={() => handleToggleCampaign(camp.id)}
+              />
+              <span className="text-sm text-slate-700 font-medium">{camp.name}</span>
+            </label>
+          ))}
+          {campaigns.length === 0 && (
+            <div className="text-xs text-slate-400 text-center py-4">Belum ada campaign dibuat.</div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
