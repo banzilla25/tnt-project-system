@@ -1,0 +1,1 @@
+ALTER TABLE ads_spends ADD COLUMN IF NOT EXISTS notes TEXT;
