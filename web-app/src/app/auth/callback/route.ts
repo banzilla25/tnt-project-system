@@ -29,28 +29,39 @@ export async function GET(request: Request) {
     const { data: { session }, error } = await supabase.auth.exchangeCodeForSession(code);
     
     if (!error && session) {
-      // Upsert into profiles table to ensure record exists
-      // If user exists, we don't overwrite role/status. If new, defaults are applied.
       const user = session.user;
+      
       const { data: profile } = await supabase
         .from('profiles')
         .select('status')
         .eq('id', user.id)
         .single();
 
+      const regNameCookie = cookieStore.get('tnt_reg_name')?.value;
+
       if (!profile) {
-        // New user - insert
-        await supabase.from('profiles').insert({
-          id: user.id,
-          email: user.email,
-          nama: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Unknown',
-          avatar_url: user.user_metadata?.avatar_url || null,
-          role: 'anggota',
-          status: 'pending'
-        });
+        if (regNameCookie) {
+          // New user trying to register - insert with provided name
+          await supabase.from('profiles').insert({
+            id: user.id,
+            email: user.email,
+            nama: decodeURIComponent(regNameCookie),
+            avatar_url: user.user_metadata?.avatar_url || null,
+            role: 'anggota',
+            status: 'pending'
+          });
+          
+          // Clear the registration cookie
+          cookieStore.delete('tnt_reg_name');
+        } else {
+          // User tried to login but hasn't registered yet!
+          // We must sign them out and send them back to the login page with an error.
+          await supabase.auth.signOut();
+          return NextResponse.redirect(`${origin}/login?error=not-registered`);
+        }
       }
 
-      // We handle the pending state check in another layout/middleware or they just see a pending screen
+      // We handle the pending state check in middleware or they just see a pending screen
       return NextResponse.redirect(`${origin}${next}`);
     }
   }

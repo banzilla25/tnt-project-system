@@ -1,17 +1,40 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { Button } from "@/components/ui/Button";
 import { Loader2 } from "lucide-react";
-import Image from "next/image";
 
 export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [namaPanggilan, setNamaPanggilan] = useState("");
   const supabase = createClient();
 
-  const handleLogin = async () => {
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get("error") === "not-registered") {
+        alert("Gagal Login: Akun Anda belum terdaftar. Silakan klik 'Daftar sekarang' terlebih dahulu.");
+        // Clean up URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+    }
+  }, []);
+
+  const handleAuth = async () => {
+    if (isRegistering && !namaPanggilan.trim()) {
+      alert("Mohon isi nama panggilan terlebih dahulu.");
+      return;
+    }
+
     setIsLoading(true);
+    
+    // Jika mendaftar, simpan nama panggilan di cookie agar bisa dibaca di callback
+    if (isRegistering) {
+      document.cookie = `tnt_reg_name=${encodeURIComponent(namaPanggilan.trim())}; path=/; max-age=3600`;
+    }
+
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
@@ -38,12 +61,27 @@ export default function LoginPage() {
 
           <div className="bg-slate-50 p-6 rounded-xl border border-slate-100">
             <p className="text-sm text-slate-600 mb-6">
-              Silakan login menggunakan akun Google Anda untuk mengakses sistem. Akun baru memerlukan persetujuan Manager.
+              {isRegistering 
+                ? "Silakan isi nama panggilan Anda sebelum mendaftar dengan akun Google."
+                : "Silakan login menggunakan akun Google Anda untuk mengakses sistem."}
             </p>
             
+            {isRegistering && (
+              <div className="mb-4 text-left">
+                <label className="block text-sm font-medium text-slate-700 mb-1">Nama Panggilan</label>
+                <input 
+                  type="text" 
+                  value={namaPanggilan}
+                  onChange={(e) => setNamaPanggilan(e.target.value)}
+                  placeholder="Contoh: Budi"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            )}
+
             <Button 
-              onClick={handleLogin} 
-              disabled={isLoading}
+              onClick={handleAuth} 
+              disabled={isLoading || (isRegistering && !namaPanggilan.trim())}
               className="w-full py-6 text-base font-semibold shadow-md flex items-center justify-center gap-3 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200"
             >
               {isLoading ? (
@@ -69,8 +107,26 @@ export default function LoginPage() {
                   <path d="M1 1h22v22H1z" fill="none" />
                 </svg>
               )}
-              {isLoading ? "Mengalihkan..." : "Login dengan Google"}
+              {isLoading ? "Mengalihkan..." : isRegistering ? "Daftar dengan Google" : "Login dengan Google"}
             </Button>
+
+            <div className="mt-6 text-sm">
+              {isRegistering ? (
+                <p className="text-slate-600">
+                  Sudah terdaftar?{" "}
+                  <button onClick={() => setIsRegistering(false)} className="text-blue-600 hover:underline font-medium">
+                    Login di sini
+                  </button>
+                </p>
+              ) : (
+                <p className="text-slate-600">
+                  Belum punya akun?{" "}
+                  <button onClick={() => setIsRegistering(true)} className="text-blue-600 hover:underline font-medium">
+                    Daftar sekarang
+                  </button>
+                </p>
+              )}
+            </div>
           </div>
         </div>
         
