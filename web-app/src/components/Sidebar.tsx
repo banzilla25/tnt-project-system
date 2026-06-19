@@ -14,7 +14,6 @@ const navItems = [
   { name: 'Input Penjualan', href: '/input-penjualan', icon: Receipt, activePhase: true },
   { name: 'Ads Report', href: '/ads-report', icon: FolderKanban, activePhase: true },
   { name: 'Budgeting & Topup', href: '/budgeting', icon: Wallet, activePhase: true },
-  { name: 'Invoice & Payout', href: '/invoice', icon: Receipt, activePhase: true },
   { name: 'Pengaturan', href: '/settings', icon: Settings, activePhase: true },
 ];
 
