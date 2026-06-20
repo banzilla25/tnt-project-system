@@ -13,7 +13,7 @@ import { useParams } from "next/navigation";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { exportToCSV } from "@/utils/exportCsv";
 import { createClient } from "@/utils/supabase/client";
-
+import { useAuth } from "@/providers/AuthProvider";
 
 const supabase = createClient();
 const PAGE_SIZE = 50;
@@ -33,8 +33,12 @@ function CampaignListingContent() {
   const { 
     updateCampaignCreator,
     addCampaignCreator,
-    campaigns
+    campaigns,
+    profiles
   } = useDatabaseStore();
+
+  const { profile, canEditCampaign } = useAuth();
+  const hasAccess = canEditCampaign(campaignId);
 
   const campaign = campaigns.find(c => c.id === campaignId);
   const isClientApprovalRequired = campaign?.require_client_approval || false;
@@ -73,6 +77,9 @@ function CampaignListingContent() {
 
   // Counts State
   const [counts, setCounts] = useState({ approved: 0, pending: 0, alternate: 0, not_approved: 0, all: 0 });
+  
+  // Daily Recap State
+  const [dailyRecap, setDailyRecap] = useState<any[]>([]);
 
   // Add Creator Modal State
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -108,6 +115,27 @@ function CampaignListingContent() {
     ]);
 
     setCounts({ approved, pending, alternate, not_approved, all });
+
+    // Fetch Daily Recap Data
+    const { data: recapData } = await supabase.from('campaign_creators').select('id, approval, approved_at, created_at').eq('campaign_id', campaignId);
+    if (recapData) {
+      // Group by date
+      const group: Record<string, { total: number, approved: number, alternate: number, not_approved: number }> = {};
+      recapData.forEach(r => {
+        // Use approved_at if approved/alternate/not_approved, else created_at
+        const dateStr = r.approved_at || r.created_at;
+        if (!dateStr) return;
+        const dateKey = new Date(dateStr).toISOString().split('T')[0];
+        if (!group[dateKey]) group[dateKey] = { total: 0, approved: 0, alternate: 0, not_approved: 0 };
+        
+        group[dateKey].total++;
+        if (r.approval === 'approved') group[dateKey].approved++;
+        if (r.approval === 'alternate') group[dateKey].alternate++;
+        if (r.approval === 'not_approved') group[dateKey].not_approved++;
+      });
+      const sortedKeys = Object.keys(group).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
+      setDailyRecap(sortedKeys.map(k => ({ date: k, ...group[k] })));
+    }
   }, [campaignId]);
 
   useEffect(() => {
@@ -118,7 +146,10 @@ function CampaignListingContent() {
     setIsLoading(true);
     try {
       let selectQuery = `
-        *,
+        id, creator_id, price, qty_vt, approval, client_approval, tier,
+        sample_progress, status_bayar, notes_manager, notes_pic,
+        created_at,
+        added_by_profile:profiles!campaign_creators_added_by_fkey ( nama ),
         creators!inner (
           id, username, nama_asli, link_account,
           creator_snapshots ( audience_age, level, gmv_30d, tanggal_update )
@@ -223,6 +254,19 @@ function CampaignListingContent() {
   };
 
   const saveEdit = async (ccId: number) => {
+    if (!hasAccess) return;
+    const oldCc = listingData.find(c => c.id === ccId);
+    let extraUpdates: any = {};
+    if (oldCc && oldCc.approval !== editApproval) {
+      if (editApproval === 'approved') {
+        extraUpdates.approved_by = profile?.id;
+        extraUpdates.approved_at = new Date().toISOString();
+      } else if (editApproval === 'not_approved') {
+        extraUpdates.not_approved_by = profile?.id;
+        extraUpdates.not_approved_at = new Date().toISOString();
+      }
+    }
+
     await updateCampaignCreator(ccId, {
       price: Number(editPrice),
       qty_vt: Number(editQtyVt),
@@ -231,8 +275,9 @@ function CampaignListingContent() {
       status_bayar: editStatusBayar,
       notes_manager: editNotesManager,
       notes_pic: editNotesPic,
-      ...(isClientApprovalRequired && { client_approval: editClientApproval })
-    }, 'Staf Internal'); // Hardcoded user for Phase 2
+      ...(isClientApprovalRequired && { client_approval: editClientApproval }),
+      ...extraUpdates
+    }, profile?.nama || 'System');
     setEditingId(null);
     // Refresh to show changes immediately
     setPage(0);
@@ -259,7 +304,7 @@ function CampaignListingContent() {
 
   const handleAddCreator = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newCreatorId) return;
+    if (!newCreatorId || !hasAccess) return;
 
     await addCampaignCreator({
       campaign_id: campaignId,
@@ -269,7 +314,7 @@ function CampaignListingContent() {
       qty_vt: Number(newQtyVt),
       content_type: null,
       approval: 'pending',
-      pic_assist: '-',
+      pic_assist: profile?.nama || '-',
       notes_manager: '',
       notes_pic: '',
       sample_progress: 'Belum',
@@ -278,7 +323,12 @@ function CampaignListingContent() {
       status_bayar: 'belum',
       nominal_pelunasan: 0,
       tgl_pembayaran: null,
-      client_approval: isClientApprovalRequired ? 'pending' : 'not_required'
+      client_approval: isClientApprovalRequired ? 'pending' : 'not_required',
+      added_by: profile?.id || null,
+      approved_by: null,
+      approved_at: null,
+      not_approved_by: null,
+      not_approved_at: null
     });
     
     setIsAddModalOpen(false);
@@ -340,7 +390,7 @@ function CampaignListingContent() {
             <option value="regular">Reguler (Manual)</option>
             <option value="auto_detect">Auto-Detect</option>
           </select>
-          {isClientApprovalRequired && (
+          {isClientApprovalRequired && hasAccess && (
             <Button variant="outline" onClick={async () => {
               const pendingIds = listingData.filter(cc => cc.client_approval === 'not_required' || cc.client_approval === 'pending').map(cc => cc.id);
               if (pendingIds.length === 0) {
@@ -349,7 +399,7 @@ function CampaignListingContent() {
               }
               if (confirm(`Approve ${pendingIds.length} kreator sekaligus?`)) {
                 for (const id of pendingIds) {
-                  await updateCampaignCreator(id, { client_approval: 'approved' }, 'Bulk Action');
+                  await updateCampaignCreator(id, { client_approval: 'approved' }, profile?.nama || 'Bulk Action');
                 }
                 setPage(0);
                 fetchListing(0, true);
@@ -359,13 +409,15 @@ function CampaignListingContent() {
             </Button>
           )}
 
-          <Button onClick={() => {
-            setIsAddModalOpen(true);
-            setSearchQuery('');
-            setNewCreatorId('');
-          }}>
-            + Tambah Creator
-          </Button>
+          {hasAccess && (
+            <Button onClick={() => {
+              setIsAddModalOpen(true);
+              setSearchQuery('');
+              setNewCreatorId('');
+            }}>
+              + Tambah Creator
+            </Button>
+          )}
         </div>
       </div>
 
@@ -401,6 +453,50 @@ function CampaignListingContent() {
           </CardContent>
         </Card>
       </div>
+
+      <Card className="mb-6 overflow-hidden">
+        <details className="group">
+          <summary className="flex cursor-pointer items-center justify-between bg-slate-50 px-4 py-3 font-medium text-slate-700 hover:bg-slate-100">
+            <span>Rekap Harian (Progres Pencarian & Approval)</span>
+            <span className="transition group-open:rotate-180">
+              <ChevronDown className="w-5 h-5" />
+            </span>
+          </summary>
+          <div className="border-t border-slate-200 bg-white p-4">
+            {dailyRecap.length === 0 ? (
+              <p className="text-sm text-slate-500 text-center">Belum ada progres terekam.</p>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {dailyRecap.map((day: any, i: number) => (
+                  <div key={i} className="p-3 border rounded-lg bg-slate-50/50">
+                    <p className="text-sm font-bold text-slate-800 border-b pb-2 mb-2">
+                      {new Date(day.date).toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                    </p>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Total Add:</span>
+                        <span className="font-semibold">{day.total}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-emerald-600">Approved:</span>
+                        <span className="font-semibold text-emerald-600">{day.approved}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-purple-600">Alternate:</span>
+                        <span className="font-semibold text-purple-600">{day.alternate}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-rose-600">Not Appr:</span>
+                        <span className="font-semibold text-rose-600">{day.not_approved}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </details>
+      </Card>
 
       {isAddModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
@@ -481,6 +577,7 @@ function CampaignListingContent() {
                   Creator <SortIcon col="username" />
                 </button>
               </TableHead>
+              <TableHead>Tanggal & PIC</TableHead>
               <TableHead>Kerjasama</TableHead>
               <TableHead>
                 <button onClick={() => toggleSort('price')} className="flex items-center font-semibold hover:text-blue-600 transition-colors">
@@ -506,7 +603,7 @@ function CampaignListingContent() {
           <TableBody>
             {listingData.length === 0 && !isLoading ? (
               <TableRow>
-                <TableCell colSpan={isClientApprovalRequired ? 10 : 9} className="text-center py-8 text-slate-500">
+                <TableCell colSpan={isClientApprovalRequired ? 11 : 10} className="text-center py-8 text-slate-500">
                   Belum ada creator di campaign ini.
                 </TableCell>
               </TableRow>
@@ -538,6 +635,14 @@ function CampaignListingContent() {
                           {cc.tier === 'Auto-Detect' && <span className="px-1.5 py-0.5 bg-yellow-100 text-yellow-800 text-[10px] font-bold rounded-full">AUTO</span>}
                         </div>
                         <span className="text-xs text-slate-500">{type} • Tier {cc.tier || '-'}</span>
+                      </TableCell>
+                      <TableCell>
+                        <div className="text-xs text-slate-600">
+                          {cc.created_at ? new Date(cc.created_at).toLocaleDateString('id-ID') : '-'}
+                        </div>
+                        <div className="text-[10px] text-slate-400 mt-0.5">
+                          Oleh: {cc.added_by_profile?.nama || 'System'}
+                        </div>
                       </TableCell>
                       <TableCell className="capitalize text-sm">
                         {getJenisKerjasama(cc.price)}
@@ -623,7 +728,7 @@ function CampaignListingContent() {
                             <Button size="icon" variant="ghost" onClick={() => saveEdit(cc.id)} className="h-8 w-8 text-green-600"><Check className="w-4 h-4" /></Button>
                             <Button size="icon" variant="ghost" onClick={cancelEdit} className="h-8 w-8 text-slate-400"><X className="w-4 h-4" /></Button>
                           </div>
-                        ) : (
+                        ) : hasAccess ? (
                           <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                             <Button size="icon" variant="ghost" onClick={() => startEdit(cc)} className="h-8 w-8">
                               <Edit2 className="w-4 h-4 text-slate-400 hover:text-blue-600" />
@@ -632,7 +737,7 @@ function CampaignListingContent() {
                               <Trash2 className="w-4 h-4 text-slate-400 hover:text-red-600" />
                             </Button>
                           </div>
-                        )}
+                        ) : null}
                       </TableCell>
                     </TableRow>
                     
@@ -729,6 +834,36 @@ function CampaignListingContent() {
                                       ) : (
                                         <p className="text-sm font-medium text-slate-700 whitespace-pre-wrap">{cc.notes_pic || '-'}</p>
                                       )}
+                                    </div>
+                                    <div className="bg-slate-50 border border-slate-100 rounded-lg p-3 md:col-span-4">
+                                      <h5 className="text-[10px] font-bold text-slate-400 uppercase mb-2">Informasi Tracking</h5>
+                                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
+                                        <div>
+                                          <span className="text-slate-500 block mb-0.5">Ditambahkan Oleh:</span>
+                                          <span className="font-medium text-slate-800">
+                                            {profiles.find(p => p.id === cc.added_by)?.nama || '-'} 
+                                            {cc.created_at && <span className="text-slate-400 ml-1">({new Date(cc.created_at).toLocaleDateString('id-ID')})</span>}
+                                          </span>
+                                        </div>
+                                        {cc.approval === 'approved' && cc.approved_by && (
+                                          <div>
+                                            <span className="text-slate-500 block mb-0.5">Di-approve Oleh:</span>
+                                            <span className="font-medium text-green-600">
+                                              {profiles.find(p => p.id === cc.approved_by)?.nama || '-'} 
+                                              {cc.approved_at && <span className="text-slate-400 ml-1">({new Date(cc.approved_at).toLocaleDateString('id-ID')})</span>}
+                                            </span>
+                                          </div>
+                                        )}
+                                        {cc.approval === 'not_approved' && cc.not_approved_by && (
+                                          <div>
+                                            <span className="text-slate-500 block mb-0.5">Ditolak Oleh:</span>
+                                            <span className="font-medium text-red-600">
+                                              {profiles.find(p => p.id === cc.not_approved_by)?.nama || '-'} 
+                                              {cc.not_approved_at && <span className="text-slate-400 ml-1">({new Date(cc.not_approved_at).toLocaleDateString('id-ID')})</span>}
+                                            </span>
+                                          </div>
+                                        )}
+                                      </div>
                                     </div>
                                   </div>
                                 </div>

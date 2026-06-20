@@ -5,10 +5,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/Table";
 import Link from "next/link";
-import { TrendingUp, Activity, Video, Users, DollarSign } from "lucide-react";
+import { TrendingUp, Activity, Video, Users, DollarSign, Download } from "lucide-react";
+import { useAuth } from "@/providers/AuthProvider";
+import { exportToExcel } from "@/utils/exportToExcel";
+import { Button } from "@/components/ui/Button";
 
 export default function Dashboard() {
   const { vw_campaign_summary } = useDatabaseStore();
+  const { profile } = useAuth();
+  const isManager = profile?.role === 'manager';
 
   const getCountdown = (endDateStr: string) => {
     const end = new Date(endDateStr).getTime();
@@ -19,11 +24,36 @@ export default function Dashboard() {
     return `${days} Hari Lagi`;
   };
 
+  const handleExport = () => {
+    const dataToExport = vw_campaign_summary.map(c => ({
+      "Nama Campaign": c.nama,
+      "Tipe": c.tipe_campaign,
+      "Status": c.status,
+      "Start Date": c.start_date,
+      "End Date": c.end_date,
+      "Target GMV": c.target_gmv || 0,
+      "Achievement GMV": c.total_gmv_achievement || 0,
+      "Persentase GMV (%)": c.target_gmv ? Math.round(((c.total_gmv_achievement || 0) / c.target_gmv) * 100) : 0,
+      "Target Video": c.target_video || 0,
+      "Achievement Video": c.achievement_video || 0,
+      "Plafon Ads": c.budget_ads_plafon || 0,
+      "Sisa Budget Ads": c.sisa_budget_ads || 0
+    }));
+    exportToExcel(dataToExport, "Summary_Campaign_Export");
+  };
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Main Dashboard</h1>
-        <p className="text-slate-500">Ringkasan performa seluruh campaign aktif.</p>
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Main Dashboard</h1>
+          <p className="text-slate-500">Ringkasan performa seluruh campaign aktif.</p>
+        </div>
+        {isManager && (
+          <Button onClick={handleExport} className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white">
+            <Download className="w-4 h-4" /> Export Excel
+          </Button>
+        )}
       </div>
 
       {vw_campaign_summary.length === 0 ? (

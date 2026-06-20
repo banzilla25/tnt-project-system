@@ -107,6 +107,11 @@ export type CampaignCreator = {
   gmv_organic_legacy: number | null;
   gmv_ads_legacy: number | null;
   client_approval: 'pending' | 'approved' | 'rejected' | 'not_required';
+  added_by: string | null;
+  approved_by: string | null;
+  approved_at: string | null;
+  not_approved_by: string | null;
+  not_approved_at: string | null;
   created_at: string;
 };
 
@@ -124,12 +129,14 @@ export type Video = {
 
 export type AuditLog = {
   id: number;
-  tabel: string;
-  record_id: number;
-  field: string;
-  nilai_lama: string | null;
-  nilai_baru: string | null;
-  diubah_oleh: string;
+  user_id: string | null;
+  user_name: string | null;
+  action: string;
+  table_name: string | null;
+  record_id: string | null;
+  old_data: any | null;
+  new_data: any | null;
+  description: string | null;
   created_at: string;
 };
 

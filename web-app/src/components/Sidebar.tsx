@@ -1,7 +1,7 @@
 "use client";
 
 import Link from 'next/link';
-import { LayoutDashboard, Users, FolderKanban, Receipt, Wallet, Settings, Package, LogOut, Shield } from 'lucide-react';
+import { LayoutDashboard, Users, FolderKanban, Receipt, Wallet, Settings, Package, LogOut, Shield, Activity } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/utils/cn';
 import { useState, useEffect } from 'react';
@@ -98,18 +98,33 @@ export function Sidebar() {
         
         {/* Khusus Manager */}
         {profile?.role === 'manager' && (
-          <Link
-            href="/manajemen-akun"
-            className={cn(
-              'flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-sm font-medium mt-4',
-              pathname.startsWith('/manajemen-akun')
-                ? 'bg-amber-600 text-white' 
-                : 'text-amber-500 hover:bg-slate-800 hover:text-amber-400'
-            )}
-          >
-            <Shield className="w-4 h-4" />
-            Manajemen Akun
-          </Link>
+          <div className="pt-4 border-t border-slate-800 space-y-1 mt-4">
+            <p className="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Manager Tools</p>
+            <Link
+              href="/manajemen-akun"
+              className={cn(
+                'flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-sm font-medium',
+                pathname.startsWith('/manajemen-akun')
+                  ? 'bg-amber-600 text-white' 
+                  : 'text-amber-500 hover:bg-slate-800 hover:text-amber-400'
+              )}
+            >
+              <Shield className="w-4 h-4" />
+              Manajemen Akun
+            </Link>
+            <Link
+              href="/activity-log"
+              className={cn(
+                'flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-sm font-medium',
+                pathname.startsWith('/activity-log')
+                  ? 'bg-indigo-600 text-white' 
+                  : 'text-indigo-400 hover:bg-slate-800 hover:text-indigo-300'
+              )}
+            >
+              <Activity className="w-4 h-4" />
+              Activity Log
+            </Link>
+          </div>
         )}
       </nav>
       

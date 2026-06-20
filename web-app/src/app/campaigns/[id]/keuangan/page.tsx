@@ -8,6 +8,7 @@ import { Loader2, Save, Search, ArrowUp, ArrowDown, ArrowUpDown, Plus, Trash2, P
 import { useParams } from "next/navigation";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { createClient } from "@/utils/supabase/client";
+import { useAuth } from "@/providers/AuthProvider";
 
 const supabase = createClient();
 
@@ -34,6 +35,9 @@ function CampaignKeuanganContent() {
   const campaignId = Number(id);
   const { campaigns } = useDatabaseStore();
   const campaign = campaigns.find(c => c.id === campaignId);
+
+  const { canEditCampaign } = useAuth();
+  const hasAccess = canEditCampaign(campaignId);
 
   // Tab state
   const [activeTab, setActiveTab] = useState<'creator' | 'ads'>('creator');
@@ -333,13 +337,13 @@ function CampaignKeuanganContent() {
                           <TableCell className="text-center text-slate-500">{idx + 1}</TableCell>
                           <TableCell className="font-medium">@{cc.creators?.username}</TableCell>
                           <TableCell className="text-right">
-                            <input type="text" className="w-full p-2 border rounded text-sm text-right font-bold text-blue-700" value={form.price} onChange={e => handleFormChange(cc.id, 'price', e.target.value)} />
+                            <input type="text" className="w-full p-2 border rounded text-sm text-right font-bold text-blue-700 disabled:bg-slate-50 disabled:text-slate-500" value={form.price} onChange={e => handleFormChange(cc.id, 'price', e.target.value)} disabled={!hasAccess} />
                           </TableCell>
                           <TableCell>
-                            <input type="text" className="w-full p-2 border rounded text-sm text-right font-medium" value={form.nominal_pelunasan} onChange={e => handleFormChange(cc.id, 'nominal_pelunasan', e.target.value)} />
+                            <input type="text" className="w-full p-2 border rounded text-sm text-right font-medium disabled:bg-slate-50 disabled:text-slate-500" value={form.nominal_pelunasan} onChange={e => handleFormChange(cc.id, 'nominal_pelunasan', e.target.value)} disabled={!hasAccess} />
                           </TableCell>
                           <TableCell>
-                            <select className={`w-full p-2 border rounded text-sm font-semibold ${form.status_bayar === 'lunas' ? 'bg-green-100 text-green-800 border-green-300' : form.status_bayar === 'sebagian' ? 'bg-yellow-100 text-yellow-800 border-yellow-300' : form.status_bayar === 'no_payment' ? 'bg-slate-800 text-white border-slate-700' : 'bg-red-50 text-red-700 border-red-200'}`} value={form.status_bayar} onChange={e => handleFormChange(cc.id, 'status_bayar', e.target.value)}>
+                            <select className={`w-full p-2 border rounded text-sm font-semibold disabled:bg-slate-50 disabled:text-slate-500 ${form.status_bayar === 'lunas' ? 'bg-green-100 text-green-800 border-green-300' : form.status_bayar === 'sebagian' ? 'bg-yellow-100 text-yellow-800 border-yellow-300' : form.status_bayar === 'no_payment' ? 'bg-slate-800 text-white border-slate-700' : 'bg-red-50 text-red-700 border-red-200'}`} value={form.status_bayar} onChange={e => handleFormChange(cc.id, 'status_bayar', e.target.value)} disabled={!hasAccess}>
                               <option value="belum">Not Yet</option>
                               <option value="sebagian">Half Paid</option>
                               <option value="lunas">Paid Off</option>
@@ -347,13 +351,15 @@ function CampaignKeuanganContent() {
                             </select>
                           </TableCell>
                           <TableCell>
-                            <input type="date" className="w-full p-2 border rounded text-sm bg-white" value={form.tgl_pembayaran} onChange={e => handleFormChange(cc.id, 'tgl_pembayaran', e.target.value)} />
+                            <input type="date" className="w-full p-2 border rounded text-sm bg-white disabled:bg-slate-50 disabled:text-slate-500" value={form.tgl_pembayaran} onChange={e => handleFormChange(cc.id, 'tgl_pembayaran', e.target.value)} disabled={!hasAccess} />
                           </TableCell>
                           <TableCell className="text-center">
-                            <Button size="sm" onClick={() => handleSave(cc.id)} disabled={saving[cc.id]} className="w-full">
-                              {saving[cc.id] ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4 mr-1" />}
-                              {saving[cc.id] ? '' : 'Simpan'}
-                            </Button>
+                            {hasAccess && (
+                              <Button size="sm" onClick={() => handleSave(cc.id)} disabled={saving[cc.id]} className="w-full">
+                                {saving[cc.id] ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4 mr-1" />}
+                                {saving[cc.id] ? '' : 'Simpan'}
+                              </Button>
+                            )}
                           </TableCell>
                         </TableRow>
                       );
@@ -393,10 +399,12 @@ function CampaignKeuanganContent() {
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
             <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
               <h3 className="font-semibold text-slate-800">Riwayat Top-Up & Pengeluaran Ads</h3>
-              <Button size="sm" onClick={() => setShowAddForm(v => !v)} className="flex items-center gap-2">
-                {showAddForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-                {showAddForm ? 'Batal' : 'Tambah Entri'}
-              </Button>
+              {hasAccess && (
+                <Button size="sm" onClick={() => setShowAddForm(v => !v)} className="flex items-center gap-2">
+                  {showAddForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                  {showAddForm ? 'Batal' : 'Tambah Entri'}
+                </Button>
+              )}
             </div>
 
             {/* Add Form */}
@@ -499,12 +507,12 @@ function CampaignKeuanganContent() {
                                 <button onClick={() => handleSaveAds(entry.id)} className="p-1.5 rounded hover:bg-green-100 text-green-600" title="Simpan"><Check className="w-4 h-4" /></button>
                                 <button onClick={() => setEditingAdsId(null)} className="p-1.5 rounded hover:bg-slate-100 text-slate-500" title="Batal"><X className="w-4 h-4" /></button>
                               </>
-                            ) : (
+                            ) : hasAccess ? (
                               <>
                                 <button onClick={() => handleEditAds(entry)} className="p-1.5 rounded hover:bg-blue-100 text-blue-500" title="Edit"><Pencil className="w-4 h-4" /></button>
                                 <button onClick={() => handleDeleteAds(entry.id)} className="p-1.5 rounded hover:bg-red-100 text-red-500" title="Hapus"><Trash2 className="w-4 h-4" /></button>
                               </>
-                            )}
+                            ) : null}
                           </div>
                         </TableCell>
                       </TableRow>

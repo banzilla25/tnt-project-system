@@ -8,10 +8,14 @@ import { Plus, Edit2, Trash2 } from "lucide-react";
 import { useParams } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 
+import { useAuth } from "@/providers/AuthProvider";
+
 export default function SkuPage() {
   const { id } = useParams();
   const campaignId = Number(id);
   const { skus, fetchData } = useDatabaseStore();
+  const { canEditCampaign } = useAuth();
+  const hasAccess = canEditCampaign(campaignId);
   const supabase = createClient();
 
   const campaignSkus = skus.filter(s => s.campaign_id === campaignId);
@@ -37,7 +41,7 @@ export default function SkuPage() {
   });
 
   const handleAdd = async () => {
-    if (!newSku.nama_produk || !newSku.product_id) return;
+    if (!newSku.nama_produk || !newSku.product_id || !hasAccess) return;
     
     await supabase.from('skus').insert({
       campaign_id: campaignId,
@@ -55,6 +59,7 @@ export default function SkuPage() {
   };
 
   const handleDelete = async (skuId: number) => {
+    if (!hasAccess) return;
     if (confirm("Yakin ingin menghapus SKU ini?")) {
       await supabase.from('skus').delete().eq('id', skuId);
       fetchData();
@@ -62,6 +67,7 @@ export default function SkuPage() {
   };
 
   const startEdit = (sku: any) => {
+    if (!hasAccess) return;
     setEditingSkuId(sku.id);
     setEditSkuData({
       nama_produk: sku.nama_produk || '',
@@ -74,7 +80,7 @@ export default function SkuPage() {
   };
 
   const handleSaveEdit = async () => {
-    if (!editingSkuId || !editSkuData.nama_produk || !editSkuData.product_id) return;
+    if (!editingSkuId || !editSkuData.nama_produk || !editSkuData.product_id || !hasAccess) return;
 
     await supabase.from('skus').update({
       nama_produk: editSkuData.nama_produk,
@@ -96,9 +102,11 @@ export default function SkuPage() {
           <h2 className="text-xl font-bold">Daftar SKU Produk</h2>
           <p className="text-sm text-slate-500">Kelola master produk untuk campaign ini.</p>
         </div>
-        <Button onClick={() => setIsAdding(true)} disabled={isAdding}>
-          <Plus className="w-4 h-4 mr-2" /> Tambah Produk
-        </Button>
+        {hasAccess && (
+          <Button onClick={() => setIsAdding(true)} disabled={isAdding}>
+            <Plus className="w-4 h-4 mr-2" /> Tambah Produk
+          </Button>
+        )}
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
@@ -109,11 +117,11 @@ export default function SkuPage() {
               <TableHead>Product ID</TableHead>
               <TableHead>Satuan/Bundle</TableHead>
               <TableHead>Komisi (%)</TableHead>
-              <TableHead className="text-right">Aksi</TableHead>
+              {hasAccess && <TableHead className="text-right">Aksi</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
-            {isAdding && (
+            {isAdding && hasAccess && (
               <TableRow className="bg-blue-50/50">
                 <TableCell>
                   <input type="text" placeholder="Nama Produk" className="w-full p-2 text-sm border rounded" value={newSku.nama_produk} onChange={e => setNewSku({...newSku, nama_produk: e.target.value})} />
@@ -136,7 +144,7 @@ export default function SkuPage() {
 
             {campaignSkus.length === 0 && !isAdding ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-8 text-slate-500">
+                <TableCell colSpan={hasAccess ? 5 : 4} className="text-center py-8 text-slate-500">
                   Belum ada produk terdaftar.
                 </TableCell>
               </TableRow>
@@ -167,14 +175,16 @@ export default function SkuPage() {
                     <TableCell className="font-mono text-slate-500 text-sm">{sku.product_id}</TableCell>
                     <TableCell>{sku.satuan_bundle || '-'}</TableCell>
                     <TableCell>{sku.commission ? `${sku.commission}%` : '-'}</TableCell>
-                    <TableCell className="text-right">
-                      <Button size="icon" variant="ghost" className="h-8 w-8 text-blue-500" onClick={() => startEdit(sku)} title="Edit SKU">
-                        <Edit2 className="w-4 h-4" />
-                      </Button>
-                      <Button size="icon" variant="ghost" onClick={() => handleDelete(sku.id)} className="h-8 w-8 text-red-500" title="Hapus SKU">
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </TableCell>
+                    {hasAccess && (
+                      <TableCell className="text-right">
+                        <Button size="icon" variant="ghost" className="h-8 w-8 text-blue-500" onClick={() => startEdit(sku)} title="Edit SKU">
+                          <Edit2 className="w-4 h-4" />
+                        </Button>
+                        <Button size="icon" variant="ghost" onClick={() => handleDelete(sku.id)} className="h-8 w-8 text-red-500" title="Hapus SKU">
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </TableCell>
+                    )}
                   </TableRow>
                 )
               ))

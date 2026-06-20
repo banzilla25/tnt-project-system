@@ -5,7 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/Table";
 import { useDatabaseStore } from "@/store/useDatabaseStore";
 import { createClient } from "@/utils/supabase/client";
-import { Edit2, Check, X, Search, FileSpreadsheet, Loader2, Trash2 } from "lucide-react";
+import { Edit2, Check, X, Search, FileSpreadsheet, Loader2, Trash2, Lock, Download } from "lucide-react";
+import { useAuth } from "@/providers/AuthProvider";
+import { exportToExcel } from "@/utils/exportToExcel";
+import { Button } from "@/components/ui/Button";
 
 // Komponen mini untuk Searchable Select (Dynamic Fetch)
 function SearchableSelect({ value, initialLabel, onChange, placeholder }: { value: number | '', initialLabel?: string, onChange: (val: number | '') => void, placeholder: string }) {
@@ -104,9 +107,13 @@ export default function AdsReportPage() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   
+  const { profile } = useAuth();
+  const isManager = profile?.role === 'manager';
+
   const supabase = createClient();
 
   useEffect(() => {
+    if (!isManager) return;
     const fetchAds = async () => {
       setIsLoading(true);
       const { data } = await supabase.from('ads_performance').select('*, creators(username)').order('tanggal', { ascending: false }).limit(2000);
@@ -114,7 +121,7 @@ export default function AdsReportPage() {
       setIsLoading(false);
     };
     fetchAds();
-  }, [supabase]);
+  }, [supabase, isManager]);
   
   // Edit States
   const [editCampaignId, setEditCampaignId] = useState<number | ''>('');
@@ -194,6 +201,36 @@ export default function AdsReportPage() {
 
   // const creatorOptions = creators.map(c => ({ id: c.id, label: `@${c.username}` }));
 
+  const handleExport = () => {
+    const dataToExport = filteredAds.map(ad => ({
+      "Tanggal": ad.tanggal,
+      "Campaign": campaigns.find(c => c.id === ad.campaign_id)?.nama || 'Unknown',
+      "Creator": ad.creators?.username || 'Unknown',
+      "Ad Name": ad.ad_name,
+      "Ad ID": ad.ad_id,
+      "Cost": ad.cost,
+      "Kurs": ad.kurs,
+      "Cost (IDR)": (ad.cost || 0) * (ad.kurs || 16000),
+      "Video Views": ad.video_views,
+      "GMV (VSA)": ad.vsa_gmv
+    }));
+    exportToExcel(dataToExport, "Laporan_Ads_Export");
+  };
+
+  if (!isManager) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-4">
+        <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center text-red-500 mb-2">
+          <Lock className="w-8 h-8" />
+        </div>
+        <h2 className="text-2xl font-bold text-slate-800">Akses Ditolak</h2>
+        <p className="text-slate-500 max-w-md">
+          Hanya pengguna dengan role <span className="font-semibold text-slate-700">Manager</span> yang diizinkan untuk melihat Ads Report.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center mb-6">
@@ -201,15 +238,22 @@ export default function AdsReportPage() {
           <h1 className="text-3xl font-bold tracking-tight mb-2">Laporan Ads & Performa</h1>
           <p className="text-slate-500">Pemetaan Manual Ad ID dari TikTok Ads Manager ke Creator & Campaign.</p>
         </div>
-        <div className="relative w-72">
-          <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Cari Ad Name, ID..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
-          />
+        <div className="flex items-center gap-4">
+          <div className="relative w-72">
+            <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Cari Ad Name, ID..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          {isManager && (
+            <Button onClick={handleExport} className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white">
+              <Download className="w-4 h-4" /> Export Excel
+            </Button>
+          )}
         </div>
       </div>
 

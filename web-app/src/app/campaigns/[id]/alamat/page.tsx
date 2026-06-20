@@ -10,7 +10,7 @@ import { CreatorAddress } from "@/types/database";
 import { createClient } from "@/utils/supabase/client";
 import { Download, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
 import { exportToCSV } from "@/utils/exportCsv";
-
+import { useAuth } from "@/providers/AuthProvider";
 
 const supabase = createClient();
 
@@ -31,6 +31,9 @@ export default function AlamatPage() {
 
   const campaign = campaigns.find(c => c.id === campaignId);
   const campaignSkus = skus.filter(s => s.campaign_id === campaignId);
+
+  const { canEditCampaign } = useAuth();
+  const hasAccess = canEditCampaign(campaignId);
 
   const [editId, setEditId] = useState<number | null>(null);
   const [formData, setFormData] = useState<Partial<CreatorAddress>>({});
@@ -255,13 +258,13 @@ export default function AlamatPage() {
                       Status <SortIcon col="status" />
                     </button>
                   </TableHead>
-                  <TableHead className="w-24 text-right">Aksi</TableHead>
+                  {hasAccess && <TableHead className="w-24 text-right">Aksi</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {approvedCCs.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8 text-slate-500">
+                    <TableCell colSpan={hasAccess ? 5 : 4} className="text-center py-8 text-slate-500">
                       Belum ada kreator yang di-approve di campaign ini.
                     </TableCell>
                   </TableRow>
@@ -402,32 +405,34 @@ export default function AlamatPage() {
                             </Badge>
                           )}
                         </TableCell>
-                        <TableCell className="text-right align-top">
-                          {isEditing ? (
-                            <div className="flex flex-col gap-2">
+                        {hasAccess && (
+                          <TableCell className="text-right align-top">
+                            {isEditing ? (
+                              <div className="flex flex-col gap-2">
+                                <button
+                                  onClick={() => handleSave(cc.id)}
+                                  disabled={isSaving}
+                                  className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded hover:bg-blue-700 w-full"
+                                >
+                                  {isSaving ? 'Menyimpan...' : 'Simpan'}
+                                </button>
+                                <button
+                                  onClick={() => setEditId(null)}
+                                  className="text-xs bg-slate-100 text-slate-600 px-3 py-1.5 rounded hover:bg-slate-200 w-full"
+                                >
+                                  Batal
+                                </button>
+                              </div>
+                            ) : (
                               <button
-                                onClick={() => handleSave(cc.id)}
-                                disabled={isSaving}
-                                className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded hover:bg-blue-700 w-full"
+                                onClick={() => handleEdit(cc.id)}
+                                className="text-xs text-blue-600 hover:text-blue-800 hover:underline"
                               >
-                                {isSaving ? 'Menyimpan...' : 'Simpan'}
+                                Edit Data
                               </button>
-                              <button
-                                onClick={() => setEditId(null)}
-                                className="text-xs bg-slate-100 text-slate-600 px-3 py-1.5 rounded hover:bg-slate-200 w-full"
-                              >
-                                Batal
-                              </button>
-                            </div>
-                          ) : (
-                            <button
-                              onClick={() => handleEdit(cc.id)}
-                              className="text-xs text-blue-600 hover:text-blue-800 hover:underline"
-                            >
-                              Edit Data
-                            </button>
-                          )}
-                        </TableCell>
+                            )}
+                          </TableCell>
+                        )}
                       </TableRow>
                     );
                   })

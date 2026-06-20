@@ -11,6 +11,7 @@ import Link from "next/link";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { exportToCSV } from "@/utils/exportCsv";
 import { Button } from "@/components/ui/Button";
+import { useAuth } from "@/providers/AuthProvider";
 
 const supabase = createClient();
 
@@ -28,6 +29,9 @@ function CampaignPerformaContent() {
   
   const { campaigns, campaign_creators, creators, videos } = useDatabaseStore();
   const campaign = campaigns.find(c => c.id === campaignId);
+
+  const { canEditCampaign } = useAuth();
+  const hasAccess = canEditCampaign(campaignId);
 
   const [salesSummary, setSalesSummary] = useState<any[]>([]);
   const [totalSales, setTotalSales] = useState<any>(null);
@@ -536,19 +540,26 @@ function CampaignPerformaContent() {
                                 className="w-20 p-1 border rounded text-xs text-center" 
                                 value={editKursValue} 
                                 onChange={e => setEditKursValue(e.target.value)} 
+                                disabled={!hasAccess}
                               />
-                              <button onClick={() => handleUpdateKurs(ad.id)} className="text-green-600 hover:text-green-800"><Check className="w-4 h-4" /></button>
-                              <button onClick={() => setEditingKursId(null)} className="text-slate-400 hover:text-slate-600"><X className="w-4 h-4" /></button>
+                              {hasAccess && (
+                                <>
+                                  <button onClick={() => handleUpdateKurs(ad.id)} className="text-green-600 hover:text-green-800"><Check className="w-4 h-4" /></button>
+                                  <button onClick={() => setEditingKursId(null)} className="text-slate-400 hover:text-slate-600"><X className="w-4 h-4" /></button>
+                                </>
+                              )}
                             </div>
                           ) : (
                             <div className="flex items-center justify-center gap-2 group">
                               <span className="font-medium">Rp {ad.kurs.toLocaleString()}</span>
-                              <button 
-                                onClick={() => { setEditingKursId(ad.id); setEditKursValue(ad.kurs.toString()); }}
-                                className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-indigo-600"
-                              >
-                                <Edit2 className="w-3 h-3" />
-                              </button>
+                              {hasAccess && (
+                                <button 
+                                  onClick={() => { setEditingKursId(ad.id); setEditKursValue(ad.kurs.toString()); }}
+                                  className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-indigo-600"
+                                >
+                                  <Edit2 className="w-3 h-3" />
+                                </button>
+                              )}
                             </div>
                           )}
                         </TableCell>

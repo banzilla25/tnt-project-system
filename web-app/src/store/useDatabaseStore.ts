@@ -59,6 +59,11 @@ type DatabaseState = DatabaseSchema & {
   addSku: (sku: Omit<DatabaseSchema['skus'][0], 'id'>) => Promise<void>;
   updateSku: (id: number, updates: Partial<DatabaseSchema['skus'][0]>) => Promise<void>;
   deleteSku: (id: number) => Promise<void>;
+  
+  profiles: any[]; // Add profiles for RBAC tracking
+
+  // Audit Actions
+  addAuditLog: (log: Omit<AuditLog, 'id' | 'created_at'>) => Promise<void>;
 };
 
 const supabase = createClient();
@@ -88,6 +93,7 @@ export const useDatabaseStore = create<DatabaseState>((set, get) => ({
   sales: [],
   ads_performance: [],
   ad_name_mapping: [],
+  profiles: [],
   isLoading: false,
   error: null,
 
@@ -122,7 +128,7 @@ export const useDatabaseStore = create<DatabaseState>((set, get) => ({
       
       const [
         brandsRes, campaignsRes, nichesRes, creatorNichesRes, creatorNotesRes,
-        skusRes, vwCampaignSummaryRes, adNameMappingRes
+        skusRes, vwCampaignSummaryRes, adNameMappingRes, profilesRes
       ] = await Promise.all([
         supabase.from('brands').select('*'),
         supabase.from('campaigns').select('*'),
@@ -131,7 +137,8 @@ export const useDatabaseStore = create<DatabaseState>((set, get) => ({
         fetchAll('creator_notes'),
         supabase.from('skus').select('*'),
         supabase.from('vw_campaign_summary').select('*'), // Usually < 1000
-        supabase.from('ad_name_mapping').select('*')
+        supabase.from('ad_name_mapping').select('*'),
+        supabase.from('profiles').select('*')
       ]);
 
       set({
@@ -148,6 +155,7 @@ export const useDatabaseStore = create<DatabaseState>((set, get) => ({
         audit_logs: [],
         skus: skusRes.data || [],
         vw_campaign_summary: vwCampaignSummaryRes.data || [],
+        profiles: profilesRes.data || [],
         daily_performance: [],
         payout_requests: [],
         payout_creator: [],
@@ -163,6 +171,38 @@ export const useDatabaseStore = create<DatabaseState>((set, get) => ({
     } catch (err: any) {
       console.error("fetchData Error:", err);
       set({ error: err.message, isLoading: false });
+    }
+  },
+
+  addAuditLog: async (log) => {
+    try {
+      let finalUserId = log.user_id;
+      let finalUserName = log.user_name;
+
+      if (!finalUserId || !finalUserName) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          finalUserId = session.user.id;
+          if (!finalUserName) {
+            const profile = get().profiles.find(p => p.id === session.user.id);
+            finalUserName = profile?.nama || session.user.email;
+          }
+        }
+      }
+
+      const { data, error } = await supabase.from('audit_logs').insert({
+        ...log,
+        user_id: finalUserId,
+        user_name: finalUserName
+      }).select().single();
+      
+      if (!error && data) {
+        set(state => ({
+          audit_logs: [data, ...state.audit_logs].slice(0, 500) // Keep latest 500 in memory
+        }));
+      }
+    } catch (err) {
+      console.error("Error adding audit log", err);
     }
   },
 
@@ -212,11 +252,26 @@ export const useDatabaseStore = create<DatabaseState>((set, get) => ({
   },
 
   updateCreator: async (id, updates) => {
+    // Ambil data lama untuk audit
+    const oldData = get().creators.find(c => c.id === id);
     const { data, error } = await supabase.from('creators').update(updates).eq('id', id).select().single();
     if (!error && data) {
       set(state => ({
         creators: state.creators.map(c => c.id === id ? { ...c, ...data } : c)
       }));
+      // Record Audit
+      if (oldData) {
+        get().addAuditLog({
+          user_id: null,
+          user_name: null, // Will be auto-filled by addAuditLog via session
+          action: 'UPDATE',
+          table_name: 'creators',
+          record_id: id.toString(),
+          old_data: oldData,
+          new_data: data,
+          description: `Update Profil Kreator: ${data.username}`
+        });
+      }
     }
   },
 
@@ -375,12 +430,33 @@ export const useDatabaseStore = create<DatabaseState>((set, get) => ({
   },
 
   updateCampaignCreator: async (id, updates, changedBy) => {
-    // Triggers in Supabase will handle the audit log automatically!
+    // Ambil data lama untuk audit
+    const oldData = get().campaign_creators.find(c => c.id === id);
     const { error } = await supabase.from('campaign_creators').update(updates).eq('id', id);
     if (!error) {
       set((state) => ({
         campaign_creators: state.campaign_creators.map(c => c.id === id ? { ...c, ...updates } : c)
       }));
+      // Record Audit
+      if (oldData) {
+        let desc = 'Update Campaign Creator';
+        if (updates.approval && updates.approval !== oldData.approval) {
+          desc = `Ubah status Approval menjadi ${updates.approval}`;
+        } else if (updates.price !== undefined && updates.price !== oldData.price) {
+          desc = `Ubah Rate Card menjadi ${updates.price}`;
+        }
+        
+        get().addAuditLog({
+          user_id: null,
+          user_name: changedBy || null,
+          action: 'UPDATE',
+          table_name: 'campaign_creators',
+          record_id: id.toString(),
+          old_data: oldData,
+          new_data: { ...oldData, ...updates },
+          description: desc
+        });
+      }
     }
   },
 

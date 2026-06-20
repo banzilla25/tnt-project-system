@@ -8,7 +8,8 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { createClient } from "@/utils/supabase/client";
 import { useParams } from "next/navigation";
-import { AlertCircle, Link as LinkIcon, Save, Edit2, Loader2, ChevronDown } from "lucide-react";
+import { AlertCircle, Link as LinkIcon, Save, Edit2, Loader2, ChevronDown, Plus } from "lucide-react";
+import { useAuth } from "@/providers/AuthProvider";
 
 export default function CampaignVideoPage() {
   const { id } = useParams();
@@ -22,6 +23,9 @@ export default function CampaignVideoPage() {
     fetchData,
     campaigns
   } = useDatabaseStore();
+
+  const { canEditCampaign } = useAuth();
+  const hasAccess = canEditCampaign(campaignId);
 
   const campaign = campaigns.find(c => c.id === campaignId);
 
@@ -307,21 +311,25 @@ export default function CampaignVideoPage() {
                       <p className="text-sm text-slate-500">Target Video SOW: {cc.qty_vt} | Realita: {localVideos.filter(v => v.campaign_creator_id === cc.id && v.link_video).length}</p>
                     </div>
                     <div className="flex items-center gap-4">
-                      <Button 
-                        variant="outline"
-                        onClick={() => handleAddVideoRow(cc.id)}
-                        className="gap-2 text-blue-600 border-blue-200 hover:bg-blue-50"
-                      >
-                        + Tambah Baris
-                      </Button>
-                      <Button 
-                        onClick={() => handleSaveVT(cc.id)}
-                        disabled={saving[cc.id]}
-                        className="gap-2"
-                      >
-                        {saving[cc.id] ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                        {saving[cc.id] ? 'Menyimpan...' : 'Simpan Perubahan'}
-                      </Button>
+                      {hasAccess && (
+                        <>
+                          <Button 
+                            variant="outline"
+                            onClick={() => handleAddVideoRow(cc.id)}
+                            className="gap-2 text-blue-600 border-blue-200 hover:bg-blue-50"
+                          >
+                            + Tambah Baris
+                          </Button>
+                          <Button 
+                            onClick={() => handleSaveVT(cc.id)}
+                            disabled={saving[cc.id]}
+                            className="gap-2"
+                          >
+                            {saving[cc.id] ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                            {saving[cc.id] ? 'Menyimpan...' : 'Simpan Perubahan'}
+                          </Button>
+                        </>
+                      )}
                     </div>
                   </div>
                   
@@ -359,6 +367,7 @@ export default function CampaignVideoPage() {
                                   placeholder={isAwareness ? "Tulis brief/konsep..." : "Tulis ide konsep..."}
                                   value={v.concept || ''}
                                   onChange={(e) => handleVideoChange(cc.id, v.urutan, 'concept', e.target.value)}
+                                  disabled={!hasAccess}
                                 />
                               </TableCell>
                               <TableCell>
@@ -371,6 +380,7 @@ export default function CampaignVideoPage() {
                                       placeholder={isAwareness ? "https://..." : "https://www.tiktok.com/@..."}
                                       value={v.link_video || ''}
                                       onChange={(e) => handleVideoChange(cc.id, v.urutan, 'link_video', e.target.value)}
+                                      disabled={!hasAccess}
                                     />
                                   </div>
                                   {warningShortLink && (
@@ -412,9 +422,10 @@ export default function CampaignVideoPage() {
                                   </TableCell>
                                   <TableCell>
                                     <select 
-                                      className="w-full p-2 border border-slate-300 rounded text-sm bg-white"
+                                      className="w-full p-2 border border-slate-300 rounded text-sm bg-white disabled:bg-slate-50 disabled:text-slate-500"
                                       value={v.sku_id || ''}
                                       onChange={(e) => handleVideoChange(cc.id, v.urutan, 'sku_id', e.target.value)}
+                                      disabled={!hasAccess}
                                     >
                                       <option value="">Pilih Produk...</option>
                                       {skus.filter(s => s.campaign_id === campaignId).map(sku => (
@@ -439,9 +450,10 @@ export default function CampaignVideoPage() {
                                   </TableCell>
                                   <TableCell>
                                     <select 
-                                      className="w-full p-2 border border-slate-300 rounded text-sm bg-white"
+                                      className="w-full p-2 border border-slate-300 rounded text-sm bg-white disabled:bg-slate-50 disabled:text-slate-500"
                                       value={v.sku_id || ''}
                                       onChange={(e) => handleVideoChange(cc.id, v.urutan, 'sku_id', e.target.value)}
+                                      disabled={!hasAccess}
                                     >
                                       <option value="">Pilih Produk...</option>
                                       {skus.filter(s => s.campaign_id === campaignId).map(sku => (

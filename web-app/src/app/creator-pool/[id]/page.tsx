@@ -14,6 +14,7 @@ import { useState, ReactNode, useEffect } from "react";
 import React from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/Dialog";
 import { Edit2 } from "lucide-react";
+import { useAuth } from "@/providers/AuthProvider";
 
 import { createClient } from "@/utils/supabase/client";
 
@@ -22,6 +23,7 @@ const supabase = createClient();
 export default function CreatorProfilePage() {
   const { id } = useParams();
   const creatorId = Number(id);
+  const { profile } = useAuth();
   const { 
     niches, 
     campaigns,
@@ -44,6 +46,7 @@ export default function CreatorProfilePage() {
     sales: any[];
     ads: any[];
     addressBook: any[];
+    auditLogs: any[];
   } | null>(null);
 
   useEffect(() => {
@@ -64,7 +67,8 @@ export default function CreatorProfilePage() {
           { data: notes },
           { data: ccs },
           { data: ads },
-          { data: addressBookResult }
+          { data: addressBookResult },
+          { data: auditLogsResult }
         ] = await Promise.all([
           supabase.from('creator_snapshots').select('*').eq('creator_id', creatorId),
           supabase.from('creator_contacts').select('*').eq('creator_id', creatorId),
@@ -72,7 +76,8 @@ export default function CreatorProfilePage() {
           supabase.from('creator_notes').select('*').eq('creator_id', creatorId),
           supabase.from('campaign_creators').select('*').eq('creator_id', creatorId),
           supabase.from('ads_performance').select('*').eq('creator_id', creatorId),
-          supabase.from('creator_address_book').select('*').eq('creator_id', creatorId).order('id', { ascending: false })
+          supabase.from('creator_address_book').select('*').eq('creator_id', creatorId).order('id', { ascending: false }),
+          supabase.from('audit_logs').select('*').eq('table_name', 'creators').eq('record_id', creatorId.toString()).order('created_at', { ascending: false })
         ]);
 
         let vids: any[] = [];
@@ -85,8 +90,6 @@ export default function CreatorProfilePage() {
         let sls: any[] = [];
         const contentUids = vids.map(v => v.content_uid).filter(Boolean);
         if (contentUids.length > 0) {
-          // fetch sales for these content_uids
-          // split into chunks to avoid too large query
           const chunkSize = 100;
           let allSls: any[] = [];
           for (let i = 0; i < contentUids.length; i += chunkSize) {
@@ -97,7 +100,6 @@ export default function CreatorProfilePage() {
           sls = allSls;
         }
 
-        // Also fetch sales by creator_username for awareness campaigns
         const { data: salesByUsername } = await supabase.from('sales').select('*').eq('creator_username', creator.username);
         if (salesByUsername) {
           sls = [...sls, ...salesByUsername];
@@ -113,7 +115,8 @@ export default function CreatorProfilePage() {
           videos: vids,
           sales: sls,
           ads: ads || [],
-          addressBook: addressBookResult || []
+          addressBook: addressBookResult || [],
+          auditLogs: auditLogsResult || []
         });
       } catch (err) {
         console.error("Error fetching creator data:", err);
@@ -316,16 +319,22 @@ export default function CreatorProfilePage() {
       content_type: null,
       approval: 'pending',
       status_bayar: 'belum',
-      pic_assist: null,
+      pic_assist: profile?.nama || null,
       notes_manager: null,
       notes_pic: null,
       sample_progress: null,
       gmv_organic_legacy: null,
       gmv_ads_legacy: null,
-      nominal_pelunasan: 0,
+      nominal_pelunasan: null,
       tgl_pembayaran: null,
-      client_approval: 'pending'
+      client_approval: 'pending',
+      added_by: profile?.id || null,
+      approved_by: null,
+      approved_at: null,
+      not_approved_by: null,
+      not_approved_at: null
     });
+    alert('Berhasil ditarik ke Campaign!');
     setCampOpen(false);
   };
 
@@ -715,6 +724,28 @@ export default function CreatorProfilePage() {
               ) : (
                 <p className="text-sm text-slate-400 text-center py-4">Belum ada catatan.</p>
               )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>History Update Profil Utama</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3 max-h-80 overflow-y-auto pr-2">
+                {localData?.auditLogs && localData.auditLogs.length > 0 ? (
+                  localData.auditLogs.map((log: any) => (
+                    <div key={log.id} className="text-sm border-l-2 border-indigo-500 pl-3 py-1 bg-slate-50 rounded-r-lg">
+                      <p className="text-slate-800 font-medium">{log.description || 'Melakukan Update'}</p>
+                      <p className="text-xs text-slate-500 mt-1">
+                        Oleh: {log.user_name || 'System'} • {new Date(log.created_at).toLocaleString('id-ID')}
+                      </p>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-slate-400 text-center py-4">Belum ada riwayat update.</p>
+                )}
+              </div>
             </CardContent>
           </Card>
         </div>

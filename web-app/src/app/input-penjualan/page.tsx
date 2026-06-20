@@ -3,15 +3,33 @@
 import React, { useState } from 'react';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { UploadCloud, CheckCircle2, AlertTriangle, FileSpreadsheet } from 'lucide-react';
+import { UploadCloud, CheckCircle2, AlertTriangle, FileSpreadsheet, Lock } from 'lucide-react';
 import * as xlsx from 'xlsx';
 import { uploadOrganik } from './actions/uploadOrganik';
 import { uploadAds } from './actions/uploadAds';
 import OrganicImport from './OrganicImport';
 import AdsImport from './AdsImport';
+import { useAuth } from '@/providers/AuthProvider';
 
 export default function InputPenjualanPage() {
   const [activeTab, setActiveTab] = useState<'organik' | 'ads'>('organik');
+  const { profile } = useAuth();
+  
+  const isManager = profile?.role === 'manager';
+
+  if (!isManager) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-4">
+        <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center text-red-500 mb-2">
+          <Lock className="w-8 h-8" />
+        </div>
+        <h2 className="text-2xl font-bold text-slate-800">Akses Ditolak</h2>
+        <p className="text-slate-500 max-w-md">
+          Hanya pengguna dengan role <span className="font-semibold text-slate-700">Manager</span> yang diizinkan untuk melakukan import data penjualan.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

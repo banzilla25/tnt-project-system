@@ -3,18 +3,20 @@ import { useState, useEffect } from 'react';
 export function useDraftLocalStorage<T>(key: string, initialValue: T) {
   // State to store our value
   // Pass initial state function to useState so logic is only executed once
-  const [value, setValue] = useState<T>(() => {
-    if (typeof window === 'undefined') {
-      return initialValue;
+  const [value, setValue] = useState<T>(initialValue);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const item = window.localStorage.getItem(key);
+        if (item) {
+          setValue(JSON.parse(item));
+        }
+      } catch (error) {
+        console.warn(`Error reading localStorage key "${key}":`, error);
+      }
     }
-    try {
-      const item = window.localStorage.getItem(key);
-      return item ? JSON.parse(item) : initialValue;
-    } catch (error) {
-      console.warn(`Error reading localStorage key "${key}":`, error);
-      return initialValue;
-    }
-  });
+  }, [key]);
 
   // Return a wrapped version of useState's setter function that persists the new value to localStorage.
   const setValueWrapped = (valueToStore: T | ((val: T) => T)) => {
