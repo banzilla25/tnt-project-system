@@ -8,6 +8,8 @@ import { createClient } from "@/utils/supabase/client";
 import { ArrowLeft, Save, Play, Plus, Trash2, AlertCircle, CheckCircle2 } from "lucide-react";
 import { useDatabaseStore } from "@/store/useDatabaseStore";
 
+import { useAuth } from "@/providers/AuthProvider";
+
 type SpreadsheetRow = {
   id: string;
   username: string;
@@ -40,9 +42,7 @@ export default function SpreadsheetImportClient() {
   const router = useRouter();
   const supabase = createClient();
   const { niches, fetchData } = useDatabaseStore();
-  
-  const [picName, setPicName] = useState('');
-  const [picSuggestions, setPicSuggestions] = useState<string[]>([]);
+  const { profile } = useAuth();
   
   const [rows, setRows] = useState<SpreadsheetRow[]>(() => {
     if (typeof window !== 'undefined') {
@@ -76,27 +76,9 @@ export default function SpreadsheetImportClient() {
     if (rows.length > 0) {
       localStorage.setItem(`tnt_import_draft_global`, JSON.stringify(rows));
     }
-    
-    const fetchPics = async () => {
-      const { data } = await supabase.from('creators').select('added_by, last_updated_by');
-      if (data) {
-        const unique = new Set<string>();
-        data.forEach(d => {
-          if (d.added_by) unique.add(d.added_by);
-          if (d.last_updated_by) unique.add(d.last_updated_by);
-        });
-        setPicSuggestions(Array.from(unique));
-      }
-    };
-    fetchPics();
-  }, [rows, supabase]);
+  }, [rows]);
 
   const handleVerify = async () => {
-    if (!picName.trim()) {
-      alert("Mohon isi Nama Tim Peng-import (PIC) terlebih dahulu!");
-      return;
-    }
-    
     let filledRows = [...rows].filter(r => r.username.trim() !== '');
     if (filledRows.length === 0) {
       alert("Tidak ada data username yang diisi!");
@@ -172,15 +154,13 @@ export default function SpreadsheetImportClient() {
            creatorPayloads.push({
              username: r.username,
              link_account: `https://www.tiktok.com/@${r.username}`,
-             added_by: picName
+             added_by: profile?.id
            });
            existingUsernames.add(r.username); // prevent duplicate in same batch
         } else {
            creatorPayloads.push({
              username: r.username,
-             link_account: `https://www.tiktok.com/@${r.username}`,
-             last_updated_by: picName,
-             last_updated_at: new Date().toISOString()
+             link_account: `https://www.tiktok.com/@${r.username}`
            });
         }
       }
@@ -279,21 +259,6 @@ export default function SpreadsheetImportClient() {
 
       <Card>
         <CardContent className="p-6">
-          <div className="mb-6 max-w-sm">
-            <label className="block text-sm font-semibold mb-2">Nama Tim Peng-import (PIC)</label>
-            <input 
-              type="text" 
-              list="pic-list"
-              value={picName}
-              onChange={e => setPicName(e.target.value)}
-              className="w-full border border-slate-300 rounded-md p-2 focus:ring-2 focus:ring-blue-500"
-              placeholder="Contoh: Tim A"
-            />
-            <datalist id="pic-list">
-              {picSuggestions.map(p => <option key={p} value={p} />)}
-            </datalist>
-          </div>
-
           {step === 1 && (
             <div className="overflow-x-auto border border-slate-200 rounded-lg shadow-sm">
               <table className="w-full text-sm text-left">

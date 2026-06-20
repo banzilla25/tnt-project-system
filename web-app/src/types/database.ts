@@ -34,17 +34,31 @@ export type Creator = {
   username: string;
   nama_asli: string | null;
   link_account: string | null;
-  rekening: string | null;
-  alamat_penerima: string | null;
-  alamat_jalan: string | null;
-  alamat_kecamatan: string | null;
-  alamat_kota: string | null;
-  alamat_provinsi: string | null;
-  alamat_kodepos: string | null;
-  added_by: string | null;
-  last_updated_by: string | null;
-  last_updated_at: string | null;
+  pic: string | null;
+  contact_pic: string | null;
+  domisili: string | null;
+  category: string | null;
+  notes: string | null;
+  rekening_bank: string | null;
+  rekening_atas_nama: string | null;
+  rekening_nomor: string | null;
   created_at: string;
+  added_by: string | null;
+  added_at: string | null;
+  // relations
+  campaign_creators?: CampaignCreator[];
+  creator_evaluations?: CreatorEvaluation[];
+  creator_snapshots?: CreatorSnapshot[];
+};
+
+export type CreatorEvaluation = {
+  id: number;
+  creator_id: number;
+  catatan: string;
+  rating: number;
+  created_at: string;
+  added_by: string | null;
+  added_at: string | null;
 };
 
 export type CreatorSnapshot = {
@@ -112,6 +126,8 @@ export type CampaignCreator = {
   approved_at: string | null;
   not_approved_by: string | null;
   not_approved_at: string | null;
+  payment_updated_by: string | null;
+  payment_updated_at: string | null;
   created_at: string;
 };
 
@@ -211,6 +227,8 @@ export type AdsSpend = {
   nominal: number;
   status_bayar: 'not_yet' | 'half_paid' | 'pay_off';
   tanggal: string | null;
+  last_updated_by: string | null;
+  last_updated_at: string | null;
   created_at: string;
 };
 

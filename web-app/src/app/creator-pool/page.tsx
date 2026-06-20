@@ -44,7 +44,8 @@ export default function CreatorPoolPage() {
     setIsLoading(true);
     try {
       let query: any = supabase.from('creators').select(`
-        id, username, nama_asli, link_account,
+        id, username, nama_asli, link_account, created_at,
+        added_by_profile:profiles!creators_added_by_fkey ( nama ),
         creator_snapshots ( audience_age, level, tanggal_update, followers, tier ),
         creator_niches ( niche_id ),
         campaign_creators ( campaign_id )
@@ -56,7 +57,8 @@ export default function CreatorPoolPage() {
 
       if (filterCampaign) {
         query = supabase.from('creators').select(`
-          id, username, nama_asli, link_account,
+          id, username, nama_asli, link_account, created_at,
+          added_by_profile:profiles!creators_added_by_fkey ( nama ),
           creator_snapshots ( audience_age, level, tanggal_update, followers, tier ),
           creator_niches ( niche_id ),
           campaign_creators!inner ( campaign_id )
@@ -69,7 +71,8 @@ export default function CreatorPoolPage() {
 
       if (filterNiche) {
         const baseSelect = `
-          id, username, nama_asli, link_account,
+          id, username, nama_asli, link_account, created_at,
+          added_by_profile:profiles!creators_added_by_fkey ( nama ),
           creator_snapshots ( audience_age, level, tanggal_update, followers, tier ),
           creator_niches!inner ( niche_id )
           ${filterCampaign ? ', campaign_creators!inner ( campaign_id )' : ''}
@@ -237,6 +240,10 @@ export default function CreatorPoolPage() {
                       <p className="text-slate-500 text-xs mb-1">Level</p>
                       <p className="font-semibold">{snapshot?.level ? `Level ${snapshot.level}` : '-'}</p>
                     </div>
+                  </div>
+                  <div className="mt-3 text-[10px] text-slate-400 border-t border-slate-100 pt-2 flex justify-between">
+                    <span>Input: {creator.created_at ? new Date(creator.created_at).toLocaleDateString('id-ID') : '-'}</span>
+                    <span>PIC: {creator.added_by_profile?.nama || 'System'}</span>
                   </div>
                 </CardContent>
               </Card>

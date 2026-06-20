@@ -82,7 +82,7 @@ function CampaignKeuanganContent() {
     try {
       const { data, error } = await supabase
         .from('campaign_creators')
-        .select(`id, price, status_bayar, nominal_pelunasan, tgl_pembayaran, creators ( username )`)
+        .select(`id, price, status_bayar, nominal_pelunasan, tgl_pembayaran, payment_updated_at, payment_updated_by_profile:profiles!campaign_creators_payment_updated_by_fkey(nama), creators ( username )`)
         .eq('campaign_id', campaignId)
         .eq('approval', 'approved');
       if (error) throw error;
@@ -109,7 +109,7 @@ function CampaignKeuanganContent() {
     setAdsLoading(true);
     const { data } = await supabase
       .from('ads_spends')
-      .select('*')
+      .select('*, last_updated_by_profile:profiles!ads_spends_last_updated_by_fkey(nama)')
       .eq('campaign_id', campaignId)
       .order('tanggal', { ascending: false });
     setAdsEntries(data || []);
@@ -136,7 +136,14 @@ function CampaignKeuanganContent() {
       const price = form.price ? parseInt(form.price.replace(/[^0-9]/g, '')) : 0;
       const { error } = await supabase
         .from('campaign_creators')
-        .update({ price, status_bayar: form.status_bayar as any, nominal_pelunasan: nominal, tgl_pembayaran: form.tgl_pembayaran || null })
+        .update({ 
+          price, 
+          status_bayar: form.status_bayar as any, 
+          nominal_pelunasan: nominal, 
+          tgl_pembayaran: form.tgl_pembayaran || null,
+          payment_updated_by: profile?.id,
+          payment_updated_at: new Date().toISOString()
+        })
         .eq('id', ccId);
       if (error) throw error;
       setCreators(prev => prev.map(c => c.id === ccId ? { ...c, price, status_bayar: form.status_bayar, nominal_pelunasan: nominal, tgl_pembayaran: form.tgl_pembayaran } : c));
@@ -145,6 +152,7 @@ function CampaignKeuanganContent() {
       alert('Gagal menyimpan');
     } finally {
       setSaving(prev => ({ ...prev, [ccId]: false }));
+      await fetchCreatorData();
     }
   };
 
@@ -158,7 +166,9 @@ function CampaignKeuanganContent() {
       nominal: Number(newAds.nominal.replace(/[^0-9]/g, '')),
       status_bayar: newAds.status_bayar,
       tanggal: newAds.tanggal || new Date().toISOString().split('T')[0],
-      notes: newAds.notes || null
+      notes: newAds.notes || null,
+      last_updated_by: profile?.id,
+      last_updated_at: new Date().toISOString()
     });
     if (!error) {
       setNewAds({ detail: '', nominal: '', status_bayar: 'not_yet', tanggal: '', notes: '' });
@@ -181,7 +191,9 @@ function CampaignKeuanganContent() {
       nominal: Number(String(adsEditForm.nominal || '0').replace(/[^0-9]/g, '')),
       status_bayar: adsEditForm.status_bayar,
       tanggal: adsEditForm.tanggal,
-      notes: adsEditForm.notes || null
+      notes: adsEditForm.notes || null,
+      last_updated_by: profile?.id,
+      last_updated_at: new Date().toISOString()
     }).eq('id', id);
     if (!error) {
       setEditingAdsId(null);
@@ -360,6 +372,13 @@ function CampaignKeuanganContent() {
                                 {saving[cc.id] ? '' : 'Simpan'}
                               </Button>
                             )}
+                            {cc.payment_updated_at && (
+                              <div className="text-[10px] text-slate-400 mt-2 leading-tight">
+                                Terakhir diupdate oleh:<br/>
+                                <span className="font-semibold">{cc.payment_updated_by_profile?.nama || 'Sistem'}</span><br/>
+                                {new Date(cc.payment_updated_at).toLocaleDateString('id-ID')}
+                              </div>
+                            )}
                           </TableCell>
                         </TableRow>
                       );
@@ -514,6 +533,13 @@ function CampaignKeuanganContent() {
                               </>
                             ) : null}
                           </div>
+                          {entry.last_updated_at && editingAdsId !== entry.id && (
+                            <div className="text-[10px] text-slate-400 mt-2 text-center leading-tight">
+                              Diupdate:<br/>
+                              <span className="font-semibold">{entry.last_updated_by_profile?.nama || 'Sistem'}</span><br/>
+                              {new Date(entry.last_updated_at).toLocaleDateString('id-ID')}
+                            </div>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))

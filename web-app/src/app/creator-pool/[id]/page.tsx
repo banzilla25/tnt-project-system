@@ -298,12 +298,19 @@ export default function CreatorProfilePage() {
   };
 
   const handleAddNote = async () => {
-    if(!noteForm.isi || !noteForm.penulis) return;
+    if(!noteForm.isi) return;
     await addCreatorNote({
       creator_id: creatorId,
       isi: noteForm.isi,
-      penulis: noteForm.penulis
+      penulis: profile?.nama || 'System'
     });
+    
+    // Also re-fetch the notes so UI updates immediately
+    const { data: newNotes } = await supabase.from('creator_notes').select('*').eq('creator_id', creatorId);
+    if (newNotes) {
+      setLocalData(prev => prev ? { ...prev, notes: newNotes } : prev);
+    }
+
     setNoteOpen(false);
     clearNoteDraft();
   };
@@ -694,19 +701,11 @@ export default function CreatorProfilePage() {
                   <DialogHeader>
                     <DialogTitle className="flex justify-between items-center w-full">
                       Tambah Catatan Evaluasi
-                      {noteForm.isi && <span className="text-xs font-normal text-amber-600 bg-amber-50 px-2 py-1 rounded">Tersimpan di Draft Lokal ✓</span>}
-                    </DialogTitle>
+                    <DialogTitle>Tambah Catatan Evaluasi</DialogTitle>
                   </DialogHeader>
-                  <div className="space-y-4 py-4">
-                    <div className="space-y-2">
-                      <label className="text-sm">Nama Anda (Penulis)</label>
-                      <input type="text" value={noteForm.penulis} onChange={e=>setNoteForm({...noteForm, penulis: e.target.value})} className="w-full p-2 border rounded" placeholder="Nama..." />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm">Catatan</label>
-                      <textarea value={noteForm.isi} onChange={e=>setNoteForm({...noteForm, isi: e.target.value})} className="w-full p-2 border rounded min-h-[100px]" placeholder="Misal: Creator responsif, video cepat." />
-                    </div>
-                    <Button onClick={handleAddNote} className="w-full" disabled={!noteForm.isi || !noteForm.penulis}>Simpan Catatan</Button>
+                  <div className="space-y-4 pt-4">
+                    <textarea value={noteForm.isi} onChange={e=>setNoteForm({...noteForm, isi: e.target.value})} className="w-full p-2 border rounded min-h-[100px]" placeholder="Isi catatan..."></textarea>
+                    <Button onClick={handleAddNote} className="w-full" disabled={!noteForm.isi}>Simpan Catatan</Button>
                   </div>
                 </DialogContent>
               </Dialog>
