@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { ChevronDown, ChevronRight, Edit2, Check, X, Loader2, Trash2, Download, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
+import { ChevronDown, ChevronRight, ChevronLeft, Edit2, Check, X, Loader2, Trash2, Download, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -80,6 +80,7 @@ function CampaignListingContent() {
   
   // Daily Recap State
   const [dailyRecap, setDailyRecap] = useState<any[]>([]);
+  const [recapStartIndex, setRecapStartIndex] = useState(0);
 
   // Add Creator Modal State
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -120,21 +121,26 @@ function CampaignListingContent() {
     const { data: recapData } = await supabase.from('campaign_creators').select('id, approval, approved_at, created_at').eq('campaign_id', campaignId);
     if (recapData) {
       // Group by date
-      const group: Record<string, { total: number, approved: number, alternate: number, not_approved: number }> = {};
+      const group: Record<string, { total: number, approved: number, pending: number, alternate: number, not_approved: number }> = {};
       recapData.forEach(r => {
         // Use approved_at if approved/alternate/not_approved, else created_at
         const dateStr = r.approved_at || r.created_at;
         if (!dateStr) return;
         const dateKey = new Date(dateStr).toISOString().split('T')[0];
-        if (!group[dateKey]) group[dateKey] = { total: 0, approved: 0, alternate: 0, not_approved: 0 };
+        if (!group[dateKey]) group[dateKey] = { total: 0, approved: 0, pending: 0, alternate: 0, not_approved: 0 };
         
         group[dateKey].total++;
         if (r.approval === 'approved') group[dateKey].approved++;
-        if (r.approval === 'alternate') group[dateKey].alternate++;
-        if (r.approval === 'not_approved') group[dateKey].not_approved++;
+        else if (r.approval === 'alternate') group[dateKey].alternate++;
+        else if (r.approval === 'not_approved') group[dateKey].not_approved++;
+        else if (r.approval === 'pending') group[dateKey].pending++;
       });
-      const sortedKeys = Object.keys(group).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
-      setDailyRecap(sortedKeys.map(k => ({ date: k, ...group[k] })));
+      // Sort ascending so oldest is first, newest is last
+      const sortedKeys = Object.keys(group).sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+      const recapArr = sortedKeys.map(k => ({ date: k, ...group[k] }));
+      setDailyRecap(recapArr);
+      // Start window at the very end
+      setRecapStartIndex(Math.max(0, recapArr.length - 4));
     }
   }, [campaignId]);
 
@@ -462,36 +468,91 @@ function CampaignListingContent() {
               <ChevronDown className="w-5 h-5" />
             </span>
           </summary>
-          <div className="border-t border-slate-200 bg-white p-4">
+          <div className="border-t border-slate-200 bg-white p-4 overflow-hidden">
             {dailyRecap.length === 0 ? (
               <p className="text-sm text-slate-500 text-center">Belum ada progres terekam.</p>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {dailyRecap.map((day: any, i: number) => (
-                  <div key={i} className="p-3 border rounded-lg bg-slate-50/50">
-                    <p className="text-sm font-bold text-slate-800 border-b pb-2 mb-2">
-                      {new Date(day.date).toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-                    </p>
-                    <div className="grid grid-cols-2 gap-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-slate-500">Total Add:</span>
-                        <span className="font-semibold">{day.total}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-emerald-600">Approved:</span>
-                        <span className="font-semibold text-emerald-600">{day.approved}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-purple-600">Alternate:</span>
-                        <span className="font-semibold text-purple-600">{day.alternate}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-rose-600">Not Appr:</span>
-                        <span className="font-semibold text-rose-600">{day.not_approved}</span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm text-left">
+                  <thead className="bg-slate-50 border-b">
+                    <tr>
+                      <th className="p-3 font-semibold text-slate-600 border-r w-32">Tanggal</th>
+                      <th className="p-2 border-r text-center w-10">
+                        <button 
+                          onClick={() => setRecapStartIndex(Math.max(0, recapStartIndex - 1))}
+                          disabled={recapStartIndex === 0}
+                          className="p-1 hover:bg-slate-200 rounded disabled:opacity-30"
+                        >
+                          <ChevronLeft className="w-4 h-4" />
+                        </button>
+                      </th>
+                      {dailyRecap.slice(recapStartIndex, recapStartIndex + 5).map(d => (
+                        <th key={d.date} className="p-3 font-semibold text-slate-800 text-center border-r min-w-[120px]">
+                          {new Date(d.date).toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
+                        </th>
+                      ))}
+                      {Array.from({ length: Math.max(0, 5 - dailyRecap.slice(recapStartIndex, recapStartIndex + 5).length) }).map((_, i) => (
+                        <th key={`empty-th-${i}`} className="p-3 border-r min-w-[120px]"></th>
+                      ))}
+                      <th className="p-2 text-center w-10">
+                        <button 
+                          onClick={() => setRecapStartIndex(Math.min(Math.max(0, dailyRecap.length - 5), recapStartIndex + 1))}
+                          disabled={recapStartIndex >= dailyRecap.length - 5}
+                          className="p-1 hover:bg-slate-200 rounded disabled:opacity-30"
+                        >
+                          <ChevronRight className="w-4 h-4" />
+                        </button>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr className="border-b">
+                      <td className="p-3 font-medium text-slate-600 border-r">Total Add</td>
+                      <td className="border-r bg-slate-50"></td>
+                      {dailyRecap.slice(recapStartIndex, recapStartIndex + 5).map(d => (
+                        <td key={`total-${d.date}`} className="p-3 text-center border-r font-semibold text-slate-700 bg-slate-50/50">{d.total}</td>
+                      ))}
+                      {Array.from({ length: Math.max(0, 5 - dailyRecap.slice(recapStartIndex, recapStartIndex + 5).length) }).map((_, i) => <td key={`e1-${i}`} className="border-r bg-slate-50/50"></td>)}
+                      <td className="bg-slate-50"></td>
+                    </tr>
+                    <tr className="border-b">
+                      <td className="p-3 font-medium text-amber-600 border-r">Pending</td>
+                      <td className="border-r bg-slate-50"></td>
+                      {dailyRecap.slice(recapStartIndex, recapStartIndex + 5).map(d => (
+                        <td key={`pending-${d.date}`} className="p-3 text-center border-r font-semibold text-amber-600">{d.pending}</td>
+                      ))}
+                      {Array.from({ length: Math.max(0, 5 - dailyRecap.slice(recapStartIndex, recapStartIndex + 5).length) }).map((_, i) => <td key={`e2-${i}`} className="border-r"></td>)}
+                      <td className="bg-slate-50"></td>
+                    </tr>
+                    <tr className="border-b">
+                      <td className="p-3 font-medium text-emerald-600 border-r">Approve</td>
+                      <td className="border-r bg-slate-50"></td>
+                      {dailyRecap.slice(recapStartIndex, recapStartIndex + 5).map(d => (
+                        <td key={`approve-${d.date}`} className="p-3 text-center border-r font-semibold text-emerald-600">{d.approved}</td>
+                      ))}
+                      {Array.from({ length: Math.max(0, 5 - dailyRecap.slice(recapStartIndex, recapStartIndex + 5).length) }).map((_, i) => <td key={`e3-${i}`} className="border-r"></td>)}
+                      <td className="bg-slate-50"></td>
+                    </tr>
+                    <tr className="border-b">
+                      <td className="p-3 font-medium text-rose-600 border-r">Not Approve</td>
+                      <td className="border-r bg-slate-50"></td>
+                      {dailyRecap.slice(recapStartIndex, recapStartIndex + 5).map(d => (
+                        <td key={`not_approve-${d.date}`} className="p-3 text-center border-r font-semibold text-rose-600">{d.not_approved}</td>
+                      ))}
+                      {Array.from({ length: Math.max(0, 5 - dailyRecap.slice(recapStartIndex, recapStartIndex + 5).length) }).map((_, i) => <td key={`e4-${i}`} className="border-r"></td>)}
+                      <td className="bg-slate-50"></td>
+                    </tr>
+                    <tr>
+                      <td className="p-3 font-medium text-purple-600 border-r">Alternate</td>
+                      <td className="border-r bg-slate-50"></td>
+                      {dailyRecap.slice(recapStartIndex, recapStartIndex + 5).map(d => (
+                        <td key={`alternate-${d.date}`} className="p-3 text-center border-r font-semibold text-purple-600">{d.alternate}</td>
+                      ))}
+                      {Array.from({ length: Math.max(0, 5 - dailyRecap.slice(recapStartIndex, recapStartIndex + 5).length) }).map((_, i) => <td key={`e5-${i}`} className="border-r"></td>)}
+                      <td className="bg-slate-50"></td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             )}
           </div>
