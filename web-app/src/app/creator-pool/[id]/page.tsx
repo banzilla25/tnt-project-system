@@ -162,12 +162,29 @@ export default function CreatorProfilePage() {
   let trackRecords = (localData?.ccs || [])
     .map((cc: any) => {
       const campaign = campaigns.find(c => c.id === cc.campaign_id);
+      
+      const campaignSales = localData?.sales?.filter((s: any) => s.campaign_id === cc.campaign_id) || [];
+      const gmv = campaignSales.reduce((sum: number, s: any) => sum + (s.gmv || 0), 0);
+
+      const manualVideos = localData?.videos?.filter((v: any) => v.campaign_creator_id === cc.id) || [];
+      const uniqueUids = new Set<string>();
+      let totalVtCount = manualVideos.length;
+      campaignSales.forEach((s: any) => {
+        if (s.content_uid && !uniqueUids.has(s.content_uid)) {
+          uniqueUids.add(s.content_uid);
+          if (!manualVideos.some((v: any) => v.content_uid === s.content_uid)) {
+            totalVtCount++;
+          }
+        }
+      });
+
       return {
         ...cc,
         campaign_name: campaign?.nama || 'Unknown',
-        gmv: computeCampaignGMV(cc, localData?.videos || [], localData?.sales || []),
+        gmv: gmv,
         highestVideoGmv: computeHighestVideoGMV(cc, localData?.videos || [], localData?.sales || []),
-        jenis_kerjasama: getJenisKerjasama(cc.price)
+        jenis_kerjasama: getJenisKerjasama(cc.price),
+        totalVtCount
       };
     });
 
@@ -392,7 +409,7 @@ export default function CreatorProfilePage() {
     <div className="space-y-6">
       <div className="flex items-center gap-4">
         <Link href="/creator-pool">
-          <button className="btn btn-outline" size="icon"><ArrowLeft className="w-4 h-4" /></button>
+          <button className="btn btn-outline"><ArrowLeft className="w-4 h-4" /></button>
         </Link>
         <div>
           <div className="flex items-center gap-3">
@@ -504,7 +521,7 @@ export default function CreatorProfilePage() {
                     if(v) setNicheForm(localData?.creatorNiches?.map((cn: any) => cn.niche_id) || []);
                   }}>
                     <DialogTrigger asChild>
-                      <button className="btn btn-soft h-5 w-5" size="icon"><Edit2 className="h-3 w-3"/></button>
+                      <button className="btn btn-soft h-5 w-5"><Edit2 className="h-3 w-3"/></button>
                     </DialogTrigger>
                     <DialogContent>
                       <DialogHeader><DialogTitle>Update Niche Kreator</DialogTitle></DialogHeader>
@@ -531,7 +548,7 @@ export default function CreatorProfilePage() {
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {displayNiches.length > 0 ? displayNiches.map((n, i) => (
-                    <span className="badge b-neutral" key={i} variant="outline">{n}</span>
+                    <span className="badge b-neutral" key={i}>{n}</span>
                   )) : <p className="text-sm text-slate-400">Belum ada niche</p>}
                 </div>
               </div>
@@ -541,7 +558,7 @@ export default function CreatorProfilePage() {
                   <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Kontak Aktif</p>
                   <Dialog open={contactOpen} onOpenChange={setContactOpen}>
                     <DialogTrigger asChild>
-                      <button className="btn btn-soft h-5 w-5" size="icon"><Edit2 className="h-3 w-3"/></button>
+                      <button className="btn btn-soft h-5 w-5"><Edit2 className="h-3 w-3"/></button>
                     </DialogTrigger>
                     <DialogContent>
                       <DialogHeader><DialogTitle>Update Nomor WhatsApp</DialogTitle></DialogHeader>
@@ -570,7 +587,7 @@ export default function CreatorProfilePage() {
                   <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Rekening & Nama Asli</p>
                   <Dialog open={rekOpen} onOpenChange={(v) => { setRekOpen(v); if(v) setRekForm({ rekening: creator.rekening || '', nama_asli: creator.nama_asli || '' })}}>
                     <DialogTrigger asChild>
-                      <button className="btn btn-soft h-5 w-5" size="icon"><Edit2 className="h-3 w-3"/></button>
+                      <button className="btn btn-soft h-5 w-5"><Edit2 className="h-3 w-3"/></button>
                     </DialogTrigger>
                     <DialogContent>
                       <DialogHeader><DialogTitle>Update Rekening & Nama Asli</DialogTitle></DialogHeader>
@@ -615,7 +632,7 @@ export default function CreatorProfilePage() {
                 }
               }}>
                 <DialogTrigger asChild>
-                  <button className="btn btn-soft h-6 w-6" size="icon"><Edit2 className="h-3 w-3"/></button>
+                  <button className="btn btn-soft h-6 w-6"><Edit2 className="h-3 w-3"/></button>
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader><DialogTitle>{addressForm.id ? 'Edit Alamat' : 'Tambah Alamat Baru'}</DialogTitle></DialogHeader>
@@ -662,7 +679,7 @@ export default function CreatorProfilePage() {
                 localData?.addressBook?.map((book: any) => (
                   <div key={book.id} className="border border-slate-100 bg-slate-50 p-3 rounded-lg relative group">
                     <div className="absolute top-2 right-2 hidden group-hover:flex gap-1">
-                      <button className="btn btn-soft h-5 w-5" size="icon" onClick={() => {
+                      <button className="btn btn-soft h-5 w-5" onClick={() => {
                         setAddressForm({
                           id: book.id,
                           label: book.label || '',
@@ -675,7 +692,7 @@ export default function CreatorProfilePage() {
                         });
                         setAddressOpen(true);
                       }}><Edit2 className="h-3 w-3"/></button>
-                      <button className="btn btn-soft h-5 w-5 text-red-500 hover:text-red-700" size="icon" onClick={() => handleDeleteAddress(book.id)}>
+                      <button className="btn btn-soft h-5 w-5 text-red-500 hover:text-red-700" onClick={() => handleDeleteAddress(book.id)}>
                         <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
                       </button>
                     </div>
@@ -697,7 +714,7 @@ export default function CreatorProfilePage() {
               <h3 className="font-bold text-[16px]">Catatan Evaluasi</h3>
               <Dialog open={noteOpen} onOpenChange={setNoteOpen}>
                 <DialogTrigger asChild>
-                  <button className="btn btn-soft" size="sm">Tambah</button>
+                  <button className="btn btn-soft">Tambah</button>
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
@@ -772,13 +789,31 @@ export default function CreatorProfilePage() {
                   </thead>
                   <tbody>
                     {trackRecords.map((tr, i) => {
-                      const hasDetails = tr.approval === 'approved' || (localData?.videos || []).filter((v: any) => v.campaign_creator_id === tr.id).length > 0;
+                      const hasDetails = tr.approval === 'approved' || tr.totalVtCount > 0;
                       const isExpanded = expandedCampaigns[tr.id];
+                      
+                      const manualVideos = localData?.videos?.filter((v: any) => v.campaign_creator_id === tr.id) || [];
+                      const campaignSales = localData?.sales?.filter((s: any) => s.campaign_id === tr.campaign_id) || [];
+                      const combinedVideos = [...manualVideos];
+                      const uniqueUids2 = new Set<string>();
+                      campaignSales.forEach((s: any) => {
+                          if (s.content_uid && !uniqueUids2.has(s.content_uid)) {
+                              uniqueUids2.add(s.content_uid);
+                              if (!manualVideos.some((v: any) => v.content_uid === s.content_uid)) {
+                                  combinedVideos.push({
+                                     id: `auto-${s.content_uid}`,
+                                     content_uid: s.content_uid,
+                                     link_video: null,
+                                     urutan: combinedVideos.length + 1,
+                                     campaign_creator_id: tr.id
+                                  });
+                              }
+                          }
+                      });
                       
                       return (
                       <React.Fragment key={tr.id}>
-                        <tr className="border-b border-line hover:bg-slate-50/50" 
-                          className={`${i === 0 && tr.gmv > 0 && sortField === 'gmv' && sortOrder === 'desc' ? "bg-amber-50/50" : ""} ${hasDetails ? "cursor-pointer hover:bg-slate-50 transition-colors" : ""}`}
+                        <tr className={`border-b border-line ${i === 0 && tr.gmv > 0 && sortField === 'gmv' && sortOrder === 'desc' ? "bg-amber-50/50" : ""} ${hasDetails ? "cursor-pointer hover:bg-slate-50 transition-colors" : "hover:bg-slate-50/50"}`}
                           onClick={() => hasDetails && toggleCampaign(tr.id)}
                         >
                           <td className="py-[12px] px-[16px] font-medium flex items-center gap-2">
@@ -795,12 +830,12 @@ export default function CreatorProfilePage() {
                             {tr.nominal_pelunasan ? `Rp ${tr.nominal_pelunasan.toLocaleString()}` : '-'}
                           </td>
                           <td className="py-[12px] px-[16px]">
-                            <span className="badge b-neutral" variant={tr.status_bayar === 'lunas' ? 'success' : tr.status_bayar === 'sebagian' ? 'warning' : 'outline'}>
+                            <span className="badge b-neutral">
                               {tr.status_bayar === 'lunas' ? 'Lunas' : tr.status_bayar === 'sebagian' ? 'Sebagian' : 'Belum'}
                             </span>
                           </td>
                           <td className="py-[12px] px-[16px] text-center font-medium">
-                            {localData?.videos?.filter((v: any) => v.campaign_creator_id === tr.id).length || 0}
+                            {tr.totalVtCount || 0}
                           </td>
                           <td className="py-[12px] px-[16px] text-right font-semibold text-green-600">
                             {tr.gmv > 0 ? `Rp ${tr.gmv.toLocaleString()}` : '-'}
@@ -809,7 +844,7 @@ export default function CreatorProfilePage() {
                             {tr.highestVideoGmv > 0 ? `Rp ${tr.highestVideoGmv.toLocaleString()}` : '-'}
                           </td>
                           <td className="py-[12px] px-[16px]">
-                            <span className="badge b-neutral" variant={tr.approval === 'approved' ? 'default' : 'secondary'}>
+                            <span className="badge b-neutral">
                               {tr.approval}
                             </span>
                           </td>
@@ -829,9 +864,9 @@ export default function CreatorProfilePage() {
                                     </tr>
                                   </thead>
                                   <tbody>
-                                    {localData?.videos?.filter((v: any) => v.campaign_creator_id === tr.id).length === 0 ? (
+                                    {combinedVideos.length === 0 ? (
                                       <tr className="border-b border-line hover:bg-slate-50/50"><td className="py-[12px] px-[16px] text-center text-slate-400 py-3 text-xs" colSpan={5}>Belum ada video/VT diunggah.</td></tr>
-                                    ) : localData?.videos?.filter((v: any) => v.campaign_creator_id === tr.id).map((v: any) => {
+                                    ) : combinedVideos.map((v: any) => {
                                       const videoSales = localData?.sales?.filter((s: any) => s.content_uid && v.content_uid && s.content_uid === v.content_uid) || [];
                                       const organicGmv = videoSales.reduce((sum, row) => sum + row.gmv, 0);
                                       const itemsSold = videoSales.reduce((sum, row) => sum + (row.quantity || 0), 0);

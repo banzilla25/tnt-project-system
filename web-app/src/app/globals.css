@@ -178,7 +178,7 @@
 
   /* ===== TABLE ===== */
   .tbl-wrap {
-    @apply border border-line rounded-lg overflow-hidden bg-white;
+    @apply border border-line rounded-lg overflow-x-auto bg-white;
   }
   .tbl-wrap table {
     @apply w-full border-collapse;
