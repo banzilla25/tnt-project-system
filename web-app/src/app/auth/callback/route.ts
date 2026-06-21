@@ -40,8 +40,28 @@ export async function GET(request: Request) {
       const regNameCookie = cookieStore.get('tnt_reg_name')?.value;
 
       if (!profile) {
-        if (regNameCookie) {
-          // New user trying to register - insert with provided name
+        // 1. Check if user is in whitelist
+        const { data: whitelistData } = await supabase
+          .from('whitelisted_emails')
+          .select('*')
+          .eq('email', user.email)
+          .single();
+
+        if (whitelistData) {
+          // Auto-approve whitelisted user
+          await supabase.from('profiles').insert({
+            id: user.id,
+            email: user.email,
+            nama: whitelistData.nama,
+            avatar_url: user.user_metadata?.avatar_url || null,
+            role: whitelistData.role,
+            status: 'approved'
+          });
+          
+          // Optionally clean up the registration cookie if they somehow clicked register
+          cookieStore.delete('tnt_reg_name');
+        } else if (regNameCookie) {
+          // 2. New user trying to register - insert with provided name
           await supabase.from('profiles').insert({
             id: user.id,
             email: user.email,
@@ -54,7 +74,7 @@ export async function GET(request: Request) {
           // Clear the registration cookie
           cookieStore.delete('tnt_reg_name');
         } else {
-          // User tried to login but hasn't registered yet!
+          // 3. User tried to login but hasn't registered yet and not in whitelist!
           // We must sign them out and send them back to the login page with an error.
           await supabase.auth.signOut();
           return NextResponse.redirect(`${origin}/login?error=not-registered`);

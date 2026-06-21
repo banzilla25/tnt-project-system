@@ -93,3 +93,34 @@ export async function assignCampaignsToUser(userId: string, campaignIds: number[
 
   revalidatePath('/manajemen-akun');
 }
+
+export async function addWhitelistEmail(email: string, nama: string, role: string) {
+  const supabase = await getSupabaseAdmin();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+
+  const { error } = await supabase.from('whitelisted_emails').insert({
+    email: email.trim().toLowerCase(),
+    nama: nama.trim(),
+    role,
+    added_by: user.id
+  });
+
+  if (error) {
+    if (error.code === '23505') { // Unique violation
+      throw new Error("Email ini sudah terdaftar di whitelist.");
+    }
+    throw new Error(error.message);
+  }
+  revalidatePath('/manajemen-akun');
+}
+
+export async function removeWhitelistEmail(id: number) {
+  const supabase = await getSupabaseAdmin();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+
+  const { error } = await supabase.from('whitelisted_emails').delete().eq('id', id);
+  if (error) throw new Error(error.message);
+  revalidatePath('/manajemen-akun');
+}

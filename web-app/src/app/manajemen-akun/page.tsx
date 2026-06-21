@@ -52,17 +52,23 @@ export default async function ManajemenAkunPage() {
     .from('user_campaigns')
     .select('*');
 
+  const { data: whitelist } = await supabase
+    .from('whitelisted_emails')
+    .select('*')
+    .order('created_at', { ascending: false });
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-slate-900">Manajemen Akun</h1>
-        <p className="text-slate-500">Kelola persetujuan akun dan hak akses campaign anggota tim.</p>
+        <p className="text-slate-500">Kelola persetujuan akun, whitelist email, dan hak akses campaign anggota tim.</p>
       </div>
 
       <ManajemenAkunClient 
         initialProfiles={profiles || []} 
         campaigns={campaigns || []}
         initialUserCampaigns={userCampaigns || []}
+        initialWhitelist={whitelist || []}
       />
     </div>
   );
