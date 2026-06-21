@@ -521,7 +521,7 @@ export default function CreatorProfilePage() {
                     if(v) setNicheForm(localData?.creatorNiches?.map((cn: any) => cn.niche_id) || []);
                   }}>
                     <DialogTrigger asChild>
-                      <button className="btn btn-soft h-5 w-5"><Edit2 className="h-3 w-3"/></button>
+                      <button className="btn btn-soft p-0 flex items-center justify-center h-5 w-5"><Edit2 className="h-3 w-3"/></button>
                     </DialogTrigger>
                     <DialogContent>
                       <DialogHeader><DialogTitle>Update Niche Kreator</DialogTitle></DialogHeader>
@@ -558,7 +558,7 @@ export default function CreatorProfilePage() {
                   <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Kontak Aktif</p>
                   <Dialog open={contactOpen} onOpenChange={setContactOpen}>
                     <DialogTrigger asChild>
-                      <button className="btn btn-soft h-5 w-5"><Edit2 className="h-3 w-3"/></button>
+                      <button className="btn btn-soft p-0 flex items-center justify-center h-5 w-5"><Edit2 className="h-3 w-3"/></button>
                     </DialogTrigger>
                     <DialogContent>
                       <DialogHeader><DialogTitle>Update Nomor WhatsApp</DialogTitle></DialogHeader>
@@ -587,7 +587,7 @@ export default function CreatorProfilePage() {
                   <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Rekening & Nama Asli</p>
                   <Dialog open={rekOpen} onOpenChange={(v) => { setRekOpen(v); if(v) setRekForm({ rekening: creator.rekening || '', nama_asli: creator.nama_asli || '' })}}>
                     <DialogTrigger asChild>
-                      <button className="btn btn-soft h-5 w-5"><Edit2 className="h-3 w-3"/></button>
+                      <button className="btn btn-soft p-0 flex items-center justify-center h-5 w-5"><Edit2 className="h-3 w-3"/></button>
                     </DialogTrigger>
                     <DialogContent>
                       <DialogHeader><DialogTitle>Update Rekening & Nama Asli</DialogTitle></DialogHeader>
@@ -632,7 +632,7 @@ export default function CreatorProfilePage() {
                 }
               }}>
                 <DialogTrigger asChild>
-                  <button className="btn btn-soft h-6 w-6"><Edit2 className="h-3 w-3"/></button>
+                  <button className="btn btn-soft p-0 flex items-center justify-center h-6 w-6"><Edit2 className="h-3 w-3"/></button>
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader><DialogTitle>{addressForm.id ? 'Edit Alamat' : 'Tambah Alamat Baru'}</DialogTitle></DialogHeader>
@@ -679,7 +679,7 @@ export default function CreatorProfilePage() {
                 localData?.addressBook?.map((book: any) => (
                   <div key={book.id} className="border border-slate-100 bg-slate-50 p-3 rounded-lg relative group">
                     <div className="absolute top-2 right-2 hidden group-hover:flex gap-1">
-                      <button className="btn btn-soft h-5 w-5" onClick={() => {
+                      <button className="btn btn-soft p-0 flex items-center justify-center h-5 w-5" onClick={() => {
                         setAddressForm({
                           id: book.id,
                           label: book.label || '',
@@ -692,7 +692,7 @@ export default function CreatorProfilePage() {
                         });
                         setAddressOpen(true);
                       }}><Edit2 className="h-3 w-3"/></button>
-                      <button className="btn btn-soft h-5 w-5 text-red-500 hover:text-red-700" onClick={() => handleDeleteAddress(book.id)}>
+                      <button className="btn btn-soft p-0 flex items-center justify-center h-5 w-5 text-red-500 hover:text-red-700" onClick={() => handleDeleteAddress(book.id)}>
                         <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
                       </button>
                     </div>

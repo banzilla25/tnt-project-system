@@ -277,6 +277,9 @@
   .campcard .crow:last-of-type { @apply border-0; }
   .campcard .crow .k { @apply text-text-soft; }
   .campcard .crow .v { @apply font-bold; }
+  .campcard .citem { @apply flex justify-between items-center text-[13px]; }
+  .campcard .clbl { @apply text-text-soft; }
+  .campcard .cvl { @apply font-bold; }
   .campcard .cfoot { @apply px-[20px] py-[13px] bg-bg border-t border-line text-center text-[13px] font-semibold text-text-soft cursor-pointer hover:text-p300 transition-colors mt-auto; }
 
   /* ===== EMPTY STATE ===== */
