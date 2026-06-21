@@ -99,7 +99,7 @@ export default function CreatorPoolPage() {
       if (filterType) {
          filteredRes = filteredRes.filter((c: any) => {
             const snaps = c.creator_snapshots || [];
-            const latest = snaps.length > 0 ? snaps.sort((a:any, b:any) => new Date(b.tanggal_update || b.created_at).getTime() - new Date(a.tanggal_update || a.created_at).getTime())[0] : null;
+            const latest = snaps.length > 0 ? snaps.sort((a:any, b:any) => new Date(b.tanggal_update || 0).getTime() - new Date(a.tanggal_update || 0).getTime())[0] : null;
             const type = getCreatorType(latest?.audience_age || null);
             return type === filterType;
          });
@@ -207,7 +207,7 @@ export default function CreatorPoolPage() {
         {data.map(creator => {
           // Extract nested data safely
           const snaps = creator.creator_snapshots || [];
-          const snapshot = snaps.length > 0 ? snaps.sort((a:any, b:any) => new Date(b.tanggal_update || b.created_at).getTime() - new Date(a.tanggal_update || a.created_at).getTime())[0] : null;
+          const snapshot = snaps.length > 0 ? snaps.sort((a:any, b:any) => new Date(b.tanggal_update || 0).getTime() - new Date(a.tanggal_update || 0).getTime())[0] : null;
           const tier = snapshot?.tier || 'Unknown';
           let tierClass = 'tier-c';
           if(tier.includes('A')) tierClass = 'tier-a';

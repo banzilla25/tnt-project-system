@@ -130,7 +130,7 @@ export default function CreatorProfilePage() {
 
   // Derived states based on localData
   const creator = localData?.creator;
-  const snapshots = localData?.snapshots?.sort((a: any, b: any) => new Date(b.tanggal_update || b.created_at).getTime() - new Date(a.tanggal_update || a.created_at).getTime()) || [];
+  const snapshots = localData?.snapshots?.sort((a: any, b: any) => new Date(b.tanggal_update || 0).getTime() - new Date(a.tanggal_update || 0).getTime()) || [];
   const latestSnapshot = snapshots[0] || null;
   const tier = latestSnapshot?.tier || 'Unknown';
   
