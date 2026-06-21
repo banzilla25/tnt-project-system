@@ -43,7 +43,7 @@ export default function CreatorPoolPage() {
     try {
       let query: any = supabase.from('creators').select(`
         id, username, nama_asli, link_account, created_at, added_by,
-        creator_snapshots ( audience_age, level, tanggal_update, followers, tier ),
+        creator_snapshots ( id, audience_age, level, tanggal_update, followers, tier ),
         creator_niches ( niche_id ),
         campaign_creators ( campaign_id )
       `);
@@ -55,7 +55,7 @@ export default function CreatorPoolPage() {
       if (filterCampaign) {
         query = supabase.from('creators').select(`
           id, username, nama_asli, link_account, created_at, added_by,
-          creator_snapshots ( audience_age, level, tanggal_update, followers, tier ),
+          creator_snapshots ( id, audience_age, level, tanggal_update, followers, tier ),
           creator_niches ( niche_id ),
           campaign_creators!inner ( campaign_id )
         `).eq('campaign_creators.campaign_id', filterCampaign);
@@ -68,7 +68,7 @@ export default function CreatorPoolPage() {
       if (filterNiche) {
         const baseSelect = `
           id, username, nama_asli, link_account, created_at, added_by,
-          creator_snapshots ( audience_age, level, tanggal_update, followers, tier ),
+          creator_snapshots ( id, audience_age, level, tanggal_update, followers, tier ),
           creator_niches!inner ( niche_id )
           ${filterCampaign ? ', campaign_creators!inner ( campaign_id )' : ''}
         `;
