@@ -285,6 +285,7 @@ export default function SpreadsheetImportClient() {
                     <th className="p-3 font-semibold text-slate-700 min-w-[150px]">Username <span className="text-red-500">*</span></th>
                     <th className="p-3 font-semibold text-slate-700 min-w-[150px]">No. Whatsapp <span className="text-red-500">*</span></th>
                     <th className="p-3 font-semibold text-slate-700 min-w-[120px]">Followers</th>
+                    <th className="p-3 font-semibold text-slate-700 min-w-[100px]">Tier</th>
                     <th className="p-3 font-semibold text-slate-700 min-w-[100px]">Level</th>
                     <th className="p-3 font-semibold text-slate-700 min-w-[120px]">Audiens Age</th>
                     <th className="px-3 py-3 font-semibold text-slate-600 text-left w-32 border-b-2 border-slate-200">GMV 30 Days</th>
@@ -337,6 +338,9 @@ export default function SpreadsheetImportClient() {
                       </td>
                       <td className="p-2">
                         <input type="number" value={row.followers} onChange={e => updateRow(row.id, 'followers', e.target.value)} className="w-full border-none bg-transparent focus:ring-1 focus:ring-blue-500 p-1 rounded" placeholder="10000" />
+                      </td>
+                      <td className="p-2">
+                        <input type="text" value={row.followers ? getAutoTier(parseInt(row.followers) || 0) : ''} readOnly className="w-full border-none bg-transparent p-1 rounded text-slate-400 font-medium cursor-not-allowed" placeholder="Auto" />
                       </td>
                       <td className="p-2">
                         <input type="number" value={row.level} onChange={e => updateRow(row.id, 'level', e.target.value)} className="w-full border-none bg-transparent focus:ring-1 focus:ring-blue-500 p-1 rounded" placeholder="2" />
@@ -400,6 +404,7 @@ export default function SpreadsheetImportClient() {
                     <tr>
                       <th className="p-3 font-semibold text-slate-700">Username</th>
                       <th className="p-3 font-semibold text-slate-700">Followers</th>
+                      <th className="p-3 font-semibold text-slate-700">Tier</th>
                       <th className="p-3 font-semibold text-slate-700">No. WhatsApp</th>
                       <th className="p-3 font-semibold text-slate-700">Niche</th>
                       <th className="p-3 font-semibold text-slate-700">Status</th>
@@ -411,6 +416,7 @@ export default function SpreadsheetImportClient() {
                       <tr key={row.id} className="border-b border-slate-100 last:border-0">
                         <td className="p-3 font-medium text-slate-800">@{row.username}</td>
                         <td className="p-3">{row.followers || '-'}</td>
+                        <td className="p-3">{row.followers ? getAutoTier(parseInt(row.followers) || 0) : '-'}</td>
                         <td className="p-3">{row.whatsapp}</td>
                         <td className="p-3">{row.niche}</td>
                         <td className="p-3">
