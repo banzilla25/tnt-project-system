@@ -462,6 +462,6 @@ function UserAssignmentCard({ user, campaigns, userCampaigns }: { user: any, cam
           )}
         </div>
       </div>
-      
+    </div>
   );
 }
