@@ -3,9 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useDatabaseStore } from "@/store/useDatabaseStore";
 import { useDraftLocalStorage } from "@/hooks/useDraftLocalStorage";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/Table";
-import { Badge } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
+// Replaced standard UI imports
 import { createClient } from "@/utils/supabase/client";
 import { useParams } from "next/navigation";
 import { AlertCircle, Link as LinkIcon, Save, Edit2, Loader2, ChevronDown, Plus } from "lucide-react";
@@ -254,11 +252,11 @@ export default function CampaignVideoPage() {
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center mb-6">
+    <div className="space-y-[32px]">
+      <div className="flex justify-between items-center mb-[24px] gap-[16px] flex-wrap">
         <div>
-          <h2 className="text-xl font-bold">Video & VT</h2>
-          <p className="text-sm text-slate-500">Kelola konsep, link video, dan approval VT untuk kreator yang di-approve.</p>
+          <h2 className="text-[20px] font-bold">Video & VT</h2>
+          <p className="text-[13px] text-text-soft">Kelola konsep, link video, dan approval VT untuk kreator yang di-approve.</p>
         </div>
         <div>
           <input 
@@ -266,22 +264,22 @@ export default function CampaignVideoPage() {
             placeholder="Cari username..." 
             value={searchQuery} 
             onChange={e => setSearchQuery(e.target.value)} 
-            className="p-2 border border-slate-300 rounded-md text-sm min-w-[200px]"
+            className="input min-w-[200px]"
           />
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm p-6">
+      <div className="ccard p-[24px]">
         {isLoading ? (
-          <div className="text-center py-12 text-slate-500">
+          <div className="text-center py-[48px] text-text-soft">
             Memuat data creator...
           </div>
         ) : listingData.length === 0 ? (
-          <div className="text-center py-12 text-slate-500">
+          <div className="text-center py-[48px] text-text-soft">
             Belum ada creator yang berstatus "Approved" di campaign ini.
           </div>
         ) : (
-          <div className="space-y-12 pb-6">
+          <div className="space-y-[48px] pb-[24px]">
             {listingData.map(cc => {
               const creator = cc.creators;
               if (!creator) return null;
@@ -304,181 +302,182 @@ export default function CampaignVideoPage() {
               }
 
               return (
-                <div key={cc.id} className="border border-slate-200 rounded-lg overflow-hidden">
-                  <div className="bg-slate-50 p-4 border-b border-slate-200 flex justify-between items-center">
+                <div key={cc.id} className="border border-line rounded-[12px] overflow-hidden">
+                  <div className="bg-slate-50 p-[16px] border-b border-line flex flex-wrap justify-between items-center gap-[16px]">
                     <div>
-                      <h3 className="font-bold text-lg">@{creator.username}</h3>
-                      <p className="text-sm text-slate-500">Target Video SOW: {cc.qty_vt} | Realita: {localVideos.filter(v => v.campaign_creator_id === cc.id && v.link_video).length}</p>
+                      <h3 className="font-bold text-[16px]">@{creator.username}</h3>
+                      <p className="text-[12px] text-text-soft mt-[2px]">Target Video SOW: {cc.qty_vt} | Realita: {localVideos.filter(v => v.campaign_creator_id === cc.id && v.link_video).length}</p>
                     </div>
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-[10px]">
                       {hasAccess && (
                         <>
-                          <Button 
-                            variant="outline"
+                          <button 
                             onClick={() => handleAddVideoRow(cc.id)}
-                            className="gap-2 text-blue-600 border-blue-200 hover:bg-blue-50"
+                            className="btn btn-outline"
                           >
                             + Tambah Baris
-                          </Button>
-                          <Button 
+                          </button>
+                          <button 
                             onClick={() => handleSaveVT(cc.id)}
                             disabled={saving[cc.id]}
-                            className="gap-2"
+                            className="btn btn-primary"
                           >
-                            {saving[cc.id] ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                            {saving[cc.id] ? <Loader2 className="ico animate-spin" /> : <Save className="ico" />}
                             {saving[cc.id] ? 'Menyimpan...' : 'Simpan Perubahan'}
-                          </Button>
+                          </button>
                         </>
                       )}
                     </div>
                   </div>
                   
-                  <div className="p-4">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-16">Urutan</TableHead>
-                          <TableHead className={isAwareness ? "w-1/3" : "w-1/4"}>{isAwareness ? "Konsep / Ide SOW" : "Konsep / Ide"}</TableHead>
-                          <TableHead className={isAwareness ? "w-1/3" : "w-1/4"}>{isAwareness ? "Link Video (Drive/TikTok)" : "Link Video TikTok"}</TableHead>
-                          {isAwareness ? (
-                            <>
-                              <TableHead>Performa Views</TableHead>
-                              <TableHead>Produk</TableHead>
-                            </>
-                          ) : (
-                            <>
-                              <TableHead>Performa GMV</TableHead>
-                              <TableHead>Produk</TableHead>
-                            </>
-                          )}
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {creatorVideos.map((v) => {
-                          const warningShortLink = !isAwareness && isShortLink(v.link_video);
-                          const hasContentUid = !!v.content_uid;
+                  <div className="p-[16px]">
+                    <div className="tbl-wrap">
+                      <table className="w-full">
+                        <thead>
+                          <tr>
+                            <th className="w-16 text-center">Urutan</th>
+                            <th className={isAwareness ? "w-1/3" : "w-1/4"}>{isAwareness ? "Konsep / Ide SOW" : "Konsep / Ide"}</th>
+                            <th className={isAwareness ? "w-1/3" : "w-1/4"}>{isAwareness ? "Link Video (Drive/TikTok)" : "Link Video TikTok"}</th>
+                            {isAwareness ? (
+                              <>
+                                <th>Performa Views</th>
+                                <th>Produk</th>
+                              </>
+                            ) : (
+                              <>
+                                <th>Performa GMV</th>
+                                <th>Produk</th>
+                              </>
+                            )}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {creatorVideos.map((v) => {
+                            const warningShortLink = !isAwareness && isShortLink(v.link_video);
+                            const hasContentUid = !!v.content_uid;
 
-                          return (
-                            <TableRow key={v.urutan}>
-                              <TableCell className="font-medium text-center">{v.urutan}</TableCell>
-                              <TableCell>
-                                <textarea 
-                                  className="w-full p-2 border border-slate-300 rounded text-sm min-h-[60px]"
-                                  placeholder={isAwareness ? "Tulis brief/konsep..." : "Tulis ide konsep..."}
-                                  value={v.concept || ''}
-                                  onChange={(e) => handleVideoChange(cc.id, v.urutan, 'concept', e.target.value)}
-                                  disabled={!hasAccess}
-                                />
-                              </TableCell>
-                              <TableCell>
-                                <div className="space-y-2">
-                                  <div className="relative">
-                                    <LinkIcon className="w-4 h-4 absolute left-2 top-2.5 text-slate-400" />
-                                    <input 
-                                      type="text"
-                                      className={`w-full pl-8 p-2 border rounded text-sm ${warningShortLink ? 'border-amber-400 bg-amber-50' : 'border-slate-300'}`}
-                                      placeholder={isAwareness ? "https://..." : "https://www.tiktok.com/@..."}
-                                      value={v.link_video || ''}
-                                      onChange={(e) => handleVideoChange(cc.id, v.urutan, 'link_video', e.target.value)}
-                                      disabled={!hasAccess}
-                                    />
+                            return (
+                              <tr key={v.urutan}>
+                                <td className="font-semibold text-center">{v.urutan}</td>
+                                <td>
+                                  <textarea 
+                                    className="input min-h-[60px]"
+                                    placeholder={isAwareness ? "Tulis brief/konsep..." : "Tulis ide konsep..."}
+                                    value={v.concept || ''}
+                                    onChange={(e) => handleVideoChange(cc.id, v.urutan, 'concept', e.target.value)}
+                                    disabled={!hasAccess}
+                                  />
+                                </td>
+                                <td>
+                                  <div className="space-y-[8px]">
+                                    <div className="relative">
+                                      <LinkIcon className="w-4 h-4 absolute left-[10px] top-[10px] text-text-soft" />
+                                      <input 
+                                        type="text"
+                                        className={`input !pl-[34px] ${warningShortLink ? 'border-amber-400 bg-amber-50' : ''}`}
+                                        placeholder={isAwareness ? "https://..." : "https://www.tiktok.com/@..."}
+                                        value={v.link_video || ''}
+                                        onChange={(e) => handleVideoChange(cc.id, v.urutan, 'link_video', e.target.value)}
+                                        disabled={!hasAccess}
+                                      />
+                                    </div>
+                                    {warningShortLink && (
+                                      <p className="text-[11px] text-amber-600 flex items-start gap-[4px]">
+                                        <AlertCircle className="w-3 h-3 shrink-0 mt-[2px]" />
+                                        Sistem tidak bisa melacak GMV dari link pendek (vt.tiktok.com). Harap buka link ini di PC lalu copy link panjangnya.
+                                      </p>
+                                    )}
+                                    {v.link_video && !warningShortLink && !hasContentUid && !isAwareness && (
+                                      <p className="text-[11px] text-red-500 flex items-start gap-[4px]">
+                                        <AlertCircle className="w-3 h-3 shrink-0 mt-[2px]" />
+                                        Format link salah. Content ID (19 digit) tidak ditemukan.
+                                      </p>
+                                    )}
+                                    {hasContentUid && !isAwareness && (
+                                      <p className="text-[11px] text-green-600 flex items-center gap-[4px]">
+                                        ✓ Terhubung dengan Content ID: {v.content_uid}
+                                      </p>
+                                    )}
                                   </div>
-                                  {warningShortLink && (
-                                    <p className="text-[10px] text-amber-600 flex items-start gap-1">
-                                      <AlertCircle className="w-3 h-3 shrink-0 mt-0.5" />
-                                      Sistem tidak bisa melacak GMV dari link pendek (vt.tiktok.com). Harap buka link ini di PC lalu copy link panjangnya.
-                                    </p>
-                                  )}
-                                  {v.link_video && !warningShortLink && !hasContentUid && !isAwareness && (
-                                    <p className="text-[10px] text-red-500 flex items-start gap-1">
-                                      <AlertCircle className="w-3 h-3 shrink-0 mt-0.5" />
-                                      Format link salah. Content ID (19 digit) tidak ditemukan.
-                                    </p>
-                                  )}
-                                  {hasContentUid && !isAwareness && (
-                                    <p className="text-[10px] text-green-600 flex items-center gap-1">
-                                      ✓ Terhubung dengan Content ID: {v.content_uid}
-                                    </p>
-                                  )}
-                                </div>
-                              </TableCell>
-                              {isAwareness ? (
-                                <>
-                                  <TableCell>
-                                    {v.id || hasContentUid ? (
-                                      <div className="space-y-1">
-                                        <div className="text-sm font-semibold text-slate-700">
-                                          {(() => {
-                                            const sales = (cc._localSales || []).filter((s: any) => s.content_uid && v.content_uid && s.content_uid === v.content_uid);
-                                            const maxViews = sales.length > 0 ? Math.max(...sales.map((s: any) => parseInt(s.raw_data?.['Video views']?.toString().replace(/[^0-9]/g, '')) || 0)) : 0;
-                                            return maxViews > 0 ? maxViews.toLocaleString() : '-';
-                                          })()}
+                                </td>
+                                {isAwareness ? (
+                                  <>
+                                    <td>
+                                      {v.id || hasContentUid ? (
+                                        <div className="space-y-[4px]">
+                                          <div className="text-[13px] font-bold text-text">
+                                            {(() => {
+                                              const sales = (cc._localSales || []).filter((s: any) => s.content_uid && v.content_uid && s.content_uid === v.content_uid);
+                                              const maxViews = sales.length > 0 ? Math.max(...sales.map((s: any) => parseInt(s.raw_data?.['Video views']?.toString().replace(/[^0-9]/g, '')) || 0)) : 0;
+                                              return maxViews > 0 ? maxViews.toLocaleString() : '-';
+                                            })()}
+                                          </div>
+                                          <div className="text-[11px] text-text-soft">Tayangan</div>
                                         </div>
-                                        <div className="text-[10px] text-slate-500">Tayangan</div>
-                                      </div>
-                                    ) : (
-                                      <span className="text-xs text-slate-400">Simpan video</span>
-                                    )}
-                                  </TableCell>
-                                  <TableCell>
-                                    <select 
-                                      className="w-full p-2 border border-slate-300 rounded text-sm bg-white disabled:bg-slate-50 disabled:text-slate-500"
-                                      value={v.sku_id || ''}
-                                      onChange={(e) => handleVideoChange(cc.id, v.urutan, 'sku_id', e.target.value)}
-                                      disabled={!hasAccess}
-                                    >
-                                      <option value="">Pilih Produk...</option>
-                                      {skus.filter(s => s.campaign_id === campaignId).map(sku => (
-                                        <option key={sku.id} value={sku.id}>{sku.nama_produk}</option>
-                                      ))}
-                                    </select>
-                                  </TableCell>
-                                </>
-                              ) : (
-                                <>
-                                  <TableCell>
-                                    {v.id || hasContentUid ? (
-                                      <div className="space-y-1">
-                                        <div className="text-sm font-semibold text-green-700">
-                                          Rp {(cc._localSales || []).filter((s: any) => s.content_uid && v.content_uid && s.content_uid === v.content_uid).reduce((sum: number, row: any) => sum + row.gmv, 0).toLocaleString()}
+                                      ) : (
+                                        <span className="text-[12px] text-text-soft">Simpan video</span>
+                                      )}
+                                    </td>
+                                    <td>
+                                      <select 
+                                        className="select"
+                                        value={v.sku_id || ''}
+                                        onChange={(e) => handleVideoChange(cc.id, v.urutan, 'sku_id', e.target.value)}
+                                        disabled={!hasAccess}
+                                      >
+                                        <option value="">Pilih Produk...</option>
+                                        {skus.filter(s => s.campaign_id === campaignId).map(sku => (
+                                          <option key={sku.id} value={sku.id}>{sku.nama_produk}</option>
+                                        ))}
+                                      </select>
+                                    </td>
+                                  </>
+                                ) : (
+                                  <>
+                                    <td>
+                                      {v.id || hasContentUid ? (
+                                        <div className="space-y-[4px]">
+                                          <div className="text-[13px] font-bold text-green-700">
+                                            Rp {(cc._localSales || []).filter((s: any) => s.content_uid && v.content_uid && s.content_uid === v.content_uid).reduce((sum: number, row: any) => sum + row.gmv, 0).toLocaleString()}
+                                          </div>
+                                          <div className="text-[11px] text-text-soft">Organic Sales</div>
                                         </div>
-                                        <div className="text-[10px] text-slate-500">Organic Sales</div>
-                                      </div>
-                                    ) : (
-                                      <span className="text-xs text-slate-400">Simpan video dulu</span>
-                                    )}
-                                  </TableCell>
-                                  <TableCell>
-                                    <select 
-                                      className="w-full p-2 border border-slate-300 rounded text-sm bg-white disabled:bg-slate-50 disabled:text-slate-500"
-                                      value={v.sku_id || ''}
-                                      onChange={(e) => handleVideoChange(cc.id, v.urutan, 'sku_id', e.target.value)}
-                                      disabled={!hasAccess}
-                                    >
-                                      <option value="">Pilih Produk...</option>
-                                      {skus.filter(s => s.campaign_id === campaignId).map(sku => (
-                                        <option key={sku.id} value={sku.id}>{sku.nama_produk}</option>
-                                      ))}
-                                    </select>
-                                  </TableCell>
-                                </>
-                              )}
-                            </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
+                                      ) : (
+                                        <span className="text-[12px] text-text-soft">Simpan video dulu</span>
+                                      )}
+                                    </td>
+                                    <td>
+                                      <select 
+                                        className="select"
+                                        value={v.sku_id || ''}
+                                        onChange={(e) => handleVideoChange(cc.id, v.urutan, 'sku_id', e.target.value)}
+                                        disabled={!hasAccess}
+                                      >
+                                        <option value="">Pilih Produk...</option>
+                                        {skus.filter(s => s.campaign_id === campaignId).map(sku => (
+                                          <option key={sku.id} value={sku.id}>{sku.nama_produk}</option>
+                                        ))}
+                                      </select>
+                                    </td>
+                                  </>
+                                )}
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 </div>
               );
             })}
             
             {hasMore && (
-              <div className="flex justify-center mt-6">
-                <Button onClick={handleLoadMore} variant="outline" className="gap-2" disabled={isLoading}>
-                  {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ChevronDown className="w-4 h-4" />}
+              <div className="flex justify-center mt-[24px]">
+                <button onClick={handleLoadMore} className="btn btn-outline" disabled={isLoading}>
+                  {isLoading ? <Loader2 className="ico animate-spin" /> : <ChevronDown className="ico" />}
                   Tampilkan Lebih Banyak
-                </Button>
+                </button>
               </div>
             )}
           </div>

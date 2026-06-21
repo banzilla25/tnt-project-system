@@ -3,10 +3,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useDatabaseStore } from "@/store/useDatabaseStore";
 import { getCreatorType, getJenisKerjasama } from "@/utils/computed";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/Table";
-import { Card, CardContent } from "@/components/ui/Card";
-import { Badge } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
 import { ChevronDown, ChevronRight, ChevronLeft, Edit2, Check, X, Loader2, Trash2, Download, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -372,34 +368,34 @@ function CampaignListingContent() {
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-start mb-6 gap-4">
+    <div className="space-y-[32px]">
+      <div className="flex justify-between items-start mb-[24px] gap-[16px] flex-wrap">
         <div>
-          <h2 className="text-xl font-bold">Daftar Creator</h2>
-          <p className="text-sm text-slate-500">Kelola status dan rate card creator di campaign ini. (Paginated)</p>
+          <h2 className="text-[20px] font-bold">Daftar Creator</h2>
+          <p className="text-[13px] text-text-soft">Kelola status dan rate card creator di campaign ini. (Paginated)</p>
         </div>
-        <div className="flex flex-wrap gap-2 items-center justify-end">
-          <Button variant="outline" className="flex items-center gap-2" onClick={handleExport}>
-            <Download className="w-4 h-4" /> Export
-          </Button>
+        <div className="flex flex-wrap gap-[10px] items-center justify-end">
+          <button className="btn btn-outline" onClick={handleExport}>
+            <Download className="ico" /> Export
+          </button>
           <input 
             type="text" 
             placeholder="Cari username..." 
             value={tableSearch} 
             onChange={e => setTableSearch(e.target.value)} 
-            className="p-2 border border-slate-300 rounded-md text-sm min-w-[200px]"
+            className="input min-w-[200px]"
           />
           <select 
             value={filterType}
             onChange={(e: any) => setFilterType(e.target.value)}
-            className="p-2 border border-slate-300 rounded-md text-sm bg-white"
+            className="select min-w-[150px]"
           >
             <option value="all">Semua Tipe</option>
             <option value="regular">Reguler (Manual)</option>
             <option value="auto_detect">Auto-Detect</option>
           </select>
           {isClientApprovalRequired && hasAccess && (
-            <Button variant="outline" onClick={async () => {
+            <button className="btn btn-outline" onClick={async () => {
               const pendingIds = listingData.filter(cc => cc.client_approval === 'not_required' || cc.client_approval === 'pending').map(cc => cc.id);
               if (pendingIds.length === 0) {
                 alert('Semua kreator sudah disetujui / ditolak klien.');
@@ -414,93 +410,83 @@ function CampaignListingContent() {
               }
             }}>
               Bulk Approve Klien
-            </Button>
+            </button>
           )}
 
           {hasAccess && (
-            <Button onClick={() => {
+            <button className="btn btn-primary" onClick={() => {
               setIsAddModalOpen(true);
               setSearchQuery('');
               setNewCreatorId('');
             }}>
               + Tambah Creator
-            </Button>
+            </button>
           )}
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-        <Card className={`cursor-pointer transition-all border-none shadow-sm hover:shadow-md ${statusFilter === 'all' ? 'ring-2 ring-blue-500 bg-blue-50/50' : 'bg-white'}`} onClick={() => setStatusFilter('all')}>
-          <CardContent className="p-4 flex flex-col items-center justify-center">
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Total Creator</p>
-            <h3 className={`text-2xl font-bold ${statusFilter === 'all' ? 'text-blue-700' : 'text-slate-800'}`}>{counts.all}</h3>
-          </CardContent>
-        </Card>
-        <Card className={`cursor-pointer transition-all border-none shadow-sm hover:shadow-md ${statusFilter === 'approved' ? 'ring-2 ring-emerald-500 bg-emerald-50/50' : 'bg-white'}`} onClick={() => setStatusFilter('approved')}>
-          <CardContent className="p-4 flex flex-col items-center justify-center">
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Approved</p>
-            <h3 className={`text-2xl font-bold ${statusFilter === 'approved' ? 'text-emerald-700' : 'text-emerald-600'}`}>{counts.approved}</h3>
-          </CardContent>
-        </Card>
-        <Card className={`cursor-pointer transition-all border-none shadow-sm hover:shadow-md ${statusFilter === 'pending' ? 'ring-2 ring-amber-500 bg-amber-50/50' : 'bg-white'}`} onClick={() => setStatusFilter('pending')}>
-          <CardContent className="p-4 flex flex-col items-center justify-center">
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Pending</p>
-            <h3 className={`text-2xl font-bold ${statusFilter === 'pending' ? 'text-amber-700' : 'text-amber-500'}`}>{counts.pending}</h3>
-          </CardContent>
-        </Card>
-        <Card className={`cursor-pointer transition-all border-none shadow-sm hover:shadow-md ${statusFilter === 'alternate' ? 'ring-2 ring-purple-500 bg-purple-50/50' : 'bg-white'}`} onClick={() => setStatusFilter('alternate')}>
-          <CardContent className="p-4 flex flex-col items-center justify-center">
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Alternate</p>
-            <h3 className={`text-2xl font-bold ${statusFilter === 'alternate' ? 'text-purple-700' : 'text-purple-600'}`}>{counts.alternate}</h3>
-          </CardContent>
-        </Card>
-        <Card className={`cursor-pointer transition-all border-none shadow-sm hover:shadow-md ${statusFilter === 'not_approved' ? 'ring-2 ring-rose-500 bg-rose-50/50' : 'bg-white'}`} onClick={() => setStatusFilter('not_approved')}>
-          <CardContent className="p-4 flex flex-col items-center justify-center">
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Not Approved</p>
-            <h3 className={`text-2xl font-bold ${statusFilter === 'not_approved' ? 'text-rose-700' : 'text-rose-600'}`}>{counts.not_approved}</h3>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-[16px] mb-[32px]">
+        <div className={`metric cursor-pointer ${statusFilter === 'all' ? 'ring-2 ring-p300' : ''}`} onClick={() => setStatusFilter('all')}>
+          <div className="mlbl">Total Creator</div>
+          <div className="mval">{counts.all}</div>
+        </div>
+        <div className={`metric cursor-pointer ${statusFilter === 'approved' ? 'ring-2 ring-green-500 bg-green-50/50' : ''}`} onClick={() => setStatusFilter('approved')}>
+          <div className="mlbl text-green-700">Approved</div>
+          <div className="mval text-green-700">{counts.approved}</div>
+        </div>
+        <div className={`metric cursor-pointer ${statusFilter === 'pending' ? 'ring-2 ring-orange-400 bg-orange-50/50' : ''}`} onClick={() => setStatusFilter('pending')}>
+          <div className="mlbl text-orange-600">Pending</div>
+          <div className="mval text-orange-600">{counts.pending}</div>
+        </div>
+        <div className={`metric cursor-pointer ${statusFilter === 'alternate' ? 'ring-2 ring-purple-400 bg-purple-50/50' : ''}`} onClick={() => setStatusFilter('alternate')}>
+          <div className="mlbl text-purple-600">Alternate</div>
+          <div className="mval text-purple-600">{counts.alternate}</div>
+        </div>
+        <div className={`metric cursor-pointer ${statusFilter === 'not_approved' ? 'ring-2 ring-red-400 bg-red-50/50' : ''}`} onClick={() => setStatusFilter('not_approved')}>
+          <div className="mlbl text-red-600">Not Approved</div>
+          <div className="mval text-red-600">{counts.not_approved}</div>
+        </div>
       </div>
 
-      <Card className="mb-6 overflow-hidden">
+      <div className="ccard mb-[24px] !p-0 overflow-hidden">
         <details className="group">
-          <summary className="flex cursor-pointer items-center justify-between bg-slate-50 px-4 py-3 font-medium text-slate-700 hover:bg-slate-100">
+          <summary className="flex cursor-pointer items-center justify-between bg-slate-50 px-[16px] py-[12px] font-semibold text-text hover:bg-slate-100 transition-colors">
             <span>Rekap Harian (Progres Pencarian & Approval)</span>
             <span className="transition group-open:rotate-180">
-              <ChevronDown className="w-5 h-5" />
+              <ChevronDown className="w-5 h-5 text-text-soft" />
             </span>
           </summary>
-          <div className="border-t border-slate-200 bg-white p-4 overflow-hidden">
+          <div className="border-t border-line bg-white p-[16px] overflow-hidden">
             {dailyRecap.length === 0 ? (
-              <p className="text-sm text-slate-500 text-center">Belum ada progres terekam.</p>
+              <p className="text-[13px] text-text-soft text-center py-[16px]">Belum ada progres terekam.</p>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm text-left">
-                  <thead className="bg-slate-50 border-b">
+                <table className="w-full text-[13px] text-left">
+                  <thead className="bg-slate-50 border-b border-line">
                     <tr>
-                      <th className="p-3 font-semibold text-slate-600 border-r w-32">Tanggal</th>
-                      <th className="p-2 border-r text-center w-10">
+                      <th className="p-[12px] font-semibold text-text border-r border-line w-32">Tanggal</th>
+                      <th className="p-[8px] border-r border-line text-center w-10">
                         <button 
                           onClick={() => setRecapStartIndex(Math.max(0, recapStartIndex - 1))}
                           disabled={recapStartIndex === 0}
-                          className="p-1 hover:bg-slate-200 rounded disabled:opacity-30"
+                          className="p-[4px] hover:bg-slate-200 rounded disabled:opacity-30"
                         >
                           <ChevronLeft className="w-4 h-4" />
                         </button>
                       </th>
                       {dailyRecap.slice(recapStartIndex, recapStartIndex + 5).map(d => (
-                        <th key={d.date} className="p-3 font-semibold text-slate-800 text-center border-r min-w-[120px]">
+                        <th key={d.date} className="p-[12px] font-semibold text-text text-center border-r border-line min-w-[120px]">
                           {new Date(d.date).toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
                         </th>
                       ))}
                       {Array.from({ length: Math.max(0, 5 - dailyRecap.slice(recapStartIndex, recapStartIndex + 5).length) }).map((_, i) => (
-                        <th key={`empty-th-${i}`} className="p-3 border-r min-w-[120px]"></th>
+                        <th key={`empty-th-${i}`} className="p-[12px] border-r border-line min-w-[120px]"></th>
                       ))}
-                      <th className="p-2 text-center w-10">
+                      <th className="p-[8px] text-center w-10">
                         <button 
                           onClick={() => setRecapStartIndex(Math.min(Math.max(0, dailyRecap.length - 5), recapStartIndex + 1))}
                           disabled={recapStartIndex >= dailyRecap.length - 5}
-                          className="p-1 hover:bg-slate-200 rounded disabled:opacity-30"
+                          className="p-[4px] hover:bg-slate-200 rounded disabled:opacity-30"
                         >
                           <ChevronRight className="w-4 h-4" />
                         </button>
@@ -508,49 +494,49 @@ function CampaignListingContent() {
                     </tr>
                   </thead>
                   <tbody>
-                    <tr className="border-b">
-                      <td className="p-3 font-medium text-slate-600 border-r">Total Add</td>
-                      <td className="border-r bg-slate-50"></td>
+                    <tr className="border-b border-line">
+                      <td className="p-[12px] font-medium text-text-soft border-r border-line">Total Add</td>
+                      <td className="border-r border-line bg-slate-50"></td>
                       {dailyRecap.slice(recapStartIndex, recapStartIndex + 5).map(d => (
-                        <td key={`total-${d.date}`} className="p-3 text-center border-r font-semibold text-slate-700 bg-slate-50/50">{d.total}</td>
+                        <td key={`total-${d.date}`} className="p-[12px] text-center border-r border-line font-semibold text-text bg-slate-50/50">{d.total}</td>
                       ))}
-                      {Array.from({ length: Math.max(0, 5 - dailyRecap.slice(recapStartIndex, recapStartIndex + 5).length) }).map((_, i) => <td key={`e1-${i}`} className="border-r bg-slate-50/50"></td>)}
+                      {Array.from({ length: Math.max(0, 5 - dailyRecap.slice(recapStartIndex, recapStartIndex + 5).length) }).map((_, i) => <td key={`e1-${i}`} className="border-r border-line bg-slate-50/50"></td>)}
                       <td className="bg-slate-50"></td>
                     </tr>
-                    <tr className="border-b">
-                      <td className="p-3 font-medium text-amber-600 border-r">Pending</td>
-                      <td className="border-r bg-slate-50"></td>
+                    <tr className="border-b border-line">
+                      <td className="p-[12px] font-medium text-orange-600 border-r border-line">Pending</td>
+                      <td className="border-r border-line bg-slate-50"></td>
                       {dailyRecap.slice(recapStartIndex, recapStartIndex + 5).map(d => (
-                        <td key={`pending-${d.date}`} className="p-3 text-center border-r font-semibold text-amber-600">{d.pending}</td>
+                        <td key={`pending-${d.date}`} className="p-[12px] text-center border-r border-line font-semibold text-orange-600">{d.pending}</td>
                       ))}
-                      {Array.from({ length: Math.max(0, 5 - dailyRecap.slice(recapStartIndex, recapStartIndex + 5).length) }).map((_, i) => <td key={`e2-${i}`} className="border-r"></td>)}
+                      {Array.from({ length: Math.max(0, 5 - dailyRecap.slice(recapStartIndex, recapStartIndex + 5).length) }).map((_, i) => <td key={`e2-${i}`} className="border-r border-line"></td>)}
                       <td className="bg-slate-50"></td>
                     </tr>
-                    <tr className="border-b">
-                      <td className="p-3 font-medium text-emerald-600 border-r">Approve</td>
-                      <td className="border-r bg-slate-50"></td>
+                    <tr className="border-b border-line">
+                      <td className="p-[12px] font-medium text-green-600 border-r border-line">Approve</td>
+                      <td className="border-r border-line bg-slate-50"></td>
                       {dailyRecap.slice(recapStartIndex, recapStartIndex + 5).map(d => (
-                        <td key={`approve-${d.date}`} className="p-3 text-center border-r font-semibold text-emerald-600">{d.approved}</td>
+                        <td key={`approve-${d.date}`} className="p-[12px] text-center border-r border-line font-semibold text-green-600">{d.approved}</td>
                       ))}
-                      {Array.from({ length: Math.max(0, 5 - dailyRecap.slice(recapStartIndex, recapStartIndex + 5).length) }).map((_, i) => <td key={`e3-${i}`} className="border-r"></td>)}
+                      {Array.from({ length: Math.max(0, 5 - dailyRecap.slice(recapStartIndex, recapStartIndex + 5).length) }).map((_, i) => <td key={`e3-${i}`} className="border-r border-line"></td>)}
                       <td className="bg-slate-50"></td>
                     </tr>
-                    <tr className="border-b">
-                      <td className="p-3 font-medium text-rose-600 border-r">Not Approve</td>
-                      <td className="border-r bg-slate-50"></td>
+                    <tr className="border-b border-line">
+                      <td className="p-[12px] font-medium text-red-600 border-r border-line">Not Approve</td>
+                      <td className="border-r border-line bg-slate-50"></td>
                       {dailyRecap.slice(recapStartIndex, recapStartIndex + 5).map(d => (
-                        <td key={`not_approve-${d.date}`} className="p-3 text-center border-r font-semibold text-rose-600">{d.not_approved}</td>
+                        <td key={`not_approve-${d.date}`} className="p-[12px] text-center border-r border-line font-semibold text-red-600">{d.not_approved}</td>
                       ))}
-                      {Array.from({ length: Math.max(0, 5 - dailyRecap.slice(recapStartIndex, recapStartIndex + 5).length) }).map((_, i) => <td key={`e4-${i}`} className="border-r"></td>)}
+                      {Array.from({ length: Math.max(0, 5 - dailyRecap.slice(recapStartIndex, recapStartIndex + 5).length) }).map((_, i) => <td key={`e4-${i}`} className="border-r border-line"></td>)}
                       <td className="bg-slate-50"></td>
                     </tr>
                     <tr>
-                      <td className="p-3 font-medium text-purple-600 border-r">Alternate</td>
-                      <td className="border-r bg-slate-50"></td>
+                      <td className="p-[12px] font-medium text-purple-600 border-r border-line">Alternate</td>
+                      <td className="border-r border-line bg-slate-50"></td>
                       {dailyRecap.slice(recapStartIndex, recapStartIndex + 5).map(d => (
-                        <td key={`alternate-${d.date}`} className="p-3 text-center border-r font-semibold text-purple-600">{d.alternate}</td>
+                        <td key={`alternate-${d.date}`} className="p-[12px] text-center border-r border-line font-semibold text-purple-600">{d.alternate}</td>
                       ))}
-                      {Array.from({ length: Math.max(0, 5 - dailyRecap.slice(recapStartIndex, recapStartIndex + 5).length) }).map((_, i) => <td key={`e5-${i}`} className="border-r"></td>)}
+                      {Array.from({ length: Math.max(0, 5 - dailyRecap.slice(recapStartIndex, recapStartIndex + 5).length) }).map((_, i) => <td key={`e5-${i}`} className="border-r border-line"></td>)}
                       <td className="bg-slate-50"></td>
                     </tr>
                   </tbody>
@@ -559,26 +545,26 @@ function CampaignListingContent() {
             )}
           </div>
         </details>
-      </Card>
+      </div>
 
       {isAddModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-white p-6 rounded-xl w-full max-w-md shadow-lg">
-            <h3 className="text-lg font-bold mb-4">Tambah Creator ke Campaign</h3>
-            <form onSubmit={handleAddCreator} className="space-y-4">
+          <div className="bg-white p-[24px] rounded-[16px] w-full max-w-md shadow-xl">
+            <h3 className="text-[18px] font-bold mb-[16px]">Tambah Creator ke Campaign</h3>
+            <form onSubmit={handleAddCreator} className="space-y-[16px]">
               <div>
-                <label className="text-sm font-medium text-slate-700 block mb-1">Cari & Pilih Creator</label>
+                <label className="text-[13px] font-semibold text-text block mb-[6px]">Cari & Pilih Creator</label>
                 <input 
                   type="text"
                   placeholder="Ketik username creator..."
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
-                  className="w-full p-2 border border-slate-300 rounded-md focus:ring-blue-500 focus:border-blue-500 mb-2 text-sm"
+                  className="input mb-[8px]"
                 />
                 
-                <div className="border border-slate-200 rounded-md max-h-40 overflow-y-auto bg-slate-50">
+                <div className="border border-line rounded-[8px] max-h-40 overflow-y-auto bg-slate-50">
                   {filteredCreators.length === 0 ? (
-                    <div className="p-3 text-sm text-slate-500 text-center">
+                    <div className="p-3 text-[13px] text-text-soft text-center">
                       {searchQuery ? "Creator tidak ditemukan" : "Ketik untuk mencari..."}
                     </div>
                   ) : (
@@ -586,7 +572,7 @@ function CampaignListingContent() {
                       <div 
                         key={c.id} 
                         onClick={() => setNewCreatorId(c.id.toString())}
-                        className={`p-2 text-sm cursor-pointer border-b border-slate-100 last:border-0 hover:bg-blue-50 transition-colors ${newCreatorId === c.id.toString() ? 'bg-blue-100 font-medium text-blue-700' : ''}`}
+                        className={`p-[10px] text-[13px] cursor-pointer border-b border-line last:border-0 hover:bg-p50 transition-colors ${newCreatorId === c.id.toString() ? 'bg-p50 font-semibold text-p300' : ''}`}
                       >
                         @{c.username}
                       </div>
@@ -595,81 +581,81 @@ function CampaignListingContent() {
                 </div>
               </div>
               
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-[16px]">
                 <div>
-                  <label className="text-sm font-medium text-slate-700 block mb-1">Price / Rate (Rp)</label>
+                  <label className="text-[13px] font-semibold text-text block mb-[6px]">Price / Rate (Rp)</label>
                   <input 
                     type="number"
                     required
                     min="0"
                     value={newPrice}
                     onChange={e => setNewPrice(e.target.value)}
-                    className="w-full p-2 border border-slate-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                    className="input"
                   />
-                  <p className="text-xs text-slate-500 mt-1">Isi 0 untuk Barter</p>
+                  <p className="text-[11px] text-text-soft mt-[4px]">Isi 0 untuk Barter</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-slate-700 block mb-1">Qty VT SOW</label>
+                  <label className="text-[13px] font-semibold text-text block mb-[6px]">Qty VT SOW</label>
                   <input 
                     type="number"
                     required
                     min="1"
                     value={newQtyVt}
                     onChange={e => setNewQtyVt(e.target.value)}
-                    className="w-full p-2 border border-slate-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                    className="input"
                   />
                 </div>
               </div>
 
-              <div className="flex justify-end gap-2 mt-6">
-                <Button type="button" variant="outline" onClick={() => setIsAddModalOpen(false)}>Batal</Button>
-                <Button type="submit" disabled={!newCreatorId}>Simpan</Button>
+              <div className="flex justify-end gap-[10px] mt-[24px]">
+                <button type="button" className="btn btn-outline" onClick={() => setIsAddModalOpen(false)}>Batal</button>
+                <button type="submit" className="btn btn-primary" disabled={!newCreatorId}>Simpan</button>
               </div>
             </form>
           </div>
         </div>
       )}
 
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-        <Table>
-          <TableHeader className="bg-slate-50">
-            <TableRow>
-              <TableHead className="w-10"></TableHead>
-              <TableHead>
-                <button onClick={() => toggleSort('username')} className="flex items-center text-left font-semibold hover:text-blue-600 transition-colors">
+      <div className="tbl-wrap">
+        <table className="w-full">
+          <thead>
+            <tr>
+              <th className="w-10"></th>
+              <th>
+                <button onClick={() => toggleSort('username')} className="flex items-center text-left font-semibold hover:text-p300 transition-colors">
                   Creator <SortIcon col="username" />
                 </button>
-              </TableHead>
-              <TableHead>Tanggal & PIC</TableHead>
-              <TableHead>Kerjasama</TableHead>
-              <TableHead>
-                <button onClick={() => toggleSort('price')} className="flex items-center font-semibold hover:text-blue-600 transition-colors">
+              </th>
+              <th>Tanggal & PIC</th>
+              <th>Kerjasama</th>
+              <th>
+                <button onClick={() => toggleSort('price')} className="flex items-center font-semibold hover:text-p300 transition-colors">
                   Price (Rp) <SortIcon col="price" />
                 </button>
-              </TableHead>
-              <TableHead>
-                <button onClick={() => toggleSort('qty_vt')} className="flex items-center font-semibold hover:text-blue-600 transition-colors">
+              </th>
+              <th>
+                <button onClick={() => toggleSort('qty_vt')} className="flex items-center font-semibold hover:text-p300 transition-colors">
                   Qty VT SOW <SortIcon col="qty_vt" />
                 </button>
-              </TableHead>
-              <TableHead>Tipe Konten</TableHead>
-              <TableHead>
-                <button onClick={() => toggleSort('approval')} className="flex items-center font-semibold hover:text-blue-600 transition-colors">
+              </th>
+              <th>Tipe Konten</th>
+              <th>
+                <button onClick={() => toggleSort('approval')} className="flex items-center font-semibold hover:text-p300 transition-colors">
                   Approval <SortIcon col="approval" />
                 </button>
-              </TableHead>
-              {isClientApprovalRequired && <TableHead>Client Status</TableHead>}
-              <TableHead className="text-right">GMV Creator</TableHead>
-              <TableHead className="text-right">Aksi</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
+              </th>
+              {isClientApprovalRequired && <th>Client Status</th>}
+              <th className="text-right">GMV Creator</th>
+              <th className="text-right">Aksi</th>
+            </tr>
+          </thead>
+          <tbody>
             {listingData.length === 0 && !isLoading ? (
-              <TableRow>
-                <TableCell colSpan={isClientApprovalRequired ? 11 : 10} className="text-center py-8 text-slate-500">
+              <tr>
+                <td colSpan={isClientApprovalRequired ? 11 : 10} className="text-center py-[32px] text-text-soft">
                   Belum ada creator di campaign ini.
-                </TableCell>
-              </TableRow>
+                </td>
+              </tr>
             ) : (
               listingData.map((cc) => {
                 const creator = cc.creators;
@@ -684,66 +670,66 @@ function CampaignListingContent() {
 
                 return (
                   <React.Fragment key={cc.id}>
-                    <TableRow className="group">
-                      <TableCell>
-                        <button onClick={() => toggleExpand(cc.id)} className="p-1 hover:bg-slate-100 rounded">
-                          {isExpanded ? <ChevronDown className="w-4 h-4 text-slate-500" /> : <ChevronRight className="w-4 h-4 text-slate-500" />}
+                    <tr className="group hover:bg-[#f8fafc] transition-colors">
+                      <td>
+                        <button onClick={() => toggleExpand(cc.id)} className="p-[4px] hover:bg-slate-200 rounded">
+                          {isExpanded ? <ChevronDown className="w-4 h-4 text-text-soft" /> : <ChevronRight className="w-4 h-4 text-text-soft" />}
                         </button>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Link href={`/creator-pool/${creator.id}`} className="font-semibold text-blue-600 hover:underline block">
+                      </td>
+                      <td>
+                        <div className="flex items-center gap-[8px]">
+                          <Link href={`/creator-pool/${creator.id}`} className="font-semibold text-p300 hover:underline block">
                             @{creator.username}
                           </Link>
-                          {cc.tier === 'Auto-Detect' && <span className="px-1.5 py-0.5 bg-yellow-100 text-yellow-800 text-[10px] font-bold rounded-full">AUTO</span>}
+                          {cc.tier === 'Auto-Detect' && <span className="px-[6px] py-[2px] bg-yellow-100 text-yellow-800 text-[10px] font-bold rounded-full">AUTO</span>}
                         </div>
-                        <span className="text-xs text-slate-500">{type} • Tier {cc.tier || '-'}</span>
-                      </TableCell>
-                      <TableCell>
-                        <div className="text-xs text-slate-600">
+                        <span className="text-[12px] text-text-soft">{type} • Tier {cc.tier || '-'}</span>
+                      </td>
+                      <td>
+                        <div className="text-[12px] text-text">
                           {cc.created_at ? new Date(cc.created_at).toLocaleDateString('id-ID') : '-'}
                         </div>
-                        <div className="text-[10px] text-slate-400 mt-0.5">
+                        <div className="text-[11px] text-text-soft mt-[2px]">
                           Oleh: {cc.added_by_profile?.nama || 'System'}
                         </div>
-                      </TableCell>
-                      <TableCell className="capitalize text-sm">
+                      </td>
+                      <td className="capitalize text-[13px] font-medium">
                         {getJenisKerjasama(cc.price)}
-                      </TableCell>
-                      <TableCell>
+                      </td>
+                      <td>
                         {isEditing ? (
                           <input 
                             type="number" 
                             value={editPrice} 
                             onChange={e => setEditPrice(e.target.value)}
-                            className="w-24 p-1 border border-slate-300 rounded text-sm"
+                            className="input w-24 !p-[4px]"
                           />
                         ) : (
-                          <span className="text-sm">Rp {cc.price.toLocaleString()}</span>
+                          <span className="text-[13px] font-semibold text-text">Rp {cc.price.toLocaleString()}</span>
                         )}
-                      </TableCell>
-                      <TableCell>
+                      </td>
+                      <td>
                         {isEditing ? (
                           <input 
                             type="number" 
                             min="1"
                             value={editQtyVt} 
                             onChange={e => setEditQtyVt(e.target.value)}
-                            className="w-16 p-1 border border-slate-300 rounded text-sm text-center"
+                            className="input w-16 !p-[4px] text-center"
                           />
                         ) : (
-                          <span className="text-sm">{cc.qty_vt}</span>
+                          <span className="text-[13px] font-medium">{cc.qty_vt}</span>
                         )}
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-sm font-medium text-slate-700">{cc.content_type || '-'}</span>
-                      </TableCell>
-                      <TableCell>
+                      </td>
+                      <td>
+                        <span className="text-[13px] font-medium text-text">{cc.content_type || '-'}</span>
+                      </td>
+                      <td>
                         {isEditing ? (
                           <select 
                             value={editApproval} 
                             onChange={e => setEditApproval(e.target.value)}
-                            className="p-1 border border-slate-300 rounded text-sm bg-white"
+                            className="select !p-[4px]"
                           >
                             <option value="pending">Pending</option>
                             <option value="approved">Approved</option>
@@ -751,178 +737,178 @@ function CampaignListingContent() {
                             <option value="not_approved">Not Approved</option>
                           </select>
                         ) : (
-                          <Badge variant={
-                            cc.approval === 'approved' ? 'success' : 
-                            cc.approval === 'not_approved' ? 'destructive' : 
-                            cc.approval === 'alternate' ? 'warning' : 'secondary'
-                          }>
+                          <span className={`badge ${
+                            cc.approval === 'approved' ? 'b-success' : 
+                            cc.approval === 'not_approved' ? 'b-destructive' : 
+                            cc.approval === 'alternate' ? 'b-warning' : 'b-pending'
+                          }`}>
                             {cc.approval}
-                          </Badge>
+                          </span>
                         )}
-                      </TableCell>
+                      </td>
                       {isClientApprovalRequired && (
-                        <TableCell>
+                        <td>
                           {isEditing ? (
                             <select 
                               value={editClientApproval} 
                               onChange={e => setEditClientApproval(e.target.value)}
-                              className="p-1 border border-slate-300 rounded text-sm bg-white"
+                              className="select !p-[4px]"
                             >
                               <option value="pending">Pending</option>
                               <option value="approved">Approved</option>
                               <option value="rejected">Rejected</option>
                             </select>
                           ) : (
-                            <Badge variant={
-                              cc.client_approval === 'approved' ? 'success' : 
-                              cc.client_approval === 'rejected' ? 'destructive' : 'secondary'
-                            }>
+                            <span className={`badge ${
+                              cc.client_approval === 'approved' ? 'b-success' : 
+                              cc.client_approval === 'rejected' ? 'b-destructive' : 'b-neutral'
+                            }`}>
                               {cc.client_approval === 'not_required' ? 'Pending' : cc.client_approval}
-                            </Badge>
+                            </span>
                           )}
-                        </TableCell>
+                        </td>
                       )}
-                      <TableCell className="text-right text-sm font-medium">
+                      <td className="text-right text-[13px] font-medium">
                         {gmvCreator > 0 ? `Rp ${gmvCreator.toLocaleString()}` : '-'}
-                      </TableCell>
-                      <TableCell className="text-right">
+                      </td>
+                      <td className="text-right">
                         {isEditing ? (
-                          <div className="flex justify-end gap-1">
-                            <Button size="icon" variant="ghost" onClick={() => saveEdit(cc.id)} className="h-8 w-8 text-green-600"><Check className="w-4 h-4" /></Button>
-                            <Button size="icon" variant="ghost" onClick={cancelEdit} className="h-8 w-8 text-slate-400"><X className="w-4 h-4" /></Button>
+                          <div className="flex justify-end gap-[4px]">
+                            <button onClick={() => saveEdit(cc.id)} className="p-[6px] hover:bg-green-50 rounded text-green-600"><Check className="w-4 h-4" /></button>
+                            <button onClick={cancelEdit} className="p-[6px] hover:bg-slate-100 rounded text-text-soft"><X className="w-4 h-4" /></button>
                           </div>
                         ) : hasAccess ? (
-                          <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Button size="icon" variant="ghost" onClick={() => startEdit(cc)} className="h-8 w-8">
-                              <Edit2 className="w-4 h-4 text-slate-400 hover:text-blue-600" />
-                            </Button>
-                            <Button size="icon" variant="ghost" onClick={() => handleDeleteCreator(cc.id)} className="h-8 w-8">
-                              <Trash2 className="w-4 h-4 text-slate-400 hover:text-red-600" />
-                            </Button>
+                          <div className="flex justify-end gap-[4px] opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onClick={() => startEdit(cc)} className="p-[6px] hover:bg-p50 rounded">
+                              <Edit2 className="w-4 h-4 text-text-soft hover:text-p300" />
+                            </button>
+                            <button onClick={() => handleDeleteCreator(cc.id)} className="p-[6px] hover:bg-red-50 rounded">
+                              <Trash2 className="w-4 h-4 text-text-soft hover:text-red-600" />
+                            </button>
                           </div>
                         ) : null}
-                      </TableCell>
-                    </TableRow>
+                      </td>
+                    </tr>
                     
                     {/* Expandable Video Row */}
                     {isExpanded && (
-                      <TableRow className="bg-slate-50/50 hover:bg-slate-50/50">
-                        <TableCell></TableCell>
-                        <TableCell colSpan={isClientApprovalRequired ? 8 : 7} className="p-0 border-b-0">
-                          <div className="py-4 pr-4">
-                            <div className="bg-white border border-slate-200 rounded-lg p-4">
-                              <h4 className="text-xs font-semibold text-slate-500 uppercase mb-3">Daftar Video ({cc.qty_vt})</h4>
+                      <tr className="bg-slate-50 hover:bg-slate-50">
+                        <td></td>
+                        <td colSpan={isClientApprovalRequired ? 8 : 7} className="p-0 border-b-0">
+                          <div className="py-[16px] pr-[16px]">
+                            <div className="bg-white border border-line rounded-[12px] p-[16px]">
+                              <h4 className="text-[12px] font-bold text-text-soft uppercase mb-[12px]">Daftar Video ({cc.qty_vt})</h4>
                               {creatorVideos.length > 0 ? (
-                                <table className="w-full text-sm">
+                                <table className="w-full text-[13px]">
                                   <thead>
-                                    <tr className="text-slate-500 border-b border-slate-100">
-                                      <th className="font-normal text-left pb-2 w-10">#</th>
-                                      <th className="font-normal text-left pb-2">Konsep</th>
-                                      <th className="font-normal text-left pb-2">Link Video</th>
-                                      <th className="font-normal text-left pb-2 w-32">VT Approval</th>
+                                    <tr className="text-text-soft border-b border-line">
+                                      <th className="font-semibold text-left pb-[8px] w-10">#</th>
+                                      <th className="font-semibold text-left pb-[8px]">Konsep</th>
+                                      <th className="font-semibold text-left pb-[8px]">Link Video</th>
+                                      <th className="font-semibold text-left pb-[8px] w-32">VT Approval</th>
                                     </tr>
                                   </thead>
                                   <tbody>
                                     {creatorVideos.map((v: any) => (
-                                      <tr key={v.id} className="border-b border-slate-50 last:border-0">
-                                        <td className="py-2">{v.urutan}</td>
-                                        <td className="py-2">{v.concept || '-'}</td>
-                                        <td className="py-2">
+                                      <tr key={v.id} className="border-b border-line last:border-0">
+                                        <td className="py-[8px]">{v.urutan}</td>
+                                        <td className="py-[8px]">{v.concept || '-'}</td>
+                                        <td className="py-[8px]">
                                           {v.link_video ? (
-                                            <a href={v.link_video} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline break-all">
+                                            <a href={v.link_video} target="_blank" rel="noreferrer" className="text-p300 hover:underline break-all">
                                               {v.link_video}
                                             </a>
                                           ) : '-'}
                                         </td>
-                                        <td className="py-2">
-                                          <Badge variant={v.vt_approval === 'approved' ? 'success' : v.vt_approval === 'reject' ? 'destructive' : 'secondary'}>
+                                        <td className="py-[8px]">
+                                          <span className={`badge ${v.vt_approval === 'approved' ? 'b-success' : v.vt_approval === 'reject' ? 'b-destructive' : 'b-neutral'}`}>
                                             {v.vt_approval}
-                                          </Badge>
+                                          </span>
                                         </td>
                                       </tr>
                                     ))}
                                   </tbody>
                                 </table>
                                 ) : (
-                                  <p className="text-sm text-slate-500 text-center py-2">Belum ada video ditambahkan.</p>
+                                  <p className="text-[13px] text-text-soft text-center py-[8px]">Belum ada video ditambahkan.</p>
                                 )}
 
                                 {/* Tambahan Detail Sesuai Request */}
-                                <div className="mt-6 pt-4 border-t border-slate-100">
-                                  <h4 className="text-xs font-semibold text-slate-500 uppercase mb-3">Detail & Catatan Kreator</h4>
-                                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                    <div className="bg-slate-50 border border-slate-100 rounded-lg p-3">
-                                      <h5 className="text-[10px] font-bold text-slate-400 uppercase mb-1">Status Pembayaran</h5>
+                                <div className="mt-[24px] pt-[16px] border-t border-line">
+                                  <h4 className="text-[12px] font-bold text-text-soft uppercase mb-[12px]">Detail & Catatan Kreator</h4>
+                                  <div className="grid grid-cols-2 md:grid-cols-4 gap-[16px]">
+                                    <div className="bg-slate-50 border border-line rounded-[8px] p-[12px]">
+                                      <h5 className="text-[11px] font-bold text-text-soft uppercase mb-[4px]">Status Pembayaran</h5>
                                       {isEditing ? (
-                                        <select value={editStatusBayar} onChange={e=>setEditStatusBayar(e.target.value)} className="w-full text-sm p-1 border rounded bg-white">
+                                        <select value={editStatusBayar} onChange={e=>setEditStatusBayar(e.target.value)} className="select !p-[4px]">
                                           <option value="belum">Belum</option>
                                           <option value="dp">DP</option>
                                           <option value="lunas">Lunas</option>
                                         </select>
                                       ) : (
-                                        <p className="text-sm font-medium text-slate-800 capitalize">{cc.status_bayar || '-'}</p>
+                                        <p className="text-[13px] font-semibold text-text capitalize">{cc.status_bayar || '-'}</p>
                                       )}
                                     </div>
-                                    <div className="bg-slate-50 border border-slate-100 rounded-lg p-3">
-                                      <h5 className="text-[10px] font-bold text-slate-400 uppercase mb-1">Progress Sample</h5>
+                                    <div className="bg-slate-50 border border-line rounded-[8px] p-[12px]">
+                                      <h5 className="text-[11px] font-bold text-text-soft uppercase mb-[4px]">Progress Sample</h5>
                                       {isEditing ? (
-                                        <select value={editSampleProgress} onChange={e=>setEditSampleProgress(e.target.value)} className="w-full text-sm p-1 border rounded bg-white">
+                                        <select value={editSampleProgress} onChange={e=>setEditSampleProgress(e.target.value)} className="select !p-[4px]">
                                           <option value="Done Req Sample">Done Req Sample</option>
                                           <option value="Sudah Proses Pengiriman">Sudah Proses Pengiriman</option>
                                           <option value="Sampai">Sampai</option>
                                           <option value="Kendala [FU!]">Kendala [FU!]</option>
                                         </select>
                                       ) : (
-                                        <Badge variant={
-                                          cc.sample_progress === 'Sampai' ? 'success' : 
-                                          cc.sample_progress === 'Kendala [FU!]' ? 'destructive' : 
-                                          cc.sample_progress === 'Sudah Proses Pengiriman' ? 'warning' : 'secondary'
-                                        }>
+                                        <span className={`badge ${
+                                          cc.sample_progress === 'Sampai' ? 'b-success' : 
+                                          cc.sample_progress === 'Kendala [FU!]' ? 'b-destructive' : 
+                                          cc.sample_progress === 'Sudah Proses Pengiriman' ? 'b-warning' : 'b-neutral'
+                                        }`}>
                                           {cc.sample_progress || '-'}
-                                        </Badge>
+                                        </span>
                                       )}
                                     </div>
-                                    <div className="bg-slate-50 border border-slate-100 rounded-lg p-3 md:col-span-2">
-                                      <h5 className="text-[10px] font-bold text-slate-400 uppercase mb-1">Notes Manager</h5>
+                                    <div className="bg-slate-50 border border-line rounded-[8px] p-[12px] md:col-span-2">
+                                      <h5 className="text-[11px] font-bold text-text-soft uppercase mb-[4px]">Notes Manager</h5>
                                       {isEditing ? (
-                                        <textarea value={editNotesManager} onChange={e=>setEditNotesManager(e.target.value)} className="w-full text-sm p-1 border rounded h-16 bg-white" placeholder="Catatan Manager..." />
+                                        <textarea value={editNotesManager} onChange={e=>setEditNotesManager(e.target.value)} className="input h-16" placeholder="Catatan Manager..." />
                                       ) : (
-                                        <p className="text-sm font-medium text-slate-700 whitespace-pre-wrap">{cc.notes_manager || '-'}</p>
+                                        <p className="text-[13px] font-medium text-text whitespace-pre-wrap">{cc.notes_manager || '-'}</p>
                                       )}
                                     </div>
-                                    <div className="bg-slate-50 border border-slate-100 rounded-lg p-3 md:col-span-4">
-                                      <h5 className="text-[10px] font-bold text-slate-400 uppercase mb-1">Notes PIC ({cc.pic_assist || 'Belum di-assign'})</h5>
+                                    <div className="bg-slate-50 border border-line rounded-[8px] p-[12px] md:col-span-4">
+                                      <h5 className="text-[11px] font-bold text-text-soft uppercase mb-[4px]">Notes PIC ({cc.pic_assist || 'Belum di-assign'})</h5>
                                       {isEditing ? (
-                                        <textarea value={editNotesPic} onChange={e=>setEditNotesPic(e.target.value)} className="w-full text-sm p-1 border rounded h-16 bg-white" placeholder="Catatan PIC..." />
+                                        <textarea value={editNotesPic} onChange={e=>setEditNotesPic(e.target.value)} className="input h-16" placeholder="Catatan PIC..." />
                                       ) : (
-                                        <p className="text-sm font-medium text-slate-700 whitespace-pre-wrap">{cc.notes_pic || '-'}</p>
+                                        <p className="text-[13px] font-medium text-text whitespace-pre-wrap">{cc.notes_pic || '-'}</p>
                                       )}
                                     </div>
-                                    <div className="bg-slate-50 border border-slate-100 rounded-lg p-3 md:col-span-4">
-                                      <h5 className="text-[10px] font-bold text-slate-400 uppercase mb-2">Informasi Tracking</h5>
-                                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
+                                    <div className="bg-slate-50 border border-line rounded-[8px] p-[12px] md:col-span-4">
+                                      <h5 className="text-[11px] font-bold text-text-soft uppercase mb-[8px]">Informasi Tracking</h5>
+                                      <div className="grid grid-cols-2 md:grid-cols-3 gap-[8px] text-[12px]">
                                         <div>
-                                          <span className="text-slate-500 block mb-0.5">Ditambahkan Oleh:</span>
-                                          <span className="font-medium text-slate-800">
+                                          <span className="text-text-soft block mb-[2px]">Ditambahkan Oleh:</span>
+                                          <span className="font-semibold text-text">
                                             {profiles.find(p => p.id === cc.added_by)?.nama || '-'} 
-                                            {cc.created_at && <span className="text-slate-400 ml-1">({new Date(cc.created_at).toLocaleDateString('id-ID')})</span>}
+                                            {cc.created_at && <span className="text-text-soft ml-[4px] font-normal">({new Date(cc.created_at).toLocaleDateString('id-ID')})</span>}
                                           </span>
                                         </div>
                                         {cc.approval === 'approved' && cc.approved_by && (
                                           <div>
-                                            <span className="text-slate-500 block mb-0.5">Di-approve Oleh:</span>
-                                            <span className="font-medium text-green-600">
+                                            <span className="text-text-soft block mb-[2px]">Di-approve Oleh:</span>
+                                            <span className="font-semibold text-green-600">
                                               {profiles.find(p => p.id === cc.approved_by)?.nama || '-'} 
-                                              {cc.approved_at && <span className="text-slate-400 ml-1">({new Date(cc.approved_at).toLocaleDateString('id-ID')})</span>}
+                                              {cc.approved_at && <span className="text-text-soft ml-[4px] font-normal">({new Date(cc.approved_at).toLocaleDateString('id-ID')})</span>}
                                             </span>
                                           </div>
                                         )}
                                         {cc.approval === 'not_approved' && cc.not_approved_by && (
                                           <div>
-                                            <span className="text-slate-500 block mb-0.5">Ditolak Oleh:</span>
-                                            <span className="font-medium text-red-600">
+                                            <span className="text-text-soft block mb-[2px]">Ditolak Oleh:</span>
+                                            <span className="font-semibold text-red-600">
                                               {profiles.find(p => p.id === cc.not_approved_by)?.nama || '-'} 
-                                              {cc.not_approved_at && <span className="text-slate-400 ml-1">({new Date(cc.not_approved_at).toLocaleDateString('id-ID')})</span>}
+                                              {cc.not_approved_at && <span className="text-text-soft ml-[4px] font-normal">({new Date(cc.not_approved_at).toLocaleDateString('id-ID')})</span>}
                                             </span>
                                           </div>
                                         )}
@@ -932,23 +918,23 @@ function CampaignListingContent() {
                                 </div>
                               </div>
                           </div>
-                        </TableCell>
-                      </TableRow>
+                        </td>
+                      </tr>
                     )}
                   </React.Fragment>
                 );
               })
             )}
-          </TableBody>
-        </Table>
+          </tbody>
+        </table>
       </div>
 
       {hasMore && listingData.length > 0 && (
-        <div className="flex justify-center mt-6">
-          <Button variant="outline" onClick={handleLoadMore} disabled={isLoading} className="w-[200px]">
-            {isLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+        <div className="flex justify-center mt-[24px]">
+          <button className="btn btn-outline w-[200px] justify-center" onClick={handleLoadMore} disabled={isLoading}>
+            {isLoading ? <Loader2 className="w-4 h-4 mr-[8px] animate-spin" /> : null}
             {isLoading ? "Memuat..." : "Muat Lebih Banyak"}
-          </Button>
+          </button>
         </div>
       )}
 

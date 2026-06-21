@@ -2,13 +2,10 @@
 
 import { useDatabaseStore } from "@/store/useDatabaseStore";
 import { getCreatorType } from "@/utils/computed";
-import { Card, CardContent } from "@/components/ui/Card";
-import { Badge } from "@/components/ui/Badge";
 import { useRouter } from "next/navigation";
-import { Search, Loader2, Download } from "lucide-react";
+import { Search, Loader2, Download, Users } from "lucide-react";
 import Link from "next/link";
 import { useState, useEffect, useCallback } from "react";
-import { Button } from "@/components/ui/Button";
 import { createClient } from "@/utils/supabase/client";
 import { exportToCSV } from "@/utils/exportCsv";
 import { CreatorSyncModal } from "@/components/CreatorSyncModal";
@@ -142,35 +139,37 @@ export default function CreatorPoolPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-[32px]">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Creator Pool</h1>
-          <p className="text-slate-500">Database aset creator lintas campaign. (Paginated)</p>
+          <h1 className="text-[28px] font-extrabold tracking-tight mb-[4px]">Creator Pool</h1>
+          <p className="text-[14px] text-text-soft">Database aset creator lintas campaign.</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-[10px]">
           <CreatorSyncModal onComplete={() => fetchCreators(0, true)} />
-          <Button variant="outline" className="flex items-center gap-2" onClick={handleExport}>
-            <Download className="w-4 h-4" /> Export CSV
-          </Button>
-          <Button onClick={() => router.push('/creator-pool/import')}>+ Tambah Kreator Baru</Button>
+          <button className="btn btn-outline" onClick={handleExport}>
+            <Download className="ico" /> Export CSV
+          </button>
+          <button className="btn btn-primary" onClick={() => router.push('/creator-pool/import')}>
+            + Tambah Kreator Baru
+          </button>
         </div>
       </div>
 
-      <div className="flex items-center gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex-wrap">
+      <div className="flex items-center gap-[14px] bg-white p-[18px] rounded-lg border border-line shadow-sm flex-wrap">
         <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <Search className="absolute left-[14px] top-1/2 -translate-y-1/2 w-4 h-4 text-text-mute" />
           <input 
             type="text" 
             placeholder="Cari username atau nama asli..." 
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 bg-slate-50 border-none rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+            className="input !pl-[40px] !mb-0"
           />
         </div>
         
         <select 
-          className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"
+          className="select w-auto !mb-0 min-w-[140px]"
           value={filterType}
           onChange={(e) => setFilterType(e.target.value)}
         >
@@ -182,7 +181,7 @@ export default function CreatorPoolPage() {
         </select>
 
         <select 
-          className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"
+          className="select w-auto !mb-0 min-w-[160px]"
           value={filterNiche}
           onChange={(e) => setFilterNiche(e.target.value)}
         >
@@ -191,7 +190,7 @@ export default function CreatorPoolPage() {
         </select>
 
         <select 
-          className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"
+          className="select w-auto !mb-0 min-w-[200px]"
           value={filterCampaign}
           onChange={(e) => setFilterCampaign(e.target.value)}
         >
@@ -200,72 +199,78 @@ export default function CreatorPoolPage() {
         </select>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-[16px] md:grid-cols-2 lg:grid-cols-3">
         {data.map(creator => {
           // Extract nested data safely
           const snaps = creator.creator_snapshots || [];
           const snapshot = snaps.length > 0 ? snaps.sort((a:any, b:any) => new Date(b.tanggal_update).getTime() - new Date(a.tanggal_update).getTime())[0] : null;
           const tier = snapshot?.tier || 'Unknown';
+          let tierClass = 'tier-c';
+          if(tier.includes('A')) tierClass = 'tier-a';
+          else if(tier.includes('B')) tierClass = 'tier-b';
+          else if(tier.toLowerCase() === 'nano' || tier.toLowerCase() === 'unknown') tierClass = 'tier-nano';
+
           const cNiches = (creator.creator_niches || []).map((cn:any) => niches.find(n => n.id === cn.niche_id)?.nama).filter(Boolean);
 
           return (
-            <Link key={creator.id} href={`/creator-pool/${creator.id}`}>
-              <Card className="hover:border-blue-500 transition-colors cursor-pointer h-full">
-                <CardContent className="p-5 flex flex-col justify-between h-full">
+            <Link key={creator.id} href={`/creator-pool/${creator.id}`} className="block h-full group">
+              <div className="ccard h-full flex flex-col group-hover:border-p300 group-hover:shadow-md transition-all duration-150">
+                <div className="ctop">
                   <div>
-                    <div className="flex justify-between items-start mb-4">
-                      <div>
-                        <h3 className="font-bold text-lg truncate max-w-[200px]">@{creator.username}</h3>
-                        {creator.nama_asli && <p className="text-sm text-slate-500 truncate max-w-[200px]">{creator.nama_asli}</p>}
-                      </div>
-                      <Badge variant="secondary">{tier}</Badge>
-                    </div>
-                    
-                    <div className="flex gap-2 mb-4 flex-wrap">
-                      {cNiches.map((niche: string, idx: number) => (
-                        <Badge key={idx} variant="outline" className="text-[10px] uppercase">{niche}</Badge>
-                      ))}
-                    </div>
+                    <div className="cname">@{creator.username}</div>
+                    {creator.nama_asli && <div className="text-[13px] text-text-soft truncate max-w-[180px] mt-[2px]">{creator.nama_asli}</div>}
                   </div>
+                  <span className={`tier ${tierClass}`}>{tier}</span>
+                </div>
+                
+                <div className="flex gap-[6px] mb-[16px] flex-wrap">
+                  {cNiches.map((niche: string, idx: number) => (
+                    <span key={idx} className="tag">{niche}</span>
+                  ))}
+                </div>
 
-                  <div className="grid grid-cols-2 gap-4 text-sm bg-slate-50 p-3 rounded-lg mt-auto">
-                    <div>
-                      <p className="text-slate-500 text-xs mb-1">Audience Age</p>
-                      <p className="font-semibold">{snapshot?.audience_age || '-'}</p>
-                    </div>
-                    <div>
-                      <p className="text-slate-500 text-xs mb-1">Level</p>
-                      <p className="font-semibold">{snapshot?.level ? `Level ${snapshot.level}` : '-'}</p>
-                    </div>
+                <div className="cstats mt-auto">
+                  <div>
+                    <div className="lbl">Audience Age</div>
+                    <div className="vl text-p400">{snapshot?.audience_age || '-'}</div>
                   </div>
-                  <div className="mt-3 text-[10px] text-slate-400 border-t border-slate-100 pt-2 flex justify-between">
-                    <span>Input: {creator.created_at ? new Date(creator.created_at).toLocaleDateString('id-ID') : '-'}</span>
-                    <span>PIC: {creator.added_by || 'System'}</span>
+                  <div>
+                    <div className="lbl">Level</div>
+                    <div className="vl text-g400">{snapshot?.level ? `Level ${snapshot.level}` : '-'}</div>
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+                
+                <div className="mt-[16px] text-[11px] text-text-mute flex justify-between font-medium">
+                  <span>Input: {creator.created_at ? new Date(creator.created_at).toLocaleDateString('id-ID') : '-'}</span>
+                  <span>PIC: {creator.added_by || 'System'}</span>
+                </div>
+              </div>
             </Link>
           );
         })}
         {data.length === 0 && !isLoading && (
-          <div className="col-span-full text-center py-12 text-slate-500 border border-dashed border-slate-200 rounded-xl">
-            Tidak ada kreator yang cocok dengan filter pencarian.
+          <div className="col-span-full">
+            <div className="empty">
+              <div className="eicon"><Users className="w-6 h-6 text-text-mute" /></div>
+              <h4>Tidak ada kreator</h4>
+              <p>Tidak ada kreator yang cocok dengan filter pencarian Anda saat ini.</p>
+            </div>
           </div>
         )}
       </div>
 
       {hasMore && data.length > 0 && (
-        <div className="flex justify-center mt-8">
-          <Button variant="outline" onClick={handleLoadMore} disabled={isLoading} className="w-[200px]">
-            {isLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+        <div className="flex justify-center mt-[32px]">
+          <button className="btn btn-soft w-[240px] justify-center" onClick={handleLoadMore} disabled={isLoading}>
+            {isLoading ? <Loader2 className="ico animate-spin" /> : null}
             {isLoading ? "Memuat..." : "Muat Lebih Banyak"}
-          </Button>
+          </button>
         </div>
       )}
       
       {isLoading && data.length === 0 && (
-         <div className="flex justify-center py-12">
-            <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
+         <div className="flex justify-center py-[48px]">
+            <Loader2 className="w-8 h-8 text-p300 animate-spin" />
          </div>
       )}
     </div>

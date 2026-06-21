@@ -3,10 +3,10 @@
 import { useDatabaseStore } from "@/store/useDatabaseStore";
 import { getCreatorType, getLatestSnapshot, computeCampaignGMV, computeHighestVideoGMV, getJenisKerjasama } from "@/utils/computed";
 import { useDraftLocalStorage } from "@/hooks/useDraftLocalStorage";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
-import { Badge } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/Table";
+
+
+
+
 import { ArrowLeft, UserPlus, Phone, CreditCard, Activity, ArrowUpDown, ChevronDown, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -392,19 +392,19 @@ export default function CreatorProfilePage() {
     <div className="space-y-6">
       <div className="flex items-center gap-4">
         <Link href="/creator-pool">
-          <Button variant="outline" size="icon"><ArrowLeft className="w-4 h-4" /></Button>
+          <button className="btn btn-outline" size="icon"><ArrowLeft className="w-4 h-4" /></button>
         </Link>
         <div>
           <div className="flex items-center gap-3">
             <h1 className="text-3xl font-bold tracking-tight">@{creator.username}</h1>
-            <Badge className="bg-gradient-to-r from-blue-600 to-indigo-600 shadow-sm">{tier}</Badge>
+            <span className="badge b-sales">{tier}</span>
           </div>
           <p className="text-slate-500">{creator.nama_asli || 'Nama asli belum diisi'}</p>
         </div>
         <div className="ml-auto flex gap-2">
           <Dialog open={snapOpen} onOpenChange={setSnapOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline"><Activity className="w-4 h-4 mr-2" /> Update Data</Button>
+              <button className="btn btn-outline"><Activity className="w-4 h-4 mr-2" /> Update Data</button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader><DialogTitle>Update Data Snapshot</DialogTitle></DialogHeader>
@@ -434,14 +434,14 @@ export default function CreatorProfilePage() {
                   <label className="text-sm font-medium">Estimasi GMV 30 Hari Terakhir (Rp)</label>
                   <input type="number" value={snapForm.gmv_30d} onChange={e=>setSnapForm({...snapForm, gmv_30d: e.target.value})} className="w-full p-2 border rounded" placeholder="0" />
                 </div>
-                <Button onClick={handleUpdateSnapshot} className="w-full">Simpan Snapshot</Button>
+                <button className="btn btn-primary w-full" onClick={handleUpdateSnapshot}>Simpan Snapshot</button>
               </div>
             </DialogContent>
           </Dialog>
 
           <Dialog open={campOpen} onOpenChange={setCampOpen}>
             <DialogTrigger asChild>
-              <Button><UserPlus className="w-4 h-4 mr-2" /> Tarik ke Campaign</Button>
+              <button className="btn btn-primary"><UserPlus className="w-4 h-4 mr-2" /> Tarik ke Campaign</button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader><DialogTitle>Tarik Creator ke Campaign</DialogTitle></DialogHeader>
@@ -463,7 +463,7 @@ export default function CreatorProfilePage() {
                     <input type="number" value={campForm.qty_vt} onChange={e=>setCampForm({...campForm, qty_vt: Number(e.target.value)})} className="w-full p-2 border rounded" />
                   </div>
                 </div>
-                <Button onClick={handleTarikCampaign} className="w-full" disabled={!campForm.campaign_id}>Tambahkan ke Listing</Button>
+                <button className="btn btn-primary w-full" onClick={handleTarikCampaign} disabled={!campForm.campaign_id}>Tambahkan ke Listing</button>
               </div>
             </DialogContent>
           </Dialog>
@@ -472,11 +472,11 @@ export default function CreatorProfilePage() {
 
       <div className="grid gap-6 md:grid-cols-3">
         <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Profil Utama</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
+          <div className="ccard">
+            <div className="p-[16px] border-b border-line mb-[16px]">
+              <h3 className="font-bold text-[16px]">Profil Utama</h3>
+            </div>
+            <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-col justify-center items-center text-center">
                   <p className="text-sm text-slate-500 mb-1">Followers</p>
@@ -504,7 +504,7 @@ export default function CreatorProfilePage() {
                     if(v) setNicheForm(localData?.creatorNiches?.map((cn: any) => cn.niche_id) || []);
                   }}>
                     <DialogTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-5 w-5"><Edit2 className="h-3 w-3"/></Button>
+                      <button className="btn btn-soft h-5 w-5" size="icon"><Edit2 className="h-3 w-3"/></button>
                     </DialogTrigger>
                     <DialogContent>
                       <DialogHeader><DialogTitle>Update Niche Kreator</DialogTitle></DialogHeader>
@@ -524,14 +524,14 @@ export default function CreatorProfilePage() {
                             </label>
                           ))}
                         </div>
-                        <Button onClick={handleUpdateNiche} className="w-full">Simpan Niche</Button>
+                        <button className="btn btn-primary w-full" onClick={handleUpdateNiche}>Simpan Niche</button>
                       </div>
                     </DialogContent>
                   </Dialog>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {displayNiches.length > 0 ? displayNiches.map((n, i) => (
-                    <Badge key={i} variant="outline">{n}</Badge>
+                    <span className="badge b-neutral" key={i} variant="outline">{n}</span>
                   )) : <p className="text-sm text-slate-400">Belum ada niche</p>}
                 </div>
               </div>
@@ -541,7 +541,7 @@ export default function CreatorProfilePage() {
                   <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Kontak Aktif</p>
                   <Dialog open={contactOpen} onOpenChange={setContactOpen}>
                     <DialogTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-5 w-5"><Edit2 className="h-3 w-3"/></Button>
+                      <button className="btn btn-soft h-5 w-5" size="icon"><Edit2 className="h-3 w-3"/></button>
                     </DialogTrigger>
                     <DialogContent>
                       <DialogHeader><DialogTitle>Update Nomor WhatsApp</DialogTitle></DialogHeader>
@@ -550,7 +550,7 @@ export default function CreatorProfilePage() {
                           <label className="text-sm">Nomor Baru</label>
                           <input type="text" value={contactForm} onChange={e=>setContactForm(e.target.value)} className="w-full p-2 border rounded" placeholder="08..." />
                         </div>
-                        <Button onClick={handleUpdateContact} className="w-full">Simpan Kontak</Button>
+                        <button className="btn btn-primary w-full" onClick={handleUpdateContact}>Simpan Kontak</button>
                       </div>
                     </DialogContent>
                   </Dialog>
@@ -570,7 +570,7 @@ export default function CreatorProfilePage() {
                   <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Rekening & Nama Asli</p>
                   <Dialog open={rekOpen} onOpenChange={(v) => { setRekOpen(v); if(v) setRekForm({ rekening: creator.rekening || '', nama_asli: creator.nama_asli || '' })}}>
                     <DialogTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-5 w-5"><Edit2 className="h-3 w-3"/></Button>
+                      <button className="btn btn-soft h-5 w-5" size="icon"><Edit2 className="h-3 w-3"/></button>
                     </DialogTrigger>
                     <DialogContent>
                       <DialogHeader><DialogTitle>Update Rekening & Nama Asli</DialogTitle></DialogHeader>
@@ -583,7 +583,7 @@ export default function CreatorProfilePage() {
                           <label className="text-sm">Rekening</label>
                           <input type="text" value={rekForm.rekening} onChange={e=>setRekForm({...rekForm, rekening: e.target.value})} className="w-full p-2 border rounded" />
                         </div>
-                        <Button onClick={handleUpdateRekening} className="w-full">Simpan</Button>
+                        <button className="btn btn-primary w-full" onClick={handleUpdateRekening}>Simpan</button>
                       </div>
                     </DialogContent>
                   </Dialog>
@@ -593,12 +593,12 @@ export default function CreatorProfilePage() {
                   <span>{creator.rekening || 'Belum diisi'}</span>
                 </div>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-lg">Buku Alamat (Address Book)</CardTitle>
+          <div className="ccard">
+            <div className="p-[16px] border-b border-line mb-[16px] flex flex-row items-center justify-between pb-2">
+              <h3 className="text-lg font-bold">Buku Alamat (Address Book)</h3>
               <Dialog open={addressOpen} onOpenChange={(v) => {
                 setAddressOpen(v);
                 if (v) {
@@ -615,7 +615,7 @@ export default function CreatorProfilePage() {
                 }
               }}>
                 <DialogTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-6 w-6"><Edit2 className="h-3 w-3"/></Button>
+                  <button className="btn btn-soft h-6 w-6" size="icon"><Edit2 className="h-3 w-3"/></button>
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader><DialogTitle>{addressForm.id ? 'Edit Alamat' : 'Tambah Alamat Baru'}</DialogTitle></DialogHeader>
@@ -650,19 +650,19 @@ export default function CreatorProfilePage() {
                         <input type="text" value={addressForm.kodepos} onChange={e=>setAddressForm({...addressForm, kodepos: e.target.value})} className="w-full p-2 border rounded" />
                       </div>
                     </div>
-                    <Button onClick={handleUpdateAddress} className="w-full">Simpan Alamat</Button>
+                    <button className="btn btn-primary w-full" onClick={handleUpdateAddress}>Simpan Alamat</button>
                   </div>
                 </DialogContent>
               </Dialog>
-            </CardHeader>
-            <CardContent className="space-y-3 mt-2 max-h-80 overflow-y-auto">
+            </div>
+            <div className="space-y-3 mt-2 max-h-80 overflow-y-auto">
               {localData?.addressBook?.length === 0 ? (
                 <p className="text-xs text-slate-500 italic">Belum ada alamat tersimpan.</p>
               ) : (
                 localData?.addressBook?.map((book: any) => (
                   <div key={book.id} className="border border-slate-100 bg-slate-50 p-3 rounded-lg relative group">
                     <div className="absolute top-2 right-2 hidden group-hover:flex gap-1">
-                      <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => {
+                      <button className="btn btn-soft h-5 w-5" size="icon" onClick={() => {
                         setAddressForm({
                           id: book.id,
                           label: book.label || '',
@@ -674,14 +674,14 @@ export default function CreatorProfilePage() {
                           kodepos: book.kodepos || ''
                         });
                         setAddressOpen(true);
-                      }}><Edit2 className="h-3 w-3"/></Button>
-                      <Button variant="ghost" size="icon" className="h-5 w-5 text-red-500 hover:text-red-700" onClick={() => handleDeleteAddress(book.id)}>
+                      }}><Edit2 className="h-3 w-3"/></button>
+                      <button className="btn btn-soft h-5 w-5 text-red-500 hover:text-red-700" size="icon" onClick={() => handleDeleteAddress(book.id)}>
                         <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
-                      </Button>
+                      </button>
                     </div>
                     <div className="flex items-center gap-2 mb-1">
-                      <Badge variant="outline" className="text-[10px] bg-white">{book.label || 'Alamat'}</Badge>
-                      {book.is_primary && <Badge className="text-[10px] bg-blue-100 text-blue-700 border-none">Utama</Badge>}
+                      <span className="badge b-neutral text-[10px] bg-white">{book.label || 'Alamat'}</span>
+                      {book.is_primary && <span className="badge b-neutral text-[10px] bg-blue-100 text-blue-700 border-none">Utama</span>}
                     </div>
                     <p className="text-sm font-semibold">{book.nama_penerima || creator?.nama_asli || creator?.username}</p>
                     <p className="text-xs text-slate-600 mt-1">{book.alamat_jalan}</p>
@@ -689,15 +689,15 @@ export default function CreatorProfilePage() {
                   </div>
                 ))
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Catatan Evaluasi</CardTitle>
+          <div className="ccard">
+            <div className="p-[16px] border-b border-line mb-[16px] flex flex-row items-center justify-between">
+              <h3 className="font-bold text-[16px]">Catatan Evaluasi</h3>
               <Dialog open={noteOpen} onOpenChange={setNoteOpen}>
                 <DialogTrigger asChild>
-                  <Button variant="ghost" size="sm">Tambah</Button>
+                  <button className="btn btn-soft" size="sm">Tambah</button>
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
@@ -705,12 +705,12 @@ export default function CreatorProfilePage() {
                   </DialogHeader>
                   <div className="space-y-4 pt-4">
                     <textarea value={noteForm.isi} onChange={e=>setNoteForm({...noteForm, isi: e.target.value})} className="w-full p-2 border rounded min-h-[100px]" placeholder="Isi catatan..."></textarea>
-                    <Button onClick={handleAddNote} className="w-full" disabled={!noteForm.isi}>Simpan Catatan</Button>
+                    <button className="btn btn-primary w-full" onClick={handleAddNote} disabled={!noteForm.isi}>Simpan Catatan</button>
                   </div>
                 </DialogContent>
               </Dialog>
-            </CardHeader>
-            <CardContent>
+            </div>
+            <div>
               {notes.length > 0 ? (
                 <div className="space-y-4">
                   {notes.map(n => (
@@ -723,14 +723,14 @@ export default function CreatorProfilePage() {
               ) : (
                 <p className="text-sm text-slate-400 text-center py-4">Belum ada catatan.</p>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>History Update Profil Utama</CardTitle>
-            </CardHeader>
-            <CardContent>
+          <div className="ccard">
+            <div className="p-[16px] border-b border-line mb-[16px]">
+              <h3 className="font-bold text-[16px]">History Update Profil Utama</h3>
+            </div>
+            <div>
               <div className="space-y-3 max-h-80 overflow-y-auto pr-2">
                 {localData?.auditLogs && localData.auditLogs.length > 0 ? (
                   localData.auditLogs.map((log: any) => (
@@ -745,92 +745,92 @@ export default function CreatorProfilePage() {
                   <p className="text-sm text-slate-400 text-center py-4">Belum ada riwayat update.</p>
                 )}
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </div>
 
         <div className="md:col-span-2 space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Rekam Jejak (Campaign History)</CardTitle>
-            </CardHeader>
-            <CardContent>
+          <div className="ccard">
+            <div className="p-[16px] border-b border-line mb-[16px]">
+              <h3 className="font-bold text-[16px]">Rekam Jejak (Campaign History)</h3>
+            </div>
+            <div>
               {trackRecords.length > 0 ? (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="cursor-pointer hover:bg-slate-50 transition-colors select-none" onClick={() => handleSort('campaign_name')}>Campaign <ArrowUpDown className="w-3 h-3 inline ml-1"/></TableHead>
-                      <TableHead>Kerjasama</TableHead>
-                      <TableHead className="cursor-pointer hover:bg-slate-50 transition-colors select-none" onClick={() => handleSort('price')}>Rate/Price <ArrowUpDown className="w-3 h-3 inline ml-1"/></TableHead>
-                      <TableHead className="text-right">Pelunasan</TableHead>
-                      <TableHead>Status Bayar</TableHead>
-                      <TableHead className="text-center">Total VT</TableHead>
-                      <TableHead className="text-right cursor-pointer hover:bg-slate-50 transition-colors select-none" onClick={() => handleSort('gmv')}>Total GMV Campaign <ArrowUpDown className="w-3 h-3 inline ml-1"/></TableHead>
-                      <TableHead className="text-right cursor-pointer hover:bg-slate-50 transition-colors select-none" onClick={() => handleSort('highestVideoGmv')}>GMV Video Tertinggi <ArrowUpDown className="w-3 h-3 inline ml-1"/></TableHead>
-                      <TableHead>Approval</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
+                <div className="tbl-wrap"><table className="w-full">
+                  <thead className="border-b border-line bg-slate-50">
+                    <tr className="border-b border-line hover:bg-slate-50/50">
+                      <th className="py-[12px] px-[16px] text-left font-semibold text-text-soft cursor-pointer hover:bg-slate-50 transition-colors select-none" onClick={() => handleSort('campaign_name')}>Campaign <ArrowUpDown className="w-3 h-3 inline ml-1"/></th>
+                      <th className="py-[12px] px-[16px] text-left font-semibold text-text-soft">Kerjasama</th>
+                      <th className="py-[12px] px-[16px] text-left font-semibold text-text-soft cursor-pointer hover:bg-slate-50 transition-colors select-none" onClick={() => handleSort('price')}>Rate/Price <ArrowUpDown className="w-3 h-3 inline ml-1"/></th>
+                      <th className="py-[12px] px-[16px] text-left font-semibold text-text-soft text-right">Pelunasan</th>
+                      <th className="py-[12px] px-[16px] text-left font-semibold text-text-soft">Status Bayar</th>
+                      <th className="py-[12px] px-[16px] text-left font-semibold text-text-soft text-center">Total VT</th>
+                      <th className="py-[12px] px-[16px] text-left font-semibold text-text-soft text-right cursor-pointer hover:bg-slate-50 transition-colors select-none" onClick={() => handleSort('gmv')}>Total GMV Campaign <ArrowUpDown className="w-3 h-3 inline ml-1"/></th>
+                      <th className="py-[12px] px-[16px] text-left font-semibold text-text-soft text-right cursor-pointer hover:bg-slate-50 transition-colors select-none" onClick={() => handleSort('highestVideoGmv')}>GMV Video Tertinggi <ArrowUpDown className="w-3 h-3 inline ml-1"/></th>
+                      <th className="py-[12px] px-[16px] text-left font-semibold text-text-soft">Approval</th>
+                    </tr>
+                  </thead>
+                  <tbody>
                     {trackRecords.map((tr, i) => {
                       const hasDetails = tr.approval === 'approved' || (localData?.videos || []).filter((v: any) => v.campaign_creator_id === tr.id).length > 0;
                       const isExpanded = expandedCampaigns[tr.id];
                       
                       return (
                       <React.Fragment key={tr.id}>
-                        <TableRow 
+                        <tr className="border-b border-line hover:bg-slate-50/50" 
                           className={`${i === 0 && tr.gmv > 0 && sortField === 'gmv' && sortOrder === 'desc' ? "bg-amber-50/50" : ""} ${hasDetails ? "cursor-pointer hover:bg-slate-50 transition-colors" : ""}`}
                           onClick={() => hasDetails && toggleCampaign(tr.id)}
                         >
-                          <TableCell className="font-medium flex items-center gap-2">
+                          <td className="py-[12px] px-[16px] font-medium flex items-center gap-2">
                             {hasDetails && (
                               <span className="text-slate-400">
                                 {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                               </span>
                             )}
                             {tr.campaign_name}
-                          </TableCell>
-                          <TableCell className="capitalize">{tr.jenis_kerjasama}</TableCell>
-                          <TableCell>Rp {tr.price.toLocaleString()}</TableCell>
-                          <TableCell className="text-right font-medium text-slate-700">
+                          </td>
+                          <td className="py-[12px] px-[16px] capitalize">{tr.jenis_kerjasama}</td>
+                          <td className="py-[12px] px-[16px]">Rp {tr.price.toLocaleString()}</td>
+                          <td className="py-[12px] px-[16px] text-right font-medium text-slate-700">
                             {tr.nominal_pelunasan ? `Rp ${tr.nominal_pelunasan.toLocaleString()}` : '-'}
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant={tr.status_bayar === 'lunas' ? 'success' : tr.status_bayar === 'sebagian' ? 'warning' : 'outline'}>
+                          </td>
+                          <td className="py-[12px] px-[16px]">
+                            <span className="badge b-neutral" variant={tr.status_bayar === 'lunas' ? 'success' : tr.status_bayar === 'sebagian' ? 'warning' : 'outline'}>
                               {tr.status_bayar === 'lunas' ? 'Lunas' : tr.status_bayar === 'sebagian' ? 'Sebagian' : 'Belum'}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-center font-medium">
+                            </span>
+                          </td>
+                          <td className="py-[12px] px-[16px] text-center font-medium">
                             {localData?.videos?.filter((v: any) => v.campaign_creator_id === tr.id).length || 0}
-                          </TableCell>
-                          <TableCell className="text-right font-semibold text-green-600">
+                          </td>
+                          <td className="py-[12px] px-[16px] text-right font-semibold text-green-600">
                             {tr.gmv > 0 ? `Rp ${tr.gmv.toLocaleString()}` : '-'}
-                          </TableCell>
-                          <TableCell className="text-right font-medium text-emerald-600">
+                          </td>
+                          <td className="py-[12px] px-[16px] text-right font-medium text-emerald-600">
                             {tr.highestVideoGmv > 0 ? `Rp ${tr.highestVideoGmv.toLocaleString()}` : '-'}
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant={tr.approval === 'approved' ? 'default' : 'secondary'}>
+                          </td>
+                          <td className="py-[12px] px-[16px]">
+                            <span className="badge b-neutral" variant={tr.approval === 'approved' ? 'default' : 'secondary'}>
                               {tr.approval}
-                            </Badge>
-                          </TableCell>
-                        </TableRow>
+                            </span>
+                          </td>
+                        </tr>
                         {hasDetails && isExpanded && (
-                          <TableRow>
-                            <TableCell colSpan={9} className="bg-slate-50/50 p-4 border-b-2 border-slate-200">
+                          <tr className="border-b border-line hover:bg-slate-50/50">
+                            <td className="py-[12px] px-[16px] bg-slate-50/50 p-4 border-b-2 border-slate-200" colSpan={9}>
                               <div className="rounded-lg border border-slate-200 overflow-hidden bg-white shadow-sm">
-                                <Table className="text-sm">
-                                  <TableHeader className="bg-slate-50">
-                                    <TableRow>
-                                      <TableHead className="w-16 h-8 text-xs font-semibold uppercase tracking-wider text-slate-500 cursor-pointer select-none hover:bg-slate-200" onClick={() => handleVideoSort('urutan')}>Video <ArrowUpDown className="w-3 h-3 inline ml-1"/></TableHead>
-                                      <TableHead className="h-8 text-xs font-semibold uppercase tracking-wider text-slate-500">Link TikTok</TableHead>
-                                      <TableHead className="h-8 text-center text-xs font-semibold uppercase tracking-wider text-slate-500 cursor-pointer select-none hover:bg-slate-200" onClick={() => handleVideoSort('views')}>Views <ArrowUpDown className="w-3 h-3 inline ml-1"/></TableHead>
-                                      <TableHead className="h-8 text-center text-xs font-semibold uppercase tracking-wider text-slate-500 cursor-pointer select-none hover:bg-slate-200" onClick={() => handleVideoSort('sold')}>Item Sold <ArrowUpDown className="w-3 h-3 inline ml-1"/></TableHead>
-                                      <TableHead className="h-8 text-right text-xs font-semibold uppercase tracking-wider text-slate-500 cursor-pointer select-none hover:bg-slate-200" onClick={() => handleVideoSort('gmv')}>Organic GMV <ArrowUpDown className="w-3 h-3 inline ml-1"/></TableHead>
-                                    </TableRow>
-                                  </TableHeader>
-                                  <TableBody>
+                                <div className="tbl-wrap"><table className="w-full text-sm">
+                                  <thead className="border-b border-line bg-slate-50">
+                                    <tr className="border-b border-line hover:bg-slate-50/50">
+                                      <th className="py-[12px] px-[16px] text-left font-semibold text-text-soft w-16 h-8 text-xs font-semibold uppercase tracking-wider text-slate-500 cursor-pointer select-none hover:bg-slate-200" onClick={() => handleVideoSort('urutan')}>Video <ArrowUpDown className="w-3 h-3 inline ml-1"/></th>
+                                      <th className="py-[12px] px-[16px] text-left font-semibold text-text-soft h-8 text-xs font-semibold uppercase tracking-wider text-slate-500">Link TikTok</th>
+                                      <th className="py-[12px] px-[16px] text-left font-semibold text-text-soft h-8 text-center text-xs font-semibold uppercase tracking-wider text-slate-500 cursor-pointer select-none hover:bg-slate-200" onClick={() => handleVideoSort('views')}>Views <ArrowUpDown className="w-3 h-3 inline ml-1"/></th>
+                                      <th className="py-[12px] px-[16px] text-left font-semibold text-text-soft h-8 text-center text-xs font-semibold uppercase tracking-wider text-slate-500 cursor-pointer select-none hover:bg-slate-200" onClick={() => handleVideoSort('sold')}>Item Sold <ArrowUpDown className="w-3 h-3 inline ml-1"/></th>
+                                      <th className="py-[12px] px-[16px] text-left font-semibold text-text-soft h-8 text-right text-xs font-semibold uppercase tracking-wider text-slate-500 cursor-pointer select-none hover:bg-slate-200" onClick={() => handleVideoSort('gmv')}>Organic GMV <ArrowUpDown className="w-3 h-3 inline ml-1"/></th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
                                     {localData?.videos?.filter((v: any) => v.campaign_creator_id === tr.id).length === 0 ? (
-                                      <TableRow><TableCell colSpan={5} className="text-center text-slate-400 py-3 text-xs">Belum ada video/VT diunggah.</TableCell></TableRow>
+                                      <tr className="border-b border-line hover:bg-slate-50/50"><td className="py-[12px] px-[16px] text-center text-slate-400 py-3 text-xs" colSpan={5}>Belum ada video/VT diunggah.</td></tr>
                                     ) : localData?.videos?.filter((v: any) => v.campaign_creator_id === tr.id).map((v: any) => {
                                       const videoSales = localData?.sales?.filter((s: any) => s.content_uid && v.content_uid && s.content_uid === v.content_uid) || [];
                                       const organicGmv = videoSales.reduce((sum, row) => sum + row.gmv, 0);
@@ -845,28 +845,28 @@ export default function CreatorProfilePage() {
                                       if (videoSortField === 'gmv') diff = a.organicGmv - b.organicGmv;
                                       return videoSortOrder === 'asc' ? diff : -diff;
                                     }).map((v: any) => (
-                                        <TableRow key={v.id}>
-                                          <TableCell className="font-medium text-slate-700">VT {v.urutan}</TableCell>
-                                          <TableCell>
+                                        <tr className="border-b border-line hover:bg-slate-50/50" key={v.id}>
+                                          <td className="py-[12px] px-[16px] font-medium text-slate-700">VT {v.urutan}</td>
+                                          <td className="py-[12px] px-[16px]">
                                             {v.link_video ? (
                                               <a href={v.link_video} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline inline-flex items-center gap-1 font-medium">
                                                 {v.link_video}
                                               </a>
                                             ) : <span className="text-slate-400 italic">Belum ada link</span>}
-                                          </TableCell>
-                                          <TableCell className="text-center font-bold text-slate-700">
+                                          </td>
+                                          <td className="py-[12px] px-[16px] text-center font-bold text-slate-700">
                                             {v.maxViews > 0 ? v.maxViews.toLocaleString() : '-'}
-                                          </TableCell>
-                                          <TableCell className="text-center font-bold text-slate-700">
+                                          </td>
+                                          <td className="py-[12px] px-[16px] text-center font-bold text-slate-700">
                                             {v.itemsSold} pcs
-                                          </TableCell>
-                                          <TableCell className="text-right font-bold text-green-700">
+                                          </td>
+                                          <td className="py-[12px] px-[16px] text-right font-bold text-green-700">
                                             {v.organicGmv > 0 ? `Rp ${v.organicGmv.toLocaleString()}` : '-'}
-                                          </TableCell>
-                                        </TableRow>
+                                          </td>
+                                        </tr>
                                     ))}
-                                    <TableRow>
-                                      <TableCell colSpan={5} className="p-0 border-t border-slate-200">
+                                    <tr className="border-b border-line hover:bg-slate-50/50">
+                                      <td className="py-[12px] px-[16px] p-0 border-t border-slate-200" colSpan={5}>
                                         <div className="bg-white hover:bg-slate-50 transition-colors">
                                           <Dialog open={videoOpen && activeCcId === tr.id} onOpenChange={(v) => { setVideoOpen(v); if(v) setActiveCcId(tr.id); else setActiveCcId(null); }}>
                                             <DialogTrigger asChild>
@@ -887,101 +887,101 @@ export default function CreatorProfilePage() {
                                                     onChange={e => setVideoLink(e.target.value)} 
                                                   />
                                                 </div>
-                                                <Button onClick={handleAddVideo} className="w-full">Simpan Video</Button>
+                                                <button className="btn btn-primary w-full" onClick={handleAddVideo}>Simpan Video</button>
                                               </div>
                                             </DialogContent>
                                           </Dialog>
                                         </div>
-                                      </TableCell>
-                                    </TableRow>
-                                  </TableBody>
-                                </Table>
+                                      </td>
+                                    </tr>
+                                  </tbody>
+                                </table></div>
                               </div>
                               {localData?.ads?.filter((a: any) => a.campaign_id === tr.campaign_id).length > 0 && (
                                 <div className="mt-4 rounded-lg border border-indigo-200 overflow-hidden bg-indigo-50/30 shadow-sm">
                                   <div className="bg-indigo-100/50 px-4 py-2 border-b border-indigo-200 flex justify-between items-center">
                                     <h4 className="text-xs font-bold text-indigo-900 uppercase">Riwayat Ads Performance (TikTok)</h4>
                                   </div>
-                                  <Table className="text-sm">
-                                    <TableHeader className="bg-indigo-50/50">
-                                      <TableRow>
-                                        <TableHead className="h-8 text-xs font-semibold text-slate-500">Ad Name / Ad ID</TableHead>
-                                        <TableHead className="h-8 text-right text-xs font-semibold text-slate-500">Cost (IDR)</TableHead>
-                                        <TableHead className="h-8 text-right text-xs font-semibold text-slate-500">Revenue (IDR)</TableHead>
-                                        <TableHead className="h-8 text-center text-xs font-semibold text-slate-500">ROAS</TableHead>
-                                        <TableHead className="h-8 text-center text-xs font-semibold text-slate-500">Purchases</TableHead>
-                                      </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
+                                  <div className="tbl-wrap"><table className="w-full text-sm">
+                                    <thead className="border-b border-line bg-indigo-50/50">
+                                      <tr className="border-b border-line hover:bg-slate-50/50">
+                                        <th className="py-[12px] px-[16px] text-left font-semibold text-text-soft h-8 text-xs font-semibold text-slate-500">Ad Name / Ad ID</th>
+                                        <th className="py-[12px] px-[16px] text-left font-semibold text-text-soft h-8 text-right text-xs font-semibold text-slate-500">Cost (IDR)</th>
+                                        <th className="py-[12px] px-[16px] text-left font-semibold text-text-soft h-8 text-right text-xs font-semibold text-slate-500">Revenue (IDR)</th>
+                                        <th className="py-[12px] px-[16px] text-left font-semibold text-text-soft h-8 text-center text-xs font-semibold text-slate-500">ROAS</th>
+                                        <th className="py-[12px] px-[16px] text-left font-semibold text-text-soft h-8 text-center text-xs font-semibold text-slate-500">Purchases</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
                                       {localData?.ads?.filter((a: any) => a.campaign_id === tr.campaign_id).map((ad: any) => {
                                         const costIdr = ad.cost_usd * ad.kurs;
                                         const revenueIdr = ad.gross_revenue_usd * ad.kurs;
                                         const roas = costIdr > 0 ? (revenueIdr / costIdr).toFixed(2) : '-';
                                         return (
-                                          <TableRow key={ad.id} className="hover:bg-indigo-50">
-                                            <TableCell>
+                                          <tr className="border-b border-line hover:bg-indigo-50" key={ad.id}>
+                                            <td className="py-[12px] px-[16px]">
                                               <p className="font-medium text-slate-700 truncate max-w-[150px]" title={ad.ad_name}>{ad.ad_name}</p>
                                               <p className="font-mono text-[10px] text-slate-500">{ad.ad_id}</p>
-                                            </TableCell>
-                                            <TableCell className="text-right font-medium text-red-600">Rp {costIdr.toLocaleString()}</TableCell>
-                                            <TableCell className="text-right font-bold text-emerald-600">Rp {revenueIdr.toLocaleString()}</TableCell>
-                                            <TableCell className="text-center font-bold text-indigo-700">{roas}</TableCell>
-                                            <TableCell className="text-center text-slate-600">{ad.purchases}</TableCell>
-                                          </TableRow>
+                                            </td>
+                                            <td className="py-[12px] px-[16px] text-right font-medium text-red-600">Rp {costIdr.toLocaleString()}</td>
+                                            <td className="py-[12px] px-[16px] text-right font-bold text-emerald-600">Rp {revenueIdr.toLocaleString()}</td>
+                                            <td className="py-[12px] px-[16px] text-center font-bold text-indigo-700">{roas}</td>
+                                            <td className="py-[12px] px-[16px] text-center text-slate-600">{ad.purchases}</td>
+                                          </tr>
                                         );
                                       })}
-                                    </TableBody>
-                                  </Table>
+                                    </tbody>
+                                  </table></div>
                                 </div>
                               )}
-                            </TableCell>
-                          </TableRow>
+                            </td>
+                          </tr>
                         )}
                       </React.Fragment>
                     )})}
-                  </TableBody>
-                </Table>
+                  </tbody>
+                </table></div>
               ) : (
                 <div className="text-center py-8 border border-dashed border-slate-200 rounded-xl">
                   <p className="text-slate-500">Belum pernah mengikuti campaign.</p>
                 </div>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Riwayat Snapshot (Pertumbuhan)</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Tanggal</TableHead>
-                    <TableHead className="text-right">Followers</TableHead>
-                    <TableHead className="text-right">Tier</TableHead>
-                    <TableHead className="text-right">Audience Age</TableHead>
-                    <TableHead className="text-right">Level</TableHead>
-                    <TableHead className="text-right">Ratecard</TableHead>
-                    <TableHead className="text-right">GMV 30 Hari</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+          <div className="ccard">
+            <div className="p-[16px] border-b border-line mb-[16px]">
+              <h3 className="font-bold text-[16px]">Riwayat Snapshot (Pertumbuhan)</h3>
+            </div>
+            <div>
+              <div className="tbl-wrap"><table className="w-full">
+                <thead className="border-b border-line bg-slate-50">
+                  <tr className="border-b border-line hover:bg-slate-50/50">
+                    <th className="py-[12px] px-[16px] text-left font-semibold text-text-soft">Tanggal</th>
+                    <th className="py-[12px] px-[16px] text-left font-semibold text-text-soft text-right">Followers</th>
+                    <th className="py-[12px] px-[16px] text-left font-semibold text-text-soft text-right">Tier</th>
+                    <th className="py-[12px] px-[16px] text-left font-semibold text-text-soft text-right">Audience Age</th>
+                    <th className="py-[12px] px-[16px] text-left font-semibold text-text-soft text-right">Level</th>
+                    <th className="py-[12px] px-[16px] text-left font-semibold text-text-soft text-right">Ratecard</th>
+                    <th className="py-[12px] px-[16px] text-left font-semibold text-text-soft text-right">GMV 30 Hari</th>
+                  </tr>
+                </thead>
+                <tbody>
                   {snapshots.map(s => (
-                    <TableRow key={s.id}>
-                      <TableCell>{new Date(s.tanggal_update).toLocaleDateString('id-ID')}</TableCell>
-                      <TableCell className="text-right">{s.followers?.toLocaleString() || '-'}</TableCell>
-                      <TableCell className="text-right">{s.tier || '-'}</TableCell>
-                      <TableCell className="text-right">{s.audience_age || '-'}</TableCell>
-                      <TableCell className="text-right">{s.level || '-'}</TableCell>
-                      <TableCell className="text-right">{s.ratecard === 0 ? 'Barter' : (s.ratecard ? `Rp ${s.ratecard.toLocaleString()}` : '-')}</TableCell>
-                      <TableCell className="text-right">{s.gmv_30d ? `Rp ${s.gmv_30d.toLocaleString()}` : '-'}</TableCell>
-                    </TableRow>
+                    <tr className="border-b border-line hover:bg-slate-50/50" key={s.id}>
+                      <td className="py-[12px] px-[16px]">{new Date(s.tanggal_update).toLocaleDateString('id-ID')}</td>
+                      <td className="py-[12px] px-[16px] text-right">{s.followers?.toLocaleString() || '-'}</td>
+                      <td className="py-[12px] px-[16px] text-right">{s.tier || '-'}</td>
+                      <td className="py-[12px] px-[16px] text-right">{s.audience_age || '-'}</td>
+                      <td className="py-[12px] px-[16px] text-right">{s.level || '-'}</td>
+                      <td className="py-[12px] px-[16px] text-right">{s.ratecard === 0 ? 'Barter' : (s.ratecard ? `Rp ${s.ratecard.toLocaleString()}` : '-')}</td>
+                      <td className="py-[12px] px-[16px] text-right">{s.gmv_30d ? `Rp ${s.gmv_30d.toLocaleString()}` : '-'}</td>
+                    </tr>
                   ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+                </tbody>
+              </table></div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

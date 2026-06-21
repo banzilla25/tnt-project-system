@@ -3,8 +3,6 @@
 import React, { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/Table";
 import { useDatabaseStore } from "@/store/useDatabaseStore";
 
 export default function CampaignDailyPerformancePage() {
@@ -165,11 +163,11 @@ export default function CampaignDailyPerformancePage() {
   const isHybrid = campaign.tipe_campaign === 'gmv_awareness';
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center mb-6">
+    <div className="space-y-[24px] pb-[80px]">
+      <div className="flex justify-between items-center mb-[24px]">
         <div>
-          <h2 className="text-xl font-bold">Performa Harian (Automated)</h2>
-          <p className="text-sm text-slate-500">
+          <h2 className="text-[20px] font-bold text-text">Performa Harian (Automated)</h2>
+          <p className="text-[13px] text-text-soft">
             {isAwareness 
               ? "Rekap performa VT harian yang dihitung otomatis dari file CSV."
               : "Rekap GMV harian yang dihitung otomatis dari file CSV Organik tanpa perlu input manual."}
@@ -178,104 +176,104 @@ export default function CampaignDailyPerformancePage() {
       </div>
 
       {!loading && monthlyData.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-[24px] mb-[24px]">
           {monthlyData.map((m, idx) => {
             const dateObj = new Date(m.month + '-01');
             const monthName = dateObj.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
             return (
-              <Card key={idx} className={`bg-gradient-to-br ${isAwareness ? 'from-indigo-50 to-purple-100/50 border-indigo-100' : 'from-blue-50 to-indigo-100/50 border-blue-100'} shadow-sm`}>
-                <CardContent className="p-4">
-                  <p className={`text-xs font-medium uppercase tracking-wider ${isAwareness ? 'text-indigo-800' : 'text-blue-800'}`}>{monthName}</p>
+              <div key={idx} className={`ccard bg-gradient-to-br ${isAwareness ? 'from-indigo-50 to-purple-100/50 border-indigo-100' : 'from-blue-50 to-indigo-100/50 border-blue-100'}`}>
+                <div className="p-[24px]">
+                  <p className={`text-[11px] font-medium uppercase tracking-wider ${isAwareness ? 'text-indigo-800' : 'text-blue-800'}`}>{monthName}</p>
                   
                   {isAwareness || isHybrid ? (
-                    <div className="mt-2 flex gap-4">
+                    <div className="mt-[8px] flex gap-[16px]">
                       <div>
-                        <h3 className={`text-xl font-bold ${isAwareness ? 'text-indigo-900' : 'text-blue-900'}`}>{m.totalVideos} <span className="text-sm font-normal">VT</span></h3>
+                        <h3 className={`text-[20px] font-bold ${isAwareness ? 'text-indigo-900' : 'text-blue-900'}`}>{m.totalVideos} <span className="text-[13px] font-normal">VT</span></h3>
                       </div>
                       <div>
-                        <h3 className={`text-xl font-bold ${isAwareness ? 'text-indigo-900' : 'text-blue-900'}`}>{m.totalCreators} <span className="text-sm font-normal">Kreator</span></h3>
+                        <h3 className={`text-[20px] font-bold ${isAwareness ? 'text-indigo-900' : 'text-blue-900'}`}>{m.totalCreators} <span className="text-[13px] font-normal">Kreator</span></h3>
                       </div>
                     </div>
                   ) : null}
 
                   {!isAwareness && (
-                    <div className="mt-2">
-                      <h3 className="text-xl font-bold text-blue-900">Rp {(m.gmvOrganic / 1000000).toFixed(1)}M</h3>
-                      <p className="text-[10px] font-semibold text-blue-800/80 mt-1">Rp {m.gmvOrganic.toLocaleString()}</p>
+                    <div className="mt-[8px]">
+                      <h3 className="text-[20px] font-bold text-blue-900">Rp {(m.gmvOrganic / 1000000).toFixed(1)}M</h3>
+                      <p className="text-[11px] font-semibold text-blue-800/80 mt-[4px]">Rp {m.gmvOrganic.toLocaleString()}</p>
                     </div>
                   )}
                   
-                  <p className={`text-[10px] mt-2 ${isAwareness ? 'text-indigo-600' : 'text-blue-600'}`}>Total {isAwareness ? 'Video & Kreator' : 'Penjualan Organik'}</p>
-                </CardContent>
-              </Card>
+                  <p className={`text-[11px] mt-[8px] ${isAwareness ? 'text-indigo-600' : 'text-blue-600'}`}>Total {isAwareness ? 'Video & Kreator' : 'Penjualan Organik'}</p>
+                </div>
+              </div>
             );
           })}
         </div>
       )}
 
-      <Card className="shadow-sm border-slate-200">
-        <CardHeader className="border-b border-slate-100 bg-slate-50/50">
-          <CardTitle className="text-base">{isAwareness ? 'Daily Video Tracker' : 'Organic Daily Performance'}</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow className="hover:bg-transparent">
-                <TableHead className="py-4">Tanggal</TableHead>
+      <div className="ccard !p-0 overflow-hidden">
+        <div className="p-[16px] border-b border-line bg-slate-50/50">
+          <h3 className="text-[16px] font-bold text-text">{isAwareness ? 'Daily Video Tracker' : 'Organic Daily Performance'}</h3>
+        </div>
+        <div className="tbl-wrap !border-0 !rounded-none">
+          <table className="w-full">
+            <thead className="border-b border-line">
+              <tr>
+                <th className="py-[16px]">Tanggal</th>
                 {isAwareness || isHybrid ? (
                   <>
-                    <TableHead className="py-4 text-center">Video Baru</TableHead>
-                    <TableHead className="py-4 text-center">Kreator Aktif</TableHead>
+                    <th className="py-[16px] text-center">Video Baru</th>
+                    <th className="py-[16px] text-center">Kreator Aktif</th>
                   </>
                 ) : null}
                 {!isAwareness && (
-                  <TableHead className="py-4 text-right">GMV Organik</TableHead>
+                  <th className="py-[16px] text-right">GMV Organik</th>
                 )}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+              </tr>
+            </thead>
+            <tbody>
               {loading ? (
-                <TableRow>
-                  <TableCell colSpan={isHybrid ? 4 : 3} className="text-center py-8 text-slate-400">
+                <tr>
+                  <td colSpan={isHybrid ? 4 : 3} className="text-center py-8 text-text-soft">
                     Mengkalkulasi data dari ribuan baris CSV...
-                  </TableCell>
-                </TableRow>
+                  </td>
+                </tr>
               ) : dailyData.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={isHybrid ? 4 : 3} className="text-center py-8 text-slate-400">
+                <tr>
+                  <td colSpan={isHybrid ? 4 : 3} className="text-center py-8 text-text-soft">
                     Belum ada data untuk campaign ini.
-                  </TableCell>
-                </TableRow>
+                  </td>
+                </tr>
               ) : (
                 dailyData.map((d, idx) => (
-                  <TableRow key={idx}>
-                    <TableCell className="font-medium text-slate-700">
+                  <tr key={idx} className="border-b border-line hover:bg-slate-50/50">
+                    <td className="font-medium text-text">
                       {new Date(d.date).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-                    </TableCell>
+                    </td>
                     
                     {isAwareness || isHybrid ? (
                       <>
-                        <TableCell className="text-center font-bold text-indigo-700 bg-indigo-50/30">
+                        <td className="text-center font-bold text-indigo-700 bg-indigo-50/30">
                           {d.totalVideos} VT
-                        </TableCell>
-                        <TableCell className="text-center text-slate-600 font-medium">
+                        </td>
+                        <td className="text-center text-text-soft font-medium">
                           {d.totalCreators} Kreator
-                        </TableCell>
+                        </td>
                       </>
                     ) : null}
 
                     {!isAwareness && (
-                      <TableCell className="text-right font-bold text-slate-900">
+                      <td className="text-right font-bold text-text">
                         Rp {d.gmvOrganic.toLocaleString()}
-                      </TableCell>
+                      </td>
                     )}
-                  </TableRow>
+                  </tr>
                 ))
               )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 }

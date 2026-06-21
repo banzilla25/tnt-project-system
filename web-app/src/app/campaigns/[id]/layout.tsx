@@ -1,14 +1,12 @@
 "use client";
 
 import { useDatabaseStore } from "@/store/useDatabaseStore";
-import { Badge } from "@/components/ui/Badge";
 import Link from "next/link";
 import { usePathname, useParams } from "next/navigation";
 import { cn } from "@/utils/cn";
 import { Settings2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/Dialog";
-import { Button } from "@/components/ui/Button";
 
 export default function CampaignLayout({ children }: { children: React.ReactNode }) {
   const { id } = useParams();
@@ -18,8 +16,6 @@ export default function CampaignLayout({ children }: { children: React.ReactNode
   const { campaigns, brands, updateCampaign } = useDatabaseStore();
   const campaign = campaigns.find(c => c.id === campaignId);
   const brand = brands.find(b => b.id === campaign?.brand_id);
-
-
 
   const tabs = [
     { name: 'Listing & Seleksi', href: `/campaigns/${campaignId}/listing`, disabled: false },
@@ -91,20 +87,20 @@ export default function CampaignLayout({ children }: { children: React.ReactNode
   if (!campaign) return <div className="p-8">Campaign tidak ditemukan.</div>;
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-end">
+    <div className="space-y-[32px]">
+      <div className="flex justify-between items-end flex-wrap gap-[16px]">
         <div>
-          <div className="flex items-center gap-3 mb-2">
-            <Badge variant="outline">{brand?.nama}</Badge>
-            <Badge variant={campaign.tipe_campaign === 'sales' ? 'success' : campaign.tipe_campaign === 'gmv_awareness' ? 'warning' : 'default'} className="uppercase text-[10px]">
+          <div className="flex items-center gap-[10px] mb-[8px]">
+            <span className="badge b-neutral">{brand?.nama}</span>
+            <span className={`badge ${campaign.tipe_campaign === 'sales' ? 'b-sales' : campaign.tipe_campaign === 'gmv_awareness' ? 'b-warning' : 'b-awareness'} uppercase`}>
               {campaign.tipe_campaign.replace('_', ' + ')}
-            </Badge>
+            </span>
           </div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-bold tracking-tight">{campaign.nama}</h1>
+          <div className="flex items-center gap-[12px]">
+            <h1 className="text-[28px] font-extrabold tracking-tight">{campaign.nama}</h1>
             <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
               <DialogTrigger asChild>
-                <button className="p-2 text-slate-400 hover:text-slate-600 rounded-md hover:bg-slate-100 transition-colors">
+                <button className="p-[8px] text-text-soft hover:text-text rounded-md hover:bg-p50 transition-colors">
                   <Settings2 className="w-5 h-5" />
                 </button>
               </DialogTrigger>
@@ -116,11 +112,11 @@ export default function CampaignLayout({ children }: { children: React.ReactNode
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <label className="text-sm font-medium">Nama Campaign</label>
-                      <input required type="text" className="w-full p-2 border rounded" value={formData.nama} onChange={e => setFormData({...formData, nama: e.target.value})} />
+                      <input required type="text" className="input" value={formData.nama} onChange={e => setFormData({...formData, nama: e.target.value})} />
                     </div>
                     <div className="space-y-2">
                       <label className="text-sm font-medium">Tipe Campaign</label>
-                      <select required className="w-full p-2 border rounded" value={formData.tipe_campaign} onChange={e => setFormData({...formData, tipe_campaign: e.target.value})}>
+                      <select required className="select" value={formData.tipe_campaign} onChange={e => setFormData({...formData, tipe_campaign: e.target.value})}>
                         <option value="sales">Sales (Fokus GMV)</option>
                         <option value="awareness">Awareness (Fokus Views)</option>
                         <option value="gmv_awareness">GMV + AWARENESS</option>
@@ -128,56 +124,56 @@ export default function CampaignLayout({ children }: { children: React.ReactNode
                     </div>
                     <div className="space-y-2">
                       <label className="text-sm font-medium">Wajib Client Approval?</label>
-                      <select required className="w-full p-2 border rounded" value={formData.require_client_approval ? 'true' : 'false'} onChange={e => setFormData({...formData, require_client_approval: e.target.value === 'true'})}>
+                      <select required className="select" value={formData.require_client_approval ? 'true' : 'false'} onChange={e => setFormData({...formData, require_client_approval: e.target.value === 'true'})}>
                         <option value="false">Tidak (Langsung Jalan)</option>
                         <option value="true">Ya (Wajib di-Approve Client)</option>
                       </select>
                     </div>
                     <div className="space-y-2">
                       <label className="text-sm font-medium">PIN Akses Klien</label>
-                      <input required type="text" className="w-full p-2 border rounded font-mono" value={formData.pin} onChange={e => setFormData({...formData, pin: e.target.value})} placeholder="Contoh: 1234" />
+                      <input required type="text" className="input font-mono" value={formData.pin} onChange={e => setFormData({...formData, pin: e.target.value})} placeholder="Contoh: 1234" />
                     </div>
                     <div className="space-y-2">
                       <label className="text-sm font-medium">Start Date</label>
-                      <input required type="date" className="w-full p-2 border rounded" value={formData.start_date} onChange={e => setFormData({...formData, start_date: e.target.value})} />
+                      <input required type="date" className="input" value={formData.start_date} onChange={e => setFormData({...formData, start_date: e.target.value})} />
                     </div>
                     <div className="space-y-2">
                       <label className="text-sm font-medium">End Date</label>
-                      <input required type="date" className="w-full p-2 border rounded" value={formData.end_date} onChange={e => setFormData({...formData, end_date: e.target.value})} />
+                      <input required type="date" className="input" value={formData.end_date} onChange={e => setFormData({...formData, end_date: e.target.value})} />
                     </div>
                   </div>
-                  <div className="border-t pt-4 mt-4">
-                    <h4 className="font-bold mb-3 text-sm text-slate-500 uppercase">Target & Plafon Budget</h4>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
+                  <div className="border-t border-line pt-[16px] mt-[16px]">
+                    <h4 className="font-bold mb-[12px] text-[12px] text-text-soft uppercase">Target & Plafon Budget</h4>
+                    <div className="grid grid-cols-2 gap-[16px]">
+                      <div className="space-y-[6px]">
                         <label className="text-sm font-medium">Target GMV (Rp)</label>
-                        <input type="number" min="0" className="w-full p-2 border rounded" value={formData.target_gmv} onChange={e => setFormData({...formData, target_gmv: e.target.value})} />
+                        <input type="number" min="0" className="input" value={formData.target_gmv} onChange={e => setFormData({...formData, target_gmv: e.target.value})} />
                       </div>
-                      <div className="space-y-2">
+                      <div className="space-y-[6px]">
                         <label className="text-sm font-medium">Target Video (Pcs)</label>
-                        <input type="number" min="0" className="w-full p-2 border rounded" value={formData.target_video} onChange={e => setFormData({...formData, target_video: e.target.value})} />
+                        <input type="number" min="0" className="input" value={formData.target_video} onChange={e => setFormData({...formData, target_video: e.target.value})} />
                       </div>
-                      <div className="space-y-2">
+                      <div className="space-y-[6px]">
                         <label className="text-sm font-medium">Target Kreator (Orang)</label>
-                        <input type="number" min="0" className="w-full p-2 border rounded" value={formData.target_creator} onChange={e => setFormData({...formData, target_creator: e.target.value})} />
+                        <input type="number" min="0" className="input" value={formData.target_creator} onChange={e => setFormData({...formData, target_creator: e.target.value})} />
                       </div>
-                      <div className="space-y-2">
+                      <div className="space-y-[6px]">
                         <label className="text-sm font-medium">Target Views</label>
-                        <input type="number" min="0" className="w-full p-2 border rounded" value={formData.target_views} onChange={e => setFormData({...formData, target_views: e.target.value})} />
+                        <input type="number" min="0" className="input" value={formData.target_views} onChange={e => setFormData({...formData, target_views: e.target.value})} />
                       </div>
-                      <div className="space-y-2">
+                      <div className="space-y-[6px]">
                         <label className="text-sm font-medium">Budget Kreator Plafon (Rp)</label>
-                        <input required type="number" min="0" className="w-full p-2 border rounded" value={formData.budget_creator_plafon} onChange={e => setFormData({...formData, budget_creator_plafon: e.target.value})} />
+                        <input required type="number" min="0" className="input" value={formData.budget_creator_plafon} onChange={e => setFormData({...formData, budget_creator_plafon: e.target.value})} />
                       </div>
-                      <div className="space-y-2">
+                      <div className="space-y-[6px]">
                         <label className="text-sm font-medium">Budget Ads Plafon (Rp)</label>
-                        <input required type="number" min="0" className="w-full p-2 border rounded" value={formData.budget_ads_plafon} onChange={e => setFormData({...formData, budget_ads_plafon: e.target.value})} />
+                        <input required type="number" min="0" className="input" value={formData.budget_ads_plafon} onChange={e => setFormData({...formData, budget_ads_plafon: e.target.value})} />
                       </div>
                     </div>
                   </div>
-                  <div className="flex justify-end pt-4">
-                    <Button type="button" variant="outline" className="mr-2" onClick={() => setIsSettingsOpen(false)}>Batal</Button>
-                    <Button type="submit">Simpan Perubahan</Button>
+                  <div className="flex justify-end pt-4 gap-[10px]">
+                    <button type="button" className="btn btn-outline" onClick={() => setIsSettingsOpen(false)}>Batal</button>
+                    <button type="submit" className="btn btn-primary">Simpan Perubahan</button>
                   </div>
                 </form>
               </DialogContent>
@@ -185,23 +181,23 @@ export default function CampaignLayout({ children }: { children: React.ReactNode
           </div>
         </div>
         
-        <div className="text-right p-3 bg-blue-50 border border-blue-100 rounded-lg">
-          <p className="text-xs text-blue-600 font-semibold mb-1 uppercase tracking-wider">Akses Portal Klien</p>
-          <div className="flex gap-4 text-sm items-center">
+        <div className="text-right p-[12px] bg-p50 border border-p100 rounded-[12px]">
+          <p className="text-[11px] text-p300 font-bold mb-[6px] uppercase tracking-wider">Akses Portal Klien</p>
+          <div className="flex gap-[16px] text-[13px] items-center">
             <div>
-              <span className="text-slate-500">Link: </span>
-              <a href={portalLink} target="_blank" rel="noreferrer" className="font-medium text-blue-700 hover:underline">/portal/{campaign.id}</a>
+              <span className="text-text-soft">Link: </span>
+              <a href={portalLink} target="_blank" rel="noreferrer" className="font-semibold text-p400 hover:underline">/portal/{campaign.id}</a>
             </div>
             <div>
-              <span className="text-slate-500">PIN: </span>
-              <span className="font-mono font-bold bg-white px-2 py-0.5 rounded border border-slate-200">{campaign.pin || '1234'}</span>
+              <span className="text-text-soft">PIN: </span>
+              <span className="font-mono font-bold bg-white px-[8px] py-[4px] rounded border border-line">{campaign.pin || '1234'}</span>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="border-b border-slate-200">
-        <nav className="-mb-px flex space-x-8">
+      <div className="border-b border-line overflow-x-auto">
+        <nav className="-mb-px flex space-x-[32px] min-w-max">
           {tabs.map((tab) => {
             const isActive = pathname === tab.href;
             return (
@@ -209,12 +205,12 @@ export default function CampaignLayout({ children }: { children: React.ReactNode
                 key={tab.name}
                 href={tab.disabled ? '#' : tab.href}
                 className={cn(
-                  "whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors",
+                  "whitespace-nowrap py-[16px] px-[4px] border-b-[2px] font-semibold text-[14px] transition-colors",
                   isActive
-                    ? "border-blue-500 text-blue-600"
+                    ? "border-p300 text-p300"
                     : tab.disabled
-                      ? "border-transparent text-slate-300 cursor-not-allowed"
-                      : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
+                      ? "border-transparent text-[#cbd5e1] cursor-not-allowed"
+                      : "border-transparent text-text-soft hover:text-text hover:border-line"
                 )}
                 onClick={(e) => {
                   if (tab.disabled) {
@@ -223,14 +219,14 @@ export default function CampaignLayout({ children }: { children: React.ReactNode
                   }
                 }}
               >
-                {tab.name} {tab.disabled && <span className="ml-1 text-[10px] bg-slate-100 text-slate-400 px-1 py-0.5 rounded">Fase 2</span>}
+                {tab.name} {tab.disabled && <span className="ml-[6px] text-[10px] bg-line text-text-mute px-[6px] py-[2px] rounded-full">Fase 2</span>}
               </Link>
             );
           })}
         </nav>
       </div>
 
-      <div className="pt-2">
+      <div className="pt-[8px]">
         {children}
       </div>
     </div>

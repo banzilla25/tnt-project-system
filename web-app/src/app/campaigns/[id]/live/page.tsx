@@ -3,9 +3,6 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { useDatabaseStore } from "@/store/useDatabaseStore";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
-import { Badge } from "@/components/ui/Badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/Table";
 import { Calendar, Trash2, Plus, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 
@@ -128,99 +125,97 @@ export default function LiveSchedulePage() {
   }
 
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
+    <div className="space-y-[24px] pb-[80px]">
+      <div className="ccard !p-0 overflow-hidden">
+        <div className="p-[16px] border-b border-line flex flex-col md:flex-row items-start md:items-center justify-between gap-[16px] bg-slate-50">
+          <h3 className="font-semibold text-text text-[16px] flex items-center gap-[8px]">
             <Calendar className="w-5 h-5 text-blue-600" />
             Jadwal Live Kreator
-          </CardTitle>
+          </h3>
           <input 
             type="text" 
             placeholder="Cari username..." 
             value={searchQuery} 
             onChange={e => setSearchQuery(e.target.value)} 
-            className="p-2 border border-slate-300 rounded-md text-sm min-w-[200px] font-normal"
+            className="input min-w-[200px]"
           />
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader className="bg-slate-50">
-                <TableRow>
-                  <TableHead className="w-64">
-                    <button onClick={() => toggleSort('username')} className="flex items-center font-semibold hover:text-blue-600 transition-colors">
-                      Kreator <SortIcon col="username" />
-                    </button>
-                  </TableHead>
-                  <TableHead>
-                    <button onClick={() => toggleSort('jadwal')} className="flex items-center font-semibold hover:text-blue-600 transition-colors">
-                      Jadwal Terdaftar <SortIcon col="jadwal" />
-                    </button>
-                  </TableHead>
-                  <TableHead className="w-64">Tambah Jadwal</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {approvedCCs.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={3} className="text-center py-8 text-slate-500">
-                      Belum ada kreator yang di-approve di campaign ini.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  approvedCCs.map((cc) => {
-                    const creator = cc.creators;
-                    const schedules = live_schedules.filter(l => l.campaign_creator_id === cc.id);
+        </div>
+        <div className="tbl-wrap !border-0 !rounded-none">
+          <table className="w-full">
+            <thead className="border-b border-line bg-slate-50">
+              <tr>
+                <th className="w-64 py-[16px]">
+                  <button onClick={() => toggleSort('username')} className="flex items-center font-semibold hover:text-blue-600 transition-colors">
+                    Kreator <SortIcon col="username" />
+                  </button>
+                </th>
+                <th className="py-[16px]">
+                  <button onClick={() => toggleSort('jadwal')} className="flex items-center font-semibold hover:text-blue-600 transition-colors">
+                    Jadwal Terdaftar <SortIcon col="jadwal" />
+                  </button>
+                </th>
+                <th className="w-64 py-[16px]">Tambah Jadwal</th>
+              </tr>
+            </thead>
+            <tbody>
+              {approvedCCs.length === 0 ? (
+                <tr>
+                  <td colSpan={3} className="text-center py-8 text-text-soft">
+                    Belum ada kreator yang di-approve di campaign ini.
+                  </td>
+                </tr>
+              ) : (
+                approvedCCs.map((cc) => {
+                  const creator = cc.creators;
+                  const schedules = live_schedules.filter(l => l.campaign_creator_id === cc.id);
 
-                    return (
-                      <TableRow key={cc.id}>
-                        <TableCell className="align-top">
-                          <div className="font-medium text-slate-800">@{creator?.username}</div>
-                          <Badge variant="outline" className="mt-1 text-[10px] uppercase">{cc.approval}</Badge>
-                        </TableCell>
-                        <TableCell className="align-top">
-                          {schedules.length === 0 ? (
-                            <span className="text-sm text-slate-400 italic">Belum ada jadwal live</span>
-                          ) : (
-                            <div className="flex flex-wrap gap-2">
-                              {schedules.map(schedule => (
-                                <div key={schedule.id} className="flex items-center gap-2 bg-blue-50 text-blue-800 border border-blue-200 px-3 py-1.5 rounded-full text-sm">
-                                  <span>{new Date(schedule.tanggal_live).toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short' })}</span>
-                                  <button onClick={() => handleDelete(schedule.id)} className="text-red-500 hover:text-red-700">
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </TableCell>
-                        <TableCell className="align-top">
-                          <div className="flex gap-2">
-                            <input
-                              type="date"
-                              className="text-sm border p-2 rounded flex-1"
-                              value={dateInputs[cc.id] || ""}
-                              onChange={e => setDateInputs(prev => ({ ...prev, [cc.id]: e.target.value }))}
-                            />
-                            <button
-                              onClick={() => handleAddSchedule(cc.id)}
-                              disabled={!dateInputs[cc.id] || isSaving[cc.id]}
-                              className="bg-slate-900 text-white p-2 rounded hover:bg-slate-800 disabled:opacity-50"
-                            >
-                              <Plus className="w-4 h-4" />
-                            </button>
+                  return (
+                    <tr key={cc.id} className="border-b border-line hover:bg-slate-50/50">
+                      <td className="align-top">
+                        <div className="font-medium text-text">@{creator?.username}</div>
+                        <span className="inline-block mt-[4px] px-[8px] py-[2px] border border-line rounded-[4px] text-[10px] font-semibold text-text-soft uppercase bg-slate-100">{cc.approval}</span>
+                      </td>
+                      <td className="align-top">
+                        {schedules.length === 0 ? (
+                          <span className="text-[13px] text-text-soft italic">Belum ada jadwal live</span>
+                        ) : (
+                          <div className="flex flex-wrap gap-[8px]">
+                            {schedules.map(schedule => (
+                              <div key={schedule.id} className="flex items-center gap-[8px] bg-blue-50 text-blue-800 border border-blue-200 px-[12px] py-[6px] rounded-full text-[13px] font-medium">
+                                <span>{new Date(schedule.tanggal_live).toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short' })}</span>
+                                <button onClick={() => handleDelete(schedule.id)} className="text-red-500 hover:text-red-700">
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            ))}
                           </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+                        )}
+                      </td>
+                      <td className="align-top">
+                        <div className="flex gap-[8px]">
+                          <input
+                            type="date"
+                            className="input flex-1 !py-[6px]"
+                            value={dateInputs[cc.id] || ""}
+                            onChange={e => setDateInputs(prev => ({ ...prev, [cc.id]: e.target.value }))}
+                          />
+                          <button
+                            onClick={() => handleAddSchedule(cc.id)}
+                            disabled={!dateInputs[cc.id] || isSaving[cc.id]}
+                            className="btn btn-primary !py-[6px] !px-[12px] flex items-center justify-center disabled:opacity-50"
+                          >
+                            <Plus className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 }

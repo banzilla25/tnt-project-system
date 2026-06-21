@@ -2,8 +2,6 @@
 
 import { useState } from "react";
 import { useDatabaseStore } from "@/store/useDatabaseStore";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/Table";
-import { Button } from "@/components/ui/Button";
 import { Plus, Edit2, Trash2 } from "lucide-react";
 import { useParams } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
@@ -96,101 +94,103 @@ export default function SkuPage() {
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center mb-6">
+    <div className="space-y-[24px] pb-[80px]">
+      <div className="flex justify-between items-center mb-[24px]">
         <div>
-          <h2 className="text-xl font-bold">Daftar SKU Produk</h2>
-          <p className="text-sm text-slate-500">Kelola master produk untuk campaign ini.</p>
+          <h2 className="text-[20px] font-bold text-text">Daftar SKU Produk</h2>
+          <p className="text-[13px] text-text-soft">Kelola master produk untuk campaign ini.</p>
         </div>
         {hasAccess && (
-          <Button onClick={() => setIsAdding(true)} disabled={isAdding}>
-            <Plus className="w-4 h-4 mr-2" /> Tambah Produk
-          </Button>
+          <button className="btn btn-primary flex items-center gap-[8px]" onClick={() => setIsAdding(true)} disabled={isAdding}>
+            <Plus className="w-4 h-4" /> Tambah Produk
+          </button>
         )}
       </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-        <Table>
-          <TableHeader className="bg-slate-50">
-            <TableRow>
-              <TableHead>Nama Produk</TableHead>
-              <TableHead>Product ID</TableHead>
-              <TableHead>Satuan/Bundle</TableHead>
-              <TableHead>Komisi (%)</TableHead>
-              {hasAccess && <TableHead className="text-right">Aksi</TableHead>}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isAdding && hasAccess && (
-              <TableRow className="bg-blue-50/50">
-                <TableCell>
-                  <input type="text" placeholder="Nama Produk" className="w-full p-2 text-sm border rounded" value={newSku.nama_produk} onChange={e => setNewSku({...newSku, nama_produk: e.target.value})} />
-                </TableCell>
-                <TableCell>
-                  <input type="text" placeholder="ID TikTok Shop" className="w-full p-2 text-sm border rounded" value={newSku.product_id} onChange={e => setNewSku({...newSku, product_id: e.target.value})} />
-                </TableCell>
-                <TableCell>
-                  <input type="text" placeholder="Satuan/Bundle" className="w-full p-2 text-sm border rounded" value={newSku.satuan_bundle} onChange={e => setNewSku({...newSku, satuan_bundle: e.target.value})} />
-                </TableCell>
-                <TableCell>
-                  <input type="number" placeholder="Contoh: 10" className="w-full p-2 text-sm border rounded" value={newSku.commission} onChange={e => setNewSku({...newSku, commission: e.target.value})} />
-                </TableCell>
-                <TableCell className="text-right">
-                  <Button size="sm" onClick={handleAdd} className="mr-2">Simpan</Button>
-                  <Button size="sm" variant="ghost" onClick={() => setIsAdding(false)}>Batal</Button>
-                </TableCell>
-              </TableRow>
-            )}
+      <div className="ccard !p-0 overflow-hidden">
+        <div className="tbl-wrap !border-0 !rounded-none">
+          <table className="w-full">
+            <thead className="border-b border-line bg-slate-50">
+              <tr>
+                <th className="py-[16px]">Nama Produk</th>
+                <th className="py-[16px]">Product ID</th>
+                <th className="py-[16px]">Satuan/Bundle</th>
+                <th className="py-[16px]">Komisi (%)</th>
+                {hasAccess && <th className="py-[16px] text-right">Aksi</th>}
+              </tr>
+            </thead>
+            <tbody>
+              {isAdding && hasAccess && (
+                <tr className="bg-blue-50/50">
+                  <td>
+                    <input type="text" placeholder="Nama Produk" className="input w-full" value={newSku.nama_produk} onChange={e => setNewSku({...newSku, nama_produk: e.target.value})} />
+                  </td>
+                  <td>
+                    <input type="text" placeholder="ID TikTok Shop" className="input w-full" value={newSku.product_id} onChange={e => setNewSku({...newSku, product_id: e.target.value})} />
+                  </td>
+                  <td>
+                    <input type="text" placeholder="Satuan/Bundle" className="input w-full" value={newSku.satuan_bundle} onChange={e => setNewSku({...newSku, satuan_bundle: e.target.value})} />
+                  </td>
+                  <td>
+                    <input type="number" placeholder="Contoh: 10" className="input w-full" value={newSku.commission} onChange={e => setNewSku({...newSku, commission: e.target.value})} />
+                  </td>
+                  <td className="text-right">
+                    <button onClick={handleAdd} className="btn btn-primary !py-[6px] !px-[12px] mr-[8px]">Simpan</button>
+                    <button onClick={() => setIsAdding(false)} className="btn btn-outline !py-[6px] !px-[12px]">Batal</button>
+                  </td>
+                </tr>
+              )}
 
-            {campaignSkus.length === 0 && !isAdding ? (
-              <TableRow>
-                <TableCell colSpan={hasAccess ? 5 : 4} className="text-center py-8 text-slate-500">
-                  Belum ada produk terdaftar.
-                </TableCell>
-              </TableRow>
-            ) : (
-              campaignSkus.map((sku) => (
-                sku.id === editingSkuId ? (
-                  <TableRow key={sku.id} className="bg-blue-50/20">
-                    <TableCell>
-                      <input type="text" className="w-full p-2 text-sm border rounded" value={editSkuData.nama_produk} onChange={e => setEditSkuData({...editSkuData, nama_produk: e.target.value})} />
-                    </TableCell>
-                    <TableCell>
-                      <input type="text" className="w-full p-2 text-sm border rounded" value={editSkuData.product_id} onChange={e => setEditSkuData({...editSkuData, product_id: e.target.value})} />
-                    </TableCell>
-                    <TableCell>
-                      <input type="text" className="w-full p-2 text-sm border rounded" value={editSkuData.satuan_bundle} onChange={e => setEditSkuData({...editSkuData, satuan_bundle: e.target.value})} />
-                    </TableCell>
-                    <TableCell>
-                      <input type="number" className="w-full p-2 text-sm border rounded" value={editSkuData.commission} onChange={e => setEditSkuData({...editSkuData, commission: e.target.value})} />
-                    </TableCell>
-                    <TableCell className="text-right whitespace-nowrap">
-                      <Button size="sm" onClick={handleSaveEdit} className="mr-2 h-8">Simpan</Button>
-                      <Button size="sm" variant="ghost" onClick={() => setEditingSkuId(null)} className="h-8">Batal</Button>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  <TableRow key={sku.id}>
-                    <TableCell className="font-medium">{sku.nama_produk}</TableCell>
-                    <TableCell className="font-mono text-slate-500 text-sm">{sku.product_id}</TableCell>
-                    <TableCell>{sku.satuan_bundle || '-'}</TableCell>
-                    <TableCell>{sku.commission ? `${sku.commission}%` : '-'}</TableCell>
-                    {hasAccess && (
-                      <TableCell className="text-right">
-                        <Button size="icon" variant="ghost" className="h-8 w-8 text-blue-500" onClick={() => startEdit(sku)} title="Edit SKU">
-                          <Edit2 className="w-4 h-4" />
-                        </Button>
-                        <Button size="icon" variant="ghost" onClick={() => handleDelete(sku.id)} className="h-8 w-8 text-red-500" title="Hapus SKU">
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </TableCell>
-                    )}
-                  </TableRow>
-                )
-              ))
-            )}
-          </TableBody>
-        </Table>
+              {campaignSkus.length === 0 && !isAdding ? (
+                <tr>
+                  <td colSpan={hasAccess ? 5 : 4} className="text-center py-8 text-text-soft">
+                    Belum ada produk terdaftar.
+                  </td>
+                </tr>
+              ) : (
+                campaignSkus.map((sku) => (
+                  sku.id === editingSkuId ? (
+                    <tr key={sku.id} className="bg-blue-50/20 border-b border-line">
+                      <td>
+                        <input type="text" className="input w-full" value={editSkuData.nama_produk} onChange={e => setEditSkuData({...editSkuData, nama_produk: e.target.value})} />
+                      </td>
+                      <td>
+                        <input type="text" className="input w-full" value={editSkuData.product_id} onChange={e => setEditSkuData({...editSkuData, product_id: e.target.value})} />
+                      </td>
+                      <td>
+                        <input type="text" className="input w-full" value={editSkuData.satuan_bundle} onChange={e => setEditSkuData({...editSkuData, satuan_bundle: e.target.value})} />
+                      </td>
+                      <td>
+                        <input type="number" className="input w-full" value={editSkuData.commission} onChange={e => setEditSkuData({...editSkuData, commission: e.target.value})} />
+                      </td>
+                      <td className="text-right whitespace-nowrap">
+                        <button onClick={handleSaveEdit} className="btn btn-primary !py-[6px] !px-[12px] mr-[8px]">Simpan</button>
+                        <button onClick={() => setEditingSkuId(null)} className="btn btn-outline !py-[6px] !px-[12px]">Batal</button>
+                      </td>
+                    </tr>
+                  ) : (
+                    <tr key={sku.id} className="border-b border-line hover:bg-slate-50/50">
+                      <td className="font-medium text-text">{sku.nama_produk}</td>
+                      <td className="font-mono text-text-soft text-[13px]">{sku.product_id}</td>
+                      <td>{sku.satuan_bundle || '-'}</td>
+                      <td>{sku.commission ? `${sku.commission}%` : '-'}</td>
+                      {hasAccess && (
+                        <td className="text-right">
+                          <button className="p-[8px] text-blue-500 hover:bg-blue-50 rounded-[8px] mr-[4px]" onClick={() => startEdit(sku)} title="Edit SKU">
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button className="p-[8px] text-red-500 hover:bg-red-50 rounded-[8px]" onClick={() => handleDelete(sku.id)} title="Hapus SKU">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </td>
+                      )}
+                    </tr>
+                  )
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
