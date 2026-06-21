@@ -36,7 +36,7 @@ function CampaignKeuanganContent() {
   const { campaigns } = useDatabaseStore();
   const campaign = campaigns.find(c => c.id === campaignId);
 
-  const { canEditCampaign } = useAuth();
+  const { canEditCampaign, profile } = useAuth();
   const hasAccess = canEditCampaign(campaignId);
 
   // Tab state
