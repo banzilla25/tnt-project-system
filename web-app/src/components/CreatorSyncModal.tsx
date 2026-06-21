@@ -131,14 +131,11 @@ export function CreatorSyncModal({ onComplete }: { onComplete?: () => void }) {
           if (!creatorId) {
             const { data: newC, error: errC } = await supabase.from('creators').insert({
               username: row.username,
-              link_account: `https://www.tiktok.com/@${row.username}`,
-              tipe_kreator: row.tipe_kreator || 'Reguler'
+              link_account: `https://www.tiktok.com/@${row.username}`
             }).select().single();
             if (errC) { setErrors(prev => [...prev, `Gagal buat kreator ${row.username}`]); return; }
             creatorId = newC.id;
             creatorMap.set(row.username, creatorId);
-          } else if (row.tipe_kreator) {
-             await supabase.from('creators').update({ tipe_kreator: row.tipe_kreator }).eq('id', creatorId);
           }
 
           // 2. Contacts
