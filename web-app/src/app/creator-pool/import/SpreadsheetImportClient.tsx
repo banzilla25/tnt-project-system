@@ -18,8 +18,9 @@ type SpreadsheetRow = {
   audience_age: string;
   gmv_30d: string;
   niche: string;
-  whatsapp: string;
+  mcn: string;
   ratecard: string;
+  whatsapp: string;
   
   status?: 'baru' | 'update' | 'error';
   errorMsg?: string;
@@ -34,8 +35,9 @@ const getEmptyRow = (): SpreadsheetRow => ({
   audience_age: '',
   gmv_30d: '',
   niche: '',
+  mcn: '',
+  ratecard: '',
   whatsapp: '',
-  ratecard: ''
 });
 
 export default function SpreadsheetImportClient() {
@@ -156,12 +158,14 @@ export default function SpreadsheetImportClient() {
            creatorPayloads.push({
              username: r.username,
              link_account: `https://www.tiktok.com/@${r.username}`,
+             mcn: r.mcn || null,
              added_by: profile?.id
            });
            existingUsernames.add(r.username); // prevent duplicate in same batch
         } else {
            creatorPayloads.push({
              username: r.username,
+             mcn: r.mcn || null,
              link_account: `https://www.tiktok.com/@${r.username}`
            });
         }
@@ -274,6 +278,7 @@ export default function SpreadsheetImportClient() {
                     <th className="p-3 font-semibold text-slate-700 min-w-[120px]">Audiens Age</th>
                     <th className="px-3 py-3 font-semibold text-slate-600 text-left w-32 border-b-2 border-slate-200">GMV 30 Days</th>
                     <th className="px-3 py-3 font-semibold text-rose-600 text-left w-36 border-b-2 border-rose-200">Niche *</th>
+                    <th className="px-3 py-3 font-semibold text-slate-600 text-left w-36 border-b-2 border-slate-200">MCN</th>
                     <th className="px-3 py-3 font-semibold text-slate-600 text-left w-32 border-b-2 border-slate-200">Ratecard (Rp)</th>
                     <th className="p-3 w-10"></th>
                   </tr>
@@ -333,6 +338,9 @@ export default function SpreadsheetImportClient() {
                       </td>
                       <td className="p-0 border-r border-rose-100 bg-rose-50/30">
                         <input type="text" list="niche-options" className="w-full h-full p-2 bg-transparent border-none outline-none" value={row.niche} onChange={(e) => updateRow(row.id, 'niche', e.target.value)} placeholder="Ketik..." />
+                      </td>
+                      <td className="p-0 border-r border-slate-200">
+                        <input type="text" className="w-full h-full p-2 bg-transparent border-none outline-none" value={row.mcn} onChange={(e) => updateRow(row.id, 'mcn', e.target.value)} placeholder="MCN" />
                       </td>
                       <td className="p-0 border-r border-slate-200">
                         <input type="number" className="w-full h-full p-2 bg-transparent border-none outline-none" value={row.ratecard} onChange={(e) => updateRow(row.id, 'ratecard', e.target.value)} placeholder="150000" />

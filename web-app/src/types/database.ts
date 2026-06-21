@@ -43,6 +43,7 @@ export type Creator = {
   rekening_bank: string | null;
   rekening_atas_nama: string | null;
   rekening_nomor: string | null;
+  mcn: string | null;
   created_at: string;
   added_by: string | null;
   added_at: string | null;

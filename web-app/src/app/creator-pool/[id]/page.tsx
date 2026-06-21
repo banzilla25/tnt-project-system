@@ -555,6 +555,13 @@ export default function CreatorProfilePage() {
 
               <div>
                 <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">MCN / Agency</p>
+                </div>
+                <p className="text-sm font-medium">{creator.mcn || '-'}</p>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-2">
                   <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Kontak Aktif</p>
                   <Dialog open={contactOpen} onOpenChange={setContactOpen}>
                     <DialogTrigger asChild>
