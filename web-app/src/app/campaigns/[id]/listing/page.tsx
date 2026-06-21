@@ -738,9 +738,9 @@ function CampaignListingContent() {
                           </select>
                         ) : (
                           <span className={`badge ${
-                            cc.approval === 'approved' ? 'b-success' : 
-                            cc.approval === 'not_approved' ? 'b-destructive' : 
-                            cc.approval === 'alternate' ? 'b-warning' : 'b-pending'
+                            cc.approval === 'approved' ? 'b-approved' : 
+                            cc.approval === 'not_approved' ? 'b-rejected' : 
+                            cc.approval === 'alternate' ? 'b-alternate' : 'b-pending'
                           }`}>
                             {cc.approval}
                           </span>
