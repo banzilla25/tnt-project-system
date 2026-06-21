@@ -75,6 +75,8 @@ export default function SpreadsheetImportClient() {
   useEffect(() => {
     if (rows.length > 0) {
       localStorage.setItem(`tnt_import_draft_global`, JSON.stringify(rows));
+    } else {
+      localStorage.removeItem(`tnt_import_draft_global`);
     }
   }, [rows]);
 
