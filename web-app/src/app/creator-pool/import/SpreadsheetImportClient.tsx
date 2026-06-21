@@ -175,7 +175,9 @@ export default function SpreadsheetImportClient() {
            creatorPayloads.push({
              username: r.username,
              mcn: r.mcn || null,
-             link_account: `https://www.tiktok.com/@${r.username}`
+             link_account: `https://www.tiktok.com/@${r.username}`,
+             last_updated_by: profile?.id,
+             last_updated_at: new Date().toISOString()
            });
         }
       }
@@ -219,8 +221,8 @@ export default function SpreadsheetImportClient() {
         await supabase.from('creator_snapshots').insert(snapshots);
       }
       if (contacts.length > 0) {
-        const updatedCreatorIds = cData.map(c => c.id);
-        await supabase.from('creator_contacts').delete().in('creator_id', updatedCreatorIds);
+        const creatorIdsWithContacts = Array.from(new Set(contacts.map(c => c.creator_id)));
+        await supabase.from('creator_contacts').delete().in('creator_id', creatorIdsWithContacts);
         await supabase.from('creator_contacts').insert(contacts);
       }
 
