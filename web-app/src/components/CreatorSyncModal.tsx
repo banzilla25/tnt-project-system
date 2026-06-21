@@ -324,6 +324,7 @@ export function CreatorSyncModal({ onComplete }: { onComplete?: () => void }) {
               )}
 
               {preview.length > 0 && (
+                <>
                 <div className="border rounded max-h-[500px] overflow-y-auto">
                   <table className="w-full text-sm text-left">
                     <thead className="bg-slate-50 border-b sticky top-0 z-10">
@@ -416,7 +417,7 @@ export function CreatorSyncModal({ onComplete }: { onComplete?: () => void }) {
                     </div>
                   </div>
                 )}
-              </div>
+                </>
               )}
             </div>
           )}
