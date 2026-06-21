@@ -38,6 +38,8 @@ export function CreatorSyncModal({ onComplete }: { onComplete?: () => void }) {
   const [commitProgress, setCommitProgress] = useState(0);
   const [commitStatus, setCommitStatus] = useState('');
   const [editingRowIndex, setEditingRowIndex] = useState<number | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 100;
 
   const updatePreviewUsername = (index: number, newUsername: string) => {
     const newPreview = [...preview];
@@ -89,6 +91,7 @@ export function CreatorSyncModal({ onComplete }: { onComplete?: () => void }) {
       const res = await parseCreatorSyncFile(file, mapping);
       setPreview(res.validData);
       setErrors(res.errors);
+      setCurrentPage(1); // Reset page on new file
       setStep(3);
     } catch (err: any) {
       setErrors([err.message || "Gagal memproses file"]);
@@ -335,14 +338,16 @@ export function CreatorSyncModal({ onComplete }: { onComplete?: () => void }) {
                       </tr>
                     </thead>
                     <tbody className="divide-y">
-                      {preview.map((row, i) => (
-                        <tr key={i} className="hover:bg-slate-50">
+                      {preview.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((row, i) => {
+                        const globalIndex = (currentPage - 1) * itemsPerPage + i;
+                        return (
+                        <tr key={globalIndex} className="hover:bg-slate-50">
                           <td className="p-2 align-top min-w-[250px]">
-                            {editingRowIndex === i ? (
+                            {editingRowIndex === globalIndex ? (
                               <UsernameAutocomplete
                                 value={row.username}
                                 options={creatorUsernames}
-                                onChange={(val) => updatePreviewUsername(i, val)}
+                                onChange={(val) => updatePreviewUsername(globalIndex, val)}
                                 onCancel={() => setEditingRowIndex(null)}
                               />
                             ) : (
@@ -360,11 +365,11 @@ export function CreatorSyncModal({ onComplete }: { onComplete?: () => void }) {
                                       <span className="text-[10px] font-bold text-blue-600">✨ Kreator Baru</span>
                                       <div className="flex flex-wrap items-center gap-1 mt-0.5">
                                          {match && (
-                                           <button onClick={() => updatePreviewUsername(i, match.match)} className="text-[10px] px-2 py-1 bg-amber-500 text-white shadow-sm rounded hover:bg-amber-600 font-semibold transition-colors">
+                                           <button onClick={() => updatePreviewUsername(globalIndex, match.match)} className="text-[10px] px-2 py-1 bg-amber-500 text-white shadow-sm rounded hover:bg-amber-600 font-semibold transition-colors">
                                              Mirip ➡️ @{match.match}
                                            </button>
                                          )}
-                                         <button onClick={() => setEditingRowIndex(i)} className="text-[10px] px-2 py-1 bg-white border border-slate-300 shadow-sm rounded hover:bg-slate-50 text-slate-600 font-medium">
+                                         <button onClick={() => setEditingRowIndex(globalIndex)} className="text-[10px] px-2 py-1 bg-white border border-slate-300 shadow-sm rounded hover:bg-slate-50 text-slate-600 font-medium">
                                            Ketik Manual
                                          </button>
                                       </div>
@@ -382,10 +387,36 @@ export function CreatorSyncModal({ onComplete }: { onComplete?: () => void }) {
                           <td className="p-2 align-top">{row.no_whatsapp || '-'}</td>
                           <td className="p-2 align-top">{row.gmv_30_days ? `Rp ${row.gmv_30_days.toLocaleString()}` : '-'}</td>
                         </tr>
-                      ))}
+                      )})}
                     </tbody>
                   </table>
                 </div>
+                {preview.length > itemsPerPage && (
+                  <div className="flex items-center justify-between mt-4 text-sm">
+                    <p className="text-slate-500">
+                      Menampilkan {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, preview.length)} dari {preview.length} data
+                    </p>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                        disabled={currentPage === 1}
+                      >
+                        Sebelumnya
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(prev => Math.min(Math.ceil(preview.length / itemsPerPage), prev + 1))}
+                        disabled={currentPage === Math.ceil(preview.length / itemsPerPage)}
+                      >
+                        Selanjutnya
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
               )}
             </div>
           )}
