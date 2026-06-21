@@ -1,7 +1,7 @@
 "use client";
 
 import Link from 'next/link';
-import { LayoutDashboard, Users, FolderKanban, Receipt, Wallet, Settings, Package, LogOut, Shield, Activity } from 'lucide-react';
+import { LayoutDashboard, Users, FolderKanban, Receipt, Wallet, Settings, Package, LogOut, Shield, Activity, Puzzle } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/utils/cn';
 import { useState, useEffect } from 'react';
@@ -16,6 +16,7 @@ const navItems = [
   { name: 'Input Penjualan', href: '/input-penjualan', icon: Receipt, activePhase: true },
   { name: 'Ads Report', href: '/ads-report', icon: FolderKanban, activePhase: true },
   { name: 'Budgeting & Topup', href: '/budgeting', icon: Wallet, activePhase: true },
+  { name: 'Unduh Ekstensi', href: '/extension', icon: Puzzle, activePhase: true },
   { name: 'Pengaturan', href: '/settings', icon: Settings, activePhase: true },
 ];
 
