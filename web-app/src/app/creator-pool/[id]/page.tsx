@@ -415,12 +415,21 @@ export default function CreatorProfilePage() {
         <Link href="/creator-pool">
           <button className="btn btn-outline"><ArrowLeft className="w-4 h-4" /></button>
         </Link>
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-bold tracking-tight">@{creator.username}</h1>
-            <span className="badge b-sales">{tier}</span>
+        <div className="flex items-center gap-4">
+          <div className="w-[90px] h-[90px] rounded-full overflow-hidden border-2 border-slate-200 bg-slate-100 flex-shrink-0 flex items-center justify-center">
+            {creator.avatar_url ? (
+              <img src={creator.avatar_url} alt={creator.username} className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-4xl font-bold text-slate-400">{creator.username.charAt(0).toUpperCase()}</span>
+            )}
           </div>
-          <p className="text-slate-500">{creator.nama_asli || 'Nama asli belum diisi'}</p>
+          <div>
+            <div className="flex items-center gap-3">
+              <h1 className="text-3xl font-bold tracking-tight">@{creator.username}</h1>
+              <span className="badge b-sales">{tier}</span>
+            </div>
+            <p className="text-slate-500">{creator.nama_asli || 'Nama asli belum diisi'}</p>
+          </div>
         </div>
         <div className="ml-auto flex gap-2">
           <Dialog open={snapOpen} onOpenChange={setSnapOpen}>

@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>TNT Scraper Queue</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="header">
+    <h2>TNT Scraper</h2>
+    <span class="badge" id="queue-count">0</span>
+  </div>
+  
+  <div class="actions">
+    <button id="clear-all-btn" class="btn-outline-danger">Kosongkan Semua</button>
+  </div>
+
+  <div class="queue-list" id="queue-list">
+    <!-- Items will be injected here -->
+  </div>
+
+  <div class="footer">
+    <button id="send-all-btn" class="btn-primary" disabled>🚀 Kirim Semua ke TNT</button>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

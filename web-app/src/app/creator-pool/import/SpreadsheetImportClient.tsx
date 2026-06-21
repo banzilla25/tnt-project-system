@@ -22,6 +22,7 @@ type SpreadsheetRow = {
   mcn: string;
   ratecard: string;
   whatsapp: string;
+  avatar_url?: string;
   
   status?: 'baru' | 'update' | 'error';
   errorMsg?: string;
@@ -168,6 +169,7 @@ export default function SpreadsheetImportClient() {
              username: r.username,
              link_account: `https://www.tiktok.com/@${r.username}`,
              mcn: r.mcn || null,
+             avatar_url: r.avatar_url || null,
              added_by: profile?.id
            });
            existingUsernames.add(r.username); // prevent duplicate in same batch
@@ -175,6 +177,7 @@ export default function SpreadsheetImportClient() {
            creatorPayloads.push({
              username: r.username,
              mcn: r.mcn || null,
+             avatar_url: r.avatar_url || null,
              link_account: `https://www.tiktok.com/@${r.username}`,
              last_updated_by: profile?.id,
              last_updated_at: new Date().toISOString()

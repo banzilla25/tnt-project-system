@@ -44,6 +44,7 @@ export type Creator = {
   rekening_atas_nama: string | null;
   rekening_nomor: string | null;
   mcn: string | null;
+  avatar_url: string | null;
   created_at: string;
   added_by: string | null;
   added_at: string | null;

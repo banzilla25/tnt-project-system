@@ -1,0 +1,34 @@
+{
+  "manifest_version": 3,
+  "name": "TNT Creator Scraper",
+  "version": "1.0.0",
+  "description": "Auto-scrape Creator info from TikTok Partner Center to TNT App",
+  "permissions": [
+    "storage",
+    "tabs",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://partner.tiktokshop.com/*",
+    "https://affiliate.tiktok.com/*",
+    "http://localhost:*/*",
+    "https://campaign.tntkreatif.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://partner.tiktokshop.com/affiliate-cmp/creator/detail*",
+        "https://affiliate.tiktok.com/connection/creator/detail*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_title": "TNT Scraper",
+    "default_popup": "popup.html"
+  }
+}
