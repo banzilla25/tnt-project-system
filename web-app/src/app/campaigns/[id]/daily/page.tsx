@@ -15,6 +15,8 @@ export default function CampaignDailyPerformancePage() {
   const [loading, setLoading] = useState(true);
   const [dailyData, setDailyData] = useState<any[]>([]);
   const [monthlyData, setMonthlyData] = useState<any[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 50;
 
   useEffect(() => {
     const fetchDailyData = async () => {
@@ -27,35 +29,33 @@ export default function CampaignDailyPerformancePage() {
       const isAwareness = campaign?.tipe_campaign === 'awareness';
       const isHybrid = campaign?.tipe_campaign === 'gmv_awareness';
 
-      // 1. Fetch Sales (for Non-Awareness)
-      if (!isAwareness) {
-        let from = 0;
-        let to = 999;
-        let hasMore = true;
-        while (hasMore) {
-          const { data: salesData, error } = await supabase
-            .from('sales')
-            .select('tanggal, gmv, creator_username, content_uid')
-            .eq('campaign_id', campaignId)
-            .eq('is_refund', false)
-            .range(from, to);
+      // 1. Fetch Sales (Now always fetched because Auto-VT uses sales table for all campaign types)
+      let from = 0;
+      let to = 999;
+      let hasMore = true;
+      while (hasMore) {
+        const { data: salesData, error } = await supabase
+          .from('sales')
+          .select('tanggal, gmv, creator_username, content_uid')
+          .eq('campaign_id', campaignId)
+          .eq('is_refund', false)
+          .range(from, to);
 
-          if (error) {
-            console.error("Error fetching sales:", error);
-            break;
-          }
+        if (error) {
+          console.error("Error fetching sales:", error);
+          break;
+        }
 
-          if (salesData && salesData.length > 0) {
-            allSales = [...allSales, ...salesData];
-            if (salesData.length < 1000) {
-              hasMore = false;
-            } else {
-              from += 1000;
-              to += 1000;
-            }
-          } else {
+        if (salesData && salesData.length > 0) {
+          allSales = [...allSales, ...salesData];
+          if (salesData.length < 1000) {
             hasMore = false;
+          } else {
+            from += 1000;
+            to += 1000;
           }
+        } else {
+          hasMore = false;
         }
       }
 
@@ -94,7 +94,7 @@ export default function CampaignDailyPerformancePage() {
       const grouped: Record<string, { gmv: number; creators: Set<string>; videos: Set<string> }> = {};
       const monthlyGrouped: Record<string, { gmv: number; creators: Set<string>; videos: Set<string> }> = {};
 
-      if (!isAwareness && allSales.length > 0) {
+      if (allSales.length > 0) {
         allSales.forEach(sale => {
           if (!sale.tanggal) return;
           // Extract YYYY-MM-DD
@@ -161,6 +161,11 @@ export default function CampaignDailyPerformancePage() {
 
   const isAwareness = campaign.tipe_campaign === 'awareness';
   const isHybrid = campaign.tipe_campaign === 'gmv_awareness';
+  
+  const totalPages = Math.ceil(dailyData.length / pageSize);
+  const paginatedDaily = React.useMemo(() => {
+    return dailyData.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  }, [dailyData, currentPage]);
 
   return (
     <div className="space-y-[24px] pb-[80px]">
@@ -245,7 +250,7 @@ export default function CampaignDailyPerformancePage() {
                   </td>
                 </tr>
               ) : (
-                dailyData.map((d, idx) => (
+                paginatedDaily.map((d, idx) => (
                   <tr key={idx} className="border-b border-line hover:bg-slate-50/50">
                     <td className="font-medium text-text">
                       {new Date(d.date).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
@@ -273,6 +278,28 @@ export default function CampaignDailyPerformancePage() {
             </tbody>
           </table>
         </div>
+        
+        {totalPages > 1 && (
+          <div className="p-[16px] border-t border-line flex items-center justify-between bg-white text-[13px]">
+            <div className="text-text-soft">
+              Menampilkan {(currentPage - 1) * pageSize + 1} - {Math.min(currentPage * pageSize, dailyData.length)} dari {dailyData.length} hari
+            </div>
+            <div className="flex items-center gap-[8px]">
+              <button 
+                className="px-[12px] py-[6px] border border-line rounded-md hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-transparent transition-colors font-medium"
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+              >Sebelumnya</button>
+              <span className="font-bold px-[8px] text-indigo-600">Hal {currentPage} / {totalPages}</span>
+              <button 
+                className="px-[12px] py-[6px] border border-line rounded-md hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-transparent transition-colors font-medium"
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+              >Selanjutnya</button>
+            </div>
+          </div>
+        )}
+
       </div>
     </div>
   );
