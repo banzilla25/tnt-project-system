@@ -154,7 +154,8 @@ function CampaignListingContent() {
         added_by_profile:profiles!campaign_creators_added_by_fkey ( nama ),
         creators!inner (
           id, username, nama_asli, link_account,
-          creator_snapshots ( audience_age, level, gmv_30d, tanggal_update )
+          creator_snapshots ( id, audience_age, level, gmv_30d, tanggal_update, followers, tier ),
+          creator_niches ( niches ( nama ) )
         ),
         videos (
           id, urutan, concept, link_video, vt_approval
@@ -626,6 +627,10 @@ function CampaignListingContent() {
                   Creator <SortIcon col="username" />
                 </button>
               </th>
+              <th className="text-right">Followers</th>
+              <th className="text-right">Tier</th>
+              <th className="text-center">Level</th>
+              <th>Niche</th>
               <th>Tanggal & PIC</th>
               <th>Kerjasama</th>
               <th>
@@ -661,7 +666,11 @@ function CampaignListingContent() {
                 const creator = cc.creators;
                 if (!creator) return null;
                 const snaps = creator.creator_snapshots || [];
-                const snapshot = snaps.length > 0 ? snaps.sort((a:any, b:any) => new Date(b.tanggal_update).getTime() - new Date(a.tanggal_update).getTime())[0] : null;
+                const snapshot = snaps.length > 0 ? snaps.sort((a:any, b:any) => {
+                  const tDiff = new Date(b.tanggal_update || 0).getTime() - new Date(a.tanggal_update || 0).getTime();
+                  if (tDiff !== 0) return tDiff;
+                  return b.id - a.id;
+                })[0] : null;
                 const type = getCreatorType(snapshot?.audience_age || null);
                 const gmvCreator = snapshot?.gmv_30d || 0;
                 const isExpanded = expandedRows[cc.id];
@@ -683,7 +692,23 @@ function CampaignListingContent() {
                           </Link>
                           {cc.tier === 'Auto-Detect' && <span className="px-[6px] py-[2px] bg-yellow-100 text-yellow-800 text-[10px] font-bold rounded-full">AUTO</span>}
                         </div>
-                        <span className="text-[12px] text-text-soft">{type} • Tier {cc.tier || '-'}</span>
+                        <span className="text-[12px] text-text-soft">{type}</span>
+                      </td>
+                      <td className="text-right text-[13px] font-medium text-text">
+                        {snapshot?.followers ? snapshot.followers.toLocaleString() : '-'}
+                      </td>
+                      <td className="text-right text-[13px] font-medium text-text">
+                        {snapshot?.tier || '-'}
+                      </td>
+                      <td className="text-center text-[13px] font-medium text-text">
+                        {snapshot?.level || '-'}
+                      </td>
+                      <td className="text-[12px] text-text-soft">
+                        <div className="flex flex-wrap gap-[4px] max-w-[150px]">
+                           {creator.creator_niches?.map((cn: any, idx: number) => (
+                             cn.niches?.nama ? <span key={idx} className="bg-slate-100 text-slate-600 px-[6px] py-[2px] rounded text-[10px]">{cn.niches.nama}</span> : null
+                           ))}
+                        </div>
                       </td>
                       <td>
                         <div className="text-[12px] text-text">

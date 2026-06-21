@@ -9,7 +9,11 @@ export const getLatestSnapshot = (snapshots: CreatorSnapshot[], creatorId: numbe
   const creatorSnapshots = snapshots.filter(s => s.creator_id === creatorId);
   if (creatorSnapshots.length === 0) return null;
   // sort by date descending
-  return creatorSnapshots.sort((a, b) => new Date(b.tanggal_update).getTime() - new Date(a.tanggal_update).getTime())[0];
+  return creatorSnapshots.sort((a, b) => {
+    const tDiff = new Date(b.tanggal_update || 0).getTime() - new Date(a.tanggal_update || 0).getTime();
+    if (tDiff !== 0) return tDiff;
+    return b.id - a.id;
+  })[0];
 };
 
 export const computeCampaignGMV = (cc: CampaignCreator, videos?: Video[], sales?: any[]): number => {

@@ -279,7 +279,11 @@ export const useDatabaseStore = create<DatabaseState>((set, get) => ({
     // Deduplication check
     const existing = get().creator_snapshots
       .filter(s => s.creator_id === snapshot.creator_id)
-      .sort((a, b) => new Date(b.tanggal_update).getTime() - new Date(a.tanggal_update).getTime())[0];
+      .sort((a, b) => {
+        const tDiff = new Date(b.tanggal_update || 0).getTime() - new Date(a.tanggal_update || 0).getTime();
+        if (tDiff !== 0) return tDiff;
+        return b.id - a.id;
+      })[0];
     
     if (existing) {
       if (existing.audience_age === snapshot.audience_age && 
