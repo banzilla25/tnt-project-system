@@ -339,7 +339,9 @@ export default function CreatorProfilePage() {
       approved_by: null,
       approved_at: null,
       not_approved_by: null,
-      not_approved_at: null
+      not_approved_at: null,
+      payment_updated_by: null,
+      payment_updated_at: null
     });
     alert('Berhasil ditarik ke Campaign!');
     setCampOpen(false);
