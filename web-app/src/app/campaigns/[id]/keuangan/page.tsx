@@ -538,7 +538,7 @@ function CampaignKeuanganContent() {
                           {entry.last_updated_at && editingAdsId !== entry.id && (
                             <div className="text-[10px] text-slate-400 mt-2 text-center leading-tight">
                               Diupdate:<br/>
-                              <span className="font-semibold">{entry.last_updated_by_profile?.nama || 'Sistem'}</span><br/>
+                              <span className="font-semibold">{entry.last_updated_by_profile_name || 'Sistem'}</span><br/>
                               {new Date(entry.last_updated_at).toLocaleDateString('id-ID')}
                             </div>
                           )}
