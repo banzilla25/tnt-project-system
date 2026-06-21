@@ -114,6 +114,9 @@ export default function SpreadsheetImportClient() {
     const usernames = filledRows.map(r => r.username);
     const { data: dbCreators } = await supabase.from('creators').select('id, username, added_by, created_at, last_updated_by, last_updated_at').in('username', usernames);
     const creatorMap = new Map((dbCreators || []).map(c => [c.username, c]));
+    
+    const { data: profiles } = await supabase.from('profiles').select('id, full_name');
+    const profileMap = new Map((profiles || []).map(p => [p.id, p.full_name]));
 
     filledRows = filledRows.map(r => {
       const c = creatorMap.get(r.username);
@@ -121,7 +124,12 @@ export default function SpreadsheetImportClient() {
         return { ...r, status: 'baru', existingInfo: 'Belum terdaftar di database' };
       }
       
-      const lastUpdate = c.last_updated_by ? `diupdate oleh ${c.last_updated_by}` : (c.added_by ? `diinput oleh ${c.added_by}` : 'Sistem');
+      const updaterId = c.last_updated_by;
+      const adderId = c.added_by;
+      const updaterName = updaterId ? (profileMap.get(updaterId) || updaterId) : null;
+      const adderName = adderId ? (profileMap.get(adderId) || adderId) : null;
+
+      const lastUpdate = updaterName ? `diupdate oleh ${updaterName}` : (adderName ? `diinput oleh ${adderName}` : 'Sistem');
       const lastDate = c.last_updated_at || c.created_at;
       const dateStr = lastDate ? new Date(lastDate).toLocaleDateString() : '';
 
@@ -191,7 +199,8 @@ export default function SpreadsheetImportClient() {
           level: parseInt(r.level) || null,
           audience_age: r.audience_age || null,
           gmv_30d: parseInt(r.gmv_30d) || null,
-          ratecard: parseInt(r.ratecard) || null
+          ratecard: parseInt(r.ratecard) || null,
+          tanggal_update: new Date().toISOString()
         });
 
         if (r.whatsapp) {

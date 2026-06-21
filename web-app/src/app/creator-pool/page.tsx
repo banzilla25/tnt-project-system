@@ -90,12 +90,15 @@ export default function CreatorPoolPage() {
       const { data: res, error } = await query;
       if (error) throw error;
 
+      const { data: profiles } = await supabase.from('profiles').select('id, full_name');
+      const profileMap = new Map((profiles || []).map((p:any) => [p.id, p.full_name]));
+
       // Type Filter (Audience Age -> Type) needs to be done post-fetch because it's computed
       let filteredRes = res || [];
       if (filterType) {
          filteredRes = filteredRes.filter((c: any) => {
             const snaps = c.creator_snapshots || [];
-            const latest = snaps.length > 0 ? snaps.sort((a:any, b:any) => new Date(b.tanggal_update).getTime() - new Date(a.tanggal_update).getTime())[0] : null;
+            const latest = snaps.length > 0 ? snaps.sort((a:any, b:any) => new Date(b.tanggal_update || b.created_at).getTime() - new Date(a.tanggal_update || a.created_at).getTime())[0] : null;
             const type = getCreatorType(latest?.audience_age || null);
             return type === filterType;
          });
@@ -203,7 +206,7 @@ export default function CreatorPoolPage() {
         {data.map(creator => {
           // Extract nested data safely
           const snaps = creator.creator_snapshots || [];
-          const snapshot = snaps.length > 0 ? snaps.sort((a:any, b:any) => new Date(b.tanggal_update).getTime() - new Date(a.tanggal_update).getTime())[0] : null;
+          const snapshot = snaps.length > 0 ? snaps.sort((a:any, b:any) => new Date(b.tanggal_update || b.created_at).getTime() - new Date(a.tanggal_update || a.created_at).getTime())[0] : null;
           const tier = snapshot?.tier || 'Unknown';
           let tierClass = 'tier-c';
           if(tier.includes('A')) tierClass = 'tier-a';
@@ -242,7 +245,7 @@ export default function CreatorPoolPage() {
                 
                 <div className="mt-[16px] text-[11px] text-text-mute flex justify-between font-medium">
                   <span>Input: {creator.created_at ? new Date(creator.created_at).toLocaleDateString('id-ID') : '-'}</span>
-                  <span>PIC: {creator.added_by || 'System'}</span>
+                  <span>PIC: {creator.added_by ? profileMap.get(creator.added_by) || creator.added_by : 'System'}</span>
                 </div>
               </div>
             </Link>
