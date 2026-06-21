@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { createClient } from "@/utils/supabase/client";
+import { getAutoTier } from '@/utils/importCreatorSync';
 import { ArrowLeft, Save, Play, Plus, Trash2, AlertCircle, CheckCircle2 } from "lucide-react";
 import { useDatabaseStore } from "@/store/useDatabaseStore";
 
@@ -196,6 +197,7 @@ export default function SpreadsheetImportClient() {
         snapshots.push({
           creator_id: cId,
           followers: parseInt(r.followers) || null,
+          tier: r.followers ? getAutoTier(parseInt(r.followers) || 0) : null,
           level: parseInt(r.level) || null,
           audience_age: r.audience_age || null,
           gmv_30d: parseInt(r.gmv_30d) || null,
