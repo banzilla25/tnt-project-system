@@ -39,6 +39,7 @@ export type Creator = {
   domisili: string | null;
   category: string | null;
   notes: string | null;
+  rekening: string | null;
   rekening_bank: string | null;
   rekening_atas_nama: string | null;
   rekening_nomor: string | null;
