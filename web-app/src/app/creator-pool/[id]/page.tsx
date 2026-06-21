@@ -130,7 +130,11 @@ export default function CreatorProfilePage() {
 
   // Derived states based on localData
   const creator = localData?.creator;
-  const snapshots = localData?.snapshots?.sort((a: any, b: any) => new Date(b.tanggal_update || 0).getTime() - new Date(a.tanggal_update || 0).getTime()) || [];
+  const snapshots = localData?.snapshots?.sort((a: any, b: any) => {
+    const timeDiff = new Date(b.tanggal_update || 0).getTime() - new Date(a.tanggal_update || 0).getTime();
+    if (timeDiff !== 0) return timeDiff;
+    return b.id - a.id;
+  }) || [];
   const latestSnapshot = snapshots[0] || null;
   const tier = latestSnapshot?.tier || 'Unknown';
   
