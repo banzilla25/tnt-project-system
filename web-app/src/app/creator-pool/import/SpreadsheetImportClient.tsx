@@ -116,8 +116,8 @@ export default function SpreadsheetImportClient() {
     const { data: dbCreators } = await supabase.from('creators').select('id, username, added_by, created_at, last_updated_by, last_updated_at').in('username', usernames);
     const creatorMap = new Map((dbCreators || []).map(c => [c.username, c]));
     
-    const { data: profiles } = await supabase.from('profiles').select('id, full_name');
-    const profileMap = new Map((profiles || []).map(p => [p.id, p.full_name]));
+    const { data: profiles } = await supabase.from('profiles').select('id, nama');
+    const profileMap = new Map((profiles || []).map(p => [p.id, p.nama]));
 
     filledRows = filledRows.map(r => {
       const c = creatorMap.get(r.username);

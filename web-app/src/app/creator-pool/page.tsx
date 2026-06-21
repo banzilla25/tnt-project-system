@@ -91,8 +91,8 @@ export default function CreatorPoolPage() {
       const { data: res, error } = await query;
       if (error) throw error;
 
-      const { data: profiles } = await supabase.from('profiles').select('id, full_name');
-      setProfileMap(new Map((profiles || []).map((p:any) => [p.id, p.full_name])));
+      const { data: profiles } = await supabase.from('profiles').select('id, nama');
+      setProfileMap(new Map((profiles || []).map((p:any) => [p.id, p.nama])));
 
       // Type Filter (Audience Age -> Type) needs to be done post-fetch because it's computed
       let filteredRes = res || [];
