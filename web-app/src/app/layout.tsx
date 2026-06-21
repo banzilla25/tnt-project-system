@@ -1,20 +1,7 @@
 import type { Metadata } from "next";
-import { Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { LayoutWrapper } from "@/components/LayoutWrapper";
 import { DataLoader } from "@/components/DataLoader";
-
-const plusJakartaSans = Plus_Jakarta_Sans({ 
-  subsets: ["latin"],
-  variable: "--font-plus-jakarta",
-  display: "swap"
-});
-
-const jetbrainsMono = JetBrains_Mono({
-  subsets: ["latin"],
-  variable: "--font-jetbrains-mono",
-  display: "swap"
-});
 
 export const metadata: Metadata = {
   title: "TNT Campaign Management",
@@ -28,7 +15,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="id">
-      <body className={`${plusJakartaSans.variable} ${jetbrainsMono.variable} font-sans bg-bg text-text min-h-screen flex antialiased`}>
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@100..800&family=Plus+Jakarta+Sans:wght@200..800&display=swap" rel="stylesheet" />
+      </head>
+      <body className={`font-sans bg-bg text-text min-h-screen flex antialiased`}>
         <DataLoader />
         <LayoutWrapper>
           {children}
