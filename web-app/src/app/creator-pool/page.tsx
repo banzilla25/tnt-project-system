@@ -33,6 +33,7 @@ export default function CreatorPoolPage() {
 
   // Server-Side Data State
   const [data, setData] = useState<any[]>([]);
+  const [profileMap, setProfileMap] = useState<Map<string, string>>(new Map());
   const [page, setPage] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
@@ -91,7 +92,7 @@ export default function CreatorPoolPage() {
       if (error) throw error;
 
       const { data: profiles } = await supabase.from('profiles').select('id, full_name');
-      const profileMap = new Map((profiles || []).map((p:any) => [p.id, p.full_name]));
+      setProfileMap(new Map((profiles || []).map((p:any) => [p.id, p.full_name])));
 
       // Type Filter (Audience Age -> Type) needs to be done post-fetch because it's computed
       let filteredRes = res || [];
