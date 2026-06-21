@@ -20,6 +20,8 @@ type AdsEntry = {
   status_bayar: 'not_yet' | 'half_paid' | 'pay_off' | 'no_payment';
   tanggal: string;
   notes: string | null;
+  last_updated_at?: string | null;
+  last_updated_by_profile_name?: string | null;
 };
 
 export default function CampaignKeuanganPage() {
