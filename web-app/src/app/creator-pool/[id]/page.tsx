@@ -699,8 +699,6 @@ export default function CreatorProfilePage() {
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
-                    <DialogTitle className="flex justify-between items-center w-full">
-                      Tambah Catatan Evaluasi
                     <DialogTitle>Tambah Catatan Evaluasi</DialogTitle>
                   </DialogHeader>
                   <div className="space-y-4 pt-4">

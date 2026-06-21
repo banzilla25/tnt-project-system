@@ -351,6 +351,8 @@ function UserAssignmentCard({ user, campaigns, userCampaigns }: { user: any, cam
               <span className="text-sm text-slate-700 font-medium">{camp.name}</span>
             </label>
           ))}
+          {campaigns.length === 0 && (
+            <div className="text-xs text-slate-400 text-center py-4">Belum ada campaign dibuat.</div>
           )}
         </div>
       </div>
