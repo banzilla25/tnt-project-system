@@ -261,102 +261,6 @@ export default function ManajemenAkunClient({
             </div>
           </div>
         )}
-      </div>
-    </div>
-  );
-}
-
-function UserAssignmentCard({ user, campaigns, userCampaigns }: { user: any, campaigns: any[], userCampaigns: any[] }) {
-  // If user has any record with all_campaigns = true
-  const isAllCampaigns = userCampaigns.some(uc => uc.all_campaigns);
-  const assignedCampaignIds = userCampaigns.filter(uc => !uc.all_campaigns).map(uc => uc.campaign_id);
-  
-  const [localAllCampaigns, setLocalAllCampaigns] = useState(isAllCampaigns);
-  const [localCampaignIds, setLocalCampaignIds] = useState<number[]>(assignedCampaignIds);
-  const [isSaving, setIsSaving] = useState(false);
-
-  // Check if state changed
-  const hasChanges = localAllCampaigns !== isAllCampaigns || 
-                     localCampaignIds.length !== assignedCampaignIds.length ||
-                     !localCampaignIds.every(id => assignedCampaignIds.includes(id));
-
-  const handleToggleCampaign = (id: number) => {
-    if (localAllCampaigns) return; // disabled
-    if (localCampaignIds.includes(id)) {
-      setLocalCampaignIds(localCampaignIds.filter(cid => cid !== id));
-    } else {
-      setLocalCampaignIds([...localCampaignIds, id]);
-    }
-  };
-
-  const handleSave = async () => {
-    setIsSaving(true);
-    try {
-      await assignCampaignsToUser(user.id, localCampaignIds, localAllCampaigns);
-    } catch (e: any) {
-      alert("Error saving: " + e.message);
-    }
-    setIsSaving(false);
-  };
-
-  return (
-    <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm flex flex-col">
-      <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold overflow-hidden">
-            {user.avatar_url ? <img src={user.avatar_url} alt="" /> : user.nama.charAt(0)}
-          </div>
-          <div>
-            <div className="font-semibold text-slate-900">{user.nama}</div>
-            <div className="text-xs text-slate-500">{user.email}</div>
-          </div>
-        </div>
-        {hasChanges && (
-          <Button size="sm" onClick={handleSave} disabled={isSaving} className="bg-amber-600 hover:bg-amber-700 text-white">
-            {isSaving ? "Menyimpan..." : "Simpan Perubahan"}
-          </Button>
-        )}
-      </div>
-      
-      <div className="p-4 flex-1">
-        <label className="flex items-center gap-3 p-3 rounded-lg border border-amber-200 bg-amber-50 cursor-pointer mb-4 transition-colors hover:bg-amber-100">
-          <input 
-            type="checkbox" 
-            className="w-4 h-4 text-amber-600 rounded border-amber-300 focus:ring-amber-500" 
-            checked={localAllCampaigns}
-            onChange={(e) => {
-              setLocalAllCampaigns(e.target.checked);
-              if (e.target.checked) setLocalCampaignIds([]);
-            }}
-          />
-          <div>
-            <div className="text-sm font-semibold text-amber-900">Akses Semua Campaign</div>
-            <div className="text-xs text-amber-700">Berikan akses penuh ke semua campaign saat ini dan yang akan datang.</div>
-          </div>
-        </label>
-
-        <div className="space-y-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
-          {campaigns.map(camp => (
-            <label 
-              key={camp.id} 
-              className={`flex items-center gap-3 p-2 rounded-md border ${localAllCampaigns ? 'opacity-50 cursor-not-allowed bg-slate-50 border-transparent' : 'cursor-pointer hover:bg-slate-50 border-slate-100'} transition-colors`}
-            >
-              <input 
-                type="checkbox" 
-                className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500" 
-                checked={localAllCampaigns || localCampaignIds.includes(camp.id)}
-                disabled={localAllCampaigns}
-                onChange={() => handleToggleCampaign(camp.id)}
-              />
-              <span className="text-sm text-slate-700 font-medium">{camp.name}</span>
-            </label>
-          ))}
-          {campaigns.length === 0 && (
-            <div className="text-xs text-slate-400 text-center py-4">Belum ada campaign dibuat.</div>
-          )}
-        </div>
-      </div>
-      
       {activeTab === 'whitelist' && (
         <div className="space-y-6">
           <div className="flex flex-col md:flex-row gap-6">
@@ -464,5 +368,101 @@ function UserAssignmentCard({ user, campaigns, userCampaigns }: { user: any, cam
         </div>
       )}
     </div>
+      </div>
+    </div>
+  );
+}
+
+function UserAssignmentCard({ user, campaigns, userCampaigns }: { user: any, campaigns: any[], userCampaigns: any[] }) {
+  // If user has any record with all_campaigns = true
+  const isAllCampaigns = userCampaigns.some(uc => uc.all_campaigns);
+  const assignedCampaignIds = userCampaigns.filter(uc => !uc.all_campaigns).map(uc => uc.campaign_id);
+  
+  const [localAllCampaigns, setLocalAllCampaigns] = useState(isAllCampaigns);
+  const [localCampaignIds, setLocalCampaignIds] = useState<number[]>(assignedCampaignIds);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Check if state changed
+  const hasChanges = localAllCampaigns !== isAllCampaigns || 
+                     localCampaignIds.length !== assignedCampaignIds.length ||
+                     !localCampaignIds.every(id => assignedCampaignIds.includes(id));
+
+  const handleToggleCampaign = (id: number) => {
+    if (localAllCampaigns) return; // disabled
+    if (localCampaignIds.includes(id)) {
+      setLocalCampaignIds(localCampaignIds.filter(cid => cid !== id));
+    } else {
+      setLocalCampaignIds([...localCampaignIds, id]);
+    }
+  };
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      await assignCampaignsToUser(user.id, localCampaignIds, localAllCampaigns);
+    } catch (e: any) {
+      alert("Error saving: " + e.message);
+    }
+    setIsSaving(false);
+  };
+
+  return (
+    <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm flex flex-col">
+      <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold overflow-hidden">
+            {user.avatar_url ? <img src={user.avatar_url} alt="" /> : user.nama.charAt(0)}
+          </div>
+          <div>
+            <div className="font-semibold text-slate-900">{user.nama}</div>
+            <div className="text-xs text-slate-500">{user.email}</div>
+          </div>
+        </div>
+        {hasChanges && (
+          <Button size="sm" onClick={handleSave} disabled={isSaving} className="bg-amber-600 hover:bg-amber-700 text-white">
+            {isSaving ? "Menyimpan..." : "Simpan Perubahan"}
+          </Button>
+        )}
+      </div>
+      
+      <div className="p-4 flex-1">
+        <label className="flex items-center gap-3 p-3 rounded-lg border border-amber-200 bg-amber-50 cursor-pointer mb-4 transition-colors hover:bg-amber-100">
+          <input 
+            type="checkbox" 
+            className="w-4 h-4 text-amber-600 rounded border-amber-300 focus:ring-amber-500" 
+            checked={localAllCampaigns}
+            onChange={(e) => {
+              setLocalAllCampaigns(e.target.checked);
+              if (e.target.checked) setLocalCampaignIds([]);
+            }}
+          />
+          <div>
+            <div className="text-sm font-semibold text-amber-900">Akses Semua Campaign</div>
+            <div className="text-xs text-amber-700">Berikan akses penuh ke semua campaign saat ini dan yang akan datang.</div>
+          </div>
+        </label>
+
+        <div className="space-y-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
+          {campaigns.map(camp => (
+            <label 
+              key={camp.id} 
+              className={`flex items-center gap-3 p-2 rounded-md border ${localAllCampaigns ? 'opacity-50 cursor-not-allowed bg-slate-50 border-transparent' : 'cursor-pointer hover:bg-slate-50 border-slate-100'} transition-colors`}
+            >
+              <input 
+                type="checkbox" 
+                className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500" 
+                checked={localAllCampaigns || localCampaignIds.includes(camp.id)}
+                disabled={localAllCampaigns}
+                onChange={() => handleToggleCampaign(camp.id)}
+              />
+              <span className="text-sm text-slate-700 font-medium">{camp.name}</span>
+            </label>
+          ))}
+          {campaigns.length === 0 && (
+            <div className="text-xs text-slate-400 text-center py-4">Belum ada campaign dibuat.</div>
+          )}
+        </div>
+      </div>
+      
   );
 }
