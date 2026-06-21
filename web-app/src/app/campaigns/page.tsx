@@ -266,60 +266,60 @@ function CampaignCardItem({ campaign, brand, isManager }: { campaign: any, brand
 
   return (
     <div className={`campcard flex flex-col justify-between ${!hasAccess ? 'opacity-80 grayscale-[20%]' : ''}`}>
-      <div className="flex flex-col h-full relative group">
+      <div className="cbody flex flex-col h-full relative group">
         <Link href={`/campaigns/${campaign.id}/listing`} className="block flex-1 cursor-pointer">
           {!hasAccess && (
             <div className="absolute top-0 right-0 flex items-center gap-[4px] bg-slate-100 text-slate-500 text-[10px] px-[8px] py-[4px] rounded-[16px] font-semibold">
               <Lock className="w-3 h-3" /> Read Only
             </div>
           )}
-          <div className="cbrand">{brand?.nama || 'Tanpa Brand'}</div>
-          <div className="cname max-w-[90%] group-hover:text-p300 transition-colors">{campaign.nama}</div>
+          <div className="ceyebrow">{brand?.nama || 'Tanpa Brand'}</div>
+          <div className="ctitle max-w-[90%] group-hover:text-p300 transition-colors">{campaign.nama}</div>
           <span className={`badge ${campaign.tipe_campaign === 'sales' ? 'b-sales' : campaign.tipe_campaign === 'gmv_awareness' ? 'b-warning' : 'b-awareness'} mt-[8px]`}>
             {campaign.tipe_campaign.replace('_', ' + ')}
           </span>
           
           <div className="flex-grow"></div>
           
-          <div className="clist border-t border-line pt-[16px] mt-[24px] space-y-[10px]">
-            <div className="citem">
-              <span className="clbl">Status</span>
-              <span className={`cvl badge ${campaign.status === 'aktif' ? 'b-pending' : 'b-neutral'}`}>{campaign.status}</span>
+          <div className="mt-[24px]">
+            <div className="crow">
+              <span className="k">Status</span>
+              <span className={`v badge ${campaign.status === 'aktif' ? 'b-pending' : 'b-neutral'}`}>{campaign.status}</span>
             </div>
-            <div className="citem">
-              <span className="clbl">Periode</span>
-              <span className="cvl font-semibold">
+            <div className="crow">
+              <span className="k">Periode</span>
+              <span className="v font-semibold">
                 {new Date(campaign.start_date).toLocaleDateString('id-ID', { month: 'short', day: 'numeric' })} - {new Date(campaign.end_date).toLocaleDateString('id-ID', { month: 'short', day: 'numeric' })}
               </span>
             </div>
             {Number(campaign.target_gmv) > 0 && (
-              <div className="citem">
-                <span className="clbl">Target GMV</span>
-                <span className="cvl text-g300">Rp {Number(campaign.target_gmv).toLocaleString()}</span>
+              <div className="crow">
+                <span className="k">Target GMV</span>
+                <span className="v text-g300">Rp {Number(campaign.target_gmv).toLocaleString()}</span>
               </div>
             )}
             {Number(campaign.target_video) > 0 && (
-              <div className="citem">
-                <span className="clbl">Target Video</span>
-                <span className="cvl">{Number(campaign.target_video).toLocaleString()} Pcs</span>
+              <div className="crow">
+                <span className="k">Target Video</span>
+                <span className="v">{Number(campaign.target_video).toLocaleString()} Pcs</span>
               </div>
             )}
             {Number(campaign.target_creator) > 0 && (
-              <div className="citem">
-                <span className="clbl">Target Kreator</span>
-                <span className="cvl">{Number(campaign.target_creator).toLocaleString()} Org</span>
+              <div className="crow">
+                <span className="k">Target Kreator</span>
+                <span className="v">{Number(campaign.target_creator).toLocaleString()} Org</span>
               </div>
             )}
             {Number(campaign.budget_creator_plafon) > 0 && (
-              <div className="citem">
-                <span className="clbl">Budget Creator</span>
-                <span className="cvl text-o300">Rp {Number(campaign.budget_creator_plafon).toLocaleString()}</span>
+              <div className="crow">
+                <span className="k">Budget Creator</span>
+                <span className="v text-o300">Rp {Number(campaign.budget_creator_plafon).toLocaleString()}</span>
               </div>
             )}
             {Number(campaign.budget_ads_plafon) > 0 && (
-              <div className="citem">
-                <span className="clbl">Budget Ads</span>
-                <span className="cvl text-o300">Rp {Number(campaign.budget_ads_plafon).toLocaleString()}</span>
+              <div className="crow">
+                <span className="k">Budget Ads</span>
+                <span className="v text-o300">Rp {Number(campaign.budget_ads_plafon).toLocaleString()}</span>
               </div>
             )}
           </div>
