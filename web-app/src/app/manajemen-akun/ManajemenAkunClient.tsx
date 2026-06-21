@@ -367,7 +367,6 @@ export default function ManajemenAkunClient({
           </div>
         </div>
       )}
-    </div>
       </div>
     </div>
   );
