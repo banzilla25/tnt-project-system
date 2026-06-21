@@ -1,14 +1,10 @@
 "use client";
 
 import { useDatabaseStore } from "@/store/useDatabaseStore";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
-import { Badge } from "@/components/ui/Badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/Table";
 import Link from "next/link";
-import { TrendingUp, Activity, Video, Users, DollarSign, Download } from "lucide-react";
+import { TrendingUp, Activity, Video, DollarSign, Download, FolderKanban } from "lucide-react";
 import { useAuth } from "@/providers/AuthProvider";
 import { exportToExcel } from "@/utils/exportToExcel";
-import { Button } from "@/components/ui/Button";
 
 export default function Dashboard() {
   const { vw_campaign_summary } = useDatabaseStore();
@@ -43,148 +39,132 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="space-y-[32px]">
+      <div className="flex justify-between items-end">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Main Dashboard</h1>
-          <p className="text-slate-500">Ringkasan performa seluruh campaign aktif.</p>
+          <h1 className="text-[28px] font-extrabold tracking-tight mb-[4px]">Main Dashboard</h1>
+          <p className="text-[14px] text-text-soft">Ringkasan performa seluruh campaign aktif.</p>
         </div>
         {isManager && (
-          <Button onClick={handleExport} className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white">
-            <Download className="w-4 h-4" /> Export Excel
-          </Button>
+          <button onClick={handleExport} className="btn btn-success">
+            <Download className="ico" /> Export Excel
+          </button>
         )}
       </div>
 
       {vw_campaign_summary.length === 0 ? (
-        <Card className="p-8 text-center bg-slate-50">
-          <p className="text-slate-500">Belum ada data campaign atau database belum disinkronisasi.</p>
-        </Card>
+        <div className="empty">
+          <div className="eicon"><FolderKanban className="w-6 h-6 text-text-mute" /></div>
+          <h4>Belum Ada Campaign</h4>
+          <p>Belum ada data campaign aktif yang berjalan atau database belum disinkronisasi.</p>
+        </div>
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-[24px]">
           {/* Summary Cards */}
-          <div className="grid gap-4 md:grid-cols-4">
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <p className="text-sm font-medium text-slate-500">Total Campaign Aktif</p>
-                    <h3 className="text-2xl font-bold mt-2">{vw_campaign_summary.filter(c => c.status === 'aktif').length}</h3>
-                  </div>
-                  <div className="p-2 bg-blue-50 text-blue-600 rounded-lg"><Activity className="w-5 h-5" /></div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <p className="text-sm font-medium text-slate-500">Total GMV (All)</p>
-                    <h3 className="text-2xl font-bold mt-2 text-green-600">
-                      Rp {(vw_campaign_summary.reduce((a, b) => a + (b.total_gmv_achievement || 0), 0) / 1000000).toFixed(1)}M
-                    </h3>
-                    <p className="text-[10px] font-semibold text-green-600/80 mt-1">
-                      Rp {vw_campaign_summary.reduce((a, b) => a + (b.total_gmv_achievement || 0), 0).toLocaleString()}
-                    </p>
-                  </div>
-                  <div className="p-2 bg-green-50 text-green-600 rounded-lg"><TrendingUp className="w-5 h-5" /></div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <p className="text-sm font-medium text-slate-500">Total Video Tayang</p>
-                    <h3 className="text-2xl font-bold mt-2">{vw_campaign_summary.reduce((a, b) => a + (b.achievement_video || 0), 0)}</h3>
-                  </div>
-                  <div className="p-2 bg-purple-50 text-purple-600 rounded-lg"><Video className="w-5 h-5" /></div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <p className="text-sm font-medium text-slate-500">Sisa Budget Ads</p>
-                    <h3 className="text-2xl font-bold mt-2 text-amber-600">
-                      Rp {(vw_campaign_summary.reduce((a, b) => a + (b.sisa_budget_ads || 0), 0) / 1000000).toFixed(1)}M
-                    </h3>
-                    <p className="text-[10px] font-semibold text-amber-600/80 mt-1">
-                      Rp {vw_campaign_summary.reduce((a, b) => a + (b.sisa_budget_ads || 0), 0).toLocaleString()}
-                    </p>
-                  </div>
-                  <div className="p-2 bg-amber-50 text-amber-600 rounded-lg"><DollarSign className="w-5 h-5" /></div>
-                </div>
-              </CardContent>
-            </Card>
+          <div className="grid gap-[16px] md:grid-cols-4">
+            <div className="metric">
+              <div className="mlabel">
+                Total Campaign Aktif
+                <div className="micon bg-p50 text-p300"><Activity className="ico" /></div>
+              </div>
+              <div className="mval">{vw_campaign_summary.filter(c => c.status === 'aktif').length}</div>
+            </div>
+            
+            <div className="metric">
+              <div className="mlabel">
+                Total GMV (All)
+                <div className="micon bg-g50 text-g300"><TrendingUp className="ico" /></div>
+              </div>
+              <div className="mval text-g300">
+                Rp {(vw_campaign_summary.reduce((a, b) => a + (b.total_gmv_achievement || 0), 0) / 1000000).toFixed(1)}M
+              </div>
+              <div className="msub font-bold text-g400">
+                Rp {vw_campaign_summary.reduce((a, b) => a + (b.total_gmv_achievement || 0), 0).toLocaleString()}
+              </div>
+            </div>
+            
+            <div className="metric">
+              <div className="mlabel">
+                Total Video Tayang
+                <div className="micon bg-[#f3eaf7] text-pu300"><Video className="ico" /></div>
+              </div>
+              <div className="mval">{vw_campaign_summary.reduce((a, b) => a + (b.achievement_video || 0), 0)}</div>
+            </div>
+            
+            <div className="metric">
+              <div className="mlabel">
+                Sisa Budget Ads
+                <div className="micon bg-o50 text-o300"><DollarSign className="ico" /></div>
+              </div>
+              <div className="mval text-o300">
+                Rp {(vw_campaign_summary.reduce((a, b) => a + (b.sisa_budget_ads || 0), 0) / 1000000).toFixed(1)}M
+              </div>
+              <div className="msub font-bold text-o400">
+                Rp {vw_campaign_summary.reduce((a, b) => a + (b.sisa_budget_ads || 0), 0).toLocaleString()}
+              </div>
+            </div>
           </div>
 
           {/* Table Detail */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Performa per Campaign</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Campaign</TableHead>
-                    <TableHead>Tipe</TableHead>
-                    <TableHead>Countdown</TableHead>
-                    <TableHead className="text-right">Achievement GMV</TableHead>
-                    <TableHead className="text-right">% Capai</TableHead>
-                    <TableHead className="text-right">Video</TableHead>
-                    <TableHead className="text-right">Sisa Ads</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {vw_campaign_summary.map((c) => {
-                    const percentGmv = c.target_gmv ? Math.round(((c.total_gmv_achievement || 0) / c.target_gmv) * 100) : 0;
-                    const percentVideo = c.target_video ? Math.round(((c.achievement_video || 0) / c.target_video) * 100) : 0;
-                    
-                    return (
-                      <TableRow key={c.campaign_id}>
-                        <TableCell>
-                          <Link href={`/campaigns/${c.campaign_id}/listing`} className="font-semibold text-blue-600 hover:underline">
-                            {c.nama}
-                          </Link>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={c.tipe_campaign === 'sales' ? 'success' : 'default'} className="uppercase text-[10px]">
-                            {c.tipe_campaign}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className={getCountdown(c.end_date) === 'Selesai' ? 'text-slate-400' : 'text-amber-600 border-amber-200 bg-amber-50'}>
-                            {getCountdown(c.end_date)}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right font-medium">
-                          Rp {(c.total_gmv_achievement || 0).toLocaleString()}
-                          <div className="text-xs text-slate-400 font-normal">Target: {c.target_gmv ? `Rp ${c.target_gmv.toLocaleString()}` : '-'}</div>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className={`font-bold ${percentGmv >= 100 ? 'text-green-600' : 'text-slate-700'}`}>
-                            {percentGmv}%
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="font-medium">{c.achievement_video || 0} <span className="text-slate-400 text-xs">/ {c.target_video || '-'}</span></div>
-                          <div className="text-xs text-slate-400">{percentVideo}%</div>
-                        </TableCell>
-                        <TableCell className="text-right font-medium">
-                          <span className={(c.sisa_budget_ads || 0) < 0 ? 'text-red-500' : 'text-slate-700'}>
-                            Rp {(c.sisa_budget_ads || 0).toLocaleString()}
-                          </span>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+          <div className="tbl-wrap mt-[32px]">
+            <table>
+              <thead>
+                <tr>
+                  <th>Campaign</th>
+                  <th>Tipe</th>
+                  <th>Countdown</th>
+                  <th className="text-right">Achievement GMV</th>
+                  <th className="text-right">% Capai</th>
+                  <th className="text-right">Video</th>
+                  <th className="text-right">Sisa Ads</th>
+                </tr>
+              </thead>
+              <tbody>
+                {vw_campaign_summary.map((c) => {
+                  const percentGmv = c.target_gmv ? Math.round(((c.total_gmv_achievement || 0) / c.target_gmv) * 100) : 0;
+                  const percentVideo = c.target_video ? Math.round(((c.achievement_video || 0) / c.target_video) * 100) : 0;
+                  
+                  return (
+                    <tr key={c.campaign_id}>
+                      <td>
+                        <Link href={`/campaigns/${c.campaign_id}/listing`} className="u-link">
+                          {c.nama}
+                        </Link>
+                      </td>
+                      <td>
+                        <span className={`badge ${c.tipe_campaign === 'sales' ? 'b-sales' : 'b-awareness'}`}>
+                          {c.tipe_campaign}
+                        </span>
+                      </td>
+                      <td>
+                        <span className={`badge ${getCountdown(c.end_date) === 'Selesai' ? 'b-neutral' : 'b-pending'}`}>
+                          {getCountdown(c.end_date)}
+                        </span>
+                      </td>
+                      <td className="text-right">
+                        <div className="font-bold">Rp {(c.total_gmv_achievement || 0).toLocaleString()}</div>
+                        <div className="text-[11px] text-text-mute font-medium mt-[2px]">Target: {c.target_gmv ? `Rp ${c.target_gmv.toLocaleString()}` : '-'}</div>
+                      </td>
+                      <td className="text-right">
+                        <div className={`font-bold ${percentGmv >= 100 ? 'text-g300' : 'text-text'}`}>
+                          {percentGmv}%
+                        </div>
+                      </td>
+                      <td className="text-right">
+                        <div className="font-bold">{c.achievement_video || 0} <span className="text-text-mute font-normal text-[12px]">/ {c.target_video || '-'}</span></div>
+                        <div className="text-[11px] text-text-mute font-medium mt-[2px]">{percentVideo}%</div>
+                      </td>
+                      <td className="text-right">
+                        <span className={(c.sisa_budget_ads || 0) < 0 ? 'money-neg' : 'font-bold'}>
+                          Rp {(c.sisa_budget_ads || 0).toLocaleString()}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

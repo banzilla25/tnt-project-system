@@ -41,30 +41,30 @@ export function Sidebar() {
   };
 
   return (
-    <div className="w-64 bg-slate-900 text-slate-300 h-screen flex flex-col fixed left-0 top-0">
-      <div className="p-6 border-b border-slate-800">
-        <h1 className="text-xl font-bold text-white tracking-tight">TNT App</h1>
-        <p className="text-xs text-slate-500 mt-1">Campaign Management</p>
+    <div className="navdemo">
+      <div className="navbrand">
+        TNT App
+        <small>Campaign Management</small>
       </div>
       
       {/* Profil User */}
       {profile && (
-        <div className="px-6 py-4 border-b border-slate-800 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-sm overflow-hidden border-2 border-slate-700">
+        <div className="flex items-center gap-[11px] px-[12px] py-[8px] mb-[4px]">
+          <div className="avatar bg-p300 shadow-sm border border-white/10 text-[13px]">
             {profile.avatar_url ? (
-              <img src={profile.avatar_url} alt={profile.nama} className="w-full h-full object-cover" />
+              <img src={profile.avatar_url} alt={profile.nama} className="w-full h-full object-cover rounded-full" />
             ) : (
               profile.nama?.charAt(0).toUpperCase()
             )}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-white truncate">{profile.nama}</p>
-            <p className="text-xs text-slate-400 capitalize">{profile.role}</p>
+            <p className="text-[13px] font-bold text-white truncate">{profile.nama}</p>
+            <p className="text-[11px] text-white/50 capitalize font-medium">{profile.role}</p>
           </div>
         </div>
       )}
 
-      <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+      <nav className="flex-1 flex flex-col overflow-y-auto">
         {navItems.map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
           const Icon = item.icon;
@@ -73,12 +73,9 @@ export function Sidebar() {
               key={item.name}
               href={item.activePhase ? item.href : '#'}
               className={cn(
-                'flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-sm font-medium',
-                isActive 
-                  ? 'bg-blue-600 text-white' 
-                  : item.activePhase 
-                    ? 'hover:bg-slate-800 hover:text-white' 
-                    : 'opacity-50 cursor-not-allowed'
+                'navitem',
+                isActive && 'active',
+                !item.activePhase && 'opacity-50 cursor-not-allowed'
               )}
               onClick={(e) => {
                 if (!item.activePhase) {
@@ -87,10 +84,10 @@ export function Sidebar() {
                 }
               }}
             >
-              <Icon className="w-4 h-4" />
+              <Icon className="ico" />
               {item.name}
               {!item.activePhase && (
-                <span className="ml-auto text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded">Lock</span>
+                <span className="ml-auto text-[10px] bg-white/10 text-white/40 px-1.5 py-0.5 rounded">Lock</span>
               )}
             </Link>
           );
@@ -98,45 +95,41 @@ export function Sidebar() {
         
         {/* Khusus Manager */}
         {profile?.role === 'manager' && (
-          <div className="pt-4 border-t border-slate-800 space-y-1 mt-4">
-            <p className="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Manager Tools</p>
+          <div className="mt-2">
+            <div className="navsection">Manager Tools</div>
             <Link
               href="/manajemen-akun"
               className={cn(
-                'flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-sm font-medium',
-                pathname.startsWith('/manajemen-akun')
-                  ? 'bg-amber-600 text-white' 
-                  : 'text-amber-500 hover:bg-slate-800 hover:text-amber-400'
+                'navitem tool',
+                pathname.startsWith('/manajemen-akun') && 'active'
               )}
             >
-              <Shield className="w-4 h-4" />
+              <Shield className="ico" />
               Manajemen Akun
             </Link>
             <Link
               href="/activity-log"
               className={cn(
-                'flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-sm font-medium',
-                pathname.startsWith('/activity-log')
-                  ? 'bg-indigo-600 text-white' 
-                  : 'text-indigo-400 hover:bg-slate-800 hover:text-indigo-300'
+                'navitem tool',
+                pathname.startsWith('/activity-log') && 'active'
               )}
             >
-              <Activity className="w-4 h-4" />
+              <Activity className="ico" />
               Activity Log
             </Link>
           </div>
         )}
       </nav>
       
-      <div className="p-4 border-t border-slate-800">
+      <div className="mt-4 pt-4 border-t border-white/10">
         <button 
           onClick={handleLogout}
-          className="flex items-center gap-3 w-full px-3 py-2 text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800 rounded-md transition-colors"
+          className="navitem w-full"
         >
-          <LogOut className="w-4 h-4" />
+          <LogOut className="ico" />
           Logout
         </button>
-        <p className="text-[10px] text-center text-slate-600 mt-4">
+        <p className="text-[10px] text-center text-white/30 mt-4 font-medium tracking-wide">
           TNT Agency &copy; {new Date().getFullYear()}
         </p>
       </div>
