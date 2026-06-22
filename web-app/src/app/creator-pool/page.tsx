@@ -119,7 +119,6 @@ export default function CreatorPoolPage() {
     } catch (err: any) {
       console.error("Fetch error:", err);
     } finally {
-    } finally {
       setIsLoading(false);
     }
   }, [debouncedSearch, filterType, filterNiche, filterCampaign, filterTier, filterLevel, filterAddedBy, filterLastUpdatedBy]);
