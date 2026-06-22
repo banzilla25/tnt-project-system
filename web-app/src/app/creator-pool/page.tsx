@@ -59,7 +59,7 @@ export default function CreatorPoolPage() {
         ${filterCampaign ? ', campaign_creators!inner ( campaign_id )' : ''}
       `;
 
-      query = supabase.from('creators').select(baseSelect);
+      let query: any = supabase.from('creators').select(baseSelect);
 
       if (debouncedSearch) {
         query = query.or(`username.ilike.%${debouncedSearch}%,nama_asli.ilike.%${debouncedSearch}%`);
