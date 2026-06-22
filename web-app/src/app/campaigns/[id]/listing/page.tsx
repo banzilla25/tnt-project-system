@@ -89,9 +89,9 @@ function CampaignListingContent() {
 
   // Counts State
   const [counts, setCounts] = useState({ approved: 0, pending: 0, alternate: 0, not_approved: 0, all: 0 });
-  
-  // Daily Recap State
   const [dailyRecap, setDailyRecap] = useState<any[]>([]);
+  const [rawRecapData, setRawRecapData] = useState<any[]>([]);
+  const [recapFilterPic, setRecapFilterPic] = useState<string>('');
   const [recapStartIndex, setRecapStartIndex] = useState(0);
 
   // Add Creator Modal State
@@ -130,31 +130,38 @@ function CampaignListingContent() {
     setCounts({ approved, pending, alternate, not_approved, all });
 
     // Fetch Daily Recap Data
-    const { data: recapData } = await supabase.from('campaign_creators').select('id, approval, approved_at, created_at').eq('campaign_id', campaignId);
+    const { data: recapData } = await supabase.from('campaign_creators').select('id, approval, approved_at, created_at, added_by').eq('campaign_id', campaignId);
     if (recapData) {
-      // Group by date
-      const group: Record<string, { total: number, approved: number, pending: number, alternate: number, not_approved: number }> = {};
-      recapData.forEach(r => {
-        // Use approved_at if approved/alternate/not_approved, else created_at
-        const dateStr = r.approved_at || r.created_at;
-        if (!dateStr) return;
-        const dateKey = new Date(dateStr).toISOString().split('T')[0];
-        if (!group[dateKey]) group[dateKey] = { total: 0, approved: 0, pending: 0, alternate: 0, not_approved: 0 };
-        
-        group[dateKey].total++;
-        if (r.approval === 'approved') group[dateKey].approved++;
-        else if (r.approval === 'alternate') group[dateKey].alternate++;
-        else if (r.approval === 'not_approved') group[dateKey].not_approved++;
-        else if (r.approval === 'pending') group[dateKey].pending++;
-      });
-      // Sort ascending so oldest is first, newest is last
-      const sortedKeys = Object.keys(group).sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
-      const recapArr = sortedKeys.map(k => ({ date: k, ...group[k] }));
-      setDailyRecap(recapArr);
-      // Start window at the very end
-      setRecapStartIndex(Math.max(0, recapArr.length - 4));
+      setRawRecapData(recapData);
     }
   }, [campaignId]);
+
+  useEffect(() => {
+    let filteredData = rawRecapData;
+    if (recapFilterPic) {
+      filteredData = filteredData.filter(r => r.added_by === recapFilterPic);
+    }
+    const group: Record<string, { total: number, approved: number, pending: number, alternate: number, not_approved: number }> = {};
+    filteredData.forEach(r => {
+      // Use approved_at if approved/alternate/not_approved, else created_at
+      const dateStr = r.approved_at || r.created_at;
+      if (!dateStr) return;
+      const dateKey = new Date(dateStr).toISOString().split('T')[0];
+      if (!group[dateKey]) group[dateKey] = { total: 0, approved: 0, pending: 0, alternate: 0, not_approved: 0 };
+      
+      group[dateKey].total++;
+      if (r.approval === 'approved') group[dateKey].approved++;
+      else if (r.approval === 'alternate') group[dateKey].alternate++;
+      else if (r.approval === 'not_approved') group[dateKey].not_approved++;
+      else if (r.approval === 'pending') group[dateKey].pending++;
+    });
+    // Sort ascending so oldest is first, newest is last
+    const sortedKeys = Object.keys(group).sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+    const recapArr = sortedKeys.map(k => ({ date: k, ...group[k] }));
+    setDailyRecap(recapArr);
+    // Start window at the very end
+    setRecapStartIndex(Math.max(0, recapArr.length - 4));
+  }, [rawRecapData, recapFilterPic]);
 
   useEffect(() => {
     fetchCounts();
@@ -516,7 +523,20 @@ function CampaignListingContent() {
       <div className="ccard mb-[24px] !p-0 overflow-hidden">
         <details className="group">
           <summary className="flex cursor-pointer items-center justify-between bg-slate-50 px-[16px] py-[12px] font-semibold text-text hover:bg-slate-100 transition-colors">
-            <span>Rekap Harian (Progres Pencarian & Approval)</span>
+            <div className="flex items-center gap-4">
+              <span>Rekap Harian (Progres Pencarian & Approval)</span>
+              <select 
+                value={recapFilterPic} 
+                onChange={(e) => setRecapFilterPic(e.target.value)}
+                onClick={(e) => e.stopPropagation()}
+                className="select !mb-0 py-1 text-xs w-auto font-normal"
+              >
+                <option value="">Semua PIC</option>
+                {staffProfiles.map(p => (
+                  <option key={p.id} value={p.id}>{p.nama}</option>
+                ))}
+              </select>
+            </div>
             <span className="transition group-open:rotate-180">
               <ChevronDown className="w-5 h-5 text-text-soft" />
             </span>
