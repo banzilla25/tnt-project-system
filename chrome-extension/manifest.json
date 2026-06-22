@@ -12,7 +12,8 @@
     "https://partner.tiktokshop.com/*",
     "https://affiliate.tiktok.com/*",
     "http://localhost:*/*",
-    "https://campaign.tntkreatif.com/*"
+    "https://campaign.tntkreatif.com/*",
+    "*://*.kalodata.com/*"
   ],
   "background": {
     "service_worker": "background.js"
@@ -20,10 +21,11 @@
   "content_scripts": [
     {
       "matches": [
-        "https://partner.tiktokshop.com/affiliate-cmp/creator/detail*",
-        "https://affiliate.tiktok.com/connection/creator/detail*"
+        "*://affiliate.tiktok.com/*",
+        "*://*.kalodata.com/*"
       ],
       "js": ["content.js"],
+      "css": ["content.css"],
       "run_at": "document_idle"
     }
   ],
