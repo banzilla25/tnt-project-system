@@ -245,6 +245,18 @@ async function injectButton() {
           <span style="color:#666">Niche:</span>
           <strong style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:150px;">${data.niche || '-'}</strong>
         </div>
+        <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+          <span style="color:#666">Umur Aud:</span>
+          <strong>${data.audience_age || '-'}</strong>
+        </div>
+        <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+          <span style="color:#666">MCN:</span>
+          <strong style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:150px;">${data.mcn || '-'}</strong>
+        </div>
+        <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+          <span style="color:#666">WA:</span>
+          <strong>${data.no_whatsapp || '-'}</strong>
+        </div>
       `;
     }
   };
