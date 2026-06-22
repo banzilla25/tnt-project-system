@@ -21,6 +21,17 @@ export default function CreatorPoolPage() {
   const [filterType, setFilterType] = useState<string>("");
   const [filterNiche, setFilterNiche] = useState<string>("");
   const [filterCampaign, setFilterCampaign] = useState<string>("");
+  const [filterTier, setFilterTier] = useState<string>("");
+  const [filterLevel, setFilterLevel] = useState<string>("");
+  const [filterAddedBy, setFilterAddedBy] = useState<string>("");
+  const [filterLastUpdatedBy, setFilterLastUpdatedBy] = useState<string>("");
+
+  const [staffProfiles, setStaffProfiles] = useState<{id: string, nama: string}[]>([]);
+  useEffect(() => {
+    supabase.from('profiles').select('id, nama').order('nama').then(({data}) => {
+      if (data) setStaffProfiles(data);
+    });
+  }, []);
   
   // Debounce search to avoid spamming Supabase on every keystroke
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -41,46 +52,35 @@ export default function CreatorPoolPage() {
   const fetchCreators = useCallback(async (pageNum: number, isReset: boolean = false) => {
     setIsLoading(true);
     try {
-      let query: any = supabase.from('creators').select(`
-        id, username, nama_asli, link_account, created_at, added_by,
-        creator_snapshots ( id, audience_age, level, tanggal_update, followers, tier ),
-        creator_niches ( niche_id ),
-        campaign_creators ( campaign_id )
-      `);
+      let baseSelect = `
+        id, username, nama_asli, link_account, created_at, added_by, last_updated_by,
+        creator_snapshots${filterTier || filterLevel ? '!inner' : ''} ( id, audience_age, level, tanggal_update, followers, tier ),
+        creator_niches${filterNiche ? '!inner' : ''} ( niche_id )
+        ${filterCampaign ? ', campaign_creators!inner ( campaign_id )' : ''}
+      `;
+
+      query = supabase.from('creators').select(baseSelect);
 
       if (debouncedSearch) {
         query = query.or(`username.ilike.%${debouncedSearch}%,nama_asli.ilike.%${debouncedSearch}%`);
       }
-
       if (filterCampaign) {
-        query = supabase.from('creators').select(`
-          id, username, nama_asli, link_account, created_at, added_by,
-          creator_snapshots ( id, audience_age, level, tanggal_update, followers, tier ),
-          creator_niches ( niche_id ),
-          campaign_creators!inner ( campaign_id )
-        `).eq('campaign_creators.campaign_id', filterCampaign);
-
-        if (debouncedSearch) {
-          query = query.or(`username.ilike.%${debouncedSearch}%,nama_asli.ilike.%${debouncedSearch}%`);
-        }
+        query = query.eq('campaign_creators.campaign_id', filterCampaign);
       }
-
       if (filterNiche) {
-        const baseSelect = `
-          id, username, nama_asli, link_account, created_at, added_by,
-          creator_snapshots ( id, audience_age, level, tanggal_update, followers, tier ),
-          creator_niches!inner ( niche_id )
-          ${filterCampaign ? ', campaign_creators!inner ( campaign_id )' : ''}
-        `;
-        query = supabase.from('creators').select(baseSelect)
-          .eq('creator_niches.niche_id', filterNiche);
-          
-        if (filterCampaign) {
-          query = query.eq('campaign_creators.campaign_id', filterCampaign);
-        }
-        if (debouncedSearch) {
-          query = query.or(`username.ilike.%${debouncedSearch}%,nama_asli.ilike.%${debouncedSearch}%`);
-        }
+        query = query.eq('creator_niches.niche_id', filterNiche);
+      }
+      if (filterTier) {
+        query = query.eq('creator_snapshots.tier', filterTier);
+      }
+      if (filterLevel) {
+        query = query.eq('creator_snapshots.level', filterLevel);
+      }
+      if (filterAddedBy) {
+        query = query.eq('added_by', filterAddedBy);
+      }
+      if (filterLastUpdatedBy) {
+        query = query.eq('last_updated_by', filterLastUpdatedBy);
       }
 
       // Add pagination
@@ -119,15 +119,16 @@ export default function CreatorPoolPage() {
     } catch (err: any) {
       console.error("Fetch error:", err);
     } finally {
+    } finally {
       setIsLoading(false);
     }
-  }, [debouncedSearch, filterType, filterNiche, filterCampaign]);
+  }, [debouncedSearch, filterType, filterNiche, filterCampaign, filterTier, filterLevel, filterAddedBy, filterLastUpdatedBy]);
 
   // Trigger fetch when filters change
   useEffect(() => {
     setPage(0);
     fetchCreators(0, true);
-  }, [debouncedSearch, filterType, filterNiche, filterCampaign, fetchCreators]);
+  }, [debouncedSearch, filterType, filterNiche, filterCampaign, filterTier, filterLevel, filterAddedBy, filterLastUpdatedBy, fetchCreators]);
 
   const handleLoadMore = () => {
     const nextPage = page + 1;
@@ -198,13 +199,48 @@ export default function CreatorPoolPage() {
         </select>
 
         <select 
+          value={filterCampaign} 
+          onChange={e => setFilterCampaign(e.target.value)}
           className="select w-auto !mb-0 min-w-[200px]"
-          value={filterCampaign}
-          onChange={(e) => setFilterCampaign(e.target.value)}
         >
-          <option value="">Pernah di Campaign</option>
-          {campaigns.map(c => <option key={c.id} value={c.id}>{c.nama}</option>)}
+          <option value="">Semua Campaign</option>
+          {campaigns.map(c => (
+            <option key={c.id} value={c.id}>{c.nama}</option>
+          ))}
         </select>
+      </div>
+
+      <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Multi-dimensional Filter</span>
+        </div>
+        <div className="flex flex-wrap gap-3">
+          <select value={filterTier} onChange={(e) => setFilterTier(e.target.value)} className="select !mb-0 min-w-[120px] text-sm py-1.5">
+            <option value="">Semua Tier</option>
+            <option value="Nano">Nano</option>
+            <option value="Micro">Micro</option>
+            <option value="Macro">Macro</option>
+            <option value="Mega">Mega</option>
+          </select>
+          <select value={filterLevel} onChange={(e) => setFilterLevel(e.target.value)} className="select !mb-0 min-w-[120px] text-sm py-1.5">
+            <option value="">Semua Level</option>
+            <option value="Level 1">Level 1</option>
+            <option value="Level 2">Level 2</option>
+            <option value="Level 3">Level 3</option>
+          </select>
+          <select value={filterAddedBy} onChange={(e) => setFilterAddedBy(e.target.value)} className="select !mb-0 min-w-[140px] text-sm py-1.5">
+            <option value="">Ditambahkan Oleh</option>
+            {staffProfiles.map(p => (
+              <option key={p.id} value={p.id}>{p.nama}</option>
+            ))}
+          </select>
+          <select value={filterLastUpdatedBy} onChange={(e) => setFilterLastUpdatedBy(e.target.value)} className="select !mb-0 min-w-[150px] text-sm py-1.5">
+            <option value="">Diedit Terakhir Oleh</option>
+            {staffProfiles.map(p => (
+              <option key={p.id} value={p.id}>{p.nama}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
       <div className="grid gap-[16px] md:grid-cols-2 lg:grid-cols-3">

@@ -52,6 +52,21 @@ function CampaignListingContent() {
 
   const [filterType, setFilterType] = useState<'all' | 'regular' | 'auto_detect'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'alternate' | 'not_approved'>('all');
+  
+  // New Multidimensional Filters
+  const [filterTier, setFilterTier] = useState<string>('');
+  const [filterLevel, setFilterLevel] = useState<string>('');
+  const [filterNiche, setFilterNiche] = useState<string>('');
+  const [filterAddedBy, setFilterAddedBy] = useState<string>('');
+  const [filterActionBy, setFilterActionBy] = useState<string>('');
+  const [staffProfiles, setStaffProfiles] = useState<{id: string, nama: string}[]>([]);
+
+  useEffect(() => {
+    supabase.from('profiles').select('id, nama').order('nama').then(({data}) => {
+      if (data) setStaffProfiles(data);
+    });
+  }, []);
+
   const [tableSearch, setTableSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [sortConfig, setSortConfig] = useState<{ key: string; dir: 'asc' | 'desc' }>({ key: 'id', dir: 'desc' });
@@ -168,6 +183,13 @@ function CampaignListingContent() {
       if (filterType === 'auto_detect') query = query.eq('tier', 'Auto-Detect');
       if (filterType === 'regular') query = query.or('tier.neq.Auto-Detect,tier.is.null');
       if (statusFilter !== 'all') query = query.eq('approval', statusFilter);
+      
+      // Multi-dimensional filters
+      if (filterTier) query = query.eq('tier', filterTier);
+      if (filterLevel) query = query.eq('creators.creator_snapshots.level', filterLevel);
+      if (filterNiche) query = query.eq('creators.creator_niches.niche_id', filterNiche);
+      if (filterAddedBy) query = query.eq('added_by', filterAddedBy);
+      if (filterActionBy) query = query.or(`approved_by.eq.${filterActionBy},not_approved_by.eq.${filterActionBy}`);
 
       if (debouncedSearch) {
         query = query.or(`username.ilike.%${debouncedSearch}%,nama_asli.ilike.%${debouncedSearch}%`, { foreignTable: 'creators' });
@@ -202,12 +224,12 @@ function CampaignListingContent() {
     } finally {
       setIsLoading(false);
     }
-  }, [campaignId, filterType, statusFilter, debouncedSearch, sortConfig]);
+  }, [campaignId, filterType, statusFilter, debouncedSearch, sortConfig, filterTier, filterLevel, filterNiche, filterAddedBy, filterActionBy]);
 
   useEffect(() => {
     setPage(0);
     fetchListing(0, true);
-  }, [debouncedSearch, filterType, statusFilter, sortConfig, fetchListing]);
+  }, [debouncedSearch, filterType, statusFilter, sortConfig, fetchListing, filterTier, filterLevel, filterNiche, filterAddedBy, filterActionBy]);
 
   const handleLoadMore = () => {
     const next = page + 1;
@@ -426,7 +448,46 @@ function CampaignListingContent() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-[16px] mb-[32px]">
+      <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm mb-[24px]">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Multi-dimensional Filter</span>
+        </div>
+        <div className="flex flex-wrap gap-3">
+          <select value={filterTier} onChange={(e) => setFilterTier(e.target.value)} className="select !mb-0 min-w-[120px] text-sm py-1.5">
+            <option value="">Semua Tier</option>
+            <option value="Nano">Nano</option>
+            <option value="Micro">Micro</option>
+            <option value="Macro">Macro</option>
+            <option value="Mega">Mega</option>
+          </select>
+          <select value={filterLevel} onChange={(e) => setFilterLevel(e.target.value)} className="select !mb-0 min-w-[120px] text-sm py-1.5">
+            <option value="">Semua Level</option>
+            <option value="Level 1">Level 1</option>
+            <option value="Level 2">Level 2</option>
+            <option value="Level 3">Level 3</option>
+          </select>
+          <select value={filterNiche} onChange={(e) => setFilterNiche(e.target.value)} className="select !mb-0 min-w-[120px] text-sm py-1.5">
+            <option value="">Semua Niche</option>
+            {niches.map(n => (
+              <option key={n.id} value={n.id}>{n.nama}</option>
+            ))}
+          </select>
+          <select value={filterAddedBy} onChange={(e) => setFilterAddedBy(e.target.value)} className="select !mb-0 min-w-[140px] text-sm py-1.5">
+            <option value="">Semua PIC (Added By)</option>
+            {staffProfiles.map(p => (
+              <option key={p.id} value={p.id}>{p.nama}</option>
+            ))}
+          </select>
+          <select value={filterActionBy} onChange={(e) => setFilterActionBy(e.target.value)} className="select !mb-0 min-w-[150px] text-sm py-1.5">
+            <option value="">Semua PIC (Approval)</option>
+            {staffProfiles.map(p => (
+              <option key={p.id} value={p.id}>{p.nama}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-[16px]">
         <div className={`metric cursor-pointer ${statusFilter === 'all' ? 'ring-2 ring-p300' : ''}`} onClick={() => setStatusFilter('all')}>
           <div className="mlbl">Total Creator</div>
           <div className="mval">{counts.all}</div>
