@@ -155,6 +155,7 @@ function scrapeData() {
     mcn,
     gmv_30d: gmvNum || 0,
     no_whatsapp: wa,
+    whatsapp: wa,
     email,
     audience_age
   };
