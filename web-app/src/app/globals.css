@@ -178,13 +178,14 @@
 
   /* ===== TABLE ===== */
   .tbl-wrap {
-    @apply border border-line rounded-lg overflow-x-auto bg-white;
+    @apply border border-line rounded-lg overflow-auto bg-white;
+    max-height: calc(100vh - 300px);
   }
   .tbl-wrap table {
-    @apply w-full border-collapse;
+    @apply w-full border-collapse relative;
   }
   .tbl-wrap thead th {
-    @apply bg-bg text-[12px] font-bold text-text-soft uppercase tracking-wider text-left px-[18px] py-[13px] border-b border-line;
+    @apply bg-bg text-[12px] font-bold text-text-soft uppercase tracking-wider text-left px-[18px] py-[13px] border-b border-line sticky top-0 z-10;
   }
   .tbl-wrap tbody td {
     @apply px-[18px] py-[15px] text-[14px] border-b border-line;

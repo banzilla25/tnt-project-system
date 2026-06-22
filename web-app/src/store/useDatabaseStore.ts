@@ -437,6 +437,11 @@ export const useDatabaseStore = create<DatabaseState>((set, get) => ({
     // Ambil data lama untuk audit
     const oldData = get().campaign_creators.find(c => c.id === id);
     const { error } = await supabase.from('campaign_creators').update(updates).eq('id', id);
+    if (error) {
+      console.error("Update Campaign Creator Error:", error);
+      alert("Gagal update data: " + error.message);
+      return;
+    }
     if (!error) {
       set((state) => ({
         campaign_creators: state.campaign_creators.map(c => c.id === id ? { ...c, ...updates } : c)
