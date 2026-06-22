@@ -30,7 +30,8 @@ function CampaignListingContent() {
     updateCampaignCreator,
     addCampaignCreator,
     campaigns,
-    profiles
+    profiles,
+    niches
   } = useDatabaseStore();
 
   const { profile, canEditCampaign } = useAuth();
