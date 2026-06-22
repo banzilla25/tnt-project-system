@@ -218,25 +218,35 @@ async function injectButton() {
     const data = scrapeData();
     if (!data.username) {
       previewBox.style.opacity = '0';
-      return;
+    } else {
+      previewBox.style.opacity = '1';
+      previewBox.innerHTML = `
+        <div style="font-weight:bold; margin-bottom:8px; display:flex; align-items:center; gap:8px;">
+          ${data.avatar_url ? `<img src="${data.avatar_url}" style="width:30px; height:30px; border-radius:50%; object-fit:cover;">` : ''}
+          <span style="font-size:14px; color:#0ba449;">Sedot Data Aktif</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+          <span style="color:#666">Kreator:</span>
+          <strong>${data.name || '-'}</strong>
+        </div>
+        <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+          <span style="color:#666">Username:</span>
+          <strong>@${data.username}</strong>
+        </div>
+        <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+          <span style="color:#666">Followers:</span>
+          <strong>${(data.followers/1000).toFixed(1)}K</strong>
+        </div>
+        <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+          <span style="color:#666">GMV:</span> 
+          <strong style="color:#0ba449;">Rp ${data.gmv_30d.toLocaleString()}</strong>
+        </div>
+        <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+          <span style="color:#666">Niche:</span>
+          <strong style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:150px;">${data.niche || '-'}</strong>
+        </div>
+      `;
     }
-    
-    previewBox.style.opacity = '1';
-    previewBox.innerHTML = `
-      <div style="font-weight:bold; margin-bottom: 8px; font-size: 13px; color: #111; border-bottom: 1px solid #eee; padding-bottom: 4px;">
-        🔍 Preview Data Deteksi
-      </div>
-      <div style="display:grid; grid-template-columns: 80px 1fr; gap: 4px; line-height: 1.4;">
-        <span style="color:#666">User:</span> <strong style="color:#000">@${data.username}</strong>
-        <span style="color:#666">Nama:</span> <span style="color:#000">${data.name || '-'}</span>
-        <span style="color:#666">Folls:</span> <span style="color:#000">${data.followers.toLocaleString()}</span>
-        <span style="color:#666">Umur:</span> <span style="color:#000">${data.audience_age || '-'}</span>
-        <span style="color:#666">GMV:</span> <span style="color:#0ba449; font-weight:bold">Rp ${data.gmv_30d.toLocaleString()}</span>
-        <span style="color:#666">Niche:</span> <span style="color:#000; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">${data.niche || '-'}</span>
-        <span style="color:#666">MCN:</span> <span style="color:#000">${data.mcn || '-'}</span>
-        <span style="color:#666">WA:</span> <span style="color:#000">${data.no_whatsapp || '-'}</span>
-      </div>
-    `;
   };
 
   const previewInterval = setInterval(updatePreview, 1000);
