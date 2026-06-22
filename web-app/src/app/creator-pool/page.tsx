@@ -71,7 +71,7 @@ export default function CreatorPoolPage() {
         query = query.eq('creator_niches.niche_id', filterNiche);
       }
       if (filterTier) {
-        query = query.eq('creator_snapshots.tier', filterTier);
+        query = query.ilike('creator_snapshots.tier', `%${filterTier}%`);
       }
       if (filterLevel) {
         query = query.eq('creator_snapshots.level', filterLevel);
@@ -220,9 +220,11 @@ export default function CreatorPoolPage() {
           </select>
           <select value={filterLevel} onChange={(e) => setFilterLevel(e.target.value)} className="select !mb-0 min-w-[120px] md:w-auto flex-1 text-sm py-1.5">
             <option value="">Semua Level</option>
-            <option value="Level 1">Level 1</option>
-            <option value="Level 2">Level 2</option>
-            <option value="Level 3">Level 3</option>
+            <option value="1">Level 1</option>
+            <option value="2">Level 2</option>
+            <option value="3">Level 3</option>
+            <option value="4">Level 4</option>
+            <option value="5">Level 5</option>
           </select>
           <select value={filterAddedBy} onChange={(e) => setFilterAddedBy(e.target.value)} className="select !mb-0 min-w-[140px] md:w-auto flex-1 text-sm py-1.5">
             <option value="">Ditambahkan Oleh</option>

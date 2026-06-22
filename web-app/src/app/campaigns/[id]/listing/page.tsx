@@ -170,8 +170,8 @@ function CampaignListingContent() {
         added_by_profile:profiles!campaign_creators_added_by_fkey ( nama ),
         creators!inner (
           id, username, nama_asli, link_account,
-          creator_snapshots ( id, audience_age, level, gmv_30d, tanggal_update, followers, tier ),
-          creator_niches ( niches ( nama ) )
+          creator_snapshots${filterTier || filterLevel ? '!inner' : ''} ( id, audience_age, level, gmv_30d, tanggal_update, followers, tier ),
+          creator_niches${filterNiche ? '!inner' : ''} ( niche_id, niches ( nama ) )
         ),
         videos (
           id, urutan, concept, link_video, vt_approval
@@ -186,7 +186,7 @@ function CampaignListingContent() {
       if (statusFilter !== 'all') query = query.eq('approval', statusFilter);
       
       // Multi-dimensional filters
-      if (filterTier) query = query.eq('tier', filterTier);
+      if (filterTier) query = query.ilike('creators.creator_snapshots.tier', `%${filterTier}%`);
       if (filterLevel) query = query.eq('creators.creator_snapshots.level', filterLevel);
       if (filterNiche) query = query.eq('creators.creator_niches.niche_id', filterNiche);
       if (filterAddedBy) query = query.eq('added_by', filterAddedBy);
@@ -463,9 +463,11 @@ function CampaignListingContent() {
           </select>
           <select value={filterLevel} onChange={(e) => setFilterLevel(e.target.value)} className="select !mb-0 min-w-[120px] md:w-auto flex-1 text-sm py-1.5">
             <option value="">Semua Level</option>
-            <option value="Level 1">Level 1</option>
-            <option value="Level 2">Level 2</option>
-            <option value="Level 3">Level 3</option>
+            <option value="1">Level 1</option>
+            <option value="2">Level 2</option>
+            <option value="3">Level 3</option>
+            <option value="4">Level 4</option>
+            <option value="5">Level 5</option>
           </select>
           <select value={filterNiche} onChange={(e) => setFilterNiche(e.target.value)} className="select !mb-0 min-w-[120px] md:w-auto flex-1 text-sm py-1.5">
             <option value="">Semua Niche</option>
