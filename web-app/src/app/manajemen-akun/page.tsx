@@ -37,22 +37,38 @@ export default async function ManajemenAkunPage() {
     redirect('/'); // Lempar ke dashboard jika bukan manager
   }
 
-  // Ambil data users dan campaigns untuk initial state
-  const { data: profiles } = await supabase
+  const supabaseAdmin = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll();
+        },
+        setAll(cookiesToSet) {
+          // handled by middleware
+        },
+      },
+    }
+  );
+
+  // Ambil data users dan campaigns untuk initial state menggunakan admin client
+  // supaya Manager pasti bisa melihat semua data tanpa terhalang RLS
+  const { data: profiles } = await supabaseAdmin
     .from('profiles')
     .select('*')
     .order('created_at', { ascending: false });
 
-  const { data: campaigns } = await supabase
+  const { data: campaigns } = await supabaseAdmin
     .from('campaigns')
     .select('id, name')
     .order('name');
 
-  const { data: userCampaigns } = await supabase
+  const { data: userCampaigns } = await supabaseAdmin
     .from('user_campaigns')
     .select('*');
 
-  const { data: whitelist } = await supabase
+  const { data: whitelist } = await supabaseAdmin
     .from('whitelisted_emails')
     .select('*')
     .order('created_at', { ascending: false });
