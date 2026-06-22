@@ -13,7 +13,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       niche: c.niche || '',
       whatsapp: c.no_whatsapp || '',
       mcn: c.mcn || '',
-      ratecard: ''
+      ratecard: '',
+      avatar_url: c.avatar_url || ''
     }));
 
     // Target domains
