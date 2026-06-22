@@ -175,6 +175,8 @@ function CampaignListingContent() {
         sample_progress, status_bayar, notes_manager, notes_pic,
         created_at,
         added_by_profile:profiles!campaign_creators_added_by_fkey ( nama ),
+        approved_by_profile:profiles!campaign_creators_approved_by_fkey ( nama ),
+        not_approved_by_profile:profiles!campaign_creators_not_approved_by_fkey ( nama ),
         creators!inner (
           id, username, nama_asli, link_account,
           creator_snapshots${filterTier || filterLevel ? '!inner' : ''} ( id, audience_age, level, gmv_30d, tanggal_update, followers, tier ),
@@ -294,7 +296,7 @@ function CampaignListingContent() {
       if (editApproval === 'approved') {
         extraUpdates.approved_by = profile?.id;
         extraUpdates.approved_at = new Date().toISOString();
-      } else if (editApproval === 'not_approved') {
+      } else if (editApproval === 'not_approved' || editApproval === 'alternate') {
         extraUpdates.not_approved_by = profile?.id;
         extraUpdates.not_approved_at = new Date().toISOString();
       }
@@ -846,13 +848,24 @@ function CampaignListingContent() {
                             <option value="not_approved">Not Approved</option>
                           </select>
                         ) : (
-                          <span className={`badge ${
-                            cc.approval === 'approved' ? 'b-approved' : 
-                            cc.approval === 'not_approved' ? 'b-rejected' : 
-                            cc.approval === 'alternate' ? 'b-alternate' : 'b-pending'
-                          }`}>
-                            {cc.approval}
-                          </span>
+                          <div className="flex flex-col items-center">
+                            <span className={`badge ${
+                              cc.approval === 'approved' ? 'b-approved' : 
+                              cc.approval === 'not_approved' ? 'b-rejected' : 
+                              cc.approval === 'alternate' ? 'b-alternate' : 'b-pending'
+                            }`}>
+                              {cc.approval}
+                            </span>
+                            {(cc.approval === 'approved' && cc.approved_by_profile) && (
+                              <div className="text-[10px] text-text-soft mt-1 leading-tight text-center">Oleh: {cc.approved_by_profile.nama}</div>
+                            )}
+                            {(cc.approval === 'not_approved' && cc.not_approved_by_profile) && (
+                              <div className="text-[10px] text-text-soft mt-1 leading-tight text-center">Oleh: {cc.not_approved_by_profile.nama}</div>
+                            )}
+                            {(cc.approval === 'alternate' && cc.not_approved_by_profile) && (
+                              <div className="text-[10px] text-text-soft mt-1 leading-tight text-center">Oleh: {cc.not_approved_by_profile.nama}</div>
+                            )}
+                          </div>
                         )}
                       </td>
                       {isClientApprovalRequired && (
