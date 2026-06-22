@@ -166,7 +166,7 @@ function CampaignListingContent() {
 
       // Filters
       if (filterType === 'auto_detect') query = query.eq('tier', 'Auto-Detect');
-      if (filterType === 'regular') query = query.neq('tier', 'Auto-Detect');
+      if (filterType === 'regular') query = query.or('tier.neq.Auto-Detect,tier.is.null');
       if (statusFilter !== 'all') query = query.eq('approval', statusFilter);
 
       if (debouncedSearch) {
