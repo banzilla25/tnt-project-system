@@ -407,12 +407,12 @@ function CampaignListingContent() {
             placeholder="Cari username..." 
             value={tableSearch} 
             onChange={e => setTableSearch(e.target.value)} 
-            className="input min-w-[200px]"
+            className="input min-w-[200px] md:w-auto"
           />
           <select 
             value={filterType}
             onChange={(e: any) => setFilterType(e.target.value)}
-            className="select min-w-[150px]"
+            className="select min-w-[150px] md:w-auto"
           >
             <option value="all">Semua Tipe</option>
             <option value="regular">Reguler (Manual)</option>
@@ -454,32 +454,32 @@ function CampaignListingContent() {
           <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Multi-dimensional Filter</span>
         </div>
         <div className="flex flex-wrap gap-3">
-          <select value={filterTier} onChange={(e) => setFilterTier(e.target.value)} className="select !mb-0 min-w-[120px] text-sm py-1.5">
+          <select value={filterTier} onChange={(e) => setFilterTier(e.target.value)} className="select !mb-0 min-w-[120px] md:w-auto flex-1 text-sm py-1.5">
             <option value="">Semua Tier</option>
             <option value="Nano">Nano</option>
             <option value="Micro">Micro</option>
             <option value="Macro">Macro</option>
             <option value="Mega">Mega</option>
           </select>
-          <select value={filterLevel} onChange={(e) => setFilterLevel(e.target.value)} className="select !mb-0 min-w-[120px] text-sm py-1.5">
+          <select value={filterLevel} onChange={(e) => setFilterLevel(e.target.value)} className="select !mb-0 min-w-[120px] md:w-auto flex-1 text-sm py-1.5">
             <option value="">Semua Level</option>
             <option value="Level 1">Level 1</option>
             <option value="Level 2">Level 2</option>
             <option value="Level 3">Level 3</option>
           </select>
-          <select value={filterNiche} onChange={(e) => setFilterNiche(e.target.value)} className="select !mb-0 min-w-[120px] text-sm py-1.5">
+          <select value={filterNiche} onChange={(e) => setFilterNiche(e.target.value)} className="select !mb-0 min-w-[120px] md:w-auto flex-1 text-sm py-1.5">
             <option value="">Semua Niche</option>
             {niches.map(n => (
               <option key={n.id} value={n.id}>{n.nama}</option>
             ))}
           </select>
-          <select value={filterAddedBy} onChange={(e) => setFilterAddedBy(e.target.value)} className="select !mb-0 min-w-[140px] text-sm py-1.5">
+          <select value={filterAddedBy} onChange={(e) => setFilterAddedBy(e.target.value)} className="select !mb-0 min-w-[140px] md:w-auto flex-1 text-sm py-1.5">
             <option value="">Semua PIC (Added By)</option>
             {staffProfiles.map(p => (
               <option key={p.id} value={p.id}>{p.nama}</option>
             ))}
           </select>
-          <select value={filterActionBy} onChange={(e) => setFilterActionBy(e.target.value)} className="select !mb-0 min-w-[150px] text-sm py-1.5">
+          <select value={filterActionBy} onChange={(e) => setFilterActionBy(e.target.value)} className="select !mb-0 min-w-[150px] md:w-auto flex-1 text-sm py-1.5">
             <option value="">Semua PIC (Approval)</option>
             {staffProfiles.map(p => (
               <option key={p.id} value={p.id}>{p.nama}</option>

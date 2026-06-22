@@ -164,22 +164,21 @@ export default function CreatorPoolPage() {
         </div>
       </div>
 
-      <div className="flex items-center gap-[14px] bg-white p-[18px] rounded-lg border border-line shadow-sm flex-wrap">
-        <div className="relative flex-1 min-w-[200px]">
+      <div className="flex flex-wrap gap-[10px] items-center bg-white p-[18px] rounded-lg border border-line shadow-sm">
+        <div className="relative flex-1 md:flex-none min-w-[250px]">
           <Search className="absolute left-[14px] top-1/2 -translate-y-1/2 w-4 h-4 text-text-mute" />
           <input 
             type="text" 
             placeholder="Cari username atau nama asli..." 
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="input !pl-[40px] !mb-0"
+            className="input !pl-[40px] !mb-0 w-full md:w-auto"
           />
         </div>
-        
         <select 
-          className="select w-auto !mb-0 min-w-[140px]"
-          value={filterType}
-          onChange={(e) => setFilterType(e.target.value)}
+          value={filterType} 
+          onChange={e => setFilterType(e.target.value)}
+          className="select w-auto !mb-0 min-w-[150px] md:w-auto"
         >
           <option value="">Semua Tipe</option>
           <option value="Nano">Nano</option>
@@ -187,20 +186,18 @@ export default function CreatorPoolPage() {
           <option value="Macro">Macro</option>
           <option value="Mega">Mega</option>
         </select>
-
         <select 
-          className="select w-auto !mb-0 min-w-[160px]"
-          value={filterNiche}
-          onChange={(e) => setFilterNiche(e.target.value)}
+          value={filterNiche} 
+          onChange={e => setFilterNiche(e.target.value)}
+          className="select w-auto !mb-0 min-w-[150px] md:w-auto"
         >
           <option value="">Semua Niche</option>
           {niches.map(n => <option key={n.id} value={n.id}>{n.nama}</option>)}
         </select>
-
         <select 
           value={filterCampaign} 
           onChange={e => setFilterCampaign(e.target.value)}
-          className="select w-auto !mb-0 min-w-[200px]"
+          className="select w-auto !mb-0 min-w-[200px] md:w-auto"
         >
           <option value="">Semua Campaign</option>
           {campaigns.map(c => (
@@ -214,26 +211,26 @@ export default function CreatorPoolPage() {
           <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Multi-dimensional Filter</span>
         </div>
         <div className="flex flex-wrap gap-3">
-          <select value={filterTier} onChange={(e) => setFilterTier(e.target.value)} className="select !mb-0 min-w-[120px] text-sm py-1.5">
+          <select value={filterTier} onChange={(e) => setFilterTier(e.target.value)} className="select !mb-0 min-w-[120px] md:w-auto flex-1 text-sm py-1.5">
             <option value="">Semua Tier</option>
             <option value="Nano">Nano</option>
             <option value="Micro">Micro</option>
             <option value="Macro">Macro</option>
             <option value="Mega">Mega</option>
           </select>
-          <select value={filterLevel} onChange={(e) => setFilterLevel(e.target.value)} className="select !mb-0 min-w-[120px] text-sm py-1.5">
+          <select value={filterLevel} onChange={(e) => setFilterLevel(e.target.value)} className="select !mb-0 min-w-[120px] md:w-auto flex-1 text-sm py-1.5">
             <option value="">Semua Level</option>
             <option value="Level 1">Level 1</option>
             <option value="Level 2">Level 2</option>
             <option value="Level 3">Level 3</option>
           </select>
-          <select value={filterAddedBy} onChange={(e) => setFilterAddedBy(e.target.value)} className="select !mb-0 min-w-[140px] text-sm py-1.5">
+          <select value={filterAddedBy} onChange={(e) => setFilterAddedBy(e.target.value)} className="select !mb-0 min-w-[140px] md:w-auto flex-1 text-sm py-1.5">
             <option value="">Ditambahkan Oleh</option>
             {staffProfiles.map(p => (
               <option key={p.id} value={p.id}>{p.nama}</option>
             ))}
           </select>
-          <select value={filterLastUpdatedBy} onChange={(e) => setFilterLastUpdatedBy(e.target.value)} className="select !mb-0 min-w-[150px] text-sm py-1.5">
+          <select value={filterLastUpdatedBy} onChange={(e) => setFilterLastUpdatedBy(e.target.value)} className="select !mb-0 min-w-[150px] md:w-auto flex-1 text-sm py-1.5">
             <option value="">Diedit Terakhir Oleh</option>
             {staffProfiles.map(p => (
               <option key={p.id} value={p.id}>{p.nama}</option>
