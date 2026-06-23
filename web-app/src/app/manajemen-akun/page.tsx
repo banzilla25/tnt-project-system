@@ -61,8 +61,8 @@ export default async function ManajemenAkunPage() {
 
   const { data: campaigns } = await supabaseAdmin
     .from('campaigns')
-    .select('id, name')
-    .order('name');
+    .select('id, name:nama')
+    .order('nama');
 
   const { data: userCampaigns } = await supabaseAdmin
     .from('user_campaigns')

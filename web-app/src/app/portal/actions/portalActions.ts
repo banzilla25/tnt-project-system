@@ -90,16 +90,54 @@ export async function getPortalData(campaignId: number) {
     .from('campaign_creators')
     .select(`
       id, 
+      creator_id,
       client_approval, 
       notes_pic, 
+      tier,
+      content_type,
+      sample_progress,
       creators(username, nama_asli, link_account)
     `)
     .eq('campaign_id', campaignId)
     .in('approval', ['approved', 'alternate']);
 
+  // Fetch sales summary and ads performance for GMV calculation
+  const { data: salesSummary } = await supabase
+    .from('campaign_sales_summary')
+    .select('creator_username, gmv_organic')
+    .eq('campaign_id', campaignId);
+
+  const { data: adsPerf } = await supabase
+    .from('ads_performance')
+    .select('creator_id, gross_revenue_usd, kurs')
+    .eq('campaign_id', campaignId);
+
+  const salesMap = new Map();
+  salesSummary?.forEach(s => salesMap.set(s.creator_username, s.gmv_organic));
+
+  const adsMap = new Map();
+  adsPerf?.forEach(a => {
+    if (!adsMap.has(a.creator_id)) adsMap.set(a.creator_id, 0);
+    const rev = (a.gross_revenue_usd || 0) * (a.kurs || 0);
+    adsMap.set(a.creator_id, adsMap.get(a.creator_id) + rev);
+  });
+
+  const enrichedCcData = ccData?.map((cc: any) => {
+    const creator = Array.isArray(cc.creators) ? cc.creators[0] : cc.creators;
+    const username = creator?.username || '';
+    const creatorId = cc.creator_id;
+    return {
+      ...cc,
+      gmv_organic: salesMap.get(username) || 0,
+      gmv_ads: adsMap.get(creatorId) || 0
+    };
+  }) || [];
+
   // Fetch creator addresses (Pengiriman sampel)
   // Karena tidak ada direct relation dari creator_addresses ke campaigns, kita ambil via campaign_creators
-  const ccIds = ccData?.map((cc: any) => cc.id) || [];
+  const ccIdsForSamples = campaign.require_client_approval 
+    ? enrichedCcData.filter((cc: any) => cc.client_approval === 'approved').map((cc: any) => cc.id)
+    : enrichedCcData.map((cc: any) => cc.id);
 
   const { data: addrData } = await supabase
     .from('creator_addresses')
@@ -121,9 +159,9 @@ export async function getPortalData(campaignId: number) {
       tanggal_kirim,
       is_cancel
     `)
-    .in('campaign_creator_id', ccIds.length > 0 ? ccIds : [0]);
-  const samples = addrData?.filter((addr: any) => ccIds.includes(addr.campaign_creator_id)).map((addr: any) => {
-    const cc = ccData?.find((c: any) => c.id === addr.campaign_creator_id);
+    .in('campaign_creator_id', ccIdsForSamples.length > 0 ? ccIdsForSamples : [0]);
+  const samples = addrData?.filter((addr: any) => ccIdsForSamples.includes(addr.campaign_creator_id)).map((addr: any) => {
+    const cc = enrichedCcData.find((c: any) => c.id === addr.campaign_creator_id);
     const creatorInfo = Array.isArray(cc?.creators) ? cc.creators[0] : cc?.creators;
     return {
       ...addr,
@@ -138,10 +176,10 @@ export async function getPortalData(campaignId: number) {
       campaign_creator_id,
       tanggal_live
     `)
-    .in('campaign_creator_id', ccIds.length > 0 ? ccIds : [0]);
+    .in('campaign_creator_id', ccIdsForSamples.length > 0 ? ccIdsForSamples : [0]);
   
-  const schedules = liveData?.filter((l: any) => ccIds.includes(l.campaign_creator_id)).map((l: any) => {
-    const cc = ccData?.find((c: any) => c.id === l.campaign_creator_id);
+  const schedules = liveData?.filter((l: any) => ccIdsForSamples.includes(l.campaign_creator_id)).map((l: any) => {
+    const cc = enrichedCcData.find((c: any) => c.id === l.campaign_creator_id);
     const creatorInfo = Array.isArray(cc?.creators) ? cc.creators[0] : cc?.creators;
     return {
       ...l,
@@ -162,7 +200,7 @@ export async function getPortalData(campaignId: number) {
     totalSales: totalSales || null,
     totalAwareness: totalAwareness || null,
     dailyPerf: dailyPerf || [], 
-    approvalList: ccData || [], 
+    approvalList: enrichedCcData, 
     samples,
     schedules,
     skus: skusData || []
@@ -189,7 +227,7 @@ export async function submitClientApproval(campaignId: number, campaignCreatorId
   return { success: true };
 }
 
-export async function updateResiByClient(campaignId: number, addressId: number, resi: string, proses: string, produk_dikirim?: string) {
+export async function updateResiByClient(campaignId: number, addressId: number, resi: string, proses: string, produk_dikirim?: string, notes?: string) {
   const cookieStore = await cookies();
   const pin = cookieStore.get(`portal_pin_${campaignId}`)?.value;
   if (!pin) throw new Error('Not authenticated');
@@ -210,20 +248,23 @@ export async function updateResiByClient(campaignId: number, addressId: number, 
     throw new Error('Unauthorized address modification');
   }
 
-  const updateData: any = { 
+  const updatePayload: any = { 
     resi: resi, 
     proses: proses,
     tanggal_kirim: proses === 'Dikirim' ? new Date().toISOString() : undefined
   };
   
   if (produk_dikirim !== undefined) {
-    updateData.produk_dikirim = produk_dikirim;
+    updatePayload.produk_dikirim = produk_dikirim;
+  }
+  if (notes !== undefined) {
+    updatePayload.notes = notes;
   }
 
   // Update
   const { error } = await supabase
     .from('creator_addresses')
-    .update(updateData)
+    .update(updatePayload)
     .eq('id', addressId);
 
   if (error) throw error;

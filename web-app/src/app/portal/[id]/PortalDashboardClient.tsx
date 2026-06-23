@@ -37,9 +37,9 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
     }
   };
 
-  const handleUpdateResi = async (addrId: number, resi: string, proses: string, produk?: string) => {
+  const handleUpdateResi = async (addrId: number, resi: string, proses: string, produk?: string, notes?: string) => {
     try {
-      await updateResiByClient(campaignId, addrId, resi, proses, produk);
+      await updateResiByClient(campaignId, addrId, resi, proses, produk, notes);
       router.refresh();
     } catch (err) {
       alert("Gagal memperbarui status pengiriman. Silakan coba lagi.");
@@ -80,7 +80,7 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
             onClick={() => setActiveTab('approval')}
           >
             <div className="flex items-center gap-2">
-              <CheckCircle className="w-4 h-4"/> Approval Kreator
+              <CheckCircle className="w-4 h-4"/> Listing & Seleksi
               {approvalList.filter((cc: any) => cc.client_approval === 'pending').length > 0 && (
                 <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full ml-1">
                   {approvalList.filter((cc: any) => cc.client_approval === 'pending').length}
@@ -189,7 +189,7 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6">
             <Card className="shadow-sm border-blue-200">
               <CardHeader className="bg-blue-50 border-b border-blue-100 rounded-t-xl">
-                <CardTitle className="text-blue-900">Persetujuan Kreator</CardTitle>
+                <CardTitle className="text-blue-900">Listing & Seleksi</CardTitle>
                 <p className="text-sm text-blue-700">
                   Berikut adalah daftar kreator yang diajukan oleh tim manajemen kami. Silakan tentukan apakah Anda setuju untuk bekerja sama dengan mereka.
                 </p>
@@ -199,9 +199,12 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                   <Table>
                     <TableHeader className="bg-white">
                       <TableRow>
-                        <TableHead className="w-64">Kreator</TableHead>
-                        <TableHead>Link Akun</TableHead>
-                        <TableHead>Catatan dari Manajer</TableHead>
+                        <TableHead className="w-48">Kreator</TableHead>
+                        <TableHead>Tier</TableHead>
+                        <TableHead>Produk</TableHead>
+                        <TableHead>Progres Sampel</TableHead>
+                        <TableHead>GMV Organik</TableHead>
+                        <TableHead>GMV Ads</TableHead>
                         <TableHead className="w-48 text-center">Tindakan</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -215,17 +218,26 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                           <TableRow key={cc.id}>
                             <TableCell className="align-top">
                               <div className="font-semibold text-slate-900">@{cc.creators?.username}</div>
-                              <div className="text-sm text-slate-500">{cc.creators?.nama_asli || '-'}</div>
+                              {cc.creators?.link_account && (
+                                <a href={cc.creators.link_account} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline text-xs truncate max-w-[150px] block mt-1">
+                                  Lihat Profil
+                                </a>
+                              )}
                             </TableCell>
                             <TableCell className="align-top">
-                              {cc.creators?.link_account ? (
-                                <a href={cc.creators.link_account} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline text-sm truncate max-w-xs block">
-                                  Lihat Profil TikTok
-                                </a>
-                              ) : '-'}
+                              <Badge variant="outline" className="capitalize text-xs">{cc.tier || '-'}</Badge>
                             </TableCell>
-                            <TableCell className="align-top text-sm text-slate-600">
-                              {cc.notes_pic || <span className="italic text-slate-400">Tidak ada catatan</span>}
+                            <TableCell className="align-top text-sm">
+                              {cc.content_type || '-'}
+                            </TableCell>
+                            <TableCell className="align-top text-sm">
+                              {cc.sample_progress || 'Belum dikirim'}
+                            </TableCell>
+                            <TableCell className="align-top font-medium text-green-700 text-sm">
+                              Rp {(cc.gmv_organic || 0).toLocaleString()}
+                            </TableCell>
+                            <TableCell className="align-top font-medium text-slate-700 text-sm">
+                              Rp {(cc.gmv_ads || 0).toLocaleString()}
                             </TableCell>
                             <TableCell className="align-top text-center">
                               {cc.client_approval === 'pending' ? (
@@ -280,13 +292,14 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                         <TableHead>Alamat Pengiriman</TableHead>
                         <TableHead className="w-48">Produk Dikirim</TableHead>
                         <TableHead className="w-48">No. Resi</TableHead>
+                        <TableHead className="w-64">Catatan Brand</TableHead>
                         <TableHead className="w-40">Status</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {samples.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={4} className="text-center py-8 text-slate-500">Belum ada data pengiriman sampel.</TableCell>
+                          <TableCell colSpan={6} className="text-center py-8 text-slate-500">Belum ada data pengiriman sampel.</TableCell>
                         </TableRow>
                       ) : (
                         samples.map((addr: any) => (
@@ -314,7 +327,7 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                                 defaultValue={addr.produk_dikirim || ''}
                                 onChange={(e) => {
                                   if (e.target.value !== addr.produk_dikirim) {
-                                    handleUpdateResi(addr.id, addr.resi || '', addr.proses || 'Diproses', e.target.value);
+                                    handleUpdateResi(addr.id, addr.resi || '', addr.proses || 'Diproses', e.target.value, addr.notes || '');
                                   }
                                 }}
                               >
@@ -332,7 +345,19 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                                 defaultValue={addr.resi || ''}
                                 onBlur={(e) => {
                                   if (e.target.value !== addr.resi) {
-                                    handleUpdateResi(addr.id, e.target.value, addr.proses || 'Diproses', addr.produk_dikirim || '');
+                                    handleUpdateResi(addr.id, e.target.value, addr.proses || 'Diproses', addr.produk_dikirim || '', addr.notes || '');
+                                  }
+                                }}
+                              />
+                            </TableCell>
+                            <TableCell className="align-top font-mono text-sm">
+                              <textarea
+                                className="w-full text-sm p-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none min-h-[60px]"
+                                placeholder="Tambahkan catatan (opsional)..."
+                                defaultValue={addr.notes || ''}
+                                onBlur={(e) => {
+                                  if (e.target.value !== addr.notes) {
+                                    handleUpdateResi(addr.id, addr.resi || '', addr.proses || 'Diproses', addr.produk_dikirim || '', e.target.value);
                                   }
                                 }}
                               />
@@ -342,7 +367,7 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                                 className={`w-full text-sm p-2 border rounded font-medium outline-none transition-colors
                                   ${addr.proses === 'Dikirim' || addr.proses === 'Diterima' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-slate-50 text-slate-700 border-slate-300'}`}
                                 defaultValue={addr.proses || 'Diproses'}
-                                onChange={(e) => handleUpdateResi(addr.id, addr.resi || '', e.target.value, addr.produk_dikirim || '')}
+                                onChange={(e) => handleUpdateResi(addr.id, addr.resi || '', e.target.value, addr.produk_dikirim || '', addr.notes || '')}
                               >
                                 <option value="Diproses">Diproses</option>
                                 <option value="Dikirim">Dikirim</option>

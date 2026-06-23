@@ -106,10 +106,12 @@ export default function AdsImport() {
   
   const [selectedCampaign, setSelectedCampaign] = useState<number | ''>('');
   const [kurs, setKurs] = useState<string>('16000');
+  const [importMode, setImportMode] = useState<'replace' | 'accumulate'>('replace');
   
   const [parsedData, setParsedData] = useState<any[]>([]);
   const [unmappedAds, setUnmappedAds] = useState<{adName: string, adId: string}[]>([]);
   const [mappings, setMappings] = useState<Record<string, number>>({});
+  const [existingAdsMap, setExistingAdsMap] = useState<Map<string, any>>(new Map());
   const [showErrorLogs, setShowErrorLogs] = useState(false);
   
   const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
@@ -135,7 +137,15 @@ export default function AdsImport() {
     const ext = file.name.split('.').pop()?.toLowerCase();
 
     const processParsed = async (data: any[]) => {
-      const validData = data.filter(row => Object.keys(row).length > 0 && (row['Ad ID'] || row['Ad ID (Shop)'] || row['Ad name']));
+      const validData = data.filter(row => Object.keys(row).length > 0 && (row['Ad name'] || row['Ad Name'] || row['Ad Group Name']));
+      
+      const missingAdIds = validData.filter(row => !String(row['Ad ID'] || row['Ad ID (Shop)'] || row['Ad Id'] || '').trim());
+      if (missingAdIds.length > 0) {
+        alert(`BLOKIR: Terdapat ${missingAdIds.length} baris iklan yang tidak memiliki Ad ID. Mohon perbaiki file Excel Anda dan isi Ad ID-nya (atau buat manual) untuk mencegah duplikasi fatal.`);
+        setLoading(false);
+        return;
+      }
+
       setParsedData(validData);
 
       const { data: dbMappings } = await supabase.from('ad_name_mapping').select('*');
@@ -143,15 +153,23 @@ export default function AdsImport() {
       dbMappings?.forEach(m => knownMappingMap[m.ad_name] = m.creator_id);
 
       let unknownAdsMap = new Map<string, string>(); 
+      const adIds = new Set<string>();
 
       for (const row of validData) {
         const adName = row['Ad name'] || row['Ad Name'] || row['Ad Group Name'] || '';
-        const adId = row['Ad ID'] || row['Ad ID (Shop)'] || row['Ad Id'] || '';
+        const adId = String(row['Ad ID'] || row['Ad ID (Shop)'] || row['Ad Id'] || '').trim();
+        adIds.add(adId);
         
         if (adName && !knownMappingMap[adName]) {
           unknownAdsMap.set(adName, adId);
         }
       }
+
+      // Fetch existing ads
+      const { data: existingAds } = await supabase.from('ads_performance').select('ad_id, cost_usd, gross_revenue_usd').in('ad_id', Array.from(adIds));
+      const existMap = new Map();
+      existingAds?.forEach(ad => existMap.set(ad.ad_id, ad));
+      setExistingAdsMap(existMap);
 
       const unknownAdsList = Array.from(unknownAdsMap.entries()).map(([name, id]) => ({ adName: name, adId: id }));
       
@@ -211,7 +229,7 @@ export default function AdsImport() {
 
         const inserts = chunk.map(row => {
           const adName = row['Ad name'] || row['Ad Name'] || row['Ad Group Name'] || '';
-          const adId = String(row['Ad ID'] || row['Ad ID (Shop)'] || row['Ad Id'] || `${Date.now()}-${Math.random()}`);
+          const adId = String(row['Ad ID'] || row['Ad ID (Shop)'] || row['Ad Id']).trim();
           const costUsd = safeParseNum(row['Cost'] || row['Spend'] || row['Amount Spent (USD)']);
           const grossRevenueUsd = safeParseNum(row['Gross revenue (Shop)'] || row['Total Revenue']);
           const purchases = safeParseNum(row['Purchases (Shop)'] || row['Purchases'] || row['Conversions']);
@@ -219,14 +237,21 @@ export default function AdsImport() {
           const clicks = safeParseNum(row['Clicks (destination)'] || row['Clicks']);
           const creatorId = mappings[adName] || null;
 
+          const oldData = existingAdsMap.get(adId);
+          const oldCost = oldData ? oldData.cost_usd : 0;
+          const oldRev = oldData ? oldData.gross_revenue_usd : 0;
+          
+          const finalCost = importMode === 'accumulate' ? oldCost + costUsd : costUsd;
+          const finalRev = importMode === 'accumulate' ? oldRev + grossRevenueUsd : grossRevenueUsd;
+
           return {
             ad_id: adId,
             campaign_id: Number(selectedCampaign),
             ad_name: adName,
             creator_id: creatorId,
             tanggal: new Date().toISOString().split('T')[0],
-            cost_usd: costUsd,
-            gross_revenue_usd: grossRevenueUsd,
+            cost_usd: finalCost,
+            gross_revenue_usd: finalRev,
             purchases,
             impressions,
             clicks,
@@ -307,6 +332,14 @@ export default function AdsImport() {
                   <input type="number" className="w-full p-2 pl-8 border border-slate-300 rounded-lg focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" value={kurs} onChange={e => setKurs(e.target.value)} />
                 </div>
               </div>
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Mode Import</label>
+              <select className="w-full p-2 border border-slate-300 rounded-lg focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-white" value={importMode} onChange={e => setImportMode(e.target.value as 'replace' | 'accumulate')}>
+                <option value="replace">Timpa Data Lama (Gunakan jika data Excel berupa Laporan Total/Lifetime)</option>
+                <option value="accumulate">Akumulasi / Tambahkan Data (Gunakan jika data Excel berupa Pertambahan Harian)</option>
+              </select>
             </div>
 
             <div className="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center bg-slate-50 hover:bg-slate-100 transition-colors">
@@ -410,24 +443,30 @@ export default function AdsImport() {
                           onChange={handleSelectAllVisible}
                         />
                       </th>
-                      <th className="p-3 font-semibold">Ad Name</th>
+                      <th className="p-3 font-semibold">Ad Name / Ad ID</th>
                       <th className="p-3 font-semibold">Kreator (Mapped)</th>
-                      <th className="p-3 font-semibold">Cost (USD)</th>
-                      <th className="p-3 font-semibold">Revenue (USD)</th>
-                      <th className="p-3 font-semibold">Conversions</th>
-                      <th className="p-3 font-semibold">Video Views / Impr</th>
+                      <th className="p-3 font-semibold text-center bg-indigo-50/50">Spend (Excel ➔ Akhir)</th>
+                      <th className="p-3 font-semibold text-center bg-emerald-50/50">GMV (Excel ➔ Akhir)</th>
+                      <th className="p-3 font-semibold">Status</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {filteredAds.slice((previewPage - 1) * 50, previewPage * 50).map(({ row, index }) => {
                       const adName = getAdName(row);
+                      const adId = String(row['Ad ID'] || row['Ad ID (Shop)'] || row['Ad Id']).trim();
                       const creatorId = mappings[adName];
                       const creatorName = creatorId ? creators.find(c => c.id === creatorId)?.username : null;
                       const costUsd = safeParseNum(row['Cost'] || row['Spend'] || row['Amount Spent (USD)']);
                       const revenueUsd = safeParseNum(row['Gross revenue (Shop)'] || row['Total Revenue']);
-                      const purchases = safeParseNum(row['Purchases (Shop)'] || row['Purchases'] || row['Conversions']);
-                      const impr = safeParseNum(row['Impressions']);
                       const isSelected = selectedIndices.has(index);
+
+                      const oldData = existingAdsMap.get(adId);
+                      const oldCost = oldData ? oldData.cost_usd : 0;
+                      const oldRev = oldData ? oldData.gross_revenue_usd : 0;
+                      
+                      const finalCost = importMode === 'accumulate' ? oldCost + costUsd : costUsd;
+                      const finalRev = importMode === 'accumulate' ? oldRev + revenueUsd : revenueUsd;
+                      const krs = safeParseNum(kurs) || 16000;
 
                       return (
                         <tr key={index} className={`hover:bg-indigo-50/50 transition-colors cursor-pointer ${isSelected ? 'bg-indigo-50/30' : ''}`} onClick={() => {
@@ -447,7 +486,10 @@ export default function AdsImport() {
                               }}
                             />
                           </td>
-                          <td className="p-3 max-w-[200px] truncate" title={adName}>{adName}</td>
+                          <td className="p-3">
+                            <div className="font-bold text-slate-800 max-w-[200px] truncate" title={adName}>{adName}</div>
+                            <div className="text-xs text-slate-500 mt-0.5 max-w-[200px] truncate" title={adId}>{adId}</div>
+                          </td>
                           <td className="p-3">
                             {creatorName ? (
                               <span className="font-medium text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded text-xs">@{creatorName}</span>
@@ -455,10 +497,17 @@ export default function AdsImport() {
                               <span className="text-slate-400 italic text-xs">Unmapped</span>
                             )}
                           </td>
-                          <td className="p-3 font-mono text-xs text-rose-600">${costUsd.toFixed(2)}</td>
-                          <td className="p-3 font-mono text-xs text-emerald-600">${revenueUsd.toFixed(2)}</td>
-                          <td className="p-3">{purchases}</td>
-                          <td className="p-3 text-slate-500">{impr.toLocaleString()}</td>
+                          <td className="p-3 text-center bg-indigo-50/30 border-l border-white">
+                            <div className="text-xs text-slate-500 mb-1">+{costUsd.toFixed(2)} ➔ <span className="font-bold text-indigo-700">${finalCost.toFixed(2)}</span></div>
+                            <div className="text-[10px] text-slate-400">Rp {(finalCost * krs / 1000000).toFixed(2)}M</div>
+                          </td>
+                          <td className="p-3 text-center bg-emerald-50/30 border-l border-white">
+                            <div className="text-xs text-slate-500 mb-1">+{revenueUsd.toFixed(2)} ➔ <span className="font-bold text-emerald-700">${finalRev.toFixed(2)}</span></div>
+                            <div className="text-[10px] text-slate-400">Rp {(finalRev * krs / 1000000).toFixed(2)}M</div>
+                          </td>
+                          <td className="p-3 text-xs">
+                            {oldData ? <span className="text-amber-600 font-medium">Update Data</span> : <span className="text-emerald-600 font-medium">Iklan Baru</span>}
+                          </td>
                         </tr>
                       );
                     })}

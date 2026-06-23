@@ -10,6 +10,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { exportToCSV } from "@/utils/exportCsv";
 import { createClient } from "@/utils/supabase/client";
 import { useAuth } from "@/providers/AuthProvider";
+import { useRouter } from "next/navigation";
 
 const supabase = createClient();
 const PAGE_SIZE = 50;
@@ -36,6 +37,7 @@ function CampaignListingContent() {
 
   const { profile, canEditCampaign } = useAuth();
   const hasAccess = canEditCampaign(campaignId);
+  const router = useRouter();
 
   const campaign = campaigns.find(c => c.id === campaignId);
   const isClientApprovalRequired = campaign?.require_client_approval || false;
@@ -96,11 +98,10 @@ function CampaignListingContent() {
 
   // Add Creator Modal State
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [newCreatorId, setNewCreatorId] = useState<string>('');
-  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [bulkUsernames, setBulkUsernames] = useState<string>('');
   const [newPrice, setNewPrice] = useState<string>('0');
   const [newQtyVt, setNewQtyVt] = useState<string>('1');
-  const [filteredCreators, setFilteredCreators] = useState<any[]>([]);
+  const [isAddingBulk, setIsAddingBulk] = useState(false);
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -247,30 +248,6 @@ function CampaignListingContent() {
     fetchListing(next, false);
   };
 
-  // Search Add Creator dynamically
-  useEffect(() => {
-    const searchAvailable = async () => {
-      if (!searchQuery) {
-        setFilteredCreators([]);
-        return;
-      }
-      const fuzzyPattern = '%' + searchQuery.split('').join('%') + '%';
-      const { data } = await supabase.from('creators')
-        .select('id, username')
-        .ilike('username', fuzzyPattern)
-        .limit(30);
-      
-      if (data) {
-        // Sort locally by length to bring the closest match to the top
-        const sorted = data.sort((a, b) => a.username.length - b.username.length).slice(0, 10);
-        setFilteredCreators(sorted);
-      } else {
-        setFilteredCreators([]);
-      }
-    };
-    const handler = setTimeout(searchAvailable, 300);
-    return () => clearTimeout(handler);
-  }, [searchQuery]);
 
   const toggleExpand = (ccId: number) => {
     setExpandedRows(prev => ({ ...prev, [ccId]: !prev[ccId] }));
@@ -339,45 +316,183 @@ function CampaignListingContent() {
 
   const handleAddCreator = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newCreatorId || !hasAccess) return;
+    if (!bulkUsernames.trim() || !hasAccess || isAddingBulk) return;
 
-    await addCampaignCreator({
-      campaign_id: campaignId,
-      creator_id: Number(newCreatorId),
-      tier: 'NANO',
-      price: Number(newPrice),
-      qty_vt: Number(newQtyVt),
-      content_type: null,
-      approval: 'pending',
-      pic_assist: profile?.nama || '-',
-      notes_manager: '',
-      notes_pic: '',
-      sample_progress: 'Belum',
-      gmv_organic_legacy: 0,
-      gmv_ads_legacy: 0,
-      status_bayar: 'belum',
-      nominal_pelunasan: 0,
-      tgl_pembayaran: null,
-      client_approval: isClientApprovalRequired ? 'pending' : 'not_required',
-      added_by: profile?.id || null,
-      approved_by: null,
-      approved_at: null,
-      not_approved_by: null,
-      not_approved_at: null,
-      payment_updated_by: null,
-      payment_updated_at: null
-    });
-    
-    setIsAddModalOpen(false);
-    setNewCreatorId('');
-    setSearchQuery('');
-    setNewPrice('0');
-    setNewQtyVt('1');
-    
-    // Refresh data
-    setPage(0);
-    fetchListing(0, true);
-    fetchCounts();
+    setIsAddingBulk(true);
+
+    try {
+      const usernames = bulkUsernames.split('\n')
+        .map(u => u.replace('@', '').trim().toLowerCase())
+        .filter(u => u.length > 0);
+      
+      if (usernames.length === 0) {
+        setIsAddingBulk(false);
+        return;
+      }
+
+      // Unique usernames
+      const uniqueUsernames = Array.from(new Set(usernames));
+
+      // 1. Fetch existing creators to see which ones are missing and check completeness
+      const { data: existingData, error: fetchErr } = await supabase.from('creators')
+        .select(`
+          id, username, added_by,
+          creator_contacts(id),
+          creator_snapshots(id),
+          creator_niches(id)
+        `)
+        .in('username', uniqueUsernames);
+
+      if (fetchErr) throw fetchErr;
+
+      const existingMap = new Map((existingData || []).map(c => [c.username.toLowerCase(), c]));
+      const missingUsernames = uniqueUsernames.filter(u => !existingMap.has(u));
+
+      // 2. Insert missing creators
+      let newlyInserted: any[] = [];
+      if (missingUsernames.length > 0) {
+        const payloads = missingUsernames.map(u => ({
+          username: u,
+          link_account: `https://www.tiktok.com/@${u}`,
+          added_by: profile?.id
+        }));
+
+        const { data: insertedData, error: insErr } = await supabase.from('creators')
+          .insert(payloads)
+          .select('id, username, added_by');
+
+        if (insErr) throw insErr;
+        newlyInserted = insertedData || [];
+      }
+
+      // Combine existing and newly inserted
+      const allCreators: any[] = [...(existingData || []), ...newlyInserted];
+
+      // 3. Prepare campaign creators bulk payload
+      const campaignPayloads = allCreators.map(c => ({
+        campaign_id: campaignId,
+        creator_id: c.id,
+        tier: 'NANO',
+        price: Number(newPrice),
+        qty_vt: Number(newQtyVt),
+        content_type: null,
+        approval: 'pending',
+        pic_assist: profile?.nama || '-',
+        notes_manager: '',
+        notes_pic: '',
+        sample_progress: 'Belum',
+        gmv_organic_legacy: 0,
+        gmv_ads_legacy: 0,
+        status_bayar: 'belum',
+        nominal_pelunasan: 0,
+        tgl_pembayaran: null,
+        client_approval: isClientApprovalRequired ? 'pending' : 'not_required',
+        added_by: profile?.id || null,
+        approved_by: null,
+        approved_at: null,
+        not_approved_by: null,
+        not_approved_at: null,
+        payment_updated_by: null,
+        payment_updated_at: null
+      }));
+
+      // 4. Check if they are already in the campaign to avoid duplication
+      const { data: existingCcData } = await supabase.from('campaign_creators')
+        .select('creator_id')
+        .eq('campaign_id', campaignId)
+        .in('creator_id', allCreators.map(c => c.id));
+      
+      const existingCcSet = new Set((existingCcData || []).map(cc => cc.creator_id));
+      const newCampaignPayloads = campaignPayloads.filter(p => !existingCcSet.has(p.creator_id));
+
+      if (newCampaignPayloads.length > 0) {
+        const { error: ccErr } = await supabase.from('campaign_creators').insert(newCampaignPayloads);
+        if (ccErr) throw ccErr;
+      }
+
+      // 5. Check for incomplete records and takeover logic
+      const usernamesToRedirect: string[] = [];
+      const takeoverPromises: any[] = [];
+
+      for (const c of allCreators) {
+        const isComplete = c.creator_contacts && c.creator_contacts.length > 0 &&
+                           c.creator_snapshots && c.creator_snapshots.length > 0 &&
+                           c.creator_niches && c.creator_niches.length > 0;
+        
+        if (!isComplete) {
+          if (c.added_by === profile?.id) {
+            // It's incomplete and belongs to us, we MUST complete it
+            usernamesToRedirect.push(c.username);
+          } else {
+            // It's incomplete but belongs to someone else. TAKEOVER RULE!
+            const promise = (async () => {
+              const { error } = await supabase.from('creators')
+                .update({ added_by: profile?.id })
+                .eq('id', c.id);
+              if (error) throw error;
+            })();
+            takeoverPromises.push(promise);
+            
+            // Now we own it, so we MUST complete it
+            usernamesToRedirect.push(c.username);
+          }
+        }
+      }
+
+      // Execute all takeover updates concurrently for maximum speed
+      if (takeoverPromises.length > 0) {
+        await Promise.all(takeoverPromises);
+      }
+
+      // 6. Handle Redirect or Close
+      if (usernamesToRedirect.length > 0) {
+        // Construct the draft payload
+        const drafts = usernamesToRedirect.map((u) => ({
+          id: Math.random().toString(36).substring(2, 9),
+          username: u,
+          followers: '',
+          level: '',
+          audience_age: '',
+          gmv_30d: '',
+          niche: '',
+          mcn: '',
+          ratecard: '',
+          whatsapp: ''
+        }));
+
+        // Read existing drafts if any, append ours
+        let existingDrafts: any[] = [];
+        try {
+          const saved = localStorage.getItem('tnt_import_draft_global');
+          if (saved) {
+             const parsed = JSON.parse(saved);
+             if (Array.isArray(parsed)) existingDrafts = parsed;
+          }
+        } catch(e) {}
+        
+        const combinedDrafts = [...drafts, ...existingDrafts.filter(d => !usernamesToRedirect.includes(d.username))];
+        localStorage.setItem('tnt_import_draft_global', JSON.stringify(combinedDrafts));
+
+        // Alert user before redirecting
+        alert(`Berhasil masuk ke Campaign! Namun ada ${usernamesToRedirect.length} kreator yang datanya belum lengkap. Anda akan dialihkan untuk melengkapinya.`);
+        router.push('/creator-pool/import');
+        return; // Don't reset state or refresh, just redirect
+      }
+
+      // If no redirect, close modal and refresh
+      setIsAddModalOpen(false);
+      setBulkUsernames('');
+      setNewPrice('0');
+      setNewQtyVt('1');
+      setPage(0);
+      fetchListing(0, true);
+      fetchCounts();
+
+    } catch (err: any) {
+      alert("Gagal menambahkan kreator: " + err.message);
+    } finally {
+      setIsAddingBulk(false);
+    }
   };
 
   const handleExport = () => {
@@ -449,8 +564,7 @@ function CampaignListingContent() {
           {hasAccess && (
             <button className="btn btn-primary" onClick={() => {
               setIsAddModalOpen(true);
-              setSearchQuery('');
-              setNewCreatorId('');
+              setBulkUsernames('');
             }}>
               + Tambah Creator
             </button>
@@ -640,32 +754,15 @@ function CampaignListingContent() {
             <h3 className="text-[18px] font-bold mb-[16px]">Tambah Creator ke Campaign</h3>
             <form onSubmit={handleAddCreator} className="space-y-[16px]">
               <div>
-                <label className="text-[13px] font-semibold text-text block mb-[6px]">Cari & Pilih Creator</label>
-                <input 
-                  type="text"
-                  placeholder="Ketik username creator..."
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                  className="input mb-[8px]"
+                <label className="text-[13px] font-semibold text-text block mb-[6px]">Cari & Pilih Creator (Bulk Input)</label>
+                <textarea 
+                  placeholder="Paste username creator di sini, pisahkan dengan baris (enter)..."
+                  value={bulkUsernames}
+                  onChange={e => setBulkUsernames(e.target.value)}
+                  className="input min-h-[150px] font-mono text-sm resize-y"
+                  required
                 />
-                
-                <div className="border border-line rounded-[8px] max-h-40 overflow-y-auto bg-slate-50">
-                  {filteredCreators.length === 0 ? (
-                    <div className="p-3 text-[13px] text-text-soft text-center">
-                      {searchQuery ? "Creator tidak ditemukan" : "Ketik untuk mencari..."}
-                    </div>
-                  ) : (
-                    filteredCreators.map(c => (
-                      <div 
-                        key={c.id} 
-                        onClick={() => setNewCreatorId(c.id.toString())}
-                        className={`p-[10px] text-[13px] cursor-pointer border-b border-line last:border-0 hover:bg-p50 transition-colors ${newCreatorId === c.id.toString() ? 'bg-p50 font-semibold text-p300' : ''}`}
-                      >
-                        @{c.username}
-                      </div>
-                    ))
-                  )}
-                </div>
+                <p className="text-[11px] text-text-soft mt-[4px]">Bisa copy-paste dari Excel. Satu baris untuk satu username. Tanpa tanda @.</p>
               </div>
               
               <div className="grid grid-cols-2 gap-[16px]">
@@ -696,7 +793,15 @@ function CampaignListingContent() {
 
               <div className="flex justify-end gap-[10px] mt-[24px]">
                 <button type="button" className="btn btn-outline" onClick={() => setIsAddModalOpen(false)}>Batal</button>
-                <button type="submit" className="btn btn-primary" disabled={!newCreatorId}>Simpan</button>
+                <button type="submit" className="btn btn-primary" disabled={!bulkUsernames.trim() || isAddingBulk}>
+                  {isAddingBulk ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin mr-2 inline-block" /> Menyimpan...
+                    </>
+                  ) : (
+                    'Simpan'
+                  )}
+                </button>
               </div>
             </form>
           </div>

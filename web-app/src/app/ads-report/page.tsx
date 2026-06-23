@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useState, useRef, useEffect, useDeferredValue } from "react";
+import React, { useState, useRef, useEffect, useDeferredValue, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/Table";
 import { useDatabaseStore } from "@/store/useDatabaseStore";
 import { createClient } from "@/utils/supabase/client";
-import { Edit2, Check, X, Search, FileSpreadsheet, Loader2, Trash2, Lock, Download } from "lucide-react";
+import { Edit2, Check, X, Search, FileSpreadsheet, Loader2, Trash2, Lock, Download, DollarSign, TrendingUp, AlertCircle, BarChart3 } from "lucide-react";
 import { useAuth } from "@/providers/AuthProvider";
 import { exportToExcel } from "@/utils/exportToExcel";
 import { Button } from "@/components/ui/Button";
@@ -104,6 +104,7 @@ export default function AdsReportPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const deferredSearchQuery = useDeferredValue(searchQuery);
+  const [selectedCampaignId, setSelectedCampaignId] = useState<number | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   
@@ -127,6 +128,7 @@ export default function AdsReportPage() {
   const [editCampaignId, setEditCampaignId] = useState<number | ''>('');
   const [editCreatorId, setEditCreatorId] = useState<number | ''>('');
   const [editKurs, setEditKurs] = useState<string>('');
+  const [editAdId, setEditAdId] = useState<string>('');
   const [isSaving, setIsSaving] = useState(false);
 
   const startEdit = (ad: any) => {
@@ -134,6 +136,7 @@ export default function AdsReportPage() {
     setEditCampaignId(ad.campaign_id || '');
     setEditCreatorId(ad.creator_id || '');
     setEditKurs(ad.kurs?.toString() || '16000');
+    setEditAdId(ad.ad_id || '');
   };
 
   const cancelEdit = () => {
@@ -141,6 +144,7 @@ export default function AdsReportPage() {
     setEditCampaignId('');
     setEditCreatorId('');
     setEditKurs('');
+    setEditAdId('');
   };
 
   const saveEdit = async (id: number) => {
@@ -158,7 +162,8 @@ export default function AdsReportPage() {
     const { error } = await supabase.from('ads_performance').update({
       campaign_id: cId,
       creator_id: crId,
-      kurs: numKurs
+      kurs: numKurs,
+      ad_id: editAdId.trim() || null
     }).eq('id', id);
 
     if (!error) {
@@ -167,6 +172,7 @@ export default function AdsReportPage() {
         campaign_id: cId, 
         creator_id: crId, 
         kurs: numKurs,
+        ad_id: editAdId.trim() || null,
         creators: newUsername ? { username: newUsername } : null
       } : ad));
       cancelEdit();
@@ -189,20 +195,81 @@ export default function AdsReportPage() {
     setDeletingId(null);
   };
 
-  // Filter ads performance
-  const filteredAds = adsPerformance.filter(ad => {
-    if (!deferredSearchQuery) return true;
-    const q = deferredSearchQuery.toLowerCase();
-    return (
-      (ad.ad_name && ad.ad_name.toLowerCase().includes(q)) || 
-      (ad.ad_id && ad.ad_id.toLowerCase().includes(q))
-    );
-  }).sort((a, b) => new Date(b.tanggal || '1970-01-01').getTime() - new Date(a.tanggal || '1970-01-01').getTime());
+  // 1. Filter by Search Query ONLY (for Campaign Cards)
+  const searchFilteredAds = useMemo(() => {
+    return adsPerformance.filter(ad => {
+      if (!deferredSearchQuery) return true;
+      const q = deferredSearchQuery.toLowerCase();
+      return (
+        (ad.ad_name && ad.ad_name.toLowerCase().includes(q)) || 
+        (ad.ad_id && ad.ad_id.toLowerCase().includes(q))
+      );
+    }).sort((a, b) => new Date(b.tanggal || '1970-01-01').getTime() - new Date(a.tanggal || '1970-01-01').getTime());
+  }, [adsPerformance, deferredSearchQuery]);
+
+  // 2. Filter by Search Query AND Clicked Campaign (for Table & Global Summary)
+  const tableFilteredAds = useMemo(() => {
+    if (selectedCampaignId === null) return searchFilteredAds;
+    return searchFilteredAds.filter(ad => ad.campaign_id === selectedCampaignId);
+  }, [searchFilteredAds, selectedCampaignId]);
+
+  // 3. Campaign Breakdown Calculation (from searchFilteredAds)
+  const campaignBreakdown = useMemo(() => {
+    const summary: Record<number, { name: string, spend: number, gmv: number, unmapped: number }> = {};
+    let globalUnmappedCampaigns = 0;
+
+    searchFilteredAds.forEach(ad => {
+      const kurs = ad.kurs || 16000;
+      const spendIDR = (ad.cost_usd || 0) * kurs;
+      const gmvIDR = (ad.gross_revenue_usd || 0) * kurs;
+      
+      const cId = ad.campaign_id;
+      if (!cId) {
+        globalUnmappedCampaigns++;
+        return;
+      }
+      
+      if (!summary[cId]) {
+        summary[cId] = { 
+          name: campaigns.find(c => c.id === cId)?.nama || 'Unknown', 
+          spend: 0, 
+          gmv: 0, 
+          unmapped: 0 
+        };
+      }
+      
+      summary[cId].spend += spendIDR;
+      summary[cId].gmv += gmvIDR;
+      if (!ad.creator_id) summary[cId].unmapped++;
+    });
+
+    const list = Object.entries(summary).map(([id, data]) => ({ id: Number(id), ...data }));
+    list.sort((a, b) => b.gmv - a.gmv); // sort by GMV highest
+
+    return { list, globalUnmappedCampaigns };
+  }, [searchFilteredAds, campaigns]);
+
+  // 4. Global Summary Calculation (from tableFilteredAds)
+  const globalSummary = useMemo(() => {
+    let totalSpend = 0;
+    let totalGmv = 0;
+    let totalUnmapped = 0;
+
+    tableFilteredAds.forEach(ad => {
+      const kurs = ad.kurs || 16000;
+      totalSpend += (ad.cost_usd || 0) * kurs;
+      totalGmv += (ad.gross_revenue_usd || 0) * kurs;
+      if (!ad.campaign_id || !ad.creator_id) totalUnmapped++;
+    });
+
+    const roas = totalSpend > 0 ? totalGmv / totalSpend : 0;
+    return { totalSpend, totalGmv, totalUnmapped, roas };
+  }, [tableFilteredAds]);
 
   // const creatorOptions = creators.map(c => ({ id: c.id, label: `@${c.username}` }));
 
   const handleExport = () => {
-    const dataToExport = filteredAds.map(ad => ({
+    const dataToExport = tableFilteredAds.map(ad => ({
       "Tanggal": ad.tanggal,
       "Campaign": campaigns.find(c => c.id === ad.campaign_id)?.nama || 'Unknown',
       "Creator": ad.creators?.username || 'Unknown',
@@ -262,11 +329,131 @@ export default function AdsReportPage() {
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
         </div>
       ) : (
-      <Card className="border-slate-200 shadow-sm">
+      <>
+        {/* Global Summary Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card className="border-slate-200 shadow-sm">
+            <CardContent className="p-6 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-slate-500 mb-1">Total Spend (IDR)</p>
+                <h3 className="text-2xl font-bold text-slate-800">
+                  Rp {globalSummary.totalSpend.toLocaleString('id-ID', { maximumFractionDigits: 0 })}
+                </h3>
+              </div>
+              <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center text-red-500">
+                <DollarSign className="w-6 h-6" />
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card className="border-slate-200 shadow-sm">
+            <CardContent className="p-6 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-slate-500 mb-1">Total GMV (IDR)</p>
+                <h3 className="text-2xl font-bold text-emerald-600">
+                  Rp {globalSummary.totalGmv.toLocaleString('id-ID', { maximumFractionDigits: 0 })}
+                </h3>
+              </div>
+              <div className="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-500">
+                <TrendingUp className="w-6 h-6" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-slate-200 shadow-sm">
+            <CardContent className="p-6 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-slate-500 mb-1">ROAS Keseluruhan</p>
+                <h3 className={`text-2xl font-bold ${globalSummary.roas >= 2 ? 'text-emerald-600' : globalSummary.roas >= 1 ? 'text-amber-500' : 'text-red-500'}`}>
+                  {globalSummary.roas.toFixed(2)}x
+                </h3>
+              </div>
+              <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center text-blue-500">
+                <BarChart3 className="w-6 h-6" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className={`border-slate-200 shadow-sm ${globalSummary.totalUnmapped > 0 ? 'bg-amber-50 border-amber-200' : ''}`}>
+            <CardContent className="p-6 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-slate-500 mb-1">Status Mapping</p>
+                <h3 className={`text-2xl font-bold ${globalSummary.totalUnmapped > 0 ? 'text-amber-600' : 'text-slate-800'}`}>
+                  {globalSummary.totalUnmapped > 0 ? `${globalSummary.totalUnmapped} Unmapped` : 'Aman (100%)'}
+                </h3>
+              </div>
+              <div className={`w-12 h-12 rounded-full flex items-center justify-center ${globalSummary.totalUnmapped > 0 ? 'bg-amber-100 text-amber-600' : 'bg-slate-100 text-slate-500'}`}>
+                {globalSummary.totalUnmapped > 0 ? <AlertCircle className="w-6 h-6" /> : <Check className="w-6 h-6" />}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Campaign Breakdown Cards (Interactive Filter) */}
+        {campaignBreakdown.list.length > 0 && (
+          <div className="py-2">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-slate-700">Campaign Breakdown (Klik untuk Filter Tabel)</h3>
+              {selectedCampaignId && (
+                <button 
+                  onClick={() => setSelectedCampaignId(null)}
+                  className="text-xs text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1"
+                >
+                  <X className="w-3 h-3" /> Hapus Filter
+                </button>
+              )}
+            </div>
+            <div className="flex gap-4 overflow-x-auto pb-4 pt-1 px-1 custom-scrollbar snap-x">
+              {campaignBreakdown.list.map(camp => {
+                const roas = camp.spend > 0 ? camp.gmv / camp.spend : 0;
+                const isActive = selectedCampaignId === camp.id;
+                return (
+                  <div 
+                    key={camp.id}
+                    onClick={() => setSelectedCampaignId(isActive ? null : camp.id)}
+                    className={`flex-shrink-0 w-64 p-4 rounded-xl border transition-all cursor-pointer snap-start ${
+                      isActive 
+                        ? 'border-blue-500 bg-blue-50/50 shadow-md ring-1 ring-blue-500 ring-offset-1' 
+                        : 'border-slate-200 bg-white hover:border-blue-300 hover:shadow-md'
+                    }`}
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <h4 className={`font-bold truncate pr-2 ${isActive ? 'text-blue-700' : 'text-slate-800'}`} title={camp.name}>{camp.name}</h4>
+                      {camp.unmapped > 0 && (
+                        <span className="bg-amber-100 text-amber-700 text-[10px] px-1.5 py-0.5 rounded font-medium flex items-center gap-1" title={`${camp.unmapped} iklan belum di-map`}>
+                          <AlertCircle className="w-3 h-3" /> {camp.unmapped}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="text-slate-500">Spend:</span>
+                      <span className="font-semibold text-red-600">Rp {(camp.spend / 1000000).toFixed(1)}M</span>
+                    </div>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="text-slate-500">GMV:</span>
+                      <span className="font-semibold text-emerald-600">Rp {(camp.gmv / 1000000).toFixed(1)}M</span>
+                    </div>
+                    <div className="flex justify-between text-xs pt-1 border-t border-slate-100 mt-2">
+                      <span className="text-slate-500">ROAS:</span>
+                      <span className={`font-bold ${roas >= 2 ? 'text-emerald-600' : roas >= 1 ? 'text-amber-500' : 'text-red-500'}`}>
+                        {roas.toFixed(2)}x
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        <Card className="border-slate-200 shadow-sm mt-4">
         <CardHeader className="pb-3 border-b border-slate-100 flex flex-row items-center justify-between">
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <FileSpreadsheet className="w-5 h-5 text-indigo-600" />
-            Database Iklan ({filteredAds.length} baris)
+          <CardTitle className="flex items-center justify-between w-full text-lg">
+            <div className="flex items-center gap-2">
+              <FileSpreadsheet className="w-5 h-5 text-indigo-600" />
+              Database Iklan ({tableFilteredAds.length} baris)
+              {selectedCampaignId && <span className="ml-2 text-xs font-normal px-2 py-1 bg-blue-100 text-blue-700 rounded-full">Filtered</span>}
+            </div>
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
@@ -286,7 +473,7 @@ export default function AdsReportPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredAds.slice(0, 100).map((ad) => {
+                {tableFilteredAds.slice(0, 100).map((ad) => {
                   const isEditing = editingId === ad.id;
                   const creatorUsername = ad.creators?.username;
                   const campaign = campaigns.find(c => c.id === ad.campaign_id);
@@ -294,9 +481,23 @@ export default function AdsReportPage() {
                   return (
                     <TableRow key={ad.id} className="hover:bg-slate-50/50">
                       <TableCell className="text-xs text-slate-500">{ad.tanggal ? new Date(ad.tanggal).toLocaleDateString('id-ID') : '-'}</TableCell>
-                      <TableCell className="text-xs font-mono text-slate-500 truncate" title={ad.ad_id}>{ad.ad_id}</TableCell>
-                      <TableCell className="text-xs font-medium text-slate-700 truncate max-w-[200px]" title={ad.ad_name}>
-                        {ad.ad_name}
+                      <TableCell className="font-medium text-xs">
+                        {isEditing ? (
+                          <input
+                            type="text"
+                            placeholder="Ad ID"
+                            className="w-full p-1 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-indigo-500"
+                            value={editAdId}
+                            onChange={(e) => setEditAdId(e.target.value)}
+                          />
+                        ) : (
+                          <div className={`font-mono truncate ${ad.ad_id ? 'text-slate-500' : 'text-red-500 font-bold'}`} title={ad.ad_id || 'KOSONG'}>
+                            {ad.ad_id || 'ID KOSONG'}
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-xs font-medium text-slate-700">
+                        <div className="max-w-[200px] truncate" title={ad.ad_name}>{ad.ad_name}</div>
                       </TableCell>
                       
                       {/* Campaign Column */}
@@ -386,25 +587,22 @@ export default function AdsReportPage() {
                     </TableRow>
                   );
                 })}
-                {filteredAds.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={9} className="h-32 text-center text-slate-500">
-                      Tidak ada data iklan yang ditemukan.
-                    </TableCell>
-                  </TableRow>
-                )}
-                {filteredAds.length > 100 && (
-                  <TableRow>
-                    <TableCell colSpan={9} className="py-4 text-center text-xs text-slate-500 bg-slate-50 italic">
-                      Menampilkan 100 data teratas dari {filteredAds.length} data. Gunakan pencarian untuk mencari data spesifik.
-                    </TableCell>
-                  </TableRow>
-                )}
               </TableBody>
             </Table>
+            {tableFilteredAds.length > 100 && (
+              <div className="p-4 text-center text-sm text-slate-500 border-t border-slate-100">
+                Menampilkan 100 baris pertama dari {tableFilteredAds.length} hasil.
+              </div>
+            )}
+            {tableFilteredAds.length === 0 && !isLoading && (
+              <div className="p-10 text-center text-slate-500">
+                Tidak ada data iklan yang sesuai dengan pencarian atau filter Anda.
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
+      </>
       )}
     </div>
   );
