@@ -202,12 +202,36 @@ export default function CampaignVideoPage() {
     try {
       const creatorVideos = localVideos.filter(vid => vid.campaign_creator_id === ccId);
       
+      // Validasi semua link sebelum save
       for (const v of creatorVideos) {
+        if (v.link_video) {
+          if (isShortLink(v.link_video)) {
+             alert('Sistem tidak bisa menyimpan link pendek (vt.tiktok.com). Harap copy link panjang dari PC.');
+             setSaving(prev => ({ ...prev, [ccId]: false }));
+             return;
+          }
+          
+          const match = v.link_video.match(/video\/(\d+)/);
+          if (!match) {
+             alert(`Format link tidak valid: ${v.link_video}\\nHarap gunakan format: https://www.tiktok.com/@username/video/123456789`);
+             setSaving(prev => ({ ...prev, [ccId]: false }));
+             return;
+          }
+        }
+      }
+
+      for (const v of creatorVideos) {
+        let finalContentUid = v.content_uid;
+        if (v.link_video) {
+           const match = v.link_video.match(/video\/(\d+)/);
+           if (match) finalContentUid = match[1];
+        }
+
         if (v.id && typeof v.id === 'number') {
           await supabase.from('videos').update({
             concept: v.concept,
             link_video: v.link_video,
-            content_uid: v.content_uid,
+            content_uid: finalContentUid,
             sku_id: v.sku_id ? Number(v.sku_id) : null
           }).eq('id', v.id);
         } else {
@@ -216,7 +240,7 @@ export default function CampaignVideoPage() {
             urutan: v.urutan,
             concept: v.concept,
             link_video: v.link_video,
-            content_uid: v.content_uid,
+            content_uid: finalContentUid,
             sku_id: v.sku_id ? Number(v.sku_id) : null,
             vt_approval: 'approved'
           });

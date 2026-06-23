@@ -823,7 +823,7 @@ export default function CreatorProfilePage() {
                                   combinedVideos.push({
                                      id: `auto-${s.content_uid}`,
                                      content_uid: s.content_uid,
-                                     link_video: null,
+                                     link_video: `https://www.tiktok.com/@${localData?.creator?.username}/video/${s.content_uid}`,
                                      urutan: combinedVideos.length + 1,
                                      campaign_creator_id: tr.id
                                   });
