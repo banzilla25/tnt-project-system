@@ -331,7 +331,6 @@ function CampaignListingContent() {
       qty_vt: Number(editQtyVt),
       approval: editApproval,
       sample_progress: editSampleProgress,
-      status_bayar: editStatusBayar,
       notes_manager: editNotesManager,
       notes_pic: editNotesPic,
       ...(isClientApprovalRequired && { client_approval: editClientApproval }),
@@ -1113,15 +1112,8 @@ function CampaignListingContent() {
                                   <div className="grid grid-cols-2 md:grid-cols-4 gap-[16px]">
                                     <div className="bg-slate-50 border border-line rounded-[8px] p-[12px]">
                                       <h5 className="text-[11px] font-bold text-text-soft uppercase mb-[4px]">Status Pembayaran</h5>
-                                      {isEditing ? (
-                                        <select value={editStatusBayar} onChange={e=>setEditStatusBayar(e.target.value)} className="select !p-[4px]">
-                                          <option value="belum">Belum</option>
-                                          <option value="dp">DP</option>
-                                          <option value="lunas">Lunas</option>
-                                        </select>
-                                      ) : (
-                                        <p className="text-[13px] font-semibold text-text capitalize">{cc.status_bayar || '-'}</p>
-                                      )}
+                                      <p className="text-[13px] font-semibold text-text capitalize">{cc.status_bayar || '-'}</p>
+                                      {isEditing && <p className="text-[10px] text-text-soft italic mt-1">Dikelola via Tab Keuangan</p>}
                                     </div>
                                     <div className="bg-slate-50 border border-line rounded-[8px] p-[12px]">
                                       <h5 className="text-[11px] font-bold text-text-soft uppercase mb-[4px]">Progress Sample</h5>
