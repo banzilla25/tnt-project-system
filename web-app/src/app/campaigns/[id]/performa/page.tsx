@@ -56,30 +56,20 @@ function CampaignPerformaContent() {
       const queries = [
         supabase.from('campaign_sales_summary').select('*').eq('campaign_id', campaignId),
         supabase.from('campaign_total_sales').select('*').eq('campaign_id', campaignId).maybeSingle(),
-        supabase.from('ads_performance').select('*, creators(username)').eq('campaign_id', campaignId)
+        supabase.from('ads_performance').select('*, creators(username)').eq('campaign_id', campaignId),
+        supabase.from('campaign_awareness_summary').select('*').eq('campaign_id', campaignId),
+        supabase.from('campaign_total_awareness').select('*').eq('campaign_id', campaignId).maybeSingle(),
+        supabase.from('sales').select('creator_username, content_uid').eq('campaign_id', campaignId).not('content_uid', 'is', null)
       ];
-
-      if (isAwareness) {
-        queries.push(supabase.from('campaign_awareness_summary').select('*').eq('campaign_id', campaignId));
-        queries.push(supabase.from('campaign_total_awareness').select('*').eq('campaign_id', campaignId).maybeSingle());
-      }
-
-      queries.push(supabase.from('sales').select('creator_username, content_uid').eq('campaign_id', campaignId).not('content_uid', 'is', null));
 
       const results = await Promise.all(queries);
 
       if (results[0].data) setSalesSummary(results[0].data);
       if (results[1].data) setTotalSales(results[1].data);
       if (results[2].data) setAdsPerf(results[2].data);
-
-      let nextIdx = 3;
-      if (isAwareness) {
-        if (results[nextIdx]?.data) setAwarenessSummary(results[nextIdx].data);
-        if (results[nextIdx+1]?.data) setTotalAwareness(results[nextIdx+1].data);
-        nextIdx += 2;
-      }
-      
-      if (results[nextIdx]?.data) setSalesDataForVt(results[nextIdx].data);
+      if (results[3].data) setAwarenessSummary(results[3].data);
+      if (results[4].data) setTotalAwareness(results[4].data);
+      if (results[5].data) setSalesDataForVt(results[5].data);
 
       // 2. Fetch Approved Creators (Paginated to handle >1000)
       let allApproved: any[] = [];
@@ -239,7 +229,7 @@ function CampaignPerformaContent() {
          }
       });
       
-      const totalVt = isAwareness ? trackedVideos : totalVtCount;
+      const totalVt = Math.max(trackedVideos, totalVtCount);
 
       return {
         ccId: cc.id,
@@ -259,7 +249,7 @@ function CampaignPerformaContent() {
         totalVt
       };
     });
-  }, [localCreators, salesSummary, awarenessSummary, adsPerf, salesDataForVt, isAwareness]);
+  }, [localCreators, salesSummary, awarenessSummary, adsPerf, salesDataForVt]);
 
   const [sortField, setSortField] = useState<'username' | 'gmvOrganic' | 'gmvAds' | 'totalGmv' | 'totalVt' | 'videoViews'>('totalGmv');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
@@ -337,32 +327,32 @@ function CampaignPerformaContent() {
         </button>
       </div>
 
-      {isAwareness ? (
-        // ================= AWARENESS DASHBOARD =================
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-[24px]">
-          <div className="ccard bg-gradient-to-br from-indigo-50 to-blue-100/50 border-indigo-100 relative overflow-hidden md:col-span-2">
+      <div className="flex flex-col gap-[24px]">
+        {/* === SECTION: AWARENESS METRICS === */}
+        <div className={`grid grid-cols-1 md:grid-cols-4 gap-[24px] ${!isAwareness ? 'order-2' : 'order-1'}`}>
+          <div className={`ccard relative overflow-hidden md:col-span-2 ${isAwareness ? 'bg-gradient-to-br from-indigo-50 to-blue-100/50 border-indigo-100' : 'bg-white border-line'}`}>
             {loading && (
                <div className="absolute top-[8px] right-[8px] flex items-center justify-center bg-white/80 p-[6px] rounded-full shadow-sm">
-                  <Loader2 className="w-3 h-3 text-indigo-600 animate-spin" />
+                  <Loader2 className={`w-3 h-3 animate-spin ${isAwareness ? 'text-indigo-600' : 'text-slate-500'}`} />
                </div>
             )}
             <div className="p-[24px]">
               <div className="flex justify-between items-start">
                 <div>
-                  <p className="text-[13px] font-medium text-indigo-800">Total Keseluruhan Views</p>
-                  <h3 className="text-[32px] font-bold mt-[8px] text-indigo-900">{totalCampaignViews.toLocaleString()}</h3>
-                  <p className="text-[11px] font-semibold text-indigo-700/80 mt-[4px]">Dihitung dari {totalCampaignVideos} video unik</p>
+                  <p className={`text-[13px] font-medium ${isAwareness ? 'text-indigo-800' : 'text-text-soft'}`}>Total Keseluruhan Views</p>
+                  <h3 className={`text-[32px] font-bold mt-[8px] ${isAwareness ? 'text-indigo-900' : 'text-text'}`}>{totalCampaignViews.toLocaleString()}</h3>
+                  <p className={`text-[11px] font-semibold mt-[4px] ${isAwareness ? 'text-indigo-700/80' : 'text-text-soft'}`}>Dihitung dari {totalCampaignVideos} video unik</p>
                 </div>
-                <div className="p-[16px] bg-white rounded-[12px] shadow-sm text-indigo-600"><Eye className="w-8 h-8" /></div>
+                <div className={`p-[16px] rounded-[12px] shadow-sm ${isAwareness ? 'bg-white text-indigo-600' : 'bg-slate-50 text-slate-500'}`}><Eye className="w-8 h-8" /></div>
               </div>
-              <div className="mt-[24px] pt-[16px] border-t border-indigo-200/50 flex gap-[24px]">
+              <div className={`mt-[24px] pt-[16px] border-t flex gap-[24px] ${isAwareness ? 'border-indigo-200/50' : 'border-line'}`}>
                 <div>
-                  <p className="text-[11px] text-indigo-600 font-medium">Total Likes</p>
-                  <p className="font-bold text-indigo-900">{totalCampaignLikes.toLocaleString()}</p>
+                  <p className={`text-[11px] font-medium ${isAwareness ? 'text-indigo-600' : 'text-text-soft'}`}>Total Likes</p>
+                  <p className={`font-bold ${isAwareness ? 'text-indigo-900' : 'text-text'}`}>{totalCampaignLikes.toLocaleString()}</p>
                 </div>
                 <div>
-                  <p className="text-[11px] text-indigo-600 font-medium">Rata-rata Views / Video</p>
-                  <p className="font-bold text-indigo-900">
+                  <p className={`text-[11px] font-medium ${isAwareness ? 'text-indigo-600' : 'text-text-soft'}`}>Rata-rata Views / Video</p>
+                  <p className={`font-bold ${isAwareness ? 'text-indigo-900' : 'text-text'}`}>
                     {totalCampaignVideos > 0 ? Math.round(totalCampaignViews / totalCampaignVideos).toLocaleString() : 0}
                   </p>
                 </div>
@@ -416,31 +406,31 @@ function CampaignPerformaContent() {
             </div>
           </div>
         </div>
-      ) : (
-        // ================= SALES DASHBOARD =================
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-[24px]">
-          <div className="ccard bg-gradient-to-br from-green-50 to-emerald-100/50 border-green-100 relative overflow-hidden">
+
+        {/* === SECTION: SALES METRICS === */}
+        <div className={`grid grid-cols-1 md:grid-cols-4 gap-[24px] ${!isAwareness ? 'order-1' : 'order-2'}`}>
+          <div className={`ccard relative overflow-hidden ${!isAwareness ? 'bg-gradient-to-br from-green-50 to-emerald-100/50 border-green-100' : 'bg-white border-line'}`}>
             {loading && (
                <div className="absolute top-[8px] right-[8px] flex items-center justify-center bg-white/80 p-[6px] rounded-full shadow-sm">
-                  <Loader2 className="w-3 h-3 text-green-600 animate-spin" />
+                  <Loader2 className={`w-3 h-3 animate-spin ${!isAwareness ? 'text-green-600' : 'text-slate-500'}`} />
                </div>
             )}
             <div className="p-[24px]">
               <div className="flex justify-between items-start">
                 <div>
-                  <p className="text-[13px] font-medium text-green-800">Total Achievement (All)</p>
-                  <h3 className="text-[24px] font-bold mt-[8px] text-green-900">Rp {(totalAllGmv / 1000000).toFixed(1)}M</h3>
-                  <p className="text-[11px] font-semibold text-green-700/80 mt-[4px]">Rp {totalAllGmv.toLocaleString()}</p>
+                  <p className={`text-[13px] font-medium ${!isAwareness ? 'text-green-800' : 'text-text-soft'}`}>Total Achievement (All)</p>
+                  <h3 className={`text-[24px] font-bold mt-[8px] ${!isAwareness ? 'text-green-900' : 'text-text'}`}>Rp {(totalAllGmv / 1000000).toFixed(1)}M</h3>
+                  <p className={`text-[11px] font-semibold mt-[4px] ${!isAwareness ? 'text-green-700/80' : 'text-text-soft'}`}>Rp {totalAllGmv.toLocaleString()}</p>
                 </div>
-                <div className="p-[12px] bg-white rounded-[12px] shadow-sm text-green-600"><TrendingUp className="w-6 h-6" /></div>
+                <div className={`p-[12px] rounded-[12px] shadow-sm ${!isAwareness ? 'bg-white text-green-600' : 'bg-slate-50 text-slate-500'}`}><TrendingUp className="w-6 h-6" /></div>
               </div>
               {campaign.target_gmv && (
-                <div className="mt-[16px] pt-[16px] border-t border-green-200/50">
-                  <div className="flex justify-between text-[11px] text-green-800 mb-[4px] font-medium">
+                <div className={`mt-[16px] pt-[16px] border-t ${!isAwareness ? 'border-green-200/50' : 'border-line'}`}>
+                  <div className={`flex justify-between text-[11px] mb-[4px] font-medium ${!isAwareness ? 'text-green-800' : 'text-text-soft'}`}>
                     <span>Target: Rp {(campaign.target_gmv / 1000000).toFixed(1)}M</span>
                     <span>{percentCapai}%</span>
                   </div>
-                  <div className="w-full bg-green-200/50 rounded-full h-[6px]">
+                  <div className={`w-full rounded-full h-[6px] ${!isAwareness ? 'bg-green-200/50' : 'bg-slate-100'}`}>
                     <div className="bg-green-600 h-[6px] rounded-full transition-all duration-1000" style={{ width: `${Math.min(percentCapai, 100)}%` }}></div>
                   </div>
                 </div>
@@ -503,7 +493,7 @@ function CampaignPerformaContent() {
             </div>
           </div>
         </div>
-      )}
+      </div>
 
       {/* Accordion Detail Ads Performance */}
       <div className="ccard overflow-hidden !p-0">
