@@ -929,8 +929,8 @@ function CampaignListingContent() {
                           </Link>
                           {cc.tier === 'Auto-Detect' && <span className="px-[6px] py-[2px] bg-yellow-100 text-yellow-800 text-[10px] font-bold rounded-full">AUTO</span>}
                         </div>
-                        <a href={creator.link_account || `https://www.tiktok.com/@${creator.username}`} target="_blank" rel="noopener noreferrer" className="inline-block mt-1 hover:opacity-80 transition-opacity">
-                          <img src="/logo-tiktok-landscape-button.svg" alt="TikTok" className="h-[20px]" />
+                        <a href={creator.link_account || `https://www.tiktok.com/@${creator.username}`} target="_blank" rel="noopener noreferrer" className="inline-block mt-[4px] hover:opacity-80 transition-opacity">
+                          <img src="/logo-tiktok-landscape-button.svg" alt="TikTok" className="h-[26px]" />
                         </a>
                       </td>
                       <td className="text-right text-[13px] font-medium text-text">

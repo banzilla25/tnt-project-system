@@ -428,7 +428,7 @@ export default function CreatorProfilePage() {
               <h1 className="text-3xl font-bold tracking-tight">@{creator.username}</h1>
               <span className="badge b-sales">{tier}</span>
               <a href={creator.link_account || `https://www.tiktok.com/@${creator.username}`} target="_blank" rel="noopener noreferrer" className="inline-block hover:opacity-80 transition-opacity">
-                <img src="/logo-tiktok-landscape-button.svg" alt="TikTok" className="h-[24px]" />
+                <img src="/logo-tiktok-landscape-button.svg" alt="TikTok" className="h-[36px]" />
               </a>
             </div>
             <p className="text-slate-500">{creator.nama_asli || 'Nama asli belum diisi'}</p>
