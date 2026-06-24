@@ -223,10 +223,57 @@ function CampaignListingContent() {
       const { data, error } = await query;
       if (error) throw error;
 
+      let finalData = data || [];
+
+      // Auto-detect videos from sales
+      if (finalData.length > 0) {
+        const creatorUsernames = finalData.map((cc: any) => cc.creators?.username).filter(Boolean);
+        if (creatorUsernames.length > 0) {
+          const { data: sData } = await supabase.from('sales')
+            .select('content_uid, creator_username')
+            .eq('campaign_id', campaignId)
+            .in('creator_username', creatorUsernames)
+            .not('content_uid', 'is', null)
+            .neq('content_uid', '');
+            
+          if (sData && sData.length > 0) {
+            finalData = finalData.map((cc: any) => {
+              if (!cc.creators) return cc;
+              const cName = cc.creators.username;
+              const cSales = sData.filter(s => s.creator_username === cName);
+              const uniqueUids = Array.from(new Set(cSales.map(s => s.content_uid)));
+              
+              const existingVids = cc.videos || [];
+              const autoVids = [];
+              
+              for (const uid of uniqueUids) {
+                if (!uid) continue;
+                const exists = existingVids.some((v:any) => v.content_uid === uid);
+                if (!exists) {
+                  autoVids.push({
+                    id: `auto_${uid}`,
+                    concept: 'Auto-detected from Sales CSV',
+                    link_video: `https://www.tiktok.com/@${cName}/video/${uid}`,
+                    vt_approval: 'approved',
+                    content_uid: uid,
+                    urutan: 999
+                  });
+                }
+              }
+              
+              return {
+                ...cc,
+                videos: [...existingVids, ...autoVids]
+              };
+            });
+          }
+        }
+      }
+
       if (isReset) {
-        setListingData(data || []);
+        setListingData(finalData);
       } else {
-        setListingData(prev => [...prev, ...(data || [])]);
+        setListingData(prev => [...prev, ...finalData]);
       }
 
       setHasMore((data || []).length === PAGE_SIZE);
