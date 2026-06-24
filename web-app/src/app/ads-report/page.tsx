@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/Table";
 import { useDatabaseStore } from "@/store/useDatabaseStore";
 import { createClient } from "@/utils/supabase/client";
-import { Edit2, Check, X, Search, FileSpreadsheet, Loader2, Trash2, Lock, Download, DollarSign, TrendingUp, AlertCircle, BarChart3 } from "lucide-react";
+import { Edit2, Check, X, Search, FileSpreadsheet, Loader2, Trash2, Lock, Download, DollarSign, TrendingUp, AlertCircle, BarChart3, ChevronUp, ChevronDown } from "lucide-react";
 import { useAuth } from "@/providers/AuthProvider";
 import { exportToExcel } from "@/utils/exportToExcel";
 import { Button } from "@/components/ui/Button";
@@ -115,7 +115,16 @@ export default function AdsReportPage() {
 
   // Pagination & Sorting States
   const [displayLimit, setDisplayLimit] = useState(100);
-  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
+  type SortColumn = 'tanggal' | 'ad_id' | 'ad_name' | 'campaign_id' | 'creator_id' | 'kurs' | 'cost_usd' | 'gross_revenue_usd';
+  const [sortConfig, setSortConfig] = useState<{ key: SortColumn; direction: 'asc' | 'desc' } | null>({ key: 'tanggal', direction: 'desc' });
+
+  const handleSort = (key: SortColumn) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
 
   useEffect(() => {
     const fetchAds = async () => {
@@ -208,11 +217,34 @@ export default function AdsReportPage() {
         (ad.ad_id && ad.ad_id.toLowerCase().includes(q))
       );
     }).sort((a, b) => {
-      const timeA = new Date(a.tanggal || '1970-01-01').getTime();
-      const timeB = new Date(b.tanggal || '1970-01-01').getTime();
-      return sortOrder === 'desc' ? timeB - timeA : timeA - timeB;
+      if (!sortConfig) return 0;
+      
+      const { key, direction } = sortConfig;
+      let valA = a[key];
+      let valB = b[key];
+
+      if (key === 'tanggal') {
+        valA = new Date(valA || '1970-01-01').getTime();
+        valB = new Date(valB || '1970-01-01').getTime();
+      } else if (key === 'campaign_id') {
+         valA = campaigns.find(c => c.id === valA)?.nama || '';
+         valB = campaigns.find(c => c.id === valB)?.nama || '';
+      } else if (key === 'creator_id') {
+         valA = a.creators?.username || '';
+         valB = b.creators?.username || '';
+      } else if (key === 'cost_usd' || key === 'gross_revenue_usd' || key === 'kurs') {
+         valA = Number(valA || 0);
+         valB = Number(valB || 0);
+      } else {
+         valA = String(valA || '');
+         valB = String(valB || '');
+      }
+
+      if (valA < valB) return direction === 'asc' ? -1 : 1;
+      if (valA > valB) return direction === 'asc' ? 1 : -1;
+      return 0;
     });
-  }, [adsPerformance, deferredSearchQuery, sortOrder]);
+  }, [adsPerformance, deferredSearchQuery, sortConfig, campaigns]);
 
   // 2. Filter by Search Query AND Clicked Campaign (for Table & Global Summary)
   const tableFilteredAds = useMemo(() => {
@@ -313,16 +345,7 @@ export default function AdsReportPage() {
           <p className="text-slate-500">Pemetaan Manual Ad ID dari TikTok Ads Manager ke Creator & Campaign.</p>
         </div>
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <select
-              value={sortOrder}
-              onChange={(e) => setSortOrder(e.target.value as 'desc' | 'asc')}
-              className="px-3 py-2 border rounded-xl outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm"
-            >
-              <option value="desc">Terbaru (Descending)</option>
-              <option value="asc">Terlama (Ascending)</option>
-            </select>
-          </div>
+
           <div className="relative w-72">
             <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
@@ -474,16 +497,32 @@ export default function AdsReportPage() {
         <CardContent className="p-0">
           <div className="max-h-[70vh] overflow-y-auto">
             <Table>
-              <TableHeader className="bg-slate-50 sticky top-0 z-10 shadow-sm">
+              <TableHeader className="bg-slate-50 sticky top-0 z-10 shadow-sm select-none">
                 <TableRow>
-                  <TableHead className="w-[100px]">Tanggal</TableHead>
-                  <TableHead className="w-[120px]">Ad ID</TableHead>
-                  <TableHead className="max-w-[200px]">Ad Name (Dari Vendor)</TableHead>
-                  <TableHead className="w-[180px]">Campaign Tujuan</TableHead>
-                  <TableHead className="w-[180px]">Kreator Ter-map</TableHead>
-                  <TableHead className="w-[120px] text-center">Kurs IDR</TableHead>
-                  <TableHead className="text-right">Cost (USD)</TableHead>
-                  <TableHead className="text-right">Rev (USD)</TableHead>
+                  <TableHead className="w-[100px] cursor-pointer hover:bg-slate-200 transition-colors" onClick={() => handleSort('tanggal')}>
+                    <div className="flex items-center gap-1">Tanggal {sortConfig?.key === 'tanggal' && (sortConfig.direction === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}</div>
+                  </TableHead>
+                  <TableHead className="w-[120px] cursor-pointer hover:bg-slate-200 transition-colors" onClick={() => handleSort('ad_id')}>
+                    <div className="flex items-center gap-1">Ad ID {sortConfig?.key === 'ad_id' && (sortConfig.direction === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}</div>
+                  </TableHead>
+                  <TableHead className="max-w-[200px] cursor-pointer hover:bg-slate-200 transition-colors" onClick={() => handleSort('ad_name')}>
+                    <div className="flex items-center gap-1">Ad Name (Dari Vendor) {sortConfig?.key === 'ad_name' && (sortConfig.direction === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}</div>
+                  </TableHead>
+                  <TableHead className="w-[180px] cursor-pointer hover:bg-slate-200 transition-colors" onClick={() => handleSort('campaign_id')}>
+                    <div className="flex items-center gap-1">Campaign Tujuan {sortConfig?.key === 'campaign_id' && (sortConfig.direction === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}</div>
+                  </TableHead>
+                  <TableHead className="w-[180px] cursor-pointer hover:bg-slate-200 transition-colors" onClick={() => handleSort('creator_id')}>
+                    <div className="flex items-center gap-1">Kreator Ter-map {sortConfig?.key === 'creator_id' && (sortConfig.direction === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}</div>
+                  </TableHead>
+                  <TableHead className="w-[120px] text-center cursor-pointer hover:bg-slate-200 transition-colors" onClick={() => handleSort('kurs')}>
+                    <div className="flex items-center justify-center gap-1">Kurs IDR {sortConfig?.key === 'kurs' && (sortConfig.direction === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}</div>
+                  </TableHead>
+                  <TableHead className="text-right cursor-pointer hover:bg-slate-200 transition-colors" onClick={() => handleSort('cost_usd')}>
+                    <div className="flex items-center justify-end gap-1">Cost (USD) {sortConfig?.key === 'cost_usd' && (sortConfig.direction === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}</div>
+                  </TableHead>
+                  <TableHead className="text-right cursor-pointer hover:bg-slate-200 transition-colors" onClick={() => handleSort('gross_revenue_usd')}>
+                    <div className="flex items-center justify-end gap-1">Rev (USD) {sortConfig?.key === 'gross_revenue_usd' && (sortConfig.direction === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}</div>
+                  </TableHead>
                   <TableHead className="w-[80px] text-center">Aksi</TableHead>
                 </TableRow>
               </TableHeader>
