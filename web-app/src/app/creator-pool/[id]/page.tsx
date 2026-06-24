@@ -341,6 +341,7 @@ export default function CreatorProfilePage() {
     await addCampaignCreator({
       campaign_id: Number(campForm.campaign_id),
       creator_id: creatorId,
+      assigned_sku_ids: null,
       tier: null,
       price: campForm.price,
       qty_vt: campForm.qty_vt,

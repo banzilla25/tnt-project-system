@@ -124,6 +124,7 @@ export type CampaignCreator = {
   gmv_organic_legacy: number | null;
   gmv_ads_legacy: number | null;
   client_approval: 'pending' | 'approved' | 'rejected' | 'not_required';
+  assigned_sku_ids: number[] | null;
   added_by: string | null;
   approved_by: string | null;
   approved_at: string | null;

@@ -8,6 +8,7 @@ import { createClient } from "@/utils/supabase/client";
 import { Download, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
 import { exportToCSV } from "@/utils/exportCsv";
 import { useAuth } from "@/providers/AuthProvider";
+import { MultiSelect } from "@/components/MultiSelect";
 
 const supabase = createClient();
 
@@ -131,6 +132,9 @@ export default function AlamatPage() {
     exportToCSV(exportData, `campaign_${campaignId}_alamat`);
   };
 
+  const [editAssignedSkus, setEditAssignedSkus] = useState<number[]>([]);
+  const { updateCampaignCreator } = useDatabaseStore();
+
   const handleEdit = async (ccId: number) => {
     // 1. Fetch address book for this creator
     const cc = localCreators.find(c => c.id === ccId);
@@ -163,6 +167,7 @@ export default function AlamatPage() {
       });
       setEditId(-ccId); // Temp ID for new records
     }
+    setEditAssignedSkus(cc?.assigned_sku_ids || []);
   };
 
   const handleSave = async (ccId: number) => {
@@ -170,9 +175,16 @@ export default function AlamatPage() {
     const existing = creator_addresses.find(a => a.campaign_creator_id === ccId);
     await updateCreatorAddress(existing?.id || null, formData);
     
+    // Save assigned_sku_ids
+    const cc = localCreators.find(c => c.id === ccId);
+    if (cc && JSON.stringify(cc.assigned_sku_ids || []) !== JSON.stringify(editAssignedSkus)) {
+      await updateCampaignCreator(ccId, { assigned_sku_ids: editAssignedSkus }, 'System');
+      // Update local state so it immediately reflects
+      setLocalCreators(prev => prev.map(c => c.id === ccId ? { ...c, assigned_sku_ids: editAssignedSkus } : c));
+    }
+    
     // Auto-save to address book if not selected from book
     if (formData.nama_jalan && !selectedBookId) {
-      const cc = localCreators.find(c => c.id === ccId);
       if (cc && cc.creator_id) {
         // Check if exactly same address exists in book
         const isExist = addressBook.find(b => b.alamat_jalan?.toLowerCase() === formData.nama_jalan?.toLowerCase());
@@ -353,19 +365,31 @@ export default function AlamatPage() {
                         )}
 
                         {isEditing ? (
-                          <select
-                            className="input w-full mt-[12px]"
-                            value={formData.produk_dikirim || ''}
-                            onChange={e => setFormData({ ...formData, produk_dikirim: e.target.value })}
-                          >
-                            <option value="">-- Pilih Produk Dikirim --</option>
-                            {campaignSkus.map(s => (
-                              <option key={s.id} value={s.nama_produk}>{s.nama_produk}</option>
-                            ))}
-                          </select>
+                          <div className="mt-[12px]">
+                            <MultiSelect 
+                              options={campaignSkus.map(s => ({ id: s.id, label: s.nama_produk }))}
+                              selectedIds={editAssignedSkus}
+                              onChange={setEditAssignedSkus}
+                              placeholder="Pilih Produk..."
+                              emptyMessage="Belum ada produk"
+                            />
+                            {campaignSkus.length === 0 && (
+                              <p className="text-[10px] text-orange-600 mt-1">
+                                Jika produk belum ada di list, maka daftarkan di bagian tab Produk.
+                              </p>
+                            )}
+                          </div>
                         ) : (
-                          <div className="mt-[12px] text-[13px]">
-                            <span className="font-medium text-text-soft">Produk:</span> {addr?.produk_dikirim || <span className="text-text-soft italic">Belum dipilih</span>}
+                          <div className="mt-[12px] text-[13px] flex flex-wrap gap-1">
+                            <span className="font-medium text-text-soft block w-full mb-1">Produk:</span>
+                            {cc.assigned_sku_ids && cc.assigned_sku_ids.length > 0 ? (
+                              cc.assigned_sku_ids.map((id: number) => {
+                                const sku = campaignSkus.find(s => s.id === id);
+                                return sku ? <span key={id} className="inline-flex items-center gap-1 bg-blue-50 text-blue-700 text-[11px] px-2 py-0.5 rounded border border-blue-100">{sku.nama_produk}</span> : null;
+                              })
+                            ) : (
+                              <span className="text-[11px] text-slate-400 italic">Belum dipilih</span>
+                            )}
                           </div>
                         )}
                       </td>

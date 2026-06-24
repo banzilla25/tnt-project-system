@@ -605,7 +605,9 @@ export default function AdsReportPage() {
                                 </button>
                               </>
                             ) : (
-                              <Lock className="w-4 h-4 text-slate-300" title="Hanya Manager" />
+                              <span title="Hanya Manager">
+                                <Lock className="w-4 h-4 text-slate-300" />
+                              </span>
                             )}
                           </div>
                         )}

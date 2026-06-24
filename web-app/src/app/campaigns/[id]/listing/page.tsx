@@ -11,6 +11,7 @@ import { exportToCSV } from "@/utils/exportCsv";
 import { createClient } from "@/utils/supabase/client";
 import { useAuth } from "@/providers/AuthProvider";
 import { useRouter } from "next/navigation";
+import { MultiSelect } from "@/components/MultiSelect";
 
 const supabase = createClient();
 const PAGE_SIZE = 50;
@@ -28,11 +29,15 @@ function CampaignListingContent() {
   const campaignId = Number(id);
   
   const { 
-    updateCampaignCreator,
-    addCampaignCreator,
-    campaigns,
-    profiles,
-    niches
+    campaigns, 
+    campaign_creators, 
+    creators, 
+    creator_snapshots,
+    videos,
+    skus,
+    niches,
+    updateCampaignCreator, 
+    deleteCampaignCreator 
   } = useDatabaseStore();
 
   const { profile, canEditCampaign } = useAuth();
@@ -41,6 +46,7 @@ function CampaignListingContent() {
 
   const campaign = campaigns.find(c => c.id === campaignId);
   const isClientApprovalRequired = campaign?.require_client_approval || false;
+  const campaignSkus = skus.filter(s => s.campaign_id === campaignId);
 
   const [expandedRows, setExpandedRows] = useState<Record<number, boolean>>({});
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -52,6 +58,7 @@ function CampaignListingContent() {
   const [editStatusBayar, setEditStatusBayar] = useState<any>('belum');
   const [editNotesManager, setEditNotesManager] = useState('');
   const [editNotesPic, setEditNotesPic] = useState('');
+  const [editAssignedSkus, setEditAssignedSkus] = useState<number[]>([]);
 
   const [filterType, setFilterType] = useState<'all' | 'regular' | 'auto_detect'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'alternate' | 'not_approved'>('all');
@@ -310,6 +317,7 @@ function CampaignListingContent() {
     setEditStatusBayar(cc.status_bayar || 'belum');
     setEditNotesManager(cc.notes_manager || '');
     setEditNotesPic(cc.notes_pic || '');
+    setEditAssignedSkus(cc.assigned_sku_ids || []);
   };
 
   const saveEdit = async (ccId: number) => {
@@ -333,6 +341,7 @@ function CampaignListingContent() {
       sample_progress: editSampleProgress,
       notes_manager: editNotesManager,
       notes_pic: editNotesPic,
+      assigned_sku_ids: editAssignedSkus,
       ...(isClientApprovalRequired && { client_approval: editClientApproval }),
       ...extraUpdates
     }, profile?.nama || 'System');
@@ -881,6 +890,7 @@ function CampaignListingContent() {
                 </button>
               </th>
               <th>Tipe Konten</th>
+              <th>Produk</th>
               <th>
                 <button onClick={() => toggleSort('approval')} className="flex items-center font-semibold hover:text-p300 transition-colors">
                   Approval <SortIcon col="approval" />
@@ -894,7 +904,7 @@ function CampaignListingContent() {
           <tbody>
             {listingData.length === 0 && !isLoading ? (
               <tr>
-                <td colSpan={isClientApprovalRequired ? 11 : 10} className="text-center py-[32px] text-text-soft">
+                <td colSpan={isClientApprovalRequired ? 12 : 11} className="text-center py-[32px] text-text-soft">
                   Belum ada creator di campaign ini.
                 </td>
               </tr>
@@ -988,6 +998,38 @@ function CampaignListingContent() {
                       <td>
                         <span className="text-[13px] font-medium text-text">{cc.content_type || '-'}</span>
                       </td>
+                      <td className="min-w-[150px]">
+                        {isEditing ? (
+                           <div className="w-full">
+                            <MultiSelect 
+                              options={campaignSkus.map(s => ({ id: s.id, label: s.nama_produk }))}
+                              selectedIds={editAssignedSkus}
+                              onChange={setEditAssignedSkus}
+                              placeholder="Pilih Produk..."
+                              emptyMessage="Belum ada produk"
+                            />
+                            {campaignSkus.length === 0 && (
+                              <p className="text-[10px] text-orange-600 mt-1 leading-tight">
+                                Jika produk belum ada di list, maka daftarkan di bagian tab Produk.
+                              </p>
+                            )}
+                          </div>
+                        ) : (
+                           <div className="flex flex-wrap gap-1">
+                             {cc.assigned_sku_ids && cc.assigned_sku_ids.length > 0 ? (
+                               cc.assigned_sku_ids.map((id: number) => {
+                                 const sku = campaignSkus.find(s => s.id === id);
+                                 return sku ? <span key={id} className="inline-flex items-center gap-1 bg-blue-50 text-blue-700 text-[11px] px-2 py-0.5 rounded border border-blue-100">{sku.nama_produk}</span> : null;
+                               })
+                             ) : (
+                               <span className="text-[11px] text-slate-400 italic">Belum di-set</span>
+                             )}
+                             {!isEditing && campaignSkus.length === 0 && (
+                               <span className="text-[10px] text-red-500 block mt-1">Daftarkan produk di tab Produk</span>
+                             )}
+                           </div>
+                        )}
+                      </td>
                       <td>
                         {isEditing ? (
                           <select 
@@ -1069,7 +1111,7 @@ function CampaignListingContent() {
                     {isExpanded && (
                       <tr className="bg-slate-50 hover:bg-slate-50">
                         <td></td>
-                        <td colSpan={isClientApprovalRequired ? 8 : 7} className="p-0 border-b-0">
+                        <td colSpan={isClientApprovalRequired ? 9 : 8} className="p-0 border-b-0">
                           <div className="py-[16px] pr-[16px]">
                             <div className="bg-white border border-line rounded-[12px] p-[16px]">
                               <h4 className="text-[12px] font-bold text-text-soft uppercase mb-[12px]">Daftar Video ({cc.qty_vt})</h4>
@@ -1168,15 +1210,15 @@ function CampaignListingContent() {
                                         <div>
                                           <span className="text-text-soft block mb-[2px]">Ditambahkan Oleh:</span>
                                           <span className="font-semibold text-text">
-                                            {profiles.find(p => p.id === cc.added_by)?.nama || '-'} 
-                                            {cc.created_at && <span className="text-text-soft ml-[4px] font-normal">({new Date(cc.created_at).toLocaleDateString('id-ID')})</span>}
+                                            {staffProfiles.find(p => p.id === cc.added_by)?.nama || 'Unknown'}
+                                            {cc.created_at && <span className="text-text-soft font-normal ml-1">({new Date(cc.created_at).toLocaleDateString('id-ID', {day: 'numeric', month: 'short', year: 'numeric'})})</span>}
                                           </span>
                                         </div>
                                         {cc.approval === 'approved' && cc.approved_by && (
                                           <div>
                                             <span className="text-text-soft block mb-[2px]">Di-approve Oleh:</span>
                                             <span className="font-semibold text-green-600">
-                                              {profiles.find(p => p.id === cc.approved_by)?.nama || '-'} 
+                                              {staffProfiles.find(p => p.id === cc.approved_by)?.nama || '-'} 
                                               {cc.approved_at && <span className="text-text-soft ml-[4px] font-normal">({new Date(cc.approved_at).toLocaleDateString('id-ID')})</span>}
                                             </span>
                                           </div>
@@ -1185,7 +1227,7 @@ function CampaignListingContent() {
                                           <div>
                                             <span className="text-text-soft block mb-[2px]">Ditolak Oleh:</span>
                                             <span className="font-semibold text-red-600">
-                                              {profiles.find(p => p.id === cc.not_approved_by)?.nama || '-'} 
+                                              {staffProfiles.find(p => p.id === cc.not_approved_by)?.nama || '-'} 
                                               {cc.not_approved_at && <span className="text-text-soft ml-[4px] font-normal">({new Date(cc.not_approved_at).toLocaleDateString('id-ID')})</span>}
                                             </span>
                                           </div>
