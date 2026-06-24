@@ -14,6 +14,7 @@ type PreviewRow = {
   creator_username: string;
   content_uid: string | null;
   product_id: string | null;
+  sku_id?: number;
   tanggal: string;
   price: number;
   quantity: number;
@@ -160,10 +161,12 @@ export default function OrganicImport() {
     // Buat Dictionary SKU Mapping: product_id -> campaign_id
     const skuMapping: Record<string, number> = {};
     const skuNameMapping: Record<string, string> = {};
+    const skuIdMapping: Record<string, number> = {};
     skus?.forEach(s => {
       if (s.product_id) {
         skuMapping[s.product_id.toString()] = s.campaign_id;
         skuNameMapping[s.product_id.toString()] = s.nama_produk;
+        skuIdMapping[s.product_id.toString()] = s.id;
       }
     });
 
@@ -295,6 +298,7 @@ export default function OrganicImport() {
         creator_username: creatorUsername,
         content_uid: contentUid || null,
         product_id: rawProductId || null,
+        sku_id: rawProductId ? skuIdMapping[rawProductId] : undefined,
         tanggal: tanggal,
         price: price,
         quantity: quantity,
@@ -393,6 +397,85 @@ export default function OrganicImport() {
       
       setProgress({ current: Math.min(i + chunkSize, total), total });
     }
+
+    // ====== AUTO-ASSIGN SKUS ======
+    try {
+      const uniqueUsernames = Array.from(new Set(uniquePayload.map(p => p.creator_username).filter(Boolean)));
+      if (uniqueUsernames.length > 0) {
+        // 1. Fetch existing creators
+        const { data: existingCreators } = await supabase.from('creators').select('id, username').in('username', uniqueUsernames);
+        const creatorMap = new Map(existingCreators?.map(c => [c.username, c.id]) || []);
+        
+        // 2. Insert missing creators
+        const missingUsernames = uniqueUsernames.filter(u => !creatorMap.has(u));
+        if (missingUsernames.length > 0) {
+          const { data: newCreators, error: errInsert } = await supabase.from('creators').insert(
+            missingUsernames.map(u => ({ username: u, added_by: 'system' }))
+          ).select('id, username');
+          if (!errInsert && newCreators) {
+            newCreators.forEach(c => creatorMap.set(c.username, c.id));
+          }
+        }
+
+        // 3. Group by campaign -> creator -> set of sku_ids
+        const assignments: Record<number, Record<number, Set<number>>> = {};
+        for (const item of uniquePayload) {
+          const cId = creatorMap.get(item.creator_username);
+          if (cId && item.campaign_id && item.sku_id) {
+            if (!assignments[item.campaign_id]) assignments[item.campaign_id] = {};
+            if (!assignments[item.campaign_id][cId]) assignments[item.campaign_id][cId] = new Set();
+            assignments[item.campaign_id][cId].add(item.sku_id);
+          }
+        }
+
+        // 4. Update campaign_creators
+        for (const campIdStr of Object.keys(assignments)) {
+          const campId = parseInt(campIdStr);
+          const creatorIds = Object.keys(assignments[campId]).map(Number);
+          
+          if (creatorIds.length === 0) continue;
+
+          const { data: existingCc } = await supabase.from('campaign_creators')
+            .select('id, creator_id, assigned_sku_ids')
+            .eq('campaign_id', campId)
+            .in('creator_id', creatorIds);
+            
+          const ccMap = new Map(existingCc?.map(cc => [cc.creator_id, cc]) || []);
+          
+          const newCcsToInsert = [];
+
+          for (const cId of creatorIds) {
+            const newSkus = Array.from(assignments[campId][cId]);
+            const existing = ccMap.get(cId);
+            
+            if (existing) {
+              const currentSkus = existing.assigned_sku_ids || [];
+              const merged = Array.from(new Set([...currentSkus, ...newSkus]));
+              if (merged.length !== currentSkus.length) {
+                await supabase.from('campaign_creators').update({ assigned_sku_ids: merged }).eq('id', existing.id);
+              }
+            } else {
+              newCcsToInsert.push({
+                campaign_id: campId,
+                creator_id: cId,
+                assigned_sku_ids: newSkus,
+                approval: 'pending',
+                client_approval: 'not_required',
+                status_bayar: 'belum',
+                qty_vt: 1,
+                price: 0
+              });
+            }
+          }
+          if (newCcsToInsert.length > 0) {
+            await supabase.from('campaign_creators').insert(newCcsToInsert);
+          }
+        }
+      }
+    } catch (autoAssignErr: any) {
+      errors.push(`Gagal Auto-Assign Produk: ${autoAssignErr.message}`);
+    }
+    // ==============================
     
     setResult({ success: successCount, skipped: total - successCount, errors });
     setStep(4);
