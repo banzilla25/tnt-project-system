@@ -1051,7 +1051,7 @@ function CampaignListingContent() {
                             <button onClick={cancelEdit} className="p-[6px] hover:bg-slate-100 rounded text-text-soft"><X className="w-4 h-4" /></button>
                           </div>
                         ) : hasAccess ? (
-                          <div className="flex justify-end gap-[4px] opacity-0 group-hover:opacity-100 transition-opacity">
+                          <div className="flex justify-end gap-[4px] transition-opacity">
                             <button onClick={() => startEdit(cc)} className="p-[6px] hover:bg-p50 rounded">
                               <Edit2 className="w-4 h-4 text-text-soft hover:text-p300" />
                             </button>
@@ -1135,19 +1135,29 @@ function CampaignListingContent() {
                                       )}
                                     </div>
                                     <div className="bg-slate-50 border border-line rounded-[8px] p-[12px] md:col-span-2">
-                                      <h5 className="text-[11px] font-bold text-text-soft uppercase mb-[4px]">Notes Manager</h5>
+                                      <div className="flex justify-between items-center mb-[4px]">
+                                        <h5 className="text-[11px] font-bold text-text-soft uppercase">Notes Manager</h5>
+                                        {!isEditing && hasAccess && (
+                                          <button onClick={() => startEdit(cc)} className="text-p300 hover:text-p400 flex items-center gap-1 text-[10px] font-medium"><Edit2 className="w-3 h-3"/> Edit</button>
+                                        )}
+                                      </div>
                                       {isEditing ? (
                                         <textarea value={editNotesManager} onChange={e=>setEditNotesManager(e.target.value)} className="input h-16" placeholder="Catatan Manager..." />
                                       ) : (
-                                        <p className="text-[13px] font-medium text-text whitespace-pre-wrap">{cc.notes_manager || '-'}</p>
+                                        <p className="text-[13px] font-medium text-text whitespace-pre-wrap">{cc.notes_manager || <span className="text-text-soft italic text-[11px]">(Klik Edit untuk menambah catatan)</span>}</p>
                                       )}
                                     </div>
                                     <div className="bg-slate-50 border border-line rounded-[8px] p-[12px] md:col-span-4">
-                                      <h5 className="text-[11px] font-bold text-text-soft uppercase mb-[4px]">Notes PIC ({cc.pic_assist || 'Belum di-assign'})</h5>
+                                      <div className="flex justify-between items-center mb-[4px]">
+                                        <h5 className="text-[11px] font-bold text-text-soft uppercase">Notes PIC ({cc.pic_assist || 'Belum di-assign'})</h5>
+                                        {!isEditing && hasAccess && (
+                                          <button onClick={() => startEdit(cc)} className="text-p300 hover:text-p400 flex items-center gap-1 text-[10px] font-medium"><Edit2 className="w-3 h-3"/> Edit</button>
+                                        )}
+                                      </div>
                                       {isEditing ? (
                                         <textarea value={editNotesPic} onChange={e=>setEditNotesPic(e.target.value)} className="input h-16" placeholder="Catatan PIC..." />
                                       ) : (
-                                        <p className="text-[13px] font-medium text-text whitespace-pre-wrap">{cc.notes_pic || '-'}</p>
+                                        <p className="text-[13px] font-medium text-text whitespace-pre-wrap">{cc.notes_pic || <span className="text-text-soft italic text-[11px]">(Klik Edit untuk menambah catatan)</span>}</p>
                                       )}
                                     </div>
                                     <div className="bg-slate-50 border border-line rounded-[8px] p-[12px] md:col-span-4">

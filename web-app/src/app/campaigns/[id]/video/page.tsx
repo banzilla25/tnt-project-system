@@ -281,6 +281,24 @@ export default function CampaignVideoPage() {
         <div>
           <h2 className="text-[20px] font-bold">Video & VT</h2>
           <p className="text-[13px] text-text-soft">Kelola konsep, link video, dan approval VT untuk kreator yang di-approve.</p>
+          <div className="mt-[12px] bg-blue-50/80 border border-blue-200/80 p-[12px] rounded-[8px] text-[12px] text-blue-800 flex gap-[10px] items-start max-w-3xl">
+            <span className="text-[16px] leading-none mt-0.5">💡</span>
+            <div>
+              <strong className="text-blue-900">Penting: Format Link Video TikTok</strong><br/>
+              Agar performa (GMV) video dapat ditarik secara otomatis oleh sistem, <strong>wajib</strong> memasukkan link TikTok versi panjang yang mengandung <i>username</i> dan <i>ID Video</i>.<br/>
+              <div className="mt-2 space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-green-600 font-bold">✅ BENAR</span>
+                  <code className="bg-white px-2 py-0.5 rounded border border-blue-100 text-blue-900 text-[11px] font-mono">https://www.tiktok.com/@username/video/1234567890</code>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-red-600 font-bold">❌ SALAH</span>
+                  <code className="bg-white px-2 py-0.5 rounded border border-red-100 text-red-900 text-[11px] font-mono">https://vt.tiktok.com/ZSxxxx/</code>
+                  <span className="text-blue-700 italic text-[11px] ml-1">(link dari tombol "Copy Link" di HP tidak akan terbaca sistem)</span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
         <div>
           <input 
