@@ -113,8 +113,11 @@ export default function AdsReportPage() {
 
   const supabase = createClient();
 
+  // Pagination & Sorting States
+  const [displayLimit, setDisplayLimit] = useState(100);
+  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
+
   useEffect(() => {
-    if (!isManager) return;
     const fetchAds = async () => {
       setIsLoading(true);
       const { data } = await supabase.from('ads_performance').select('*, creators(username)').order('tanggal', { ascending: false }).limit(2000);
@@ -122,7 +125,7 @@ export default function AdsReportPage() {
       setIsLoading(false);
     };
     fetchAds();
-  }, [supabase, isManager]);
+  }, [supabase]);
   
   // Edit States
   const [editCampaignId, setEditCampaignId] = useState<number | ''>('');
@@ -204,8 +207,12 @@ export default function AdsReportPage() {
         (ad.ad_name && ad.ad_name.toLowerCase().includes(q)) || 
         (ad.ad_id && ad.ad_id.toLowerCase().includes(q))
       );
-    }).sort((a, b) => new Date(b.tanggal || '1970-01-01').getTime() - new Date(a.tanggal || '1970-01-01').getTime());
-  }, [adsPerformance, deferredSearchQuery]);
+    }).sort((a, b) => {
+      const timeA = new Date(a.tanggal || '1970-01-01').getTime();
+      const timeB = new Date(b.tanggal || '1970-01-01').getTime();
+      return sortOrder === 'desc' ? timeB - timeA : timeA - timeB;
+    });
+  }, [adsPerformance, deferredSearchQuery, sortOrder]);
 
   // 2. Filter by Search Query AND Clicked Campaign (for Table & Global Summary)
   const tableFilteredAds = useMemo(() => {
@@ -306,6 +313,16 @@ export default function AdsReportPage() {
           <p className="text-slate-500">Pemetaan Manual Ad ID dari TikTok Ads Manager ke Creator & Campaign.</p>
         </div>
         <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <select
+              value={sortOrder}
+              onChange={(e) => setSortOrder(e.target.value as 'desc' | 'asc')}
+              className="px-3 py-2 border rounded-xl outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm"
+            >
+              <option value="desc">Terbaru (Descending)</option>
+              <option value="asc">Terlama (Ascending)</option>
+            </select>
+          </div>
           <div className="relative w-72">
             <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
@@ -316,11 +333,9 @@ export default function AdsReportPage() {
               className="w-full pl-10 pr-4 py-2 border rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
-          {isManager && (
-            <Button onClick={handleExport} className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white">
-              <Download className="w-4 h-4" /> Export Excel
-            </Button>
-          )}
+          <Button onClick={handleExport} className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white">
+            <Download className="w-4 h-4" /> Export Excel
+          </Button>
         </div>
       </div>
 
@@ -473,7 +488,7 @@ export default function AdsReportPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {tableFilteredAds.slice(0, 100).map((ad) => {
+                {tableFilteredAds.slice(0, displayLimit).map((ad) => {
                   const isEditing = editingId === ad.id;
                   const creatorUsername = ad.creators?.username;
                   const campaign = campaigns.find(c => c.id === ad.campaign_id);
@@ -503,84 +518,95 @@ export default function AdsReportPage() {
                       {/* Campaign Column */}
                       <TableCell>
                         {isEditing ? (
-                          <select 
-                            className="w-full p-1.5 border border-slate-300 rounded text-xs"
+                          <select
+                            className="w-full p-1.5 border border-slate-300 rounded text-xs focus:outline-none focus:border-indigo-500"
                             value={editCampaignId}
-                            onChange={(e) => setEditCampaignId(e.target.value === '' ? '' : Number(e.target.value))}
+                            onChange={(e) => {
+                              setEditCampaignId(e.target.value ? Number(e.target.value) : '');
+                              setEditCreatorId('');
+                            }}
                           >
-                            <option value="">-- Kosong --</option>
-                            {campaigns.map(c => <option key={c.id} value={c.id}>{c.nama}</option>)}
+                            <option value="">Pilih Campaign</option>
+                            {campaigns.filter(c => c.status === 'aktif').map(c => (
+                              <option key={c.id} value={c.id}>{c.nama}</option>
+                            ))}
                           </select>
                         ) : (
-                          <span className="text-xs font-medium text-slate-700">{campaign ? campaign.nama : <span className="text-slate-400 italic">Kosong</span>}</span>
+                          <span className={`text-xs ${campaign ? 'text-indigo-600 font-medium' : 'text-red-500 font-bold'}`}>
+                            {campaign ? campaign.nama : 'BELUM DI-MAP'}
+                          </span>
                         )}
                       </TableCell>
 
                       {/* Creator Column */}
                       <TableCell>
                         {isEditing ? (
-                          <SearchableSelect 
-                            value={editCreatorId}
-                            initialLabel={creatorUsername ? `@${creatorUsername}` : ''}
-                            onChange={(val) => setEditCreatorId(val)}
-                            placeholder="Cari Username..."
-                          />
+                          editCampaignId ? (
+                            <SearchableSelect 
+                              value={editCreatorId} 
+                              onChange={setEditCreatorId} 
+                              placeholder="Ketik username..." 
+                              initialLabel={creatorUsername ? `@${creatorUsername}` : ''}
+                            />
+                          ) : (
+                            <span className="text-[10px] text-slate-400">Pilih campaign dulu</span>
+                          )
                         ) : (
-                          <span className="text-xs font-medium text-indigo-600">{creatorUsername ? `@${creatorUsername}` : <span className="text-amber-500 italic">Unmapped</span>}</span>
+                          <span className={`text-xs ${creatorUsername ? 'text-slate-700' : 'text-red-500 font-bold'}`}>
+                            {creatorUsername ? `@${creatorUsername}` : 'BELUM DI-MAP'}
+                          </span>
                         )}
                       </TableCell>
 
                       {/* Kurs Column */}
-                      <TableCell className="text-center">
+                      <TableCell>
                         {isEditing ? (
-                          <input 
-                            type="number" 
-                            className="w-20 p-1.5 border border-slate-300 rounded text-xs text-center"
-                            value={editKurs}
-                            onChange={(e) => setEditKurs(e.target.value)}
-                          />
+                          <div className="flex items-center gap-1">
+                            <span className="text-xs text-slate-500">Rp</span>
+                            <input
+                              type="number"
+                              className="w-full p-1 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-indigo-500"
+                              value={editKurs}
+                              onChange={(e) => setEditKurs(e.target.value)}
+                            />
+                          </div>
                         ) : (
-                          <span className="text-xs">Rp {ad.kurs?.toLocaleString('id-ID') || '-'}</span>
+                          <div className="text-xs text-slate-500 text-center">Rp {(ad.kurs || 16000).toLocaleString('id-ID')}</div>
                         )}
                       </TableCell>
 
-                      <TableCell className="text-right text-xs text-red-600">${ad.cost_usd.toFixed(2)}</TableCell>
-                      <TableCell className="text-right text-xs text-emerald-600 font-medium">${ad.gross_revenue_usd.toFixed(2)}</TableCell>
+                      <TableCell className="text-right font-medium text-xs text-slate-700">
+                        ${(ad.cost_usd || 0).toFixed(2)}
+                      </TableCell>
+                      <TableCell className="text-right font-medium text-xs text-green-600">
+                        ${(ad.gross_revenue_usd || 0).toFixed(2)}
+                      </TableCell>
                       
                       {/* Action Column */}
                       <TableCell className="text-center">
                         {isEditing ? (
-                          <div className="flex items-center justify-center gap-2">
-                            {isSaving ? (
-                              <Loader2 className="w-4 h-4 text-slate-400 animate-spin" />
-                            ) : (
-                              <>
-                                <button onClick={() => saveEdit(ad.id)} className="text-emerald-600 hover:text-emerald-700 bg-emerald-50 p-1.5 rounded-md" title="Simpan">
-                                  <Check className="w-4 h-4" />
-                                </button>
-                                <button onClick={cancelEdit} className="text-slate-400 hover:text-slate-600 bg-slate-100 p-1.5 rounded-md" title="Batal">
-                                  <X className="w-4 h-4" />
-                                </button>
-                              </>
-                            )}
+                          <div className="flex items-center justify-center gap-1">
+                            <Button size="sm" variant="outline" className="h-7 px-2 text-green-600 border-green-200 hover:bg-green-50" onClick={() => saveEdit(ad.id)} disabled={isSaving}>
+                              {isSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                            </Button>
+                            <Button size="sm" variant="outline" className="h-7 px-2 text-red-500 border-red-200 hover:bg-red-50" onClick={cancelEdit} disabled={isSaving}>
+                              <X className="w-3 h-3" />
+                            </Button>
                           </div>
                         ) : (
                           <div className="flex items-center justify-center gap-1">
-                            <button 
-                              onClick={() => startEdit(ad)}
-                              className="text-slate-400 hover:text-indigo-600 p-1.5 hover:bg-indigo-50 rounded-md transition-colors"
-                              title="Edit Data"
-                            >
-                              <Edit2 className="w-4 h-4" />
-                            </button>
-                            <button 
-                              onClick={() => deleteAd(ad.id)}
-                              disabled={deletingId === ad.id}
-                              className="text-slate-400 hover:text-red-600 p-1.5 hover:bg-red-50 rounded-md transition-colors disabled:opacity-50"
-                              title="Hapus Data"
-                            >
-                              {deletingId === ad.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                            </button>
+                            {isManager ? (
+                              <>
+                                <button onClick={() => startEdit(ad)} className="p-1 text-slate-400 hover:text-blue-600 transition-colors" title="Edit">
+                                  <Edit2 className="w-4 h-4" />
+                                </button>
+                                <button onClick={() => deleteAd(ad.id)} className="p-1 text-slate-400 hover:text-red-600 transition-colors" disabled={deletingId === ad.id} title="Hapus">
+                                  {deletingId === ad.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                                </button>
+                              </>
+                            ) : (
+                              <Lock className="w-4 h-4 text-slate-300" title="Hanya Manager" />
+                            )}
                           </div>
                         )}
                       </TableCell>
@@ -589,14 +615,16 @@ export default function AdsReportPage() {
                 })}
               </TableBody>
             </Table>
-            {tableFilteredAds.length > 100 && (
-              <div className="p-4 text-center text-sm text-slate-500 border-t border-slate-100">
-                Menampilkan 100 baris pertama dari {tableFilteredAds.length} hasil.
+            {tableFilteredAds.length > displayLimit && (
+              <div className="flex justify-center p-4 border-t border-slate-100">
+                <Button variant="outline" onClick={() => setDisplayLimit(prev => prev + 100)}>
+                  Tampilkan Lainnya ({tableFilteredAds.length - displayLimit} lagi)
+                </Button>
               </div>
             )}
-            {tableFilteredAds.length === 0 && !isLoading && (
-              <div className="p-10 text-center text-slate-500">
-                Tidak ada data iklan yang sesuai dengan pencarian atau filter Anda.
+            {tableFilteredAds.length === 0 && (
+              <div className="text-center py-12 text-slate-500">
+                Tidak ada data iklan yang ditemukan.
               </div>
             )}
           </div>
