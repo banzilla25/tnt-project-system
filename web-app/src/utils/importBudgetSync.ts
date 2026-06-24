@@ -112,17 +112,23 @@ export const parseBudgetSyncFile = async (file: File, mapping: BudgetColumnMappi
     if (mapping.tgl_pembayaran) {
       const tglRaw = row[mapping.tgl_pembayaran];
       if (tglRaw) {
-        // Try to parse as date
-        const tglStr = tglRaw.toString().trim();
-        // Handle dd/mm/yyyy
-        const ddmmyyyy = tglStr.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
-        if (ddmmyyyy) {
-          tgl_pembayaran = `${ddmmyyyy[3]}-${ddmmyyyy[2].padStart(2, '0')}-${ddmmyyyy[1].padStart(2, '0')}`;
+        if (typeof tglRaw === 'number') {
+          // Handle Excel serial date
+          const utc_days  = Math.floor(tglRaw - 25569);
+          const date_info = new Date(utc_days * 86400 * 1000);
+          tgl_pembayaran = date_info.toISOString().split('T')[0];
         } else {
-          // Try ISO or other parseable format
-          const d = new Date(tglStr);
-          if (!isNaN(d.getTime())) {
-            tgl_pembayaran = d.toISOString().split('T')[0];
+          const tglStr = tglRaw.toString().trim();
+          // Handle dd/mm/yyyy
+          const ddmmyyyy = tglStr.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+          if (ddmmyyyy) {
+            tgl_pembayaran = `${ddmmyyyy[3]}-${ddmmyyyy[2].padStart(2, '0')}-${ddmmyyyy[1].padStart(2, '0')}`;
+          } else {
+            // Try ISO or other parseable format
+            const d = new Date(tglStr);
+            if (!isNaN(d.getTime())) {
+              tgl_pembayaran = d.toISOString().split('T')[0];
+            }
           }
         }
       }
