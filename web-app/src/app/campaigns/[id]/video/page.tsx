@@ -379,7 +379,7 @@ export default function CampaignVideoPage() {
                           <tr>
                             <th className="w-16 text-center">Urutan</th>
                             <th className={isAwareness ? "w-1/3" : "w-1/4"}>{isAwareness ? "Konsep / Ide SOW" : "Konsep / Ide"}</th>
-                            <th className={isAwareness ? "w-1/3" : "w-1/4"}>{isAwareness ? "Link Video (Drive/TikTok)" : "Link Video TikTok"}</th>
+                            <th className={isAwareness ? "w-1/3" : "w-1/4"}>Link Video TikTok</th>
                             {isAwareness ? (
                               <>
                                 <th>Performa Views</th>
