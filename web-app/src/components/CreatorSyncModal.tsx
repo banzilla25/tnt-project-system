@@ -10,10 +10,12 @@ import { downloadCreatorSyncTemplate, parseCreatorSyncFile, parseFileHeaders, Pa
 import { createClient } from "@/utils/supabase/client";
 import { useDatabaseStore } from "@/store/useDatabaseStore";
 import { exportErrorLogToExcel, ErrorLogItem } from "@/utils/exportErrorLog";
+import { useAuth } from "@/providers/AuthProvider";
 
 const supabase = createClient();
 
 export function CreatorSyncModal({ onComplete }: { onComplete?: () => void }) {
+  const { profile } = useAuth();
   const { creators } = useDatabaseStore();
   const creatorUsernames = creators.map(c => c.username);
   const [open, setOpen] = useState(false);
@@ -175,7 +177,8 @@ export function CreatorSyncModal({ onComplete }: { onComplete?: () => void }) {
             level: row.level,
             ratecard: row.ratecard,
             gmv_30d: row.gmv_30_days,
-            audience_age: row.audience_age
+            audience_age: row.audience_age,
+            updated_by: profile?.nama || 'System'
           });
 
           // 4. Notes

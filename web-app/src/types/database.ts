@@ -73,7 +73,8 @@ export type CreatorSnapshot = {
   level: number | null;
   ratecard: number | null;
   tier: string | null;
-  gmv_30d: number | null; // stored as number, but logic might say "1jt+" in real DB it's bigint so number here is ok
+  gmv_30d: number | null;
+  updated_by: string | null;
   created_at: string;
 };
 

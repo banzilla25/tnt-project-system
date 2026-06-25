@@ -235,7 +235,8 @@ export default function SpreadsheetImportClient() {
           audience_age: r.audience_age || null,
           gmv_30d: parseInt(r.gmv_30d) || null,
           ratecard: parseInt(r.ratecard) || null,
-          tanggal_update: new Date().toISOString()
+          tanggal_update: new Date().toISOString(),
+          updated_by: profile?.nama || 'System'
         });
 
         if (r.whatsapp) {

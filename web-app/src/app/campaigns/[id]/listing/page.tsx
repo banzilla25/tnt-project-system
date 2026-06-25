@@ -426,6 +426,45 @@ function CampaignListingContent() {
     }
   };
 
+  const handleRescanMissing = async () => {
+    if (missingCreators.length === 0) return;
+    setIsAddingBulk(true);
+    try {
+      const usernames = missingCreators.map(m => m.username.replace('@', '').trim().toLowerCase());
+      
+      const { data: foundInDb, error: fetchErr } = await supabase.from('creators')
+        .select(`
+          id, username, added_by,
+          creator_contacts(id),
+          creator_snapshots(id),
+          creator_niches(niche_id)
+        `)
+        .in('username', usernames);
+        
+      if (fetchErr) throw fetchErr;
+      
+      if (foundInDb && foundInDb.length > 0) {
+        const foundUsernames = new Set(foundInDb.map(c => c.username.toLowerCase()));
+        
+        const newExisting = missingCreators
+          .filter(m => foundUsernames.has(m.username.replace('@', '').trim().toLowerCase()))
+          .map(m => {
+            const dbData = foundInDb.find(d => d.username.toLowerCase() === m.username.replace('@', '').trim().toLowerCase());
+            return { ...m, ...dbData };
+          });
+          
+        setExistingCreators(prev => [...prev, ...newExisting]);
+        setMissingCreators(prev => prev.filter(m => !foundUsernames.has(m.username.replace('@', '').trim().toLowerCase())));
+      } else {
+        alert("Belum ada data kreator yang masuk di database. Silakan import/lengkapi dulu.");
+      }
+    } catch (err: any) {
+      alert("Gagal scan ulang: " + err.message);
+    } finally {
+      setIsAddingBulk(false);
+    }
+  };
+
   const handleSubmitToCampaign = async (group: 'existing' | 'missing') => {
     if (!hasAccess || isAddingBulk) return;
     setIsAddingBulk(true);
@@ -437,21 +476,28 @@ function CampaignListingContent() {
       let allCreators = [...rowsToProcess];
 
       if (group === 'missing') {
-        // We need to insert them into creators table first
         const payloads = rowsToProcess.map(r => ({
           username: r.username.replace('@', '').trim().toLowerCase(),
           link_account: `https://www.tiktok.com/@${r.username.replace('@', '').trim().toLowerCase()}`,
           added_by: profile?.id
         }));
 
-        const { data: insertedData, error: insErr } = await supabase.from('creators')
-          .insert(payloads)
-          .select('id, username, added_by');
-
-        if (insErr) throw insErr;
+        const usernames = payloads.map(p => p.username);
+        const { data: existingInDb } = await supabase.from('creators').select('id, username, added_by').in('username', usernames);
+        const existingUsernames = new Set((existingInDb || []).map(c => c.username.toLowerCase()));
         
-        // Merge the IDs back to the rows
-        const insertedMap = new Map((insertedData || []).map(c => [c.username.toLowerCase(), c]));
+        const toInsert = payloads.filter(p => !existingUsernames.has(p.username.toLowerCase()));
+        
+        let insertedData: any[] = [];
+        if (toInsert.length > 0) {
+           const { data, error: insErr } = await supabase.from('creators').insert(toInsert).select('id, username, added_by');
+           if (insErr) throw insErr;
+           insertedData = data || [];
+        }
+
+        const allFetchedCreators = [...(existingInDb || []), ...insertedData];
+        const insertedMap = new Map(allFetchedCreators.map(c => [c.username.toLowerCase(), c]));
+        
         allCreators = rowsToProcess.map(r => {
           const uname = r.username.replace('@', '').trim().toLowerCase();
           return { ...r, ...insertedMap.get(uname) };
@@ -963,22 +1009,32 @@ function CampaignListingContent() {
                             </tbody>
                           </table>
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex flex-col gap-2 mt-4 bg-slate-50 p-4 rounded-b-xl border-t border-slate-200">
+                          <div className="flex gap-2">
+                            <button 
+                              onClick={() => handleSubmitToCampaign('missing')}
+                              disabled={isAddingBulk}
+                              className="btn bg-error hover:bg-error-dark text-white flex-1"
+                            >
+                              {isAddingBulk ? 'Memproses...' : 'Import ke Campaign (Tanpa Snapshot)'}
+                            </button>
+                            <button 
+                              onClick={() => {
+                                const usernames = missingCreators.map(c => c.username.replace('@', '')).join(',');
+                                window.open(`/creator-pool/import?usernames=${usernames}`, '_blank');
+                              }}
+                              className="btn border border-error text-error hover:bg-error/10 flex-1"
+                            >
+                              Lengkapi Data di Creator Pool
+                            </button>
+                          </div>
                           <button 
-                            onClick={() => handleSubmitToCampaign('missing')}
+                            type="button"
+                            onClick={handleRescanMissing}
                             disabled={isAddingBulk}
-                            className="btn bg-error hover:bg-error-dark text-white flex-1"
+                            className="btn bg-white border border-blue-200 text-blue-600 hover:bg-blue-50 w-full mt-2"
                           >
-                            {isAddingBulk ? 'Memproses...' : 'Tambah ke Campaign'}
-                          </button>
-                          <button 
-                            onClick={() => {
-                              const usernames = missingCreators.map(c => c.username.replace('@', '')).join(',');
-                              window.open(`/creator-pool/import?usernames=${usernames}`, '_blank');
-                            }}
-                            className="btn border border-error text-error hover:bg-error/10 flex-1"
-                          >
-                            Lengkapi Data di Creator Pool
+                            {isAddingBulk ? 'Mengecek...' : 'Cek Ulang (Jika sudah dilengkapi di tab sebelah)'}
                           </button>
                         </div>
                       </>

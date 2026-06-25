@@ -254,7 +254,8 @@ export default function CreatorProfilePage() {
         tier: snapForm.tier || null,
         level: snapForm.level ? parseInt(snapForm.level) : null,
         ratecard: snapForm.ratecard ? parseInt(snapForm.ratecard) : (snapForm.ratecard === '0' ? 0 : null),
-        gmv_30d: snapForm.gmv_30d ? parseInt(snapForm.gmv_30d) : null
+        gmv_30d: snapForm.gmv_30d ? parseInt(snapForm.gmv_30d) : null,
+        updated_by: profile?.nama || null
       } as any);
 
       setSnapOpen(false);
@@ -1024,6 +1025,7 @@ export default function CreatorProfilePage() {
                     <th className="py-[12px] px-[16px] text-left font-semibold text-text-soft text-right">Level</th>
                     <th className="py-[12px] px-[16px] text-left font-semibold text-text-soft text-right">Ratecard</th>
                     <th className="py-[12px] px-[16px] text-left font-semibold text-text-soft text-right">GMV 30 Hari</th>
+                    <th className="py-[12px] px-[16px] text-left font-semibold text-text-soft text-right">Diupdate Oleh</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1036,6 +1038,7 @@ export default function CreatorProfilePage() {
                       <td className="py-[12px] px-[16px] text-right">{s.level || '-'}</td>
                       <td className="py-[12px] px-[16px] text-right">{s.ratecard === 0 ? 'Barter' : (s.ratecard ? `Rp ${s.ratecard.toLocaleString()}` : '-')}</td>
                       <td className="py-[12px] px-[16px] text-right">{s.gmv_30d ? `Rp ${s.gmv_30d.toLocaleString()}` : '-'}</td>
+                      <td className="py-[12px] px-[16px] text-right text-slate-500">{s.updated_by || '-'}</td>
                     </tr>
                   ))}
                 </tbody>
