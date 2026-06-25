@@ -267,6 +267,16 @@ function scrapeKalodata() {
      }
   }
 
+  // 10. Niche (Category filter)
+  let niche = '';
+  const filterCascader = document.querySelector('.FilterCascader .content');
+  if (filterCascader) {
+    const filterText = filterCascader.textContent.trim();
+    if (filterText && filterText !== 'All Categories' && !filterText.toLowerCase().includes('all categories')) {
+      niche = filterText;
+    }
+  }
+
   let cleanUsername = username.startsWith('@') ? username.substring(1) : username;
   cleanUsername = cleanUsername.split(' ')[0].trim();
 
@@ -292,8 +302,8 @@ function scrapeKalodata() {
     name,
     avatar_url,
     followers: followersNum || 0,
-    niche: '', // Kalodata niche is hard to parse simply, leave empty
-    level: '', // No level in Kalodata
+    niche,
+    level: '',
     mcn,
     gmv_30d: gmvNum || 0,
     no_whatsapp: wa,
