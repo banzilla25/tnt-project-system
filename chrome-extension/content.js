@@ -473,7 +473,10 @@ async function injectButton() {
 // Watch for DOM changes to inject button
 const observer = new MutationObserver(() => {
   // Only inject if we are on a creator detail page
-  if (window.location.href.includes('/creator/detail')) {
+  const isKaloCreatorPage = isKalodata && (window.location.href.includes('/creator') || document.querySelector('.Component_CreatorSciTip'));
+  const isTikTokCreatorPage = !isKalodata && window.location.href.includes('/creator/detail');
+
+  if (isKaloCreatorPage || isTikTokCreatorPage) {
     injectButton();
   } else {
     const btn = document.getElementById('tnt-import-btn');
