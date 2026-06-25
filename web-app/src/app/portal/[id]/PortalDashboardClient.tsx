@@ -13,7 +13,7 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
   const [activeTab, setActiveTab] = useState<'performa' | 'approval' | 'sampel' | 'live'>('performa');
   const [isApproving, setIsApproving] = useState<number | null>(null);
 
-  const { campaign, summary, dailyPerf, approvalList, samples, schedules, skus, totalSales, totalAwareness } = data;
+  const { campaign, summary, dailyPerf, approvalList, samples, schedules, videos, skus, totalSales, totalAwareness } = data;
   
   // Calculate display values based on campaign type and modern tracking data
   const isAwareness = campaign?.tipe_campaign === 'awareness' || campaign?.tipe_campaign === 'gmv_awareness';
@@ -74,21 +74,19 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
           <div className="flex items-center gap-2"><TrendingUp className="w-4 h-4"/> Performa</div>
         </button>
         
-        {campaign.require_client_approval && (
-          <button
-            className={`py-3 px-4 md:px-6 text-sm font-medium border-b-2 transition-colors ${activeTab === 'approval' ? 'border-blue-500 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
-            onClick={() => setActiveTab('approval')}
-          >
-            <div className="flex items-center gap-2">
-              <CheckCircle className="w-4 h-4"/> Listing & Seleksi
-              {approvalList.filter((cc: any) => cc.client_approval === 'pending').length > 0 && (
-                <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full ml-1">
-                  {approvalList.filter((cc: any) => cc.client_approval === 'pending').length}
-                </span>
-              )}
-            </div>
-          </button>
-        )}
+        <button
+          className={`py-3 px-4 md:px-6 text-sm font-medium border-b-2 transition-colors ${activeTab === 'approval' ? 'border-blue-500 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+          onClick={() => setActiveTab('approval')}
+        >
+          <div className="flex items-center gap-2">
+            <CheckCircle className="w-4 h-4"/> Listing Kreator
+            {campaign.require_client_approval && approvalList.filter((cc: any) => cc.client_approval === 'pending').length > 0 && (
+              <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full ml-1">
+                {approvalList.filter((cc: any) => cc.client_approval === 'pending').length}
+              </span>
+            )}
+          </div>
+        </button>
 
         <button
           className={`py-3 px-4 md:px-6 text-sm font-medium border-b-2 transition-colors ${activeTab === 'sampel' ? 'border-blue-500 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
@@ -101,6 +99,12 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
           onClick={() => setActiveTab('live')}
         >
           <div className="flex items-center gap-2"><Calendar className="w-4 h-4"/> Jadwal Live</div>
+        </button>
+        <button
+          className={`py-3 px-4 md:px-6 text-sm font-medium border-b-2 transition-colors ${activeTab === 'video' as any ? 'border-blue-500 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+          onClick={() => setActiveTab('video' as any)}
+        >
+          <div className="flex items-center gap-2"><Video className="w-4 h-4"/> Video & Konten</div>
         </button>
       </div>
 
@@ -185,13 +189,14 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
           </div>
         )}
 
-        {activeTab === 'approval' && campaign.require_client_approval && (
+        {activeTab === 'approval' && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6">
             <Card className="shadow-sm border-blue-200">
               <CardHeader className="bg-blue-50 border-b border-blue-100 rounded-t-xl">
-                <CardTitle className="text-blue-900">Listing & Seleksi</CardTitle>
+                <CardTitle className="text-blue-900">Daftar Listing Kreator</CardTitle>
                 <p className="text-sm text-blue-700">
-                  Berikut adalah daftar kreator yang diajukan oleh tim manajemen kami. Silakan tentukan apakah Anda setuju untuk bekerja sama dengan mereka.
+                  Berikut adalah daftar kreator yang diajukan untuk campaign ini. 
+                  {campaign.require_client_approval && " Silakan tentukan apakah Anda setuju untuk bekerja sama dengan mereka."}
                 </p>
               </CardHeader>
               <CardContent className="p-0">
@@ -200,12 +205,12 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                     <TableHeader className="bg-white">
                       <TableRow>
                         <TableHead className="w-48">Kreator</TableHead>
+                        <TableHead>Followers</TableHead>
+                        <TableHead>Level</TableHead>
                         <TableHead>Tier</TableHead>
-                        <TableHead>Produk</TableHead>
+                        <TableHead>Tipe Konten</TableHead>
                         <TableHead>Progres Sampel</TableHead>
-                        <TableHead>GMV Organik</TableHead>
-                        <TableHead>GMV Ads</TableHead>
-                        <TableHead className="w-48 text-center">Tindakan</TableHead>
+                        <TableHead className="w-48 text-center">Status Approval</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -218,11 +223,12 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                           <TableRow key={cc.id}>
                             <TableCell className="align-top">
                               <div className="font-semibold text-slate-900">@{cc.creators?.username}</div>
-                              {cc.creators?.link_account && (
-                                <a href={cc.creators.link_account} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline text-xs truncate max-w-[150px] block mt-1">
-                                  Lihat Profil
-                                </a>
-                              )}
+                            </TableCell>
+                            <TableCell className="align-top text-sm">
+                              {cc.followers ? cc.followers.toLocaleString() : '-'}
+                            </TableCell>
+                            <TableCell className="align-top text-sm">
+                              {cc.level || '-'}
                             </TableCell>
                             <TableCell className="align-top">
                               <Badge variant="outline" className="capitalize text-xs">{cc.tier || '-'}</Badge>
@@ -233,33 +239,33 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                             <TableCell className="align-top text-sm">
                               {cc.sample_progress || 'Belum dikirim'}
                             </TableCell>
-                            <TableCell className="align-top font-medium text-green-700 text-sm">
-                              Rp {(cc.gmv_organic || 0).toLocaleString()}
-                            </TableCell>
-                            <TableCell className="align-top font-medium text-slate-700 text-sm">
-                              Rp {(cc.gmv_ads || 0).toLocaleString()}
-                            </TableCell>
                             <TableCell className="align-top text-center">
-                              {cc.client_approval === 'pending' ? (
-                                <div className="flex items-center justify-center gap-2">
-                                  <button 
-                                    onClick={() => handleApproval(cc.id, 'approved')}
-                                    disabled={isApproving === cc.id}
-                                    className="bg-green-600 hover:bg-green-700 text-white text-xs px-3 py-1.5 rounded disabled:opacity-50"
-                                  >
-                                    Setuju
-                                  </button>
-                                  <button 
-                                    onClick={() => handleApproval(cc.id, 'rejected')}
-                                    disabled={isApproving === cc.id}
-                                    className="bg-red-100 hover:bg-red-200 text-red-700 text-xs px-3 py-1.5 rounded disabled:opacity-50"
-                                  >
-                                    Tolak
-                                  </button>
-                                </div>
+                              {campaign.require_client_approval ? (
+                                cc.client_approval === 'pending' ? (
+                                  <div className="flex items-center justify-center gap-2">
+                                    <button 
+                                      onClick={() => handleApproval(cc.id, 'approved')}
+                                      disabled={isApproving === cc.id}
+                                      className="bg-green-600 hover:bg-green-700 text-white text-xs px-3 py-1.5 rounded disabled:opacity-50 transition-colors"
+                                    >
+                                      Setuju
+                                    </button>
+                                    <button 
+                                      onClick={() => handleApproval(cc.id, 'rejected')}
+                                      disabled={isApproving === cc.id}
+                                      className="bg-red-100 hover:bg-red-200 text-red-700 text-xs px-3 py-1.5 rounded disabled:opacity-50 transition-colors"
+                                    >
+                                      Tolak
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <Badge variant={cc.client_approval === 'approved' ? 'success' : 'destructive'} className="uppercase shadow-sm">
+                                    {cc.client_approval === 'approved' ? 'DISETUJUI' : 'DITOLAK'}
+                                  </Badge>
+                                )
                               ) : (
-                                <Badge variant={cc.client_approval === 'approved' ? 'success' : 'destructive'} className="uppercase">
-                                  {cc.client_approval === 'approved' ? 'DISETUJUI' : 'DITOLAK'}
+                                <Badge variant="success" className="uppercase shadow-sm">
+                                  DISETUJUI
                                 </Badge>
                               )}
                             </TableCell>
@@ -417,6 +423,63 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                               <Badge variant="outline" className="px-3 py-1 text-blue-700 bg-blue-50 border-blue-200 text-sm">
                                 {new Date(l.tanggal_live).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
                               </Badge>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {activeTab === 'video' as any && (
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6">
+            <Card className="shadow-sm border-blue-200">
+              <CardHeader className="bg-blue-50 border-b border-blue-100 rounded-t-xl">
+                <CardTitle className="text-blue-900">Daftar Video Konten</CardTitle>
+                <p className="text-sm text-blue-700">
+                  Berikut adalah daftar video TikTok yang telah dibuat dan diposting oleh kreator.
+                </p>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader className="bg-white">
+                      <TableRow>
+                        <TableHead className="w-16 text-center">No</TableHead>
+                        <TableHead className="w-48">Kreator</TableHead>
+                        <TableHead>Link Video</TableHead>
+                        <TableHead className="text-right">Views</TableHead>
+                        <TableHead className="text-right">Likes</TableHead>
+                        <TableHead className="text-right">Sales GMV</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {(!videos || videos.length === 0) ? (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center py-8 text-slate-500">Belum ada video yang disubmit.</TableCell>
+                        </TableRow>
+                      ) : (
+                        videos.map((v: any, index: number) => (
+                          <TableRow key={v.id || index} className="hover:bg-slate-50 transition-colors">
+                            <TableCell className="text-center text-slate-500">{index + 1}</TableCell>
+                            <TableCell className="font-medium text-slate-900">@{v.creator_username}</TableCell>
+                            <TableCell>
+                              {v.link_video ? (
+                                <a href={v.link_video} target="_blank" rel="noreferrer" className="text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1 text-sm">
+                                  <Video className="w-4 h-4" /> Nonton di TikTok
+                                </a>
+                              ) : (
+                                <span className="text-slate-400 text-sm">Belum ada link</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right text-slate-400">-</TableCell>
+                            <TableCell className="text-right text-slate-400">-</TableCell>
+                            <TableCell className="text-right font-semibold text-green-700">
+                              Rp {(v.gmv || 0).toLocaleString()}
                             </TableCell>
                           </TableRow>
                         ))

@@ -96,7 +96,9 @@ export async function getPortalData(campaignId: number) {
       tier,
       content_type,
       sample_progress,
-      creators(username, nama_asli, link_account)
+      creators(username, nama_asli, link_account),
+      creator_snapshots(followers, level, tier),
+      videos(id, link_video, content_uid, vt_approval, urutan)
     `)
     .eq('campaign_id', campaignId)
     .in('approval', ['approved', 'alternate']);
@@ -112,6 +114,19 @@ export async function getPortalData(campaignId: number) {
     .select('creator_id, gross_revenue_usd, kurs')
     .eq('campaign_id', campaignId);
 
+  const { data: salesForVideos } = await supabase
+    .from('sales')
+    .select('content_uid, gmv')
+    .eq('campaign_id', campaignId)
+    .not('content_uid', 'is', null);
+
+  const videoGmvMap = new Map();
+  salesForVideos?.forEach(s => {
+    if (s.content_uid) {
+      videoGmvMap.set(s.content_uid, (videoGmvMap.get(s.content_uid) || 0) + s.gmv);
+    }
+  });
+
   const salesMap = new Map();
   salesSummary?.forEach(s => salesMap.set(s.creator_username, s.gmv_organic));
 
@@ -124,10 +139,14 @@ export async function getPortalData(campaignId: number) {
 
   const enrichedCcData = ccData?.map((cc: any) => {
     const creator = Array.isArray(cc.creators) ? cc.creators[0] : cc.creators;
+    const snap = Array.isArray(cc.creator_snapshots) ? cc.creator_snapshots[0] : cc.creator_snapshots;
     const username = creator?.username || '';
     const creatorId = cc.creator_id;
     return {
       ...cc,
+      followers: snap?.followers || 0,
+      level: snap?.level || '-',
+      tier: snap?.tier || cc.tier,
       gmv_organic: salesMap.get(username) || 0,
       gmv_ads: adsMap.get(creatorId) || 0
     };
@@ -193,6 +212,20 @@ export async function getPortalData(campaignId: number) {
     .select('id, product_id, nama_produk')
     .eq('campaign_id', campaignId);
 
+  // Extract videos and attach GMV
+  const portalVideos: any[] = [];
+  enrichedCcData.forEach((cc: any) => {
+    if (cc.videos && Array.isArray(cc.videos)) {
+      cc.videos.forEach((v: any) => {
+        portalVideos.push({
+          ...v,
+          creator_username: cc.creators?.username || 'Unknown',
+          gmv: videoGmvMap.get(v.content_uid) || 0
+        });
+      });
+    }
+  });
+
   return { 
     authenticated: true, 
     campaign, 
@@ -203,6 +236,7 @@ export async function getPortalData(campaignId: number) {
     approvalList: enrichedCcData, 
     samples,
     schedules,
+    videos: portalVideos,
     skus: skusData || []
   };
 }
