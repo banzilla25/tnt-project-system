@@ -363,7 +363,7 @@ export default function AlamatPage() {
                                 <div className="font-semibold text-text">{addr.nama_penerima || '-'}</div>
                                 <div className="text-text-soft mt-[4px]">{addr.nama_jalan}</div>
                                 <div className="text-text-soft mt-[4px]">
-                                  {addr.kecamatan}, {addr.kabupaten_kota}, {addr.provinsi} {addr.kode_pos}
+                                  {addr.kelurahan ? `${addr.kelurahan}, ` : ''}{addr.kecamatan ? `${addr.kecamatan}, ` : ''}{addr.kabupaten_kota}, {addr.provinsi} {addr.kode_pos}
                                 </div>
                               </>
                             ) : (

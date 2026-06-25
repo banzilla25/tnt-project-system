@@ -6,6 +6,7 @@ export type AddressColumnMapping = {
   nama_penerima: string;
   nama_jalan: string;
   kecamatan: string;
+  kelurahan: string;
   kabupaten_kota: string;
   provinsi: string;
   kode_pos: string;
@@ -18,6 +19,7 @@ export type ParsedAddressRow = {
   nama_penerima: string | null;
   nama_jalan: string | null;
   kecamatan: string | null;
+  kelurahan: string | null;
   kabupaten_kota: string | null;
   provinsi: string | null;
   kode_pos: string | null;
@@ -70,6 +72,7 @@ export const parseAddressSyncFile = async (file: File, mapping: AddressColumnMap
     const nama_penerima = mapping.nama_penerima ? (row[mapping.nama_penerima] || '').toString().trim() || null : null;
     const nama_jalan = mapping.nama_jalan ? (row[mapping.nama_jalan] || '').toString().trim() || null : null;
     const kecamatan = mapping.kecamatan ? (row[mapping.kecamatan] || '').toString().trim() || null : null;
+    const kelurahan = mapping.kelurahan ? (row[mapping.kelurahan] || '').toString().trim() || null : null;
     const kabupaten_kota = mapping.kabupaten_kota ? (row[mapping.kabupaten_kota] || '').toString().trim() || null : null;
     const provinsi = mapping.provinsi ? (row[mapping.provinsi] || '').toString().trim() || null : null;
     const kode_pos = mapping.kode_pos ? (row[mapping.kode_pos] || '').toString().trim() || null : null;
@@ -93,6 +96,7 @@ export const parseAddressSyncFile = async (file: File, mapping: AddressColumnMap
       nama_penerima,
       nama_jalan,
       kecamatan,
+      kelurahan,
       kabupaten_kota,
       provinsi,
       kode_pos,

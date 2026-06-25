@@ -28,6 +28,7 @@ export function AddressSyncModal({ campaignId: initialCampaignId, onComplete }: 
     nama_penerima: '',
     nama_jalan: '',
     kecamatan: '',
+    kelurahan: '',
     kabupaten_kota: '',
     provinsi: '',
     kode_pos: '',
@@ -72,13 +73,14 @@ export function AddressSyncModal({ campaignId: initialCampaignId, onComplete }: 
       headers.forEach((h, i) => {
         const lh = lowerHeaders[i];
         if (lh === 'username' || lh === 'username creator') guessMapping.username = h;
-        if (lh === 'nama penerima' || lh === 'penerima' || lh === 'nama') guessMapping.nama_penerima = h;
-        if (lh === 'alamat lengkap' || lh === 'alamat' || lh === 'jalan') guessMapping.nama_jalan = h;
+        if (lh === 'nama penerima' || lh === 'penerima' || lh === 'nama' || lh.includes('penerima')) guessMapping.nama_penerima = h;
+        if (lh === 'alamat lengkap' || lh === 'alamat' || lh === 'jalan' || lh === 'nama jalan' || lh.includes('jalan')) guessMapping.nama_jalan = h;
         if (lh === 'kecamatan' || lh === 'kec') guessMapping.kecamatan = h;
-        if (lh === 'kota/kabupaten' || lh === 'kota' || lh === 'kabupaten') guessMapping.kabupaten_kota = h;
+        if (lh === 'kelurahan' || lh === 'kel' || lh === 'desa') guessMapping.kelurahan = h;
+        if (lh === 'kota/kabupaten' || lh === 'kota' || lh === 'kabupaten' || lh === 'kabupaten/kota' || lh.includes('kabupaten')) guessMapping.kabupaten_kota = h;
         if (lh === 'provinsi' || lh === 'prov') guessMapping.provinsi = h;
         if (lh === 'kode pos' || lh === 'kodepos') guessMapping.kode_pos = h;
-        if (lh === 'resi' || lh === 'no resi') guessMapping.resi = h;
+        if (lh === 'resi' || lh === 'no resi' || lh.includes('resi')) guessMapping.resi = h;
         if (lh === 'status' || lh === 'status pengiriman' || lh === 'proses') guessMapping.proses = h;
       });
       
@@ -222,6 +224,7 @@ export function AddressSyncModal({ campaignId: initialCampaignId, onComplete }: 
             ...(row.nama_penerima && { nama_penerima: row.nama_penerima }),
             ...(row.nama_jalan && { nama_jalan: row.nama_jalan }),
             ...(row.kecamatan && { kecamatan: row.kecamatan }),
+            ...(row.kelurahan && { kelurahan: row.kelurahan }),
             ...(row.kabupaten_kota && { kabupaten_kota: row.kabupaten_kota }),
             ...(row.provinsi && { provinsi: row.provinsi }),
             ...(row.kode_pos && { kode_pos: row.kode_pos }),
