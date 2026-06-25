@@ -885,17 +885,27 @@ function CampaignListingContent() {
                                   newRows[index].username = e.target.value;
                                   setDynamicRows(newRows);
                                 }}
-                                onBlur={e => {
+                                onBlur={async e => {
                                   const val = e.target.value.replace('@', '').trim().toLowerCase();
-                                  const matched = creators.find(c => c.username.toLowerCase() === val);
-                                  if (matched) {
-                                    const snaps = creator_snapshots.filter(s => s.creator_id === matched.id).sort((a,b) => b.id - a.id);
-                                    const mergedRatecard = snaps.reduce((acc, curr) => acc ?? curr.ratecard, null as any);
-                                    if (mergedRatecard !== null) {
-                                      const newRows = [...dynamicRows];
-                                      newRows[index].price = mergedRatecard.toString();
-                                      setDynamicRows(newRows);
+                                  if (!val) return;
+                                  try {
+                                    const { data: matched } = await supabase.from('creators')
+                                      .select('id, creator_snapshots(id, ratecard)')
+                                      .ilike('username', val)
+                                      .limit(1)
+                                      .single();
+                                    
+                                    if (matched && matched.creator_snapshots && matched.creator_snapshots.length > 0) {
+                                      const snaps = [...matched.creator_snapshots].sort((a: any, b: any) => b.id - a.id);
+                                      const mergedRatecard = snaps.reduce((acc: any, curr: any) => acc ?? curr.ratecard, null);
+                                      if (mergedRatecard !== null) {
+                                        const newRows = [...dynamicRows];
+                                        newRows[index].price = mergedRatecard.toString();
+                                        setDynamicRows(newRows);
+                                      }
                                     }
+                                  } catch (err) {
+                                    // ignore if not found
                                   }
                                 }}
                                 className="input h-9 text-sm w-full"
