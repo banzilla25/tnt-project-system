@@ -258,15 +258,30 @@ function scrapeKalodata() {
 
   // 9. Avatar
   let avatar_url = '';
-  const avatarEl = document.querySelector('div[style*="background-image"][style*="avatar"]');
-  if (avatarEl) {
+  const avatarEl = document.querySelector('.Component-Image');
+  if (avatarEl && avatarEl.style.backgroundImage) {
     const bg = avatarEl.style.backgroundImage;
     const match = bg.match(/url\(["']?(.*?)["']?\)/);
     if (match) {
       avatar_url = match[1];
     }
-  } else {
+  }
+
+  if (!avatar_url) {
     // fallback
+    const allDivs = document.querySelectorAll('div');
+    for (let div of allDivs) {
+      if (div.style.backgroundImage && div.style.backgroundImage.includes('avatar')) {
+        const match = div.style.backgroundImage.match(/url\(["']?(.*?)["']?\)/);
+        if (match) {
+          avatar_url = match[1];
+          break;
+        }
+      }
+    }
+  }
+  
+  if (!avatar_url) {
     const img = document.querySelector('img[src*="avatar"]');
     if (img) avatar_url = img.src;
   }
