@@ -381,7 +381,7 @@ async function injectButton() {
         </div>
         <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
           <span style="color:#666">Followers:</span>
-          <strong>${(data.followers/1000).toFixed(1)}K</strong>
+          <strong>${data.followers.toLocaleString('id-ID')}</strong>
         </div>
         <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
           <span style="color:#666">GMV:</span> 
