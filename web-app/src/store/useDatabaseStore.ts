@@ -295,7 +295,10 @@ export const useDatabaseStore = create<DatabaseState>((set, get) => ({
     }
 
     const { data, error } = await supabase.from('creator_snapshots').insert(snapshot).select().single();
-    if (!error && data) {
+    if (error) {
+      throw error;
+    }
+    if (data) {
       set({ creator_snapshots: [...get().creator_snapshots, data] });
     }
   },
