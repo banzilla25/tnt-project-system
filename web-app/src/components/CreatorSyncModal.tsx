@@ -260,7 +260,15 @@ export function CreatorSyncModal({ onComplete }: { onComplete?: () => void }) {
           </div>
 
           {step === 1 && (
-            <div className="space-y-6">
+            <div className="space-y-4 py-4">
+              <div className="bg-blue-50 border border-blue-100 p-3 rounded-lg flex items-start gap-3">
+                <CheckCircle className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+                <div className="text-sm text-blue-800">
+                  <p className="font-semibold">Sistem Pelacakan Aktif</p>
+                  <p>Seluruh kreator yang berhasil diimpor atau diupdate akan tercatat atas nama PIC: <strong>{profile?.nama || 'System'}</strong>.</p>
+                </div>
+              </div>
+
               <div className="flex items-center justify-between bg-slate-50 p-4 rounded-lg border">
                 <div>
                   <p className="text-sm font-medium mb-1">Penting:</p>
