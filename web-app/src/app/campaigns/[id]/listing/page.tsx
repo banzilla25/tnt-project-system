@@ -1172,11 +1172,19 @@ function CampaignListingContent() {
                 const creator = cc.creators;
                 if (!creator) return null;
                 const snaps = creator.creator_snapshots || [];
-                const snapshot = snaps.length > 0 ? snaps.sort((a:any, b:any) => {
+                const sortedSnaps = snaps.sort((a:any, b:any) => {
                   const tDiff = new Date(b.tanggal_update || 0).getTime() - new Date(a.tanggal_update || 0).getTime();
                   if (tDiff !== 0) return tDiff;
                   return b.id - a.id;
-                })[0] : null;
+                });
+                const snapshot = sortedSnaps.reduce((acc: any, curr: any) => ({
+                  followers: acc.followers ?? curr.followers,
+                  tier: acc.tier ?? curr.tier,
+                  audience_age: acc.audience_age ?? curr.audience_age,
+                  level: acc.level ?? curr.level,
+                  ratecard: acc.ratecard ?? curr.ratecard,
+                  gmv_30d: acc.gmv_30d ?? curr.gmv_30d,
+                }), { followers: null, tier: null, audience_age: null, level: null, ratecard: null, gmv_30d: null } as any);
                 const type = getCreatorType(snapshot?.audience_age || null);
                 const gmvCreator = snapshot?.gmv_30d || 0;
                 const isExpanded = expandedRows[cc.id];
