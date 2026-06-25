@@ -258,13 +258,17 @@ function scrapeKalodata() {
 
   // 9. Avatar
   let avatar_url = '';
-  const imgs = document.querySelectorAll('img');
-  for (let img of imgs) {
-     if (img.src && !img.src.includes('facebook') && !img.src.includes('google') && !img.src.includes('analytics')) {
-        // Kalodata avatars usually from cloudfront
-        avatar_url = img.src;
-        break;
-     }
+  const avatarEl = document.querySelector('div[style*="background-image"][style*="avatar"]');
+  if (avatarEl) {
+    const bg = avatarEl.style.backgroundImage;
+    const match = bg.match(/url\(["']?(.*?)["']?\)/);
+    if (match) {
+      avatar_url = match[1];
+    }
+  } else {
+    // fallback
+    const img = document.querySelector('img[src*="avatar"]');
+    if (img) avatar_url = img.src;
   }
 
   // 10. Niche (Category filter)
