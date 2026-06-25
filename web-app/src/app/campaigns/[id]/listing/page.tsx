@@ -104,10 +104,10 @@ function CampaignListingContent() {
   const [recapStartIndex, setRecapStartIndex] = useState(0);
 
   // Add Creator Modal State
-  type DynamicRow = { id: string; username: string; price: string; qtyVt: string };
+  type DynamicRow = { id: string; username: string; price: string; qtyVt: string; contentType: string };
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [modalStep, setModalStep] = useState<1 | 2>(1);
-  const [dynamicRows, setDynamicRows] = useState<DynamicRow[]>([{ id: Math.random().toString(36).substring(2, 9), username: '', price: '0', qtyVt: '1' }]);
+  const [dynamicRows, setDynamicRows] = useState<DynamicRow[]>([{ id: Math.random().toString(36).substring(2, 9), username: '', price: '0', qtyVt: '1', contentType: 'Video' }]);
   const [existingCreators, setExistingCreators] = useState<any[]>([]);
   const [missingCreators, setMissingCreators] = useState<any[]>([]);
   const [isAddingBulk, setIsAddingBulk] = useState(false);
@@ -181,7 +181,7 @@ function CampaignListingContent() {
     setIsLoading(true);
     try {
       let selectQuery = `
-        id, creator_id, price, qty_vt, approval, client_approval, tier,
+        id, creator_id, price, qty_vt, content_type, approval, client_approval, tier,
         sample_progress, status_bayar, notes_manager, notes_pic,
         created_at,
         added_by_profile:profiles!campaign_creators_added_by_fkey ( nama ),
@@ -513,7 +513,7 @@ function CampaignListingContent() {
         tier: 'NANO',
         price: Number(c.price),
         qty_vt: Number(c.qtyVt),
-        content_type: null,
+        content_type: c.contentType || 'Video',
         approval: 'pending',
         pic_assist: profile?.nama || '-',
         notes_manager: '',
@@ -670,7 +670,7 @@ function CampaignListingContent() {
             <button className="btn btn-primary" onClick={() => {
               setIsAddModalOpen(true);
               setModalStep(1);
-              setDynamicRows([{ id: Math.random().toString(36).substring(2, 9), username: '', price: '0', qtyVt: '1' }]);
+              setDynamicRows([{ id: Math.random().toString(36).substring(2, 9), username: '', price: '0', qtyVt: '1', contentType: 'Video' }]);
             }}>
               + Tambah Creator
             </button>
@@ -869,6 +869,7 @@ function CampaignListingContent() {
                           <th className="pb-2">Username</th>
                           <th className="pb-2">Rate Card (Rp)</th>
                           <th className="pb-2">Qty VT</th>
+                          <th className="pb-2">Tipe Konten</th>
                           <th className="pb-2 w-10"></th>
                         </tr>
                       </thead>
@@ -940,6 +941,21 @@ function CampaignListingContent() {
                                 className="input h-9 text-sm w-full"
                               />
                             </td>
+                            <td className="py-2 pr-2">
+                              <select
+                                value={row.contentType}
+                                onChange={e => {
+                                  const newRows = [...dynamicRows];
+                                  newRows[index].contentType = e.target.value;
+                                  setDynamicRows(newRows);
+                                }}
+                                className="input h-9 text-sm w-full bg-white"
+                              >
+                                <option value="Video">Video</option>
+                                <option value="Live">Live</option>
+                                <option value="Video & Live">Video & Live</option>
+                              </select>
+                            </td>
                             <td className="py-2 text-center">
                               <button 
                                 type="button" 
@@ -963,7 +979,7 @@ function CampaignListingContent() {
                     <button 
                       type="button" 
                       onClick={() => {
-                        setDynamicRows([...dynamicRows, { id: Math.random().toString(36).substring(2, 9), username: '', price: '0', qtyVt: '1' }]);
+                        setDynamicRows([...dynamicRows, { id: Math.random().toString(36).substring(2, 9), username: '', price: '0', qtyVt: '1', contentType: 'Video' }]);
                       }}
                       className="text-p500 text-sm font-semibold hover:underline flex items-center"
                     >
@@ -1110,7 +1126,7 @@ function CampaignListingContent() {
                     <button type="button" className="btn btn-outline" onClick={() => {
                       setIsAddModalOpen(false);
                       setModalStep(1);
-                      setDynamicRows([{ id: Math.random().toString(36).substring(2, 9), username: '', price: '0', qtyVt: '1' }]);
+                      setDynamicRows([{ id: Math.random().toString(36).substring(2, 9), username: '', price: '0', qtyVt: '1', contentType: 'Video' }]);
                     }}>
                       Tutup Modal
                     </button>
