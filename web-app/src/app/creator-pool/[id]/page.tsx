@@ -136,7 +136,16 @@ export default function CreatorProfilePage() {
     return b.id - a.id;
   }) || [];
   const latestSnapshot = snapshots[0] || null;
-  const tier = latestSnapshot?.tier || 'Unknown';
+  const mergedProfile = snapshots.reduce((acc, curr) => ({
+    followers: acc.followers ?? curr.followers,
+    tier: acc.tier ?? curr.tier,
+    audience_age: acc.audience_age ?? curr.audience_age,
+    level: acc.level ?? curr.level,
+    ratecard: acc.ratecard ?? curr.ratecard,
+    gmv_30d: acc.gmv_30d ?? curr.gmv_30d,
+  }), { followers: null, tier: null, audience_age: null, level: null, ratecard: null, gmv_30d: null } as any);
+  
+  const tier = mergedProfile.tier || 'Unknown';
   
   const activeContact = localData?.contacts?.find((c: any) => c.status === 'aktif');
   
@@ -447,28 +456,28 @@ export default function CreatorProfilePage() {
               <div className="space-y-4 py-4">
                 <div>
                   <label className="text-sm font-medium">Followers</label>
-                  <input type="number" value={snapForm.followers} onChange={e=>setSnapForm({...snapForm, followers: e.target.value})} className="w-full p-2 border rounded" placeholder={latestSnapshot?.followers || ''} />
+                  <input type="number" value={snapForm.followers} onChange={e=>setSnapForm({...snapForm, followers: e.target.value})} className="w-full p-2 border rounded" placeholder={mergedProfile.followers || ''} />
                 </div>
                 <div>
                   <label className="text-sm font-medium">Tier</label>
-                  <input type="text" value={snapForm.tier} onChange={e=>setSnapForm({...snapForm, tier: e.target.value})} className="w-full p-2 border rounded" placeholder={latestSnapshot?.tier || ''} />
+                  <input type="text" value={snapForm.tier} onChange={e=>setSnapForm({...snapForm, tier: e.target.value})} className="w-full p-2 border rounded" placeholder={mergedProfile.tier || ''} />
                 </div>
                 <div>
                   <label className="text-sm font-medium">Audience Age</label>
-                  <input type="text" value={snapForm.audience_age} onChange={e=>setSnapForm({...snapForm, audience_age: e.target.value})} className="w-full p-2 border rounded" placeholder={latestSnapshot?.audience_age || ''} />
+                  <input type="text" value={snapForm.audience_age} onChange={e=>setSnapForm({...snapForm, audience_age: e.target.value})} className="w-full p-2 border rounded" placeholder={mergedProfile.audience_age || ''} />
                 </div>
                 <div>
                   <label className="text-sm font-medium">Level Creator</label>
-                  <input type="number" value={snapForm.level} onChange={e=>setSnapForm({...snapForm, level: e.target.value})} className="w-full p-2 border rounded" placeholder={latestSnapshot?.level || ''} />
+                  <input type="number" value={snapForm.level} onChange={e=>setSnapForm({...snapForm, level: e.target.value})} className="w-full p-2 border rounded" placeholder={mergedProfile.level || ''} />
                 </div>
                 <div>
                   <label className="text-sm font-medium">Ratecard</label>
-                  <input type="number" value={snapForm.ratecard} onChange={e=>setSnapForm({...snapForm, ratecard: e.target.value})} className="w-full p-2 border rounded" placeholder={latestSnapshot?.ratecard?.toString() || ''} />
+                  <input type="number" value={snapForm.ratecard} onChange={e=>setSnapForm({...snapForm, ratecard: e.target.value})} className="w-full p-2 border rounded" placeholder={mergedProfile.ratecard?.toString() || ''} />
                   <p className="text-xs text-slate-500 mt-1">Isi 0 untuk Barter.</p>
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Estimasi GMV 30 Hari Terakhir (Rp)</label>
-                  <input type="number" value={snapForm.gmv_30d} onChange={e=>setSnapForm({...snapForm, gmv_30d: e.target.value})} className="w-full p-2 border rounded" placeholder="0" />
+                  <input type="number" value={snapForm.gmv_30d} onChange={e=>setSnapForm({...snapForm, gmv_30d: e.target.value})} className="w-full p-2 border rounded" placeholder={mergedProfile.gmv_30d?.toString() || '0'} />
                 </div>
                 <button className="btn btn-primary w-full" onClick={handleUpdateSnapshot}>Simpan Snapshot</button>
               </div>
@@ -516,19 +525,19 @@ export default function CreatorProfilePage() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-col justify-center items-center text-center">
                   <p className="text-sm text-slate-500 mb-1">Followers</p>
-                  <p className="font-bold text-lg">{latestSnapshot?.followers?.toLocaleString() || '-'}</p>
+                  <p className="font-bold text-lg">{mergedProfile.followers?.toLocaleString() || '-'}</p>
                 </div>
                 <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-col justify-center items-center text-center">
                   <p className="text-sm text-slate-500 mb-1">Audience Age</p>
-                  <p className="font-bold text-lg">{latestSnapshot?.audience_age || '-'}</p>
+                  <p className="font-bold text-lg">{mergedProfile.audience_age || '-'}</p>
                 </div>
                 <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-col justify-center items-center text-center">
                   <p className="text-sm text-slate-500 mb-1">Level</p>
-                  <p className="font-bold text-lg">{latestSnapshot?.level || '-'}</p>
+                  <p className="font-bold text-lg">{mergedProfile.level || '-'}</p>
                 </div>
                 <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-col justify-center items-center text-center">
                   <p className="text-sm text-slate-500 mb-1">Ratecard</p>
-                  <p className="font-bold text-lg">{latestSnapshot?.ratecard === 0 ? 'Barter' : (latestSnapshot?.ratecard ? `Rp ${latestSnapshot.ratecard.toLocaleString()}` : '-')}</p>
+                  <p className="font-bold text-lg">{mergedProfile.ratecard === 0 ? 'Barter' : (mergedProfile.ratecard ? `Rp ${mergedProfile.ratecard.toLocaleString()}` : '-')}</p>
                 </div>
               </div>
 
