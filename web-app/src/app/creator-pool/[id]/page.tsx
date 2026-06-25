@@ -180,12 +180,19 @@ export default function CreatorProfilePage() {
       const gmv = campaignSales.reduce((sum: number, s: any) => sum + (s.gmv || 0), 0);
 
       const manualVideos = localData?.videos?.filter((v: any) => v.campaign_creator_id === cc.id) || [];
-      const uniqueUids = new Set<string>();
+      const uniqueVideoIds = new Set<string>();
       let totalVtCount = manualVideos.length;
       campaignSales.forEach((s: any) => {
-        if (s.content_uid && !uniqueUids.has(s.content_uid)) {
-          uniqueUids.add(s.content_uid);
-          if (!manualVideos.some((v: any) => v.content_uid === s.content_uid)) {
+        let vid = s.content_uid;
+        if (vid && vid.startsWith('video_')) {
+          const parts = vid.split('_');
+          if (parts.length >= 2) vid = parts[1];
+        }
+        
+        if (vid && !uniqueVideoIds.has(vid)) {
+          uniqueVideoIds.add(vid);
+          // Check if already in manual videos (either as content_uid or vt_code)
+          if (!manualVideos.some((v: any) => v.content_uid === vid || v.vt_code === vid || v.content_uid === s.content_uid)) {
             totalVtCount++;
           }
         }
@@ -848,15 +855,22 @@ export default function CreatorProfilePage() {
                       const manualVideos = localData?.videos?.filter((v: any) => v.campaign_creator_id === tr.id) || [];
                       const campaignSales = localData?.sales?.filter((s: any) => s.campaign_id === tr.campaign_id) || [];
                       const combinedVideos = [...manualVideos];
-                      const uniqueUids2 = new Set<string>();
+                      const uniqueVideoIds2 = new Set<string>();
                       campaignSales.forEach((s: any) => {
-                          if (s.content_uid && !uniqueUids2.has(s.content_uid)) {
-                              uniqueUids2.add(s.content_uid);
-                              if (!manualVideos.some((v: any) => v.content_uid === s.content_uid)) {
+                          let vid = s.content_uid;
+                          if (vid && vid.startsWith('video_')) {
+                            const parts = vid.split('_');
+                            if (parts.length >= 2) vid = parts[1];
+                          }
+
+                          if (vid && !uniqueVideoIds2.has(vid)) {
+                              uniqueVideoIds2.add(vid);
+                              // Check if already in manual videos
+                              if (!manualVideos.some((v: any) => v.content_uid === vid || v.vt_code === vid || v.content_uid === s.content_uid)) {
                                   combinedVideos.push({
-                                     id: `auto-${s.content_uid}`,
-                                     content_uid: s.content_uid,
-                                     link_video: `https://www.tiktok.com/@${localData?.creator?.username}/video/${s.content_uid}`,
+                                     id: `auto-${vid}`,
+                                     content_uid: vid, // Use the true video ID
+                                     link_video: `https://www.tiktok.com/@${localData?.creator?.username}/video/${vid}`,
                                      urutan: combinedVideos.length + 1,
                                      campaign_creator_id: tr.id
                                   });
@@ -920,7 +934,11 @@ export default function CreatorProfilePage() {
                                     {combinedVideos.length === 0 ? (
                                       <tr className="border-b border-line hover:bg-slate-50/50"><td className="py-[12px] px-[16px] text-center text-slate-400 py-3 text-xs" colSpan={5}>Belum ada video/VT diunggah.</td></tr>
                                     ) : combinedVideos.map((v: any) => {
-                                      const videoSales = localData?.sales?.filter((s: any) => s.content_uid && v.content_uid && s.content_uid === v.content_uid) || [];
+                                      const videoSales = localData?.sales?.filter((s: any) => {
+                                        if (!s.content_uid || !v.content_uid) return false;
+                                        // True video ID could be exactly the content_uid, or embedded inside it like video_ID_PRODUCTID
+                                        return s.content_uid === v.content_uid || s.content_uid.includes(v.content_uid);
+                                      }) || [];
                                       const organicGmv = videoSales.reduce((sum, row) => sum + row.gmv, 0);
                                       const itemsSold = videoSales.reduce((sum, row) => sum + (row.quantity || 0), 0);
                                       const maxViews = videoSales.length > 0 ? Math.max(...videoSales.map((s: any) => Number(s.raw_data?.['Video views'] || 0))) : 0;
