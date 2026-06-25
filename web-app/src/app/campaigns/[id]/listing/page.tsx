@@ -393,7 +393,7 @@ function CampaignListingContent() {
           id, username, added_by,
           creator_contacts(id),
           creator_snapshots(id),
-          creator_niches(id)
+          creator_niches(niche_id)
         `)
         .in('username', uniqueUsernames);
 
@@ -418,9 +418,9 @@ function CampaignListingContent() {
       setMissingCreators(missing);
       setModalStep(2);
 
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert('Gagal melakukan scan kreator.');
+      alert('Gagal melakukan scan kreator: ' + (err.message || err.toString()));
     } finally {
       setIsAddingBulk(false);
     }
@@ -521,7 +521,7 @@ function CampaignListingContent() {
 
     } catch (err: any) {
       console.error(err);
-      alert('Gagal menambahkan kreator ke campaign.');
+      alert('Gagal menambahkan kreator ke campaign: ' + (err.message || err.toString()));
     } finally {
       setIsAddingBulk(false);
     }
