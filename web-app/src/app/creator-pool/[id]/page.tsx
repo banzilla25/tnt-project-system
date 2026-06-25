@@ -248,6 +248,7 @@ export default function CreatorProfilePage() {
     try {
       await addCreatorSnapshot({
         creator_id: creatorId,
+        tanggal_update: new Date().toISOString().split('T')[0],
         audience_age: snapForm.audience_age || null,
         followers: snapForm.followers ? parseInt(snapForm.followers) : null,
         tier: snapForm.tier || null,

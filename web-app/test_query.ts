@@ -14,14 +14,7 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function main() {
   console.log("Running query...");
-  const { data, error } = await supabase.from('creators')
-    .select(`
-      id, username, added_by,
-      creator_contacts(id),
-      creator_snapshots(id),
-      creator_niches(niche_id)
-    `)
-    .in('username', ['ilhamkhadafi999']);
+  const { data, error } = await supabase.from('creator_snapshots').select('*').limit(1);
   console.log("Data:", JSON.stringify(data, null, 2));
   console.log("Error:", error);
 }
