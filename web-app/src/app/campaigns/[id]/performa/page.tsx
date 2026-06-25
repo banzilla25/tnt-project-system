@@ -220,19 +220,27 @@ function CampaignPerformaContent() {
       const dbVideos = cc.videos || [];
       const dbVideosSet = new Set(dbVideos.map((v: any) => v.content_uid));
       const autoSalesVideos = autoSalesMap.get(username) || [];
-      const uniqueUids = new Set<string>();
+      const uniqueVideoIds = new Set<string>();
       
-      let totalVtCount = dbVideos.length;
+      // Add db videos to set
+      dbVideos.forEach((v: any) => {
+        if (v.vt_code) uniqueVideoIds.add(v.vt_code);
+        else if (v.content_uid) uniqueVideoIds.add(v.content_uid);
+      });
+
+      // Parse sales videos
       autoSalesVideos.forEach((s: any) => {
-         if (!uniqueUids.has(s.content_uid)) {
-             uniqueUids.add(s.content_uid);
-             if (!dbVideosSet.has(s.content_uid)) {
-                 totalVtCount++;
-             }
+         if (s.content_uid && s.content_uid.startsWith('video_')) {
+           const parts = s.content_uid.split('_');
+           if (parts.length >= 2) {
+             uniqueVideoIds.add(parts[1]); // the video ID
+           }
+         } else if (s.content_uid) {
+           uniqueVideoIds.add(s.content_uid);
          }
       });
       
-      const totalVt = Math.max(trackedVideos, totalVtCount);
+      const totalVt = Math.max(trackedVideos, uniqueVideoIds.size);
 
       return {
         ccId: cc.id,
