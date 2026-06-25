@@ -392,7 +392,7 @@ export default function SpreadsheetImportClient() {
                                 const mcn = (cols[7] || '').trim();
                                 const rate = (cols[8] || '').replace(/[^0-9]/g, '');
                                 
-                                const newRowData = {
+                                const newRowData: Partial<SpreadsheetRow> = {
                                   username: uname,
                                   whatsapp: wa,
                                   followers: followers,
@@ -401,9 +401,7 @@ export default function SpreadsheetImportClient() {
                                   gmv_30d: gmv,
                                   niche: niche,
                                   mcn: mcn,
-                                  ratecard: rate,
-                                  status: 'idle',
-                                  errorMsg: ''
+                                  ratecard: rate
                                 };
 
                                 if (i === 0) {
@@ -412,7 +410,7 @@ export default function SpreadsheetImportClient() {
                                   newRows.splice(idx + i, 0, {
                                     id: Math.random().toString(36).substring(2, 9),
                                     ...newRowData
-                                  });
+                                  } as SpreadsheetRow);
                                 }
                               });
                               setRows(newRows);
