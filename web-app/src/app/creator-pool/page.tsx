@@ -136,13 +136,28 @@ export default function CreatorPoolPage() {
   };
 
   const handleExport = () => {
-    const exportData = data.map(c => ({
-      'Username': c.username,
-      'Nama Asli': c.nama_asli || '',
-      'Audience Age': c.creator_snapshots?.[0]?.audience_age || '',
-      'Level': c.creator_snapshots?.[0]?.level || '',
-      'GMV 30D': c.creator_snapshots?.[0]?.gmv_30d || 0
-    }));
+    const exportData = data.map(c => {
+      const snaps = c.creator_snapshots || [];
+      const sortedSnaps = [...snaps].sort((a:any, b:any) => {
+        const tDiff = new Date(b.tanggal_update || 0).getTime() - new Date(a.tanggal_update || 0).getTime();
+        if (tDiff !== 0) return tDiff;
+        return b.id - a.id;
+      });
+      const snapshot = sortedSnaps.reduce((acc, curr) => ({
+        ...acc,
+        audience_age: acc.audience_age ?? curr.audience_age,
+        level: acc.level ?? curr.level,
+        gmv_30d: acc.gmv_30d ?? curr.gmv_30d,
+      }), {} as any);
+      
+      return {
+        'Username': c.username,
+        'Nama Asli': c.nama_asli || '',
+        'Audience Age': snapshot.audience_age || '',
+        'Level': snapshot.level || '',
+        'GMV 30D': snapshot.gmv_30d || 0
+      };
+    });
     exportToCSV(exportData, 'creator_pool_export');
   };
 
@@ -245,11 +260,20 @@ export default function CreatorPoolPage() {
         {data.map(creator => {
           // Extract nested data safely
           const snaps = creator.creator_snapshots || [];
-          const snapshot = snaps.length > 0 ? snaps.sort((a:any, b:any) => {
+          const sortedSnaps = [...snaps].sort((a:any, b:any) => {
             const tDiff = new Date(b.tanggal_update || 0).getTime() - new Date(a.tanggal_update || 0).getTime();
             if (tDiff !== 0) return tDiff;
             return b.id - a.id;
-          })[0] : null;
+          });
+          const snapshot = sortedSnaps.reduce((acc, curr) => ({
+            ...acc,
+            followers: acc.followers ?? curr.followers,
+            tier: acc.tier ?? curr.tier,
+            level: acc.level ?? curr.level,
+            gmv_30d: acc.gmv_30d ?? curr.gmv_30d,
+            audience_age: acc.audience_age ?? curr.audience_age,
+            ratecard: acc.ratecard ?? curr.ratecard,
+          }), {} as any);
           const tier = snapshot?.tier || 'Unknown';
           let tierClass = 'tier-c';
           if(tier.includes('A')) tierClass = 'tier-a';
