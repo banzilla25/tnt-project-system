@@ -373,6 +373,51 @@ export default function SpreadsheetImportClient() {
                                if(updated) setRows(newRows);
                              }
                           }}
+                          onPaste={(e) => {
+                            const text = e.clipboardData.getData('text');
+                            if (text.includes('\n') || text.includes('\t')) {
+                              e.preventDefault();
+                              const lines = text.split(/\r?\n/).filter(line => line.trim());
+                              const newRows = [...rows];
+                              
+                              lines.forEach((line, i) => {
+                                const cols = line.split('\t');
+                                const uname = (cols[0] || '').replace('@', '').trim().toLowerCase();
+                                const wa = (cols[1] || '').trim();
+                                const followers = (cols[2] || '').replace(/[^0-9]/g, '');
+                                const level = (cols[3] || '').replace(/[^0-9]/g, '');
+                                const audAge = (cols[4] || '').trim();
+                                const gmv = (cols[5] || '').replace(/[^0-9]/g, '');
+                                const niche = (cols[6] || '').trim();
+                                const mcn = (cols[7] || '').trim();
+                                const rate = (cols[8] || '').replace(/[^0-9]/g, '');
+                                
+                                const newRowData = {
+                                  username: uname,
+                                  whatsapp: wa,
+                                  followers: followers,
+                                  level: level,
+                                  audience_age: audAge,
+                                  gmv_30d: gmv,
+                                  niche: niche,
+                                  mcn: mcn,
+                                  ratecard: rate,
+                                  status: 'idle',
+                                  errorMsg: ''
+                                };
+
+                                if (i === 0) {
+                                  Object.assign(newRows[idx], newRowData);
+                                } else {
+                                  newRows.splice(idx + i, 0, {
+                                    id: Math.random().toString(36).substring(2, 9),
+                                    ...newRowData
+                                  });
+                                }
+                              });
+                              setRows(newRows);
+                            }
+                          }}
                           onChange={e => updateRow(row.id, 'username', e.target.value.replace('@', '').toLowerCase())} className="w-full border-none bg-transparent focus:ring-1 focus:ring-blue-500 p-1 rounded" placeholder="username" />
                       </td>
                       <td className="p-2">

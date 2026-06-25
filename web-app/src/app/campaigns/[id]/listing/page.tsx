@@ -886,6 +886,41 @@ function CampaignListingContent() {
                                   newRows[index].username = e.target.value;
                                   setDynamicRows(newRows);
                                 }}
+                                onPaste={(e) => {
+                                  const text = e.clipboardData.getData('text');
+                                  if (text.includes('\n') || text.includes('\t')) {
+                                    e.preventDefault();
+                                    const lines = text.split(/\r?\n/).filter(line => line.trim());
+                                    const newRows = [...dynamicRows];
+                                    
+                                    lines.forEach((line, i) => {
+                                      const cols = line.split('\t');
+                                      const uname = (cols[0] || '').replace('@', '').trim().toLowerCase();
+                                      const rate = (cols[1] || '').replace(/[^0-9]/g, ''); 
+                                      const qty = (cols[2] || '').replace(/[^0-9]/g, '');
+                                      const ctypeRaw = (cols[3] || '').trim().toLowerCase();
+                                      let ctype = 'Video';
+                                      if (ctypeRaw.includes('live') && ctypeRaw.includes('video')) ctype = 'Video & Live';
+                                      else if (ctypeRaw.includes('live')) ctype = 'Live';
+                                      
+                                      if (i === 0) {
+                                        newRows[index].username = uname;
+                                        if(rate) newRows[index].price = rate;
+                                        if(qty) newRows[index].qtyVt = qty;
+                                        if(cols[3]) newRows[index].contentType = ctype;
+                                      } else {
+                                        newRows.splice(index + i, 0, {
+                                          id: Math.random().toString(36).substring(2, 9),
+                                          username: uname,
+                                          price: rate || '0',
+                                          qtyVt: qty || '1',
+                                          contentType: ctype
+                                        });
+                                      }
+                                    });
+                                    setDynamicRows(newRows);
+                                  }
+                                }}
                                 onBlur={async e => {
                                   const val = e.target.value.replace('@', '').trim().toLowerCase();
                                   if (!val) return;
