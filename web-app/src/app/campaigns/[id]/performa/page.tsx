@@ -37,6 +37,7 @@ function CampaignPerformaContent() {
   const [totalAwareness, setTotalAwareness] = useState<any>(null);
 
   const [salesDataForVt, setSalesDataForVt] = useState<any[]>([]);
+  const [manualVideos, setManualVideos] = useState<any[]>([]);
 
   const [adsPerf, setAdsPerf] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -59,7 +60,8 @@ function CampaignPerformaContent() {
         supabase.from('ads_performance').select('*, creators(username)').eq('campaign_id', campaignId),
         supabase.from('campaign_awareness_summary').select('*').eq('campaign_id', campaignId),
         supabase.from('campaign_total_awareness').select('*').eq('campaign_id', campaignId).maybeSingle(),
-        supabase.from('sales').select('creator_username, content_uid').eq('campaign_id', campaignId).not('content_uid', 'is', null)
+        supabase.from('sales').select('creator_username, content_uid').eq('campaign_id', campaignId).not('content_uid', 'is', null),
+        supabase.from('videos').select('vt_code').eq('campaign_id', campaignId)
       ];
 
       const results = await Promise.all(queries);
@@ -70,6 +72,7 @@ function CampaignPerformaContent() {
       if (results[3].data) setAwarenessSummary(results[3].data);
       if (results[4].data) setTotalAwareness(results[4].data);
       if (results[5].data) setSalesDataForVt(results[5].data);
+      if (results[6].data) setManualVideos(results[6].data);
 
       // 2. Fetch Approved Creators (Paginated to handle >1000)
       let allApproved: any[] = [];
@@ -298,7 +301,29 @@ function CampaignPerformaContent() {
   // Awareness Metrics
   const totalCampaignViews = Number(totalAwareness?.campaign_total_views || 0);
   const totalCampaignLikes = Number(totalAwareness?.campaign_total_likes || 0);
-  const totalCampaignVideos = Number(totalAwareness?.campaign_total_videos || 0);
+  // Calculate True Unique Videos
+  const uniqueVideoIds = new Set<string>();
+  
+  // 1. From Sales Data (Format: video_VIDEOID_PRODUCTID)
+  salesDataForVt.forEach(s => {
+    if (s.content_uid && s.content_uid.startsWith('video_')) {
+      const parts = s.content_uid.split('_');
+      if (parts.length >= 2) {
+        uniqueVideoIds.add(parts[1]); // Add just the video ID part
+      }
+    }
+  });
+
+  // 2. From Manual Videos Table
+  manualVideos.forEach(v => {
+    if (v.vt_code) {
+      // vt_code is usually the video ID or full URL, if it's an ID we just add it
+      uniqueVideoIds.add(v.vt_code);
+    }
+  });
+
+  const totalCampaignVideos = uniqueVideoIds.size > 0 ? uniqueVideoIds.size : Number(totalAwareness?.campaign_total_videos || 0);
+
   
   const targetVideo = campaign.target_video || 0;
   const percentCapaiVideo = targetVideo > 0 ? Math.round((totalCampaignVideos / targetVideo) * 100) : 0;
