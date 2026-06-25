@@ -111,6 +111,47 @@ function CampaignListingContent() {
   const [existingCreators, setExistingCreators] = useState<any[]>([]);
   const [missingCreators, setMissingCreators] = useState<any[]>([]);
   const [isAddingBulk, setIsAddingBulk] = useState(false);
+  const [isAutoDetecting, setIsAutoDetecting] = useState(false);
+
+  const runBulkAutoDetect = async (usernamesToDetect: string[]) => {
+    const usernames = usernamesToDetect.map(u => u.replace('@', '').trim().toLowerCase()).filter(Boolean);
+    if (usernames.length === 0) return;
+    
+    setIsAutoDetecting(true);
+    try {
+      const { data: matchedCreators } = await supabase.from('creators')
+        .select('id, username, creator_snapshots(ratecard, id)')
+        .in('username', usernames);
+        
+      if (matchedCreators && matchedCreators.length > 0) {
+        setDynamicRows(currentRows => {
+          const newRows = [...currentRows];
+          let updated = false;
+          
+          for (let i = 0; i < newRows.length; i++) {
+            const row = newRows[i];
+            const uname = row.username.replace('@', '').trim().toLowerCase();
+            if (!uname) continue;
+            
+            const matched = matchedCreators.find((c: any) => c.username.toLowerCase() === uname);
+            if (!matched) continue;
+            
+            const snaps = (matched.creator_snapshots || []).sort((a: any, b: any) => b.id - a.id);
+            const mergedRatecard = snaps.reduce((acc: any, curr: any) => acc ?? curr.ratecard, null);
+            
+            if ((!row.price || row.price === '0') && mergedRatecard !== null) {
+               newRows[i].price = mergedRatecard.toString();
+               updated = true;
+            }
+          }
+          return updated ? newRows : currentRows;
+        });
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    setIsAutoDetecting(false);
+  };
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -856,8 +897,15 @@ function CampaignListingContent() {
 
       {isAddModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 overflow-y-auto">
-          <div className="bg-white p-[24px] rounded-[16px] w-full max-w-4xl shadow-xl m-4 my-8 relative max-h-[90vh] flex flex-col">
-            <h3 className="text-[18px] font-bold mb-[16px]">Tambah Creator ke Campaign</h3>
+          <div className="bg-white rounded-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col relative shadow-2xl">
+            {isAutoDetecting && (
+              <div className="absolute top-4 right-10 bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 z-50 animate-in slide-in-from-top-2">
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                <span className="text-sm font-medium">Mengecek database...</span>
+              </div>
+            )}
+            <div className="p-[24px] flex flex-col min-h-0 flex-1 relative">
+              <h3 className="text-[18px] font-bold mb-[16px]">Tambah Creator ke Campaign</h3>
             
             <div className="flex-1 overflow-y-auto min-h-0 pr-2">
               {modalStep === 1 && (
@@ -919,30 +967,16 @@ function CampaignListingContent() {
                                       }
                                     });
                                     setDynamicRows(newRows);
+                                    
+                                    const pastedUsernames = lines.map(line => (line.split('\t')[0] || '').replace('@', '').trim()).filter(Boolean);
+                                    if (pastedUsernames.length > 0) {
+                                      runBulkAutoDetect(pastedUsernames);
+                                    }
                                   }
                                 }}
-                                onBlur={async e => {
-                                  const val = e.target.value.replace('@', '').trim().toLowerCase();
-                                  if (!val) return;
-                                  try {
-                                    const { data: matched } = await supabase.from('creators')
-                                      .select('id, creator_snapshots(id, ratecard)')
-                                      .ilike('username', val)
-                                      .limit(1)
-                                      .single();
-                                    
-                                    if (matched && matched.creator_snapshots && matched.creator_snapshots.length > 0) {
-                                      const snaps = [...matched.creator_snapshots].sort((a: any, b: any) => b.id - a.id);
-                                      const mergedRatecard = snaps.reduce((acc: any, curr: any) => acc ?? curr.ratecard, null);
-                                      if (mergedRatecard !== null) {
-                                        const newRows = [...dynamicRows];
-                                        newRows[index].price = mergedRatecard.toString();
-                                        setDynamicRows(newRows);
-                                      }
-                                    }
-                                  } catch (err) {
-                                    // ignore if not found
-                                  }
+                                onBlur={e => {
+                                  const val = e.target.value.replace('@', '').trim();
+                                  if (val) runBulkAutoDetect([val]);
                                 }}
                                 className="input h-9 text-sm w-full"
                                 placeholder="tanpa @"
@@ -1169,6 +1203,7 @@ function CampaignListingContent() {
                 </div>
               )}
             </div>
+          </div>
           </div>
         </div>
       )}

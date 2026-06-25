@@ -65,6 +65,60 @@ export default function SpreadsheetImportClient() {
   const [step, setStep] = useState<1 | 2>(1);
   const [isVerifying, setIsVerifying] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [isAutoDetecting, setIsAutoDetecting] = useState(false);
+
+  const runBulkAutoDetect = async (usernamesToDetect: string[]) => {
+    const usernames = usernamesToDetect.map(u => u.trim().toLowerCase()).filter(Boolean);
+    if (usernames.length === 0) return;
+    
+    setIsAutoDetecting(true);
+    try {
+      const { data: matchedCreators } = await supabase.from('creators')
+        .select('id, username, creator_contacts(nomor, status), creator_snapshots(ratecard, followers, level, audience_age, gmv_30d, tanggal_update, id), creator_niches(niche_id, niches(nama))')
+        .in('username', usernames);
+        
+      if (matchedCreators && matchedCreators.length > 0) {
+        setRows(currentRows => {
+          const newRows = [...currentRows];
+          let updated = false;
+          
+          for (let i = 0; i < newRows.length; i++) {
+            const row = newRows[i];
+            const uname = row.username.trim().toLowerCase();
+            if (!uname) continue;
+            
+            const matched = matchedCreators.find((c: any) => c.username.toLowerCase() === uname);
+            if (!matched) continue;
+            
+            const snaps = (matched.creator_snapshots || []).sort((a: any, b: any) => b.id - a.id);
+            const snap = snaps.reduce((acc: any, curr: any) => ({
+              followers: acc.followers ?? curr.followers,
+              level: acc.level ?? curr.level,
+              audience_age: acc.audience_age ?? curr.audience_age,
+              gmv_30d: acc.gmv_30d ?? curr.gmv_30d,
+              ratecard: acc.ratecard ?? curr.ratecard,
+            }), { followers: null, level: null, audience_age: null, gmv_30d: null, ratecard: null });
+            
+            const contact = (matched.creator_contacts || []).find((c: any) => c.status === 'aktif');
+            const nicheObj = matched.creator_niches && matched.creator_niches.length > 0 ? matched.creator_niches[0].niches : null;
+            const nicheData = nicheObj ? (Array.isArray(nicheObj) ? nicheObj[0]?.nama : (nicheObj as any)?.nama) : null;
+            
+            if (!row.whatsapp && contact && contact.nomor) { newRows[i].whatsapp = contact.nomor; updated = true; }
+            if (!row.ratecard && snap.ratecard) { newRows[i].ratecard = snap.ratecard.toString(); updated = true; }
+            if (!row.followers && snap.followers) { newRows[i].followers = snap.followers.toString(); updated = true; }
+            if (!row.level && snap.level) { newRows[i].level = snap.level.toString(); updated = true; }
+            if (!row.audience_age && snap.audience_age) { newRows[i].audience_age = snap.audience_age; updated = true; }
+            if (!row.gmv_30d && snap.gmv_30d) { newRows[i].gmv_30d = snap.gmv_30d.toString(); updated = true; }
+            if (!row.niche && nicheData) { newRows[i].niche = nicheData; updated = true; }
+          }
+          return updated ? newRows : currentRows;
+        });
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    setIsAutoDetecting(false);
+  };
 
   const updateRow = (id: string, field: keyof SpreadsheetRow, value: string) => {
     setRows(prev => prev.map(r => {
@@ -108,6 +162,7 @@ export default function SpreadsheetImportClient() {
           }
           return nextRows;
         });
+        runBulkAutoDetect(names);
       }
     }
   }, [searchParams]);
@@ -346,32 +401,9 @@ export default function SpreadsheetImportClient() {
                       </td>
                       <td className="p-2">
                         <input type="text" value={row.username} 
-                          onBlur={async (e) => {
+                          onBlur={(e) => {
                              const val = e.target.value.trim();
-                             if (!val) return;
-                             const { data: c } = await supabase.from('creators').select('id').eq('username', val).single();
-                             if (c) {
-                               const newRows = [...rows];
-                               let updated = false;
-
-                               if (!row.whatsapp) {
-                                 const { data: contact } = await supabase.from('creator_contacts').select('nomor').eq('creator_id', c.id).eq('status', 'aktif').order('id', {ascending: false}).limit(1).single();
-                                 if (contact && contact.nomor) {
-                                    newRows[idx].whatsapp = contact.nomor;
-                                    updated = true;
-                                 }
-                               }
-
-                               if (!row.ratecard) {
-                                 const { data: snap } = await supabase.from('creator_snapshots').select('ratecard').eq('creator_id', c.id).not('ratecard', 'is', null).order('id', {ascending: false}).limit(1).single();
-                                 if (snap && snap.ratecard) {
-                                    newRows[idx].ratecard = snap.ratecard.toString();
-                                    updated = true;
-                                 }
-                               }
-
-                               if(updated) setRows(newRows);
-                             }
+                             if (val) runBulkAutoDetect([val]);
                           }}
                           onPaste={(e) => {
                             const text = e.clipboardData.getData('text');
@@ -414,6 +446,11 @@ export default function SpreadsheetImportClient() {
                                 }
                               });
                               setRows(newRows);
+                              
+                              const pastedUsernames = lines.map(line => (line.split('\t')[0] || '').replace('@', '').trim()).filter(Boolean);
+                              if (pastedUsernames.length > 0) {
+                                runBulkAutoDetect(pastedUsernames);
+                              }
                             }
                           }}
                           onChange={e => updateRow(row.id, 'username', e.target.value.replace('@', '').toLowerCase())} className="w-full border-none bg-transparent focus:ring-1 focus:ring-blue-500 p-1 rounded" placeholder="username" />
