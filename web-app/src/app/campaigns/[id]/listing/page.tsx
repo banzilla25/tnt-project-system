@@ -393,7 +393,8 @@ function CampaignListingContent() {
           id, username, added_by,
           creator_contacts(id),
           creator_snapshots(id),
-          creator_niches(niche_id)
+          creator_niches(niche_id),
+          campaign_creators( campaign_id, campaigns(nama_campaign) )
         `)
         .in('username', uniqueUsernames);
 
@@ -437,7 +438,8 @@ function CampaignListingContent() {
           id, username, added_by,
           creator_contacts(id),
           creator_snapshots(id),
-          creator_niches(niche_id)
+          creator_niches(niche_id),
+          campaign_creators( campaign_id, campaigns(nama_campaign) )
         `)
         .in('username', usernames);
         
@@ -994,7 +996,18 @@ function CampaignListingContent() {
                             <tbody>
                               {existingCreators.map(c => (
                                 <tr key={c.id} className="border-b">
-                                  <td className="p-2">@{c.username}</td>
+                                  <td className="p-2">
+                                    <div className="font-medium text-slate-800">@{c.username}</div>
+                                    {c.campaign_creators && c.campaign_creators.length > 0 && (
+                                      <div className="text-[10px] text-slate-500 mt-1 flex flex-wrap gap-1">
+                                        {c.campaign_creators.map((cc: any, idx: number) => (
+                                          <span key={idx} className="bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 truncate max-w-[120px]" title={cc.campaigns?.nama_campaign}>
+                                            {cc.campaigns?.nama_campaign || 'Campaign'}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </td>
                                   <td className="p-2">Rp {Number(c.price).toLocaleString('id-ID')}</td>
                                   <td className="p-2">{c.qtyVt}</td>
                                 </tr>

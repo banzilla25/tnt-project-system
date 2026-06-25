@@ -287,10 +287,18 @@ export default function SpreadsheetImportClient() {
       await fetchData();
       localStorage.removeItem(`tnt_import_draft_global`);
       alert("Berhasil menyimpan data kreator!");
-      router.push(`/creator-pool`);
       
-    } catch (e: any) {
-      alert("Gagal import: " + e.message);
+      const remainingRows = rows.filter(r => r.username.trim() === '' || r.status === 'error');
+      if (remainingRows.length < 5) {
+        const needed = 5 - remainingRows.length;
+        for (let i = 0; i < needed; i++) {
+          remainingRows.push(getEmptyRow());
+        }
+      }
+      setRows(remainingRows);
+      setStep(1);
+    } catch (err: any) {
+      alert("Gagal import: " + err.message);
     } finally {
       setIsImporting(false);
     }
