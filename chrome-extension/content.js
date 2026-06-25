@@ -199,13 +199,20 @@ function scrapeKalodata() {
 
   // 4. GMV
   let gmv_30d = '';
-  const revLabels = Array.from(document.querySelectorAll('div')).filter(el => el.textContent.trim() === 'Revenue');
-  for (let rev of revLabels) {
-    // The actual revenue is usually Rp99.18m
-    const textNodeWithRp = Array.from(document.querySelectorAll('div, span')).find(el => el.textContent.trim().startsWith('Rp') && el.children.length === 0 && (el.textContent.includes('m') || el.textContent.includes('k') || el.textContent.includes('b')));
-    if (textNodeWithRp) {
-      gmv_30d = textNodeWithRp.textContent.trim();
-      break;
+  const revenueLabel = Array.from(document.querySelectorAll('div, span')).find(el => el.textContent.trim() === 'Revenue' && el.children.length <= 1);
+  if (revenueLabel) {
+    const itemCard = revenueLabel.closest('.item') || revenueLabel.closest('[class*="border"]');
+    if (itemCard) {
+      const valueDiv = itemCard.querySelector('.value');
+      if (valueDiv) {
+        gmv_30d = valueDiv.textContent.trim();
+      } else {
+        const text = itemCard.textContent;
+        const matches = text.match(/Rp\s*[\d\.,]+[kmb]?/ig);
+        if (matches && matches.length > 0) {
+          gmv_30d = matches[0]; // Usually the first one is the total, second is per day
+        }
+      }
     }
   }
 
