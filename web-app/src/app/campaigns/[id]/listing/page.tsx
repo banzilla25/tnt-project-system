@@ -544,6 +544,30 @@ function CampaignListingContent() {
       if (newCampaignPayloads.length > 0) {
         const { error: ccErr } = await supabase.from('campaign_creators').insert(newCampaignPayloads);
         if (ccErr) throw ccErr;
+        
+        // 5. Auto-update ratecard snapshot if changed
+        const newSnapshots: any[] = [];
+        for (const c of allCreators) {
+          const snaps = creator_snapshots.filter(s => s.creator_id === c.id).sort((a,b) => b.id - a.id);
+          const mergedRatecard = snaps.reduce((acc, curr) => acc ?? curr.ratecard, null as any);
+          const newPrice = Number(c.price);
+          if (mergedRatecard !== newPrice && c.id) {
+            newSnapshots.push({
+              creator_id: c.id,
+              tanggal_update: new Date().toISOString().split('T')[0],
+              followers: null,
+              tier: null,
+              audience_age: null,
+              level: null,
+              ratecard: newPrice,
+              gmv_30d: null,
+              updated_by: profile?.nama || null
+            });
+          }
+        }
+        if (newSnapshots.length > 0) {
+          await supabase.from('creator_snapshots').insert(newSnapshots);
+        }
       }
 
       // Refresh to show changes immediately
@@ -858,6 +882,19 @@ function CampaignListingContent() {
                                   const newRows = [...dynamicRows];
                                   newRows[index].username = e.target.value;
                                   setDynamicRows(newRows);
+                                }}
+                                onBlur={e => {
+                                  const val = e.target.value.replace('@', '').trim().toLowerCase();
+                                  const matched = creators.find(c => c.username.toLowerCase() === val);
+                                  if (matched) {
+                                    const snaps = creator_snapshots.filter(s => s.creator_id === matched.id).sort((a,b) => b.id - a.id);
+                                    const mergedRatecard = snaps.reduce((acc, curr) => acc ?? curr.ratecard, null as any);
+                                    if (mergedRatecard !== null) {
+                                      const newRows = [...dynamicRows];
+                                      newRows[index].price = mergedRatecard.toString();
+                                      setDynamicRows(newRows);
+                                    }
+                                  }
                                 }}
                                 className="input h-9 text-sm w-full"
                                 placeholder="tanpa @"
