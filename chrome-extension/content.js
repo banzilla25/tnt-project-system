@@ -351,13 +351,15 @@ async function injectButton() {
 
   // Live updater for preview box
   function updatePreview() {
-    const data = isKalodata ? scrapeKalodata() : scrapeData();
-    let box = document.getElementById('tnt-preview-box');
-    if (!data.username) {
-      previewBox.style.opacity = '0';
-    } else {
-      previewBox.style.opacity = '1';
-      previewBox.innerHTML = `
+    try {
+      const data = isKalodata ? scrapeKalodata() : scrapeData();
+      let box = document.getElementById('tnt-preview-box');
+      if (!data.username) {
+        box.style.opacity = '1';
+        box.innerHTML = `<div style="color:red; font-weight:bold;">⚠️ Username tidak ditemukan. Sedang mencari data...</div>`;
+      } else {
+        box.style.opacity = '1';
+        box.innerHTML = `
         <div style="font-weight:bold; margin-bottom:8px; display:flex; align-items:center; gap:8px;">
           ${data.avatar_url ? `<img src="${data.avatar_url}" style="width:30px; height:30px; border-radius:50%; object-fit:cover;">` : ''}
           <span style="font-size:14px; color:#0ba449;">Sedot Data Aktif</span>
@@ -395,6 +397,14 @@ async function injectButton() {
           <strong>${data.no_whatsapp || '-'}</strong>
         </div>
       `;
+      }
+    } catch (e) {
+      console.error("TNT Scraper Error:", e);
+      let box = document.getElementById('tnt-preview-box');
+      if (box) {
+        box.style.opacity = '1';
+        box.innerHTML = `<div style="color:red; font-weight:bold;">⚠️ Error parsing: ${e.message}</div>`;
+      }
     }
   }
 
