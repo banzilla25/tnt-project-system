@@ -103,24 +103,35 @@ export default function CampaignVideoPage() {
         if (!creator) return;
         
         const creatorSales = localSalesData.filter((s: any) => s.creator_username === creator.username && s.content_uid);
-        const uniqueUids = new Set<string>();
+        const uniqueVideoIds = new Set<string>();
         
         creatorSales.forEach((s: any) => {
-          if (!uniqueUids.has(s.content_uid)) {
-            uniqueUids.add(s.content_uid);
+          let vid = s.content_uid;
+          if (vid && vid.startsWith('video_')) {
+            const parts = vid.split('_');
+            if (parts.length >= 2) vid = parts[1];
+          }
+
+          if (vid && !uniqueVideoIds.has(vid)) {
+            uniqueVideoIds.add(vid);
             
-            const existsInDb = allVideosFromDb.some((v: any) => v.content_uid === s.content_uid && v.campaign_creator_id === cc.id);
+            // Check if exists in db using the true video ID or vt_code
+            const existsInDb = allVideosFromDb.some((v: any) => 
+               v.campaign_creator_id === cc.id && 
+               (v.content_uid === vid || v.vt_code === vid || v.content_uid === s.content_uid)
+            );
+            
             if (!existsInDb) {
                // Try to match product_id from sales to skus table
                const matchingSku = skus.find(sku => sku.product_id === s.product_id && sku.campaign_id === campaignId);
                
                autoVideos.push({
-                 id: `auto_${s.content_uid}`,
+                 id: `auto_${vid}`,
                  campaign_creator_id: cc.id,
                  urutan: 999, // Will be re-assigned later
                  concept: 'Auto-detected from Sales CSV',
-                 link_video: `https://www.tiktok.com/@${creator.username}/video/${s.content_uid}`,
-                 content_uid: s.content_uid,
+                 link_video: `https://www.tiktok.com/@${creator.username}/video/${vid}`,
+                 content_uid: vid,
                  sku_id: matchingSku ? matchingSku.id : null,
                  vt_approval: 'approved'
                });
