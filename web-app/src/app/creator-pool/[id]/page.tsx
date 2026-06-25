@@ -456,11 +456,29 @@ export default function CreatorProfilePage() {
               <div className="space-y-4 py-4">
                 <div>
                   <label className="text-sm font-medium">Followers</label>
-                  <input type="number" value={snapForm.followers} onChange={e=>setSnapForm({...snapForm, followers: e.target.value})} className="w-full p-2 border rounded" placeholder={mergedProfile.followers || ''} />
+                  <input 
+                    type="number" 
+                    value={snapForm.followers} 
+                    onChange={e => {
+                      const f = e.target.value;
+                      let newTier = snapForm.tier;
+                      if (f) {
+                        const numF = parseInt(f);
+                        if (numF < 10000) newTier = 'Nano';
+                        else if (numF < 100000) newTier = 'Micro';
+                        else if (numF < 1000000) newTier = 'Macro';
+                        else newTier = 'Mega';
+                      }
+                      setSnapForm({...snapForm, followers: f, tier: newTier});
+                    }} 
+                    className="w-full p-2 border rounded" 
+                    placeholder={mergedProfile.followers || ''} 
+                  />
                 </div>
                 <div>
                   <label className="text-sm font-medium">Tier</label>
-                  <input type="text" value={snapForm.tier} onChange={e=>setSnapForm({...snapForm, tier: e.target.value})} className="w-full p-2 border rounded" placeholder={mergedProfile.tier || ''} />
+                  <input type="text" value={snapForm.tier} onChange={e=>setSnapForm({...snapForm, tier: e.target.value})} className="w-full p-2 border rounded bg-slate-100 cursor-not-allowed" placeholder={mergedProfile.tier || ''} disabled />
+                  <p className="text-xs text-slate-500 mt-1">Tier dihitung otomatis berdasarkan Followers.</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium">Audience Age</label>
