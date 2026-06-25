@@ -430,7 +430,7 @@ export default function CreatorProfilePage() {
         <div className="flex items-center gap-4">
           <div className="w-[90px] h-[90px] rounded-full overflow-hidden border-2 border-slate-200 bg-slate-100 flex-shrink-0 flex items-center justify-center">
             {creator.avatar_url ? (
-              <img src={creator.avatar_url} alt={creator.username} className="w-full h-full object-cover" />
+              <img src={creator.avatar_url} alt={creator.username} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
             ) : (
               <span className="text-4xl font-bold text-slate-400">{creator.username.charAt(0).toUpperCase()}</span>
             )}
