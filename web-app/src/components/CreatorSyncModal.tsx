@@ -9,6 +9,7 @@ import { findClosestMatch } from "@/utils/stringSimilarity";
 import { downloadCreatorSyncTemplate, parseCreatorSyncFile, parseFileHeaders, ParsedCreatorRow, ColumnMapping } from "@/utils/importCreatorSync";
 import { createClient } from "@/utils/supabase/client";
 import { useDatabaseStore } from "@/store/useDatabaseStore";
+import { exportErrorLogToExcel, ErrorLogItem } from "@/utils/exportErrorLog";
 
 const supabase = createClient();
 
@@ -33,6 +34,7 @@ export function CreatorSyncModal({ onComplete }: { onComplete?: () => void }) {
 
   const [preview, setPreview] = useState<ParsedCreatorRow[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
+  const [errorLog, setErrorLog] = useState<ErrorLogItem[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isCommitting, setIsCommitting] = useState(false);
   const [commitProgress, setCommitProgress] = useState(0);
@@ -123,6 +125,7 @@ export function CreatorSyncModal({ onComplete }: { onComplete?: () => void }) {
       const chunkArray = (arr: any[], size: number) => Array.from({ length: Math.ceil(arr.length / size) }, (v, i) => arr.slice(i * size, i * size + size));
       const chunks = chunkArray(uniquePreview, 50);
 
+      const localErrorLog: ErrorLogItem[] = [];
       let processedCount = 0;
       for (let c = 0; c < chunks.length; c++) {
         setCommitStatus(`Memproses gerbong ${c + 1} dari ${chunks.length}...`);
@@ -136,7 +139,10 @@ export function CreatorSyncModal({ onComplete }: { onComplete?: () => void }) {
               username: row.username,
               link_account: `https://www.tiktok.com/@${row.username}`
             }).select().single();
-            if (errC) { setErrors(prev => [...prev, `Gagal buat kreator ${row.username}`]); return; }
+            if (errC) { 
+              localErrorLog.push({ username: row.username, pesan_error: `Gagal buat kreator: ${errC.message}`, data_mentah: row });
+              return; 
+            }
             creatorId = newC.id;
             creatorMap.set(row.username, creatorId);
           }
@@ -210,6 +216,7 @@ export function CreatorSyncModal({ onComplete }: { onComplete?: () => void }) {
         }
       };
 
+      setErrorLog(localErrorLog);
       setStep(4);
     } catch (e: any) {
       setErrors([e.message || "Terjadi kesalahan saat commit ke database."]);
@@ -224,6 +231,7 @@ export function CreatorSyncModal({ onComplete }: { onComplete?: () => void }) {
     setCsvHeaders([]);
     setPreview([]);
     setErrors([]);
+    setErrorLog([]);
   };
 
   return (
@@ -427,15 +435,32 @@ export function CreatorSyncModal({ onComplete }: { onComplete?: () => void }) {
               <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center">
                 <CheckCircle className="w-8 h-8" />
               </div>
-              <h3 className="text-xl font-bold">Sinkronisasi Berhasil!</h3>
+              <h3 className="text-xl font-bold">Sinkronisasi Selesai!</h3>
               <p className="text-sm text-slate-500 text-center">
-                Sebanyak {preview.length} data kreator telah berhasil diproses ke dalam sistem.
+                Sebanyak {preview.length - errorLog.length} data kreator telah berhasil diproses ke dalam sistem.
               </p>
 
               {errors.length > 0 && (
                 <div className="w-full bg-red-50 text-red-600 p-3 rounded text-xs space-y-1 max-h-40 overflow-y-auto text-left border border-red-100">
-                  <p className="font-semibold mb-1">Peringatan / Data yang dilewati:</p>
+                  <p className="font-semibold mb-1">Peringatan / Data yang dilewati (System Error):</p>
                   {errors.map((e, i) => <p key={i}>- {e}</p>)}
+                </div>
+              )}
+
+              {errorLog.length > 0 && (
+                <div className="w-full bg-red-50 p-4 rounded-xl text-sm space-y-3 max-h-40 overflow-y-auto text-left border border-red-100">
+                  <div className="flex justify-between items-center">
+                    <p className="font-semibold text-red-700">Peringatan: {errorLog.length} baris gagal diproses</p>
+                    <Button size="sm" variant="outline" className="text-red-700 border-red-200 hover:bg-red-100" onClick={() => exportErrorLogToExcel(errorLog, 'ErrorLog_CreatorSync')}>
+                      <Download className="w-4 h-4 mr-2" /> Download Error Log
+                    </Button>
+                  </div>
+                  <ul className="list-disc list-inside text-red-600 text-xs">
+                    {errorLog.slice(0, 3).map((e, i) => (
+                      <li key={i}>@{e.username}: {e.pesan_error}</li>
+                    ))}
+                    {errorLog.length > 3 && <li>...dan {errorLog.length - 3} lainnya</li>}
+                  </ul>
                 </div>
               )}
 

@@ -70,8 +70,7 @@ export default function AlamatPage() {
         let query = supabase
           .from('campaign_creators')
           .select('*, creators(*)')
-          .eq('campaign_id', campaignId)
-          .in('approval', ['approved', 'alternate']);
+          .eq('campaign_id', campaignId);
           
         if (campaign?.require_client_approval) {
           query = query.eq('client_approval', 'approved');
@@ -284,8 +283,17 @@ export default function AlamatPage() {
                   return (
                     <tr key={cc.id} className="border-b border-line hover:bg-slate-50/50">
                       <td>
-                        <div className="font-medium">@{creator?.username}</div>
-                        <span className="inline-block mt-[4px] px-[8px] py-[2px] border border-line rounded-[4px] text-[10px] font-semibold text-text-soft uppercase bg-slate-100">{cc.approval}</span>
+                        <div className="font-medium flex items-center gap-2">
+                          @{creator?.username}
+                          {cc.approval !== 'approved' && (
+                            <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200 font-bold" title="Silakan cek status kreator ini di bagian Listing">
+                              ⚠️ Listing: {cc.approval}
+                            </span>
+                          )}
+                        </div>
+                        {cc.approval === 'approved' && (
+                          <span className="inline-block mt-[4px] px-[8px] py-[2px] border border-line rounded-[4px] text-[10px] font-semibold text-text-soft uppercase bg-slate-100">{cc.approval}</span>
+                        )}
                       </td>
                       <td>
                         {isEditing ? (

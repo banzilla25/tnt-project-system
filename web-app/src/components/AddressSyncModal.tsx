@@ -3,13 +3,14 @@
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/Dialog";
 import { Button } from "@/components/ui/Button";
-import { Upload, Download, Loader2, CheckCircle, ArrowRight } from "lucide-react";
+import { Upload, Download, Loader2, CheckCircle, ArrowRight, AlertTriangle } from "lucide-react";
 import { UsernameAutocomplete } from "@/components/ui/UsernameAutocomplete";
 import { findClosestMatch } from "@/utils/stringSimilarity";
 import { downloadAddressSyncTemplate, parseAddressSyncFile, AddressColumnMapping, ParsedAddressRow } from "@/utils/importAddressSync";
 import { parseFileHeaders } from "@/utils/importCampaignSync";
 import { createClient } from "@/utils/supabase/client";
 import { useDatabaseStore } from "@/store/useDatabaseStore";
+import { exportErrorLogToExcel, ErrorLogItem } from "@/utils/exportErrorLog";
 
 const supabase = createClient();
 
@@ -36,11 +37,15 @@ export function AddressSyncModal({ campaignId: initialCampaignId, onComplete }: 
 
   const [preview, setPreview] = useState<ParsedAddressRow[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
+  const [errorLog, setErrorLog] = useState<ErrorLogItem[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isCommitting, setIsCommitting] = useState(false);
   const [commitProgress, setCommitProgress] = useState(0);
   const [commitStatus, setCommitStatus] = useState('');
   const [editingRowIndex, setEditingRowIndex] = useState<number | null>(null);
+  
+  const [showConfirmNewCreators, setShowConfirmNewCreators] = useState(false);
+  const [pendingNewUsernames, setPendingNewUsernames] = useState<string[]>([]);
 
   const updatePreviewUsername = (index: number, newUsername: string) => {
     const newPreview = [...preview];
@@ -102,23 +107,10 @@ export function AddressSyncModal({ campaignId: initialCampaignId, onComplete }: 
     }
   };
 
-  const handleCommit = async () => {
+  const analyzeBeforeCommit = async () => {
     if (preview.length === 0 || campaignId === 0) return;
     setIsCommitting(true);
     try {
-      const { data: ccs } = await supabase
-        .from('campaign_creators')
-        .select('id, creator_id, creators(username)')
-        .eq('campaign_id', campaignId)
-        .in('approval', ['approved', 'alternate']);
-
-      const { data: addresses } = await supabase
-        .from('creator_addresses')
-        .select('id, campaign_creator_id')
-        .in('campaign_creator_id', ccs?.map(c => c.id) || []);
-
-      const addressMap = new Map(addresses?.map(a => [a.campaign_creator_id, a.id]));
-      const usernameToCcId = new Map<string, number>();
       const uniquePreview = Array.from(new Map(preview.map(item => [item.username.toLowerCase(), item])).values());
       const usernamesArray = uniquePreview.map(p => p.username);
       const existingCreators: any[] = [];
@@ -133,7 +125,32 @@ export function AddressSyncModal({ campaignId: initialCampaignId, onComplete }: 
       const existingCreatorUsernames = new Set(existingCreators.map(c => c.username.toLowerCase()));
       const newUsernames = usernamesArray.filter(u => !existingCreatorUsernames.has(u.toLowerCase()));
       
-      let creatorMap = new Map(existingCreators.map(c => [c.username.toLowerCase(), c.id]));
+      if (newUsernames.length > 0) {
+        setPendingNewUsernames(newUsernames);
+        setShowConfirmNewCreators(true);
+        setIsCommitting(false);
+      } else {
+        await executeCommit(existingCreators, []);
+      }
+    } catch (e: any) {
+      setErrors([e.message || "Terjadi kesalahan saat memverifikasi kreator."]);
+      setIsCommitting(false);
+    }
+  };
+
+  const executeCommit = async (existingCreators: any[], usernamesToSkip: string[]) => {
+    setIsCommitting(true);
+    setCommitProgress(0);
+    const skipSet = new Set(usernamesToSkip.map(u => u.toLowerCase()));
+    const localErrorLog: ErrorLogItem[] = [];
+    
+    try {
+      const { data: ccs } = await supabase
+        .from('campaign_creators')
+        .select('id, creator_id, creators(username)')
+        .eq('campaign_id', campaignId);
+
+      const usernameToCcId = new Map<string, number>();
       ccs?.forEach(cc => {
         const creator = cc.creators as any;
         if (creator && !Array.isArray(creator) && creator.username) {
@@ -141,9 +158,15 @@ export function AddressSyncModal({ campaignId: initialCampaignId, onComplete }: 
         }
       });
 
-      let skippedCount = 0;
-      setCommitProgress(0);
+      const { data: addresses } = await supabase
+        .from('creator_addresses')
+        .select('id, campaign_creator_id')
+        .in('campaign_creator_id', ccs?.map(c => c.id) || []);
 
+      const addressMap = new Map(addresses?.map(a => [a.campaign_creator_id, a.id]));
+      let creatorMap = new Map(existingCreators.map(c => [c.username.toLowerCase(), c.id]));
+      
+      const uniquePreview = Array.from(new Map(preview.map(item => [item.username.toLowerCase(), item])).values());
       const chunkArray = (arr: any[], size: number) => Array.from({ length: Math.ceil(arr.length / size) }, (v, i) => arr.slice(i * size, i * size + size));
       const chunks = chunkArray(uniquePreview, 50);
 
@@ -151,10 +174,46 @@ export function AddressSyncModal({ campaignId: initialCampaignId, onComplete }: 
         setCommitStatus(`Memproses gerbong ${c + 1} dari ${chunks.length}...`);
         
         await Promise.all(chunks[c].map(async (row: any, idx: number) => {
-          const ccId = usernameToCcId.get(row.username.toLowerCase());
-          if (!ccId) {
-            skippedCount++;
+          const lowerUser = row.username.toLowerCase();
+          
+          if (skipSet.has(lowerUser)) {
+            localErrorLog.push({ username: row.username, pesan_error: 'Kreator tidak ditemukan di database pusat dan Anda memilih untuk melewati', data_mentah: row });
             return;
+          }
+
+          let creatorId = creatorMap.get(lowerUser);
+          
+          if (!creatorId) {
+            const { data: newC, error: errC } = await supabase.from('creators').insert({ username: row.username, link_account: `https://tiktok.com/@${row.username}` }).select('id').single();
+            if (newC) {
+              creatorId = newC.id as number;
+              creatorMap.set(lowerUser, creatorId);
+            } else {
+              localErrorLog.push({ username: row.username, pesan_error: 'Gagal membuat kreator baru di database', data_mentah: row });
+              return;
+            }
+          }
+
+          let ccId = usernameToCcId.get(lowerUser);
+          
+          if (!ccId) {
+            const { data: newCc, error: errCc } = await supabase.from('campaign_creators').insert({
+              campaign_id: campaignId,
+              creator_id: creatorId,
+              approval: 'pending',
+              client_approval: 'not_required',
+              status_bayar: 'belum',
+              qty_vt: 1,
+              price: 0
+            }).select('id').single();
+            
+            if (newCc) {
+              ccId = newCc.id as number;
+              usernameToCcId.set(lowerUser, ccId);
+            } else {
+              localErrorLog.push({ username: row.username, pesan_error: 'Gagal menambahkan kreator ke campaign ini', data_mentah: row });
+              return;
+            }
           }
 
           const existingAddrId = addressMap.get(ccId);
@@ -175,40 +234,44 @@ export function AddressSyncModal({ campaignId: initialCampaignId, onComplete }: 
           } else {
             await supabase.from('creator_addresses').insert(payload);
           }
-
-          const cc = ccs?.find(c => c.id === ccId);
-          if (cc && cc.creator_id && row.nama_jalan) {
-            const { data: existingBooks } = await supabase.from('creator_address_book')
-              .select('id, alamat_jalan')
-              .eq('creator_id', cc.creator_id);
-              
-            const isExist = existingBooks?.find(b => b.alamat_jalan?.toLowerCase() === row.nama_jalan?.toLowerCase());
-            if (!isExist) {
-              await supabase.from('creator_address_book').insert({
-                creator_id: cc.creator_id,
-                label: 'Hasil Sync Excel',
-                nama_penerima: row.nama_penerima,
-                alamat_jalan: row.nama_jalan,
-                kecamatan: row.kecamatan,
-                kota: row.kabupaten_kota,
-                provinsi: row.provinsi,
-                kodepos: row.kode_pos
-              });
-            }
-          }
         }));
 
         setCommitProgress(((c + 1) / chunks.length) * 100);
       }
 
-      if (skippedCount > 0) {
-        setErrors([`Perhatian: Ada ${skippedCount} baris yang diabaikan (kreator tidak ditemukan, reject, atau pending di campaign ini).`]);
-      }
+      setErrorLog(localErrorLog);
       await fetchData();
       setStep(4);
     } catch (e: any) {
       setErrors([e.message || "Terjadi kesalahan saat commit ke database."]);
     } finally {
+      setIsCommitting(false);
+      setShowConfirmNewCreators(false);
+    }
+  };
+
+  const handleConfirmNewCreators = async (addThem: boolean) => {
+    setShowConfirmNewCreators(false);
+    setIsCommitting(true);
+    
+    try {
+      const existingCreators: any[] = [];
+      const uniquePreview = Array.from(new Map(preview.map(item => [item.username.toLowerCase(), item])).values());
+      const usernamesArray = uniquePreview.map(p => p.username);
+      
+      for (let i = 0; i < usernamesArray.length; i += 100) {
+        const chunk = usernamesArray.slice(i, i + 100);
+        const { data } = await supabase.from('creators').select('id, username').in('username', chunk);
+        if (data) existingCreators.push(...data);
+      }
+      
+      if (addThem) {
+        await executeCommit(existingCreators, []); 
+      } else {
+        await executeCommit(existingCreators, pendingNewUsernames); 
+      }
+    } catch(e: any) {
+      setErrors([e.message || "Gagal menyiapkan data commit."]);
       setIsCommitting(false);
     }
   };
@@ -219,6 +282,8 @@ export function AddressSyncModal({ campaignId: initialCampaignId, onComplete }: 
     setCsvHeaders([]);
     setPreview([]);
     setErrors([]);
+    setErrorLog([]);
+    setShowConfirmNewCreators(false);
     if (!initialCampaignId) setCampaignId(0);
   };
 
@@ -270,8 +335,8 @@ export function AddressSyncModal({ campaignId: initialCampaignId, onComplete }: 
                 <div>
                   <p className="text-sm font-medium mb-1">Penting:</p>
                   <ul className="text-xs text-slate-600 list-disc list-inside space-y-1">
-                    <li>Sistem hanya akan memproses alamat untuk kreator yang <strong>Approved / Alternate</strong> di Campaign ini.</li>
-                    <li>Pilih file berformat <strong>.xlsx</strong>, <strong>.xls</strong>, atau <strong>.csv</strong>.</li>
+                    <li>Kreator yang belum ada di Campaign ini akan otomatis ditambahkan dengan status <strong>Pending</strong>.</li>
+                    <li>Kreator yang belum ada di database pusat akan ditanyakan konfirmasinya.</li>
                   </ul>
                 </div>
                 <Button variant="outline" size="sm" onClick={downloadAddressSyncTemplate} className="gap-2">
@@ -319,89 +384,122 @@ export function AddressSyncModal({ campaignId: initialCampaignId, onComplete }: 
 
           {step === 3 && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-medium">Preview Data Alamat ({preview.length} baris)</p>
-                <div className="flex gap-2">
-                  <Button variant="outline" onClick={() => setStep(2)}>Ubah Mapping</Button>
-                  <Button onClick={handleCommit} disabled={isCommitting} className="gap-2">
-                    {isCommitting ? <><Loader2 className="w-4 h-4 animate-spin" /> {Math.round((commitProgress / preview.length) * 100)}% ({commitProgress}/{preview.length})</> : <><Upload className="w-4 h-4" /> Mulai Sinkronisasi</>}
-                  </Button>
-                </div>
-              </div>
+              {showConfirmNewCreators ? (
+                <div className="p-6 bg-amber-50 border border-amber-200 rounded-xl space-y-4">
+                  <div className="flex gap-3">
+                    <AlertTriangle className="w-6 h-6 text-amber-600 shrink-0" />
+                    <div>
+                      <h3 className="font-bold text-amber-900 text-lg">Kreator Tidak Ditemukan</h3>
+                      <p className="text-sm text-amber-800 mt-1">
+                        Terdapat <strong>{pendingNewUsernames.length} username</strong> di file Excel Anda yang tidak ada di database pusat. 
+                        Pastikan nama sudah sesuai (tanpa spasi/typo).
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-white p-3 rounded border text-xs max-h-32 overflow-y-auto font-mono text-slate-600">
+                    {pendingNewUsernames.join(", ")}
+                  </div>
 
-              {errors.length > 0 && (
-                <div className="bg-red-50 text-red-600 p-3 rounded text-xs space-y-1 max-h-32 overflow-y-auto">
-                  <p className="font-semibold">Peringatan / Error:</p>
-                  {errors.map((e, i) => <p key={i}>- {e}</p>)}
-                </div>
-              )}
+                  <p className="text-sm font-medium text-amber-900">
+                    Jika nama-nama di atas memang sudah benar, apakah Anda ingin otomatis mendaftarkan mereka ke database pusat?
+                  </p>
 
-              {preview.length > 0 && (
-                <div className="border rounded max-h-96 overflow-y-auto">
-                  <table className="w-full text-sm text-left whitespace-nowrap">
-                    <thead className="bg-slate-50 border-b sticky top-0 z-10">
-                      <tr>
-                        <th className="p-2 font-medium">Username</th>
-                        <th className="p-2 font-medium">Nama Penerima</th>
-                        <th className="p-2 font-medium">Alamat</th>
-                        <th className="p-2 font-medium">Resi</th>
-                        <th className="p-2 font-medium">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y">
-                      {preview.map((row, i) => (
-                        <tr key={i} className="hover:bg-slate-50">
-                          <td className="p-2 align-top min-w-[250px]">
-                            {editingRowIndex === i ? (
-                              <UsernameAutocomplete
-                                value={row.username}
-                                options={creatorUsernames}
-                                onChange={(val) => updatePreviewUsername(i, val)}
-                                onCancel={() => setEditingRowIndex(null)}
-                              />
-                            ) : (
-                              <div className="flex flex-col gap-1 items-start">
-                                <span className="font-semibold text-slate-700">@{row.username}</span>
-                                {(() => {
-                                  const exactMatch = creatorUsernames.find(u => u.toLowerCase() === row.username.toLowerCase());
-                                  if (exactMatch) {
-                                    return <span className="px-1.5 py-0.5 bg-green-100 text-green-700 text-[10px] rounded-full font-medium w-fit">Valid</span>;
-                                  }
-
-                                  const match = findClosestMatch(row.username, creatorUsernames);
-                                  return (
-                                    <div className="flex flex-col gap-1 mt-1 bg-amber-50 border border-amber-100 p-1.5 rounded w-full">
-                                      <span className="text-[10px] font-bold text-amber-600">⚠ Kreator Tidak Ditemukan</span>
-                                      <div className="flex flex-wrap items-center gap-1 mt-0.5">
-                                         {match && (
-                                           <button onClick={() => updatePreviewUsername(i, match.match)} className="text-[10px] px-2 py-1 bg-blue-500 text-white shadow-sm rounded hover:bg-blue-600 font-semibold transition-colors">
-                                             Ganti ➡️ @{match.match}
-                                           </button>
-                                         )}
-                                         <button onClick={() => setEditingRowIndex(i)} className="text-[10px] px-2 py-1 bg-white border border-slate-300 shadow-sm rounded hover:bg-slate-50 text-slate-600 font-medium">
-                                           Ketik Manual
-                                         </button>
-                                      </div>
-                                      <span className="text-[9px] text-slate-400">Data ini akan diabaikan jika kreator belum masuk campaign.</span>
-                                    </div>
-                                  );
-                                })()}
-                              </div>
-                            )}
-                          </td>
-                          <td className="p-2 align-top font-medium max-w-[150px] truncate">{row.nama_penerima || '-'}</td>
-                          <td className="p-2 align-top text-xs max-w-[200px] truncate">{row.nama_jalan || '-'}</td>
-                          <td className="p-2 align-top text-xs max-w-[100px] truncate">{row.kabupaten_kota || '-'}</td>
-                          <td className="p-2 align-top">
-                            <span className={`px-2 py-1 text-xs rounded-full bg-slate-100 text-slate-700`}>
-                              {row.proses}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                  <div className="flex justify-end gap-3 pt-2">
+                    <Button variant="outline" onClick={() => handleConfirmNewCreators(false)}>
+                      Tidak, Lewati (Masuk Error Log)
+                    </Button>
+                    <Button onClick={() => handleConfirmNewCreators(true)}>
+                      Ya, Daftarkan Mereka
+                    </Button>
+                  </div>
                 </div>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-medium">Preview Data Alamat ({preview.length} baris)</p>
+                    <div className="flex gap-2">
+                      <Button variant="outline" onClick={() => setStep(2)}>Ubah Mapping</Button>
+                      <Button onClick={analyzeBeforeCommit} disabled={isCommitting} className="gap-2">
+                        {isCommitting ? <><Loader2 className="w-4 h-4 animate-spin" /> {Math.round((commitProgress / preview.length) * 100)}% ({commitProgress}/{preview.length})</> : <><Upload className="w-4 h-4" /> Mulai Sinkronisasi</>}
+                      </Button>
+                    </div>
+                  </div>
+
+                  {errors.length > 0 && (
+                    <div className="bg-red-50 text-red-600 p-3 rounded text-xs space-y-1 max-h-32 overflow-y-auto">
+                      <p className="font-semibold">Peringatan / Error:</p>
+                      {errors.map((e, i) => <p key={i}>- {e}</p>)}
+                    </div>
+                  )}
+
+                  {preview.length > 0 && (
+                    <div className="border rounded max-h-96 overflow-y-auto">
+                      <table className="w-full text-sm text-left whitespace-nowrap">
+                        <thead className="bg-slate-50 border-b sticky top-0 z-10">
+                          <tr>
+                            <th className="p-2 font-medium">Username</th>
+                            <th className="p-2 font-medium">Nama Penerima</th>
+                            <th className="p-2 font-medium">Alamat</th>
+                            <th className="p-2 font-medium">Resi</th>
+                            <th className="p-2 font-medium">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y">
+                          {preview.map((row, i) => (
+                            <tr key={i} className="hover:bg-slate-50">
+                              <td className="p-2 align-top min-w-[250px]">
+                                {editingRowIndex === i ? (
+                                  <UsernameAutocomplete
+                                    value={row.username}
+                                    options={creatorUsernames}
+                                    onChange={(val) => updatePreviewUsername(i, val)}
+                                    onCancel={() => setEditingRowIndex(null)}
+                                  />
+                                ) : (
+                                  <div className="flex flex-col gap-1 items-start">
+                                    <span className="font-semibold text-slate-700">@{row.username}</span>
+                                    {(() => {
+                                      const exactMatch = creatorUsernames.find(u => u.toLowerCase() === row.username.toLowerCase());
+                                      if (exactMatch) {
+                                        return <span className="px-1.5 py-0.5 bg-green-100 text-green-700 text-[10px] rounded-full font-medium w-fit">Valid</span>;
+                                      }
+
+                                      const match = findClosestMatch(row.username, creatorUsernames);
+                                      return (
+                                        <div className="flex flex-col gap-1 mt-1 bg-amber-50 border border-amber-100 p-1.5 rounded w-full">
+                                          <span className="text-[10px] font-bold text-amber-600">⚠ Kreator Tidak Ditemukan</span>
+                                          <div className="flex flex-wrap items-center gap-1 mt-0.5">
+                                             {match && (
+                                               <button onClick={() => updatePreviewUsername(i, match.match)} className="text-[10px] px-2 py-1 bg-blue-500 text-white shadow-sm rounded hover:bg-blue-600 font-semibold transition-colors">
+                                                 Ganti ➡️ @{match.match}
+                                               </button>
+                                             )}
+                                             <button onClick={() => setEditingRowIndex(i)} className="text-[10px] px-2 py-1 bg-white border border-slate-300 shadow-sm rounded hover:bg-slate-50 text-slate-600 font-medium">
+                                               Ketik Manual
+                                             </button>
+                                          </div>
+                                        </div>
+                                      );
+                                    })()}
+                                  </div>
+                                )}
+                              </td>
+                              <td className="p-2 align-top font-medium max-w-[150px] truncate">{row.nama_penerima || '-'}</td>
+                              <td className="p-2 align-top text-xs max-w-[200px] truncate">{row.nama_jalan || '-'}</td>
+                              <td className="p-2 align-top text-xs max-w-[100px] truncate">{row.kabupaten_kota || '-'}</td>
+                              <td className="p-2 align-top">
+                                <span className={`px-2 py-1 text-xs rounded-full bg-slate-100 text-slate-700`}>
+                                  {row.proses}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           )}
@@ -411,15 +509,25 @@ export function AddressSyncModal({ campaignId: initialCampaignId, onComplete }: 
               <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center">
                 <CheckCircle className="w-8 h-8" />
               </div>
-              <h3 className="text-xl font-bold">Sinkronisasi Berhasil!</h3>
+              <h3 className="text-xl font-bold">Sinkronisasi Selesai!</h3>
               <p className="text-sm text-slate-500 text-center">
-                Sebanyak {preview.length} data alamat telah diproses ke dalam sistem.
+                Sebanyak {preview.length - errorLog.length} baris telah berhasil disinkronisasi ke dalam sistem.
               </p>
 
-              {errors.length > 0 && (
-                <div className="w-full bg-red-50 text-red-600 p-3 rounded text-xs space-y-1 max-h-40 overflow-y-auto text-left border border-red-100">
-                  <p className="font-semibold mb-1">Peringatan / Data yang dilewati:</p>
-                  {errors.map((e, i) => <p key={i}>- {e}</p>)}
+              {errorLog.length > 0 && (
+                <div className="w-full bg-red-50 p-4 rounded-xl text-sm space-y-3 max-h-40 overflow-y-auto text-left border border-red-100">
+                  <div className="flex justify-between items-center">
+                    <p className="font-semibold text-red-700">Peringatan: {errorLog.length} baris gagal diproses</p>
+                    <Button size="sm" variant="outline" className="text-red-700 border-red-200 hover:bg-red-100" onClick={() => exportErrorLogToExcel(errorLog, 'ErrorLog_AddressSync')}>
+                      <Download className="w-4 h-4 mr-2" /> Download Error Log
+                    </Button>
+                  </div>
+                  <ul className="list-disc list-inside text-red-600 text-xs">
+                    {errorLog.slice(0, 3).map((e, i) => (
+                      <li key={i}>@{e.username}: {e.pesan_error}</li>
+                    ))}
+                    {errorLog.length > 3 && <li>...dan {errorLog.length - 3} lainnya</li>}
+                  </ul>
                 </div>
               )}
 

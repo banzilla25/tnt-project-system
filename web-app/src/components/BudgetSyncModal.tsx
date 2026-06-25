@@ -5,6 +5,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Button } from "@/components/ui/Button";
 import { Upload, Loader2, ArrowRight, FileSpreadsheet, DollarSign, AlertCircle, CheckCircle } from "lucide-react";
 import { parseBudgetFileHeaders, parseBudgetSyncFile, ParsedBudgetRow, BudgetColumnMapping } from "@/utils/importBudgetSync";
+import { exportErrorLogToExcel, ErrorLogItem } from "@/utils/exportErrorLog";
+import { Download } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import { useDatabaseStore } from "@/store/useDatabaseStore";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/Table";
@@ -34,6 +36,7 @@ export function BudgetSyncModal({ campaignId: initialCampaignId, onComplete }: {
   const [isCommitting, setIsCommitting] = useState(false);
   const [commitProgress, setCommitProgress] = useState(0);
   const [commitStatus, setCommitStatus] = useState('');
+  const [errorLog, setErrorLog] = useState<ErrorLogItem[]>([]);
   const [resultStats, setResultStats] = useState({ updated: 0, notFound: 0, errors: 0 });
 
   const resetState = () => {
@@ -47,6 +50,7 @@ export function BudgetSyncModal({ campaignId: initialCampaignId, onComplete }: {
     setIsCommitting(false);
     setCommitProgress(0);
     setCommitStatus('');
+    setErrorLog([]);
     setResultStats({ updated: 0, notFound: 0, errors: 0 });
   };
 
@@ -112,6 +116,8 @@ export function BudgetSyncModal({ campaignId: initialCampaignId, onComplete }: {
       if (u) ccMap.set(u, cc);
     });
 
+    const localErrorLog: ErrorLogItem[] = [];
+
     // Process in chunks of 50 to speed up significantly
     const CHUNK_SIZE = 50;
     
@@ -125,6 +131,7 @@ export function BudgetSyncModal({ campaignId: initialCampaignId, onComplete }: {
         const cc = ccMap.get(row.username.toLowerCase());
         if (!cc) {
           notFound++;
+          localErrorLog.push({ username: row.username, pesan_error: 'Tidak ditemukan di Campaign atau belum Approved', data_mentah: row });
           return;
         }
 
@@ -142,15 +149,18 @@ export function BudgetSyncModal({ campaignId: initialCampaignId, onComplete }: {
 
           if (error) {
             errorCount++;
+            localErrorLog.push({ username: row.username, pesan_error: `Gagal update: ${error.message}`, data_mentah: row });
           } else {
             updated++;
           }
-        } catch {
+        } catch (err: any) {
           errorCount++;
+          localErrorLog.push({ username: row.username, pesan_error: `Error try/catch: ${err?.message}`, data_mentah: row });
         }
       }));
     }
 
+    setErrorLog(localErrorLog);
     setResultStats({ updated, notFound, errors: errorCount });
     setStep(4);
     setIsCommitting(false);
@@ -358,6 +368,23 @@ export function BudgetSyncModal({ campaignId: initialCampaignId, onComplete }: {
             <p className="text-sm text-slate-500">
               Kreator &quot;Tidak Ditemukan&quot; berarti username-nya belum terdaftar sebagai Approved di campaign ini.
             </p>
+
+            {errorLog.length > 0 && (
+              <div className="w-full bg-red-50 p-4 rounded-xl text-sm space-y-3 max-h-40 overflow-y-auto text-left border border-red-100 mt-4">
+                <div className="flex justify-between items-center">
+                  <p className="font-semibold text-red-700">Peringatan: {errorLog.length} baris gagal diproses</p>
+                  <Button size="sm" variant="outline" className="text-red-700 border-red-200 hover:bg-red-100" onClick={() => exportErrorLogToExcel(errorLog, 'ErrorLog_BudgetSync')}>
+                    <Download className="w-4 h-4 mr-2" /> Download Error Log
+                  </Button>
+                </div>
+                <ul className="list-disc list-inside text-red-600 text-xs">
+                  {errorLog.slice(0, 3).map((e, i) => (
+                    <li key={i}>@{e.username}: {e.pesan_error}</li>
+                  ))}
+                  {errorLog.length > 3 && <li>...dan {errorLog.length - 3} lainnya</li>}
+                </ul>
+              </div>
+            )}
 
             <Button onClick={() => { setOpen(false); resetState(); }} className="px-8">
               Tutup

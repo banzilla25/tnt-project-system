@@ -9,6 +9,7 @@ import { findClosestMatch } from "@/utils/stringSimilarity";
 import { downloadCampaignSyncTemplate, parseCampaignSyncFile, parseFileHeaders, ParsedCampaignCreatorRow, CampaignColumnMapping } from "@/utils/importCampaignSync";
 import { createClient } from "@/utils/supabase/client";
 import { useDatabaseStore } from "@/store/useDatabaseStore";
+import { exportErrorLogToExcel, ErrorLogItem } from "@/utils/exportErrorLog";
 
 const supabase = createClient();
 
@@ -31,6 +32,7 @@ export function CampaignSyncModal({ campaignId: initialCampaignId, onComplete }:
 
   const [preview, setPreview] = useState<ParsedCampaignCreatorRow[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
+  const [errorLog, setErrorLog] = useState<ErrorLogItem[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isCommitting, setIsCommitting] = useState(false);
   const [commitProgress, setCommitProgress] = useState(0);
@@ -154,6 +156,7 @@ export function CampaignSyncModal({ campaignId: initialCampaignId, onComplete }:
     setCommitProgress(0);
     setCommitStatus('Menyiapkan data sinkronisasi...');
     try {
+      const localErrorLog: ErrorLogItem[] = [];
       setCommitStatus('Mengecek data kreator di database...');
       const usernamesArray = Array.from(new Set(preview.map(p => p.username)));
       const lowercasedUsernames = usernamesArray.map(u => u.toLowerCase());
@@ -187,7 +190,10 @@ export function CampaignSyncModal({ campaignId: initialCampaignId, onComplete }:
           }));
           
           const { data: newC, error: errC } = await supabase.from('creators').insert(insertData).select('id, username');
-          if (errC) throw errC;
+          if (errC) {
+            localErrorLog.push({ username: 'BATCH_INSERT', pesan_error: `Gagal menambahkan kreator baru: ${errC.message}`, data_mentah: chunk });
+            // Continue since we don't want to break the whole flow
+          }
           if (newC) {
             newC.forEach(c => creatorMap.set(c.username.toLowerCase(), c.id));
           }
@@ -203,7 +209,12 @@ export function CampaignSyncModal({ campaignId: initialCampaignId, onComplete }:
       
       preview.forEach(row => {
         const creatorId = creatorMap.get(row.username.toLowerCase());
-        if (!creatorId) return; // Skip if invalid
+        if (!creatorId) {
+          if (syncMode !== 'db_acuan') {
+            localErrorLog.push({ username: row.username, pesan_error: 'Gagal mendapatkan/membuat ID Kreator', data_mentah: row });
+          }
+          return;
+        }
         
         const existingCcId = existingCcMap.get(creatorId);
         const payload = {
@@ -237,7 +248,9 @@ export function CampaignSyncModal({ campaignId: initialCampaignId, onComplete }:
         setCommitStatus(`Menyinkronkan data lama ke Campaign... (${i}/${toUpdate.length})`);
         const chunk = toUpdate.slice(i, i + 500);
         const { error } = await supabase.from('campaign_creators').upsert(chunk);
-        if (error) throw error;
+        if (error) {
+          localErrorLog.push({ username: 'BATCH_UPDATE', pesan_error: `Gagal upsert campaign_creators: ${error.message}`, data_mentah: chunk });
+        }
         setCommitProgress(Math.min(i + 500, toUpdate.length));
       }
 
@@ -246,7 +259,9 @@ export function CampaignSyncModal({ campaignId: initialCampaignId, onComplete }:
         setCommitStatus(`Menambahkan data baru ke Campaign... (${i}/${toInsert.length})`);
         const chunk = toInsert.slice(i, i + 500);
         const { error } = await supabase.from('campaign_creators').insert(chunk);
-        if (error) throw error;
+        if (error) {
+          localErrorLog.push({ username: 'BATCH_INSERT', pesan_error: `Gagal insert campaign_creators: ${error.message}`, data_mentah: chunk });
+        }
         setCommitProgress(toUpdate.length + Math.min(i + 500, toInsert.length));
       }
 
@@ -296,6 +311,7 @@ export function CampaignSyncModal({ campaignId: initialCampaignId, onComplete }:
 
       setCommitStatus('Memperbarui tampilan...');
       await fetchData();
+      setErrorLog(localErrorLog);
       setStep(4);
     } catch (e: any) {
       setErrors([e.message || "Terjadi kesalahan saat commit ke database."]);
@@ -311,6 +327,7 @@ export function CampaignSyncModal({ campaignId: initialCampaignId, onComplete }:
     setCsvHeaders([]);
     setPreview([]);
     setErrors([]);
+    setErrorLog([]);
     if (!initialCampaignId) setCampaignId(0);
   };
 
@@ -572,15 +589,32 @@ export function CampaignSyncModal({ campaignId: initialCampaignId, onComplete }:
               <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center">
                 <CheckCircle className="w-8 h-8" />
               </div>
-              <h3 className="text-xl font-bold">Sinkronisasi Berhasil!</h3>
+              <h3 className="text-xl font-bold">Sinkronisasi Selesai!</h3>
               <p className="text-sm text-slate-500 text-center">
-                Sebanyak {preview.length} data telah berhasil diproses ke dalam sistem.
+                Proses sinkronisasi telah dijalankan untuk {preview.length} data.
               </p>
               
               {errors.length > 0 && (
                 <div className="w-full bg-red-50 text-red-600 p-3 rounded text-xs space-y-1 max-h-40 overflow-y-auto text-left border border-red-100">
-                  <p className="font-semibold mb-1">Peringatan / Data yang dilewati:</p>
+                  <p className="font-semibold mb-1">Peringatan / Data yang dilewati (Sistem):</p>
                   {errors.map((e, i) => <p key={i}>- {e}</p>)}
+                </div>
+              )}
+
+              {errorLog.length > 0 && (
+                <div className="w-full bg-red-50 p-4 rounded-xl text-sm space-y-3 max-h-40 overflow-y-auto text-left border border-red-100">
+                  <div className="flex justify-between items-center">
+                    <p className="font-semibold text-red-700">Peringatan: Ada batch yang gagal diproses</p>
+                    <Button size="sm" variant="outline" className="text-red-700 border-red-200 hover:bg-red-100" onClick={() => exportErrorLogToExcel(errorLog, 'ErrorLog_CampaignSync')}>
+                      <Download className="w-4 h-4 mr-2" /> Download Error Log
+                    </Button>
+                  </div>
+                  <ul className="list-disc list-inside text-red-600 text-xs">
+                    {errorLog.slice(0, 3).map((e, i) => (
+                      <li key={i}>{(e.username && e.username !== 'BATCH_INSERT' && e.username !== 'BATCH_UPDATE') ? `@${e.username}` : e.username}: {e.pesan_error}</li>
+                    ))}
+                    {errorLog.length > 3 && <li>...dan {errorLog.length - 3} lainnya</li>}
+                  </ul>
                 </div>
               )}
 
