@@ -394,7 +394,7 @@ function CampaignListingContent() {
           creator_contacts(id),
           creator_snapshots(id),
           creator_niches(niche_id),
-          campaign_creators( campaign_id, campaigns(nama_campaign) )
+          campaign_creators( campaign_id, campaigns(nama) )
         `)
         .in('username', uniqueUsernames);
 
@@ -439,7 +439,7 @@ function CampaignListingContent() {
           creator_contacts(id),
           creator_snapshots(id),
           creator_niches(niche_id),
-          campaign_creators( campaign_id, campaigns(nama_campaign) )
+          campaign_creators( campaign_id, campaigns(nama) )
         `)
         .in('username', usernames);
         
@@ -1011,8 +1011,8 @@ function CampaignListingContent() {
                                     {c.campaign_creators && c.campaign_creators.length > 0 && (
                                       <div className="text-[10px] text-slate-500 mt-1 flex flex-wrap gap-1">
                                         {c.campaign_creators.map((cc: any, idx: number) => (
-                                          <span key={idx} className="bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 truncate max-w-[120px]" title={cc.campaigns?.nama_campaign}>
-                                            {cc.campaigns?.nama_campaign || 'Campaign'}
+                                          <span key={idx} className="bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 truncate max-w-[120px]" title={cc.campaigns?.nama}>
+                                            {cc.campaigns?.nama || 'Campaign'}
                                           </span>
                                         ))}
                                       </div>
