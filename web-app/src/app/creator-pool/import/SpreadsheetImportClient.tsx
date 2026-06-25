@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { createClient } from "@/utils/supabase/client";
@@ -44,6 +44,7 @@ const getEmptyRow = (): SpreadsheetRow => ({
 
 export default function SpreadsheetImportClient() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = createClient();
   const { niches, fetchData } = useDatabaseStore();
   const { profile } = useAuth();
@@ -83,6 +84,33 @@ export default function SpreadsheetImportClient() {
       localStorage.removeItem(`tnt_import_draft_global`);
     }
   }, [rows]);
+
+  useEffect(() => {
+    const usernamesParam = searchParams.get('usernames');
+    if (usernamesParam) {
+      const names = usernamesParam.split(',').map(n => n.trim()).filter(n => n.length > 0);
+      if (names.length > 0) {
+        setRows(prevRows => {
+          const existingUsernames = new Set(prevRows.map(r => r.username.toLowerCase()));
+          const newNames = names.filter(n => !existingUsernames.has(n.toLowerCase()));
+          if (newNames.length === 0) return prevRows;
+
+          let nextRows = [...prevRows];
+          for (const name of newNames) {
+            const emptyIdx = nextRows.findIndex(r => r.username === '');
+            if (emptyIdx !== -1) {
+              nextRows[emptyIdx] = { ...nextRows[emptyIdx], username: name };
+            } else {
+              const newRow = getEmptyRow();
+              newRow.username = name;
+              nextRows.push(newRow);
+            }
+          }
+          return nextRows;
+        });
+      }
+    }
+  }, [searchParams]);
 
   const handleVerify = async () => {
     let filledRows = [...rows].filter(r => r.username.trim() !== '');

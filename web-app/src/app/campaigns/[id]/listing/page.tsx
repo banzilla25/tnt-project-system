@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useDatabaseStore } from "@/store/useDatabaseStore";
 import { getCreatorType, getJenisKerjasama } from "@/utils/computed";
-import { ChevronDown, ChevronRight, ChevronLeft, Edit2, Check, X, Loader2, Trash2, Download, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
+import { ChevronDown, ChevronRight, ChevronLeft, Edit2, Check, X, Loader2, Trash2, Download, ArrowUp, ArrowDown, ArrowUpDown, Plus, AlertCircle, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -104,10 +104,12 @@ function CampaignListingContent() {
   const [recapStartIndex, setRecapStartIndex] = useState(0);
 
   // Add Creator Modal State
+  type DynamicRow = { id: string; username: string; price: string; qtyVt: string };
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [bulkUsernames, setBulkUsernames] = useState<string>('');
-  const [newPrice, setNewPrice] = useState<string>('0');
-  const [newQtyVt, setNewQtyVt] = useState<string>('1');
+  const [modalStep, setModalStep] = useState<1 | 2>(1);
+  const [dynamicRows, setDynamicRows] = useState<DynamicRow[]>([{ id: Math.random().toString(36).substring(2, 9), username: '', price: '0', qtyVt: '1' }]);
+  const [existingCreators, setExistingCreators] = useState<any[]>([]);
+  const [missingCreators, setMissingCreators] = useState<any[]>([]);
   const [isAddingBulk, setIsAddingBulk] = useState(false);
 
   useEffect(() => {
@@ -369,26 +371,23 @@ function CampaignListingContent() {
     }
   };
 
-  const handleAddCreator = async (e: React.FormEvent) => {
+  const handleScan = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!bulkUsernames.trim() || !hasAccess || isAddingBulk) return;
+    if (!hasAccess || isAddingBulk) return;
 
     setIsAddingBulk(true);
 
     try {
-      const usernames = bulkUsernames.split('\n')
-        .map(u => u.replace('@', '').trim().toLowerCase())
-        .filter(u => u.length > 0);
-      
-      if (usernames.length === 0) {
+      const validRows = dynamicRows.filter(r => r.username.trim() !== '');
+      if (validRows.length === 0) {
         setIsAddingBulk(false);
         return;
       }
 
-      // Unique usernames
+      const usernames = validRows.map(r => r.username.replace('@', '').trim().toLowerCase());
       const uniqueUsernames = Array.from(new Set(usernames));
 
-      // 1. Fetch existing creators to see which ones are missing and check completeness
+      // Fetch existing creators
       const { data: existingData, error: fetchErr } = await supabase.from('creators')
         .select(`
           id, username, added_by,
@@ -401,14 +400,47 @@ function CampaignListingContent() {
       if (fetchErr) throw fetchErr;
 
       const existingMap = new Map((existingData || []).map(c => [c.username.toLowerCase(), c]));
-      const missingUsernames = uniqueUsernames.filter(u => !existingMap.has(u));
+      
+      const missing: any[] = [];
+      const existing: any[] = [];
 
-      // 2. Insert missing creators
-      let newlyInserted: any[] = [];
-      if (missingUsernames.length > 0) {
-        const payloads = missingUsernames.map(u => ({
-          username: u,
-          link_account: `https://www.tiktok.com/@${u}`,
+      for (const row of validRows) {
+        const uname = row.username.replace('@', '').trim().toLowerCase();
+        const found = existingMap.get(uname);
+        if (found) {
+          existing.push({ ...row, ...found });
+        } else {
+          missing.push(row);
+        }
+      }
+
+      setExistingCreators(existing);
+      setMissingCreators(missing);
+      setModalStep(2);
+
+    } catch (err) {
+      console.error(err);
+      alert('Gagal melakukan scan kreator.');
+    } finally {
+      setIsAddingBulk(false);
+    }
+  };
+
+  const handleSubmitToCampaign = async (group: 'existing' | 'missing') => {
+    if (!hasAccess || isAddingBulk) return;
+    setIsAddingBulk(true);
+
+    try {
+      const rowsToProcess = group === 'existing' ? existingCreators : missingCreators;
+      if (rowsToProcess.length === 0) return;
+
+      let allCreators = [...rowsToProcess];
+
+      if (group === 'missing') {
+        // We need to insert them into creators table first
+        const payloads = rowsToProcess.map(r => ({
+          username: r.username.replace('@', '').trim().toLowerCase(),
+          link_account: `https://www.tiktok.com/@${r.username.replace('@', '').trim().toLowerCase()}`,
           added_by: profile?.id
         }));
 
@@ -417,19 +449,22 @@ function CampaignListingContent() {
           .select('id, username, added_by');
 
         if (insErr) throw insErr;
-        newlyInserted = insertedData || [];
+        
+        // Merge the IDs back to the rows
+        const insertedMap = new Map((insertedData || []).map(c => [c.username.toLowerCase(), c]));
+        allCreators = rowsToProcess.map(r => {
+          const uname = r.username.replace('@', '').trim().toLowerCase();
+          return { ...r, ...insertedMap.get(uname) };
+        });
       }
-
-      // Combine existing and newly inserted
-      const allCreators: any[] = [...(existingData || []), ...newlyInserted];
 
       // 3. Prepare campaign creators bulk payload
       const campaignPayloads = allCreators.map(c => ({
         campaign_id: campaignId,
         creator_id: c.id,
         tier: 'NANO',
-        price: Number(newPrice),
-        qty_vt: Number(newQtyVt),
+        price: Number(c.price),
+        qty_vt: Number(c.qtyVt),
         content_type: null,
         approval: 'pending',
         pic_assist: profile?.nama || '-',
@@ -465,90 +500,33 @@ function CampaignListingContent() {
         if (ccErr) throw ccErr;
       }
 
-      // 5. Check for incomplete records and takeover logic
-      const usernamesToRedirect: string[] = [];
-      const takeoverPromises: any[] = [];
-
-      for (const c of allCreators) {
-        const isComplete = c.creator_contacts && c.creator_contacts.length > 0 &&
-                           c.creator_snapshots && c.creator_snapshots.length > 0 &&
-                           c.creator_niches && c.creator_niches.length > 0;
-        
-        if (!isComplete) {
-          if (c.added_by === profile?.id) {
-            // It's incomplete and belongs to us, we MUST complete it
-            usernamesToRedirect.push(c.username);
-          } else {
-            // It's incomplete but belongs to someone else. TAKEOVER RULE!
-            const promise = (async () => {
-              const { error } = await supabase.from('creators')
-                .update({ added_by: profile?.id })
-                .eq('id', c.id);
-              if (error) throw error;
-            })();
-            takeoverPromises.push(promise);
-            
-            // Now we own it, so we MUST complete it
-            usernamesToRedirect.push(c.username);
-          }
-        }
-      }
-
-      // Execute all takeover updates concurrently for maximum speed
-      if (takeoverPromises.length > 0) {
-        await Promise.all(takeoverPromises);
-      }
-
-      // 6. Handle Redirect or Close
-      if (usernamesToRedirect.length > 0) {
-        // Construct the draft payload
-        const drafts = usernamesToRedirect.map((u) => ({
-          id: Math.random().toString(36).substring(2, 9),
-          username: u,
-          followers: '',
-          level: '',
-          audience_age: '',
-          gmv_30d: '',
-          niche: '',
-          mcn: '',
-          ratecard: '',
-          whatsapp: ''
-        }));
-
-        // Read existing drafts if any, append ours
-        let existingDrafts: any[] = [];
-        try {
-          const saved = localStorage.getItem('tnt_import_draft_global');
-          if (saved) {
-             const parsed = JSON.parse(saved);
-             if (Array.isArray(parsed)) existingDrafts = parsed;
-          }
-        } catch(e) {}
-        
-        const combinedDrafts = [...drafts, ...existingDrafts.filter(d => !usernamesToRedirect.includes(d.username))];
-        localStorage.setItem('tnt_import_draft_global', JSON.stringify(combinedDrafts));
-
-        // Alert user before redirecting
-        alert(`Berhasil masuk ke Campaign! Namun ada ${usernamesToRedirect.length} kreator yang datanya belum lengkap. Anda akan dialihkan untuk melengkapinya.`);
-        router.push('/creator-pool/import');
-        return; // Don't reset state or refresh, just redirect
-      }
-
-      // If no redirect, close modal and refresh
-      setIsAddModalOpen(false);
-      setBulkUsernames('');
-      setNewPrice('0');
-      setNewQtyVt('1');
+      // Refresh to show changes immediately
       setPage(0);
       fetchListing(0, true);
       fetchCounts();
 
+      alert(`Berhasil menambahkan ${newCampaignPayloads.length} kreator ke campaign!`);
+
+      if (group === 'existing') {
+        setExistingCreators([]);
+      } else {
+        setMissingCreators([]);
+      }
+
+      if (group === 'existing' && missingCreators.length === 0) {
+        setIsAddModalOpen(false);
+      } else if (group === 'missing' && existingCreators.length === 0) {
+        // Keep modal open so they can click the redirect button
+      }
+
     } catch (err: any) {
-      alert("Gagal menambahkan kreator: " + err.message);
+      console.error(err);
+      alert('Gagal menambahkan kreator ke campaign.');
     } finally {
       setIsAddingBulk(false);
     }
   };
+
 
   const handleExport = () => {
     const exportData = listingData.map((cc) => {
@@ -619,7 +597,8 @@ function CampaignListingContent() {
           {hasAccess && (
             <button className="btn btn-primary" onClick={() => {
               setIsAddModalOpen(true);
-              setBulkUsernames('');
+              setModalStep(1);
+              setDynamicRows([{ id: Math.random().toString(36).substring(2, 9), username: '', price: '0', qtyVt: '1' }]);
             }}>
               + Tambah Creator
             </button>
@@ -804,61 +783,225 @@ function CampaignListingContent() {
       </div>
 
       {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-white p-[24px] rounded-[16px] w-full max-w-md shadow-xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 overflow-y-auto">
+          <div className="bg-white p-[24px] rounded-[16px] w-full max-w-4xl shadow-xl m-4 my-8 relative max-h-[90vh] flex flex-col">
             <h3 className="text-[18px] font-bold mb-[16px]">Tambah Creator ke Campaign</h3>
-            <form onSubmit={handleAddCreator} className="space-y-[16px]">
-              <div>
-                <label className="text-[13px] font-semibold text-text block mb-[6px]">Cari & Pilih Creator (Bulk Input)</label>
-                <textarea 
-                  placeholder="Paste username creator di sini, pisahkan dengan baris (enter)..."
-                  value={bulkUsernames}
-                  onChange={e => setBulkUsernames(e.target.value)}
-                  className="input min-h-[150px] font-mono text-sm resize-y"
-                  required
-                />
-                <p className="text-[11px] text-text-soft mt-[4px]">Bisa copy-paste dari Excel. Satu baris untuk satu username. Tanpa tanda @.</p>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-[16px]">
-                <div>
-                  <label className="text-[13px] font-semibold text-text block mb-[6px]">Price / Rate (Rp)</label>
-                  <input 
-                    type="number"
-                    required
-                    min="0"
-                    value={newPrice}
-                    onChange={e => setNewPrice(e.target.value)}
-                    className="input"
-                  />
-                  <p className="text-[11px] text-text-soft mt-[4px]">Isi 0 untuk Barter</p>
-                </div>
-                <div>
-                  <label className="text-[13px] font-semibold text-text block mb-[6px]">Qty VT SOW</label>
-                  <input 
-                    type="number"
-                    required
-                    min="1"
-                    value={newQtyVt}
-                    onChange={e => setNewQtyVt(e.target.value)}
-                    className="input"
-                  />
-                </div>
-              </div>
+            
+            <div className="flex-1 overflow-y-auto min-h-0 pr-2">
+              {modalStep === 1 && (
+                <form onSubmit={handleScan} className="space-y-[16px]">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm border-collapse">
+                      <thead>
+                        <tr className="border-b">
+                          <th className="pb-2">Username</th>
+                          <th className="pb-2">Rate Card (Rp)</th>
+                          <th className="pb-2">Qty VT</th>
+                          <th className="pb-2 w-10"></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {dynamicRows.map((row, index) => (
+                          <tr key={row.id} className="border-b">
+                            <td className="py-2 pr-2">
+                              <input 
+                                type="text"
+                                required
+                                value={row.username}
+                                onChange={e => {
+                                  const newRows = [...dynamicRows];
+                                  newRows[index].username = e.target.value;
+                                  setDynamicRows(newRows);
+                                }}
+                                className="input h-9 text-sm w-full"
+                                placeholder="tanpa @"
+                              />
+                            </td>
+                            <td className="py-2 pr-2">
+                              <input 
+                                type="number"
+                                required
+                                min="0"
+                                value={row.price}
+                                onChange={e => {
+                                  const newRows = [...dynamicRows];
+                                  newRows[index].price = e.target.value;
+                                  setDynamicRows(newRows);
+                                }}
+                                className="input h-9 text-sm w-full"
+                              />
+                            </td>
+                            <td className="py-2 pr-2">
+                              <input 
+                                type="number"
+                                required
+                                min="1"
+                                value={row.qtyVt}
+                                onChange={e => {
+                                  const newRows = [...dynamicRows];
+                                  newRows[index].qtyVt = e.target.value;
+                                  setDynamicRows(newRows);
+                                }}
+                                className="input h-9 text-sm w-full"
+                              />
+                            </td>
+                            <td className="py-2 text-center">
+                              <button 
+                                type="button" 
+                                onClick={() => {
+                                  if (dynamicRows.length > 1) {
+                                    setDynamicRows(dynamicRows.filter(r => r.id !== row.id));
+                                  }
+                                }}
+                                className="text-error hover:bg-error/10 p-1 rounded transition-colors"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
 
-              <div className="flex justify-end gap-[10px] mt-[24px]">
-                <button type="button" className="btn btn-outline" onClick={() => setIsAddModalOpen(false)}>Batal</button>
-                <button type="submit" className="btn btn-primary" disabled={!bulkUsernames.trim() || isAddingBulk}>
-                  {isAddingBulk ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin mr-2 inline-block" /> Menyimpan...
-                    </>
-                  ) : (
-                    'Simpan'
-                  )}
-                </button>
-              </div>
-            </form>
+                  <div>
+                    <button 
+                      type="button" 
+                      onClick={() => {
+                        setDynamicRows([...dynamicRows, { id: Math.random().toString(36).substring(2, 9), username: '', price: '0', qtyVt: '1' }]);
+                      }}
+                      className="text-p500 text-sm font-semibold hover:underline flex items-center"
+                    >
+                      <Plus className="w-4 h-4 mr-1" /> Tambah Baris
+                    </button>
+                  </div>
+
+                  <div className="flex justify-end gap-[10px] mt-[24px] pt-4 border-t">
+                    <button type="button" className="btn btn-outline" onClick={() => setIsAddModalOpen(false)}>Batal</button>
+                    <button type="submit" className="btn btn-primary" disabled={isAddingBulk}>
+                      {isAddingBulk ? (
+                        <><Loader2 className="w-4 h-4 animate-spin mr-2 inline-block" /> Scanning...</>
+                      ) : (
+                        'Scan & Cek Database'
+                      )}
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {modalStep === 2 && (
+                <div className="space-y-6">
+                  {/* Table 1: Existing Creators */}
+                  <div className="border rounded-xl p-4">
+                    <h4 className="font-bold text-p500 mb-2 flex items-center">
+                      <CheckCircle2 className="w-5 h-5 mr-2" /> 
+                      Sudah Ada di Pool ({existingCreators.length})
+                    </h4>
+                    {existingCreators.length > 0 ? (
+                      <>
+                        <div className="max-h-40 overflow-y-auto border rounded mb-3">
+                          <table className="w-full text-sm text-left">
+                            <thead className="bg-slate-50 sticky top-0">
+                              <tr>
+                                <th className="p-2 border-b">Username</th>
+                                <th className="p-2 border-b">Rate Card</th>
+                                <th className="p-2 border-b">Qty VT</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {existingCreators.map(c => (
+                                <tr key={c.id} className="border-b">
+                                  <td className="p-2">@{c.username}</td>
+                                  <td className="p-2">Rp {Number(c.price).toLocaleString('id-ID')}</td>
+                                  <td className="p-2">{c.qtyVt}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                        <button 
+                          onClick={() => handleSubmitToCampaign('existing')}
+                          disabled={isAddingBulk}
+                          className="btn btn-primary w-full"
+                        >
+                          {isAddingBulk ? 'Memproses...' : 'Tambah ke Campaign'}
+                        </button>
+                      </>
+                    ) : (
+                      <p className="text-sm text-text-soft">Tidak ada kreator di kategori ini.</p>
+                    )}
+                  </div>
+
+                  {/* Table 2: Missing Creators */}
+                  <div className="border border-error/30 rounded-xl p-4 bg-error/5">
+                    <h4 className="font-bold text-error mb-2 flex items-center">
+                      <AlertCircle className="w-5 h-5 mr-2" /> 
+                      Belum Ada di Pool ({missingCreators.length})
+                    </h4>
+                    {missingCreators.length > 0 ? (
+                      <>
+                        <p className="text-xs text-error font-semibold mb-3">
+                          Peringatan: Kreator ini belum terdaftar di Creator Pool. Jika Anda tambahkan ke campaign, Anda WAJIB melengkapinya nanti.
+                        </p>
+                        <div className="max-h-40 overflow-y-auto border rounded mb-3 border-error/20 bg-white">
+                          <table className="w-full text-sm text-left">
+                            <thead className="bg-error/10 sticky top-0">
+                              <tr>
+                                <th className="p-2 border-b border-error/20">Username</th>
+                                <th className="p-2 border-b border-error/20">Rate Card</th>
+                                <th className="p-2 border-b border-error/20">Qty VT</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {missingCreators.map(c => (
+                                <tr key={c.id} className="border-b border-error/10">
+                                  <td className="p-2">@{c.username}</td>
+                                  <td className="p-2">Rp {Number(c.price).toLocaleString('id-ID')}</td>
+                                  <td className="p-2">{c.qtyVt}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                        <div className="flex gap-2">
+                          <button 
+                            onClick={() => handleSubmitToCampaign('missing')}
+                            disabled={isAddingBulk}
+                            className="btn bg-error hover:bg-error-dark text-white flex-1"
+                          >
+                            {isAddingBulk ? 'Memproses...' : 'Tambah ke Campaign'}
+                          </button>
+                          <button 
+                            onClick={() => {
+                              const usernames = missingCreators.map(c => c.username.replace('@', '')).join(',');
+                              window.open(`/creator-pool/import?usernames=${usernames}`, '_blank');
+                            }}
+                            className="btn border border-error text-error hover:bg-error/10 flex-1"
+                          >
+                            Lengkapi Data di Creator Pool
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <p className="text-sm text-text-soft">Tidak ada kreator di kategori ini.</p>
+                    )}
+                  </div>
+
+                  <div className="flex justify-between pt-4 border-t">
+                    <button type="button" className="btn btn-outline" onClick={() => setModalStep(1)}>
+                      Kembali Input
+                    </button>
+                    <button type="button" className="btn btn-outline" onClick={() => {
+                      setIsAddModalOpen(false);
+                      setModalStep(1);
+                      setDynamicRows([{ id: Math.random().toString(36).substring(2, 9), username: '', price: '0', qtyVt: '1' }]);
+                    }}>
+                      Tutup Modal
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

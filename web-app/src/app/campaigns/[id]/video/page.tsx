@@ -396,7 +396,9 @@ export default function CampaignVideoPage() {
                         <tbody>
                           {creatorVideos.map((v) => {
                             const warningShortLink = !isAwareness && isShortLink(v.link_video);
-                            const hasContentUid = !!v.content_uid;
+                            const extractedMatch = v.link_video?.match(/video\/(\d+)/);
+                            const dynamicContentUid = extractedMatch ? extractedMatch[1] : v.content_uid;
+                            const hasContentUid = !!dynamicContentUid;
 
                             return (
                               <tr key={v.urutan}>
@@ -437,7 +439,7 @@ export default function CampaignVideoPage() {
                                     )}
                                     {hasContentUid && !isAwareness && (
                                       <p className="text-[11px] text-green-600 flex items-center gap-[4px]">
-                                        ✓ Terhubung dengan Content ID: {v.content_uid}
+                                        ✓ Terhubung dengan Content ID: {dynamicContentUid}
                                       </p>
                                     )}
                                   </div>
