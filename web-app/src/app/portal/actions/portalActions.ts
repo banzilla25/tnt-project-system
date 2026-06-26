@@ -96,8 +96,7 @@ export async function getPortalData(campaignId: number) {
       tier,
       content_type,
       sample_progress,
-      creators(username, nama_asli, link_account),
-      creator_snapshots(followers, level, tier),
+      creators(username, nama_asli, link_account, creator_snapshots(followers, level, tier)),
       videos(id, link_video, content_uid, vt_approval, urutan)
     `)
     .eq('campaign_id', campaignId)
@@ -139,7 +138,9 @@ export async function getPortalData(campaignId: number) {
 
   const enrichedCcData = ccData?.map((cc: any) => {
     const creator = Array.isArray(cc.creators) ? cc.creators[0] : cc.creators;
-    const snap = Array.isArray(cc.creator_snapshots) ? cc.creator_snapshots[0] : cc.creator_snapshots;
+    const snap = creator?.creator_snapshots 
+      ? (Array.isArray(creator.creator_snapshots) ? creator.creator_snapshots[0] : creator.creator_snapshots)
+      : null;
     const username = creator?.username || '';
     const creatorId = cc.creator_id;
     return {
