@@ -246,7 +246,10 @@ export default function SpreadsheetImportClient() {
       const dbCreatorsRes = await supabase.from('creators').select('username').in('username', uniqueUsernames);
       const existingUsernames = new Set((dbCreatorsRes.data || []).map(c => c.username));
 
-      for (const r of filledRows) {
+      const uniqueRowsMap = new Map();
+      filledRows.forEach(r => uniqueRowsMap.set(r.username, r));
+
+      for (const r of uniqueRowsMap.values()) {
         if (!existingUsernames.has(r.username)) {
            creatorPayloads.push({
              username: r.username,
@@ -255,7 +258,6 @@ export default function SpreadsheetImportClient() {
              avatar_url: r.avatar_url || null,
              added_by: profile?.id
            });
-           existingUsernames.add(r.username); // prevent duplicate in same batch
         } else {
            creatorPayloads.push({
              username: r.username,
@@ -278,7 +280,7 @@ export default function SpreadsheetImportClient() {
 
       const snapshots = [];
       const contacts = [];
-      for (const r of filledRows) {
+      for (const r of uniqueRowsMap.values()) {
         const cId = cMap.get(r.username);
         if (!cId) continue;
         
@@ -324,7 +326,7 @@ export default function SpreadsheetImportClient() {
         const { data: finalNiches } = await supabase.from('niches').select('id, nama');
         const nicheMap = new Map((finalNiches || []).map(n => [n.nama.toLowerCase(), n.id]));
         const creatorNiches = [];
-        for (const r of filledRows) {
+        for (const r of uniqueRowsMap.values()) {
            const cId = cMap.get(r.username);
            const nicheName = r.niche.trim().toLowerCase();
            const nId = nicheMap.get(nicheName);
