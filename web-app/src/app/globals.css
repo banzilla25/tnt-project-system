@@ -185,10 +185,10 @@
     @apply w-full border-collapse relative;
   }
   .tbl-wrap thead th {
-    @apply bg-bg text-[12px] font-bold text-text-soft uppercase tracking-wider text-left px-[18px] py-[13px] border-b border-line sticky top-0 z-10;
+    @apply bg-bg text-[12px] font-bold text-text-soft uppercase tracking-wider text-left px-[18px] py-[13px] border-b border-line sticky top-0 z-10 whitespace-nowrap;
   }
   .tbl-wrap tbody td {
-    @apply px-[18px] py-[15px] text-[14px] border-b border-line;
+    @apply px-[18px] py-[15px] text-[14px] border-b border-line whitespace-nowrap;
   }
   .tbl-wrap tbody tr:last-child td {
     @apply border-0;
