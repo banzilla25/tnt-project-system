@@ -584,21 +584,20 @@ export default function CampaignVideoPage() {
               <X className="w-5 h-5" />
             </button>
             <div className="w-full min-h-[500px] flex items-center justify-center bg-black pt-12 pb-4 px-4 overflow-y-auto max-h-[85vh]" ref={previewRef}>
-              {previewUrl && (
-                <div style={{ maxWidth: '100%', width: '100%' }} className="[&_iframe]:!max-w-full [&_.tiktok-embed]:!max-w-full flex justify-center">
-                  <blockquote 
-                    className="tiktok-embed" 
-                    cite={previewUrl}
-                    data-video-id={(() => {
-                      const match = previewUrl.match(/video\/(\d+)/);
-                      return match ? match[1] : '';
-                    })()}
-                    style={{ maxWidth: '100%', minWidth: '325px', width: '100%' }}
-                  >
-                    <section></section>
-                  </blockquote>
-                </div>
-              )}
+              {previewUrl && (() => {
+                const match = previewUrl.match(/video\/(\d+)/);
+                const videoId = match ? match[1] : '';
+                return videoId ? (
+                  <iframe 
+                    src={`https://www.tiktok.com/player/v1/${videoId}?music_info=1&description=1`}
+                    className="w-full h-[600px] max-w-[325px] rounded-lg"
+                    allow="fullscreen"
+                    title="TikTok Video Player"
+                  ></iframe>
+                ) : (
+                  <p className="text-white text-sm">ID Video tidak valid</p>
+                );
+              })()}
             </div>
           </div>
         </DialogContent>
