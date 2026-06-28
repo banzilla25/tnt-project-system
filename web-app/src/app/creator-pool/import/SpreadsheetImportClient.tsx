@@ -167,6 +167,83 @@ export default function SpreadsheetImportClient() {
     }
   }, [searchParams]);
 
+  const COLUMNS: (keyof SpreadsheetRow)[] = [
+    'username',
+    'whatsapp',
+    'followers',
+    'level',
+    'audience_age',
+    'gmv_30d',
+    'niche',
+    'mcn',
+    'ratecard'
+  ];
+
+  const handleGlobalPaste = (e: React.ClipboardEvent<HTMLInputElement>, startRowIdx: number, startColName: keyof SpreadsheetRow) => {
+    const text = e.clipboardData.getData('text');
+    if (!text.includes('\n') && !text.includes('\t')) return;
+
+    e.preventDefault();
+    const lines = text.split(/\r?\n/).filter(line => line.trim());
+    if (lines.length === 0) return;
+
+    setRows(prevRows => {
+      const newRows = [...prevRows];
+      const startColIdx = COLUMNS.indexOf(startColName);
+      if (startColIdx === -1) return prevRows;
+
+      const pastedUsernames: string[] = [];
+
+      lines.forEach((line, lineIdx) => {
+        const rawCols = line.split('\t');
+        let cols = rawCols;
+        
+        const tierRawIndex = 3 - startColIdx;
+        if (tierRawIndex >= 0 && tierRawIndex < rawCols.length) {
+          if (rawCols.length >= 10 - startColIdx || /nano|micro|macro|mega|auto/i.test(rawCols[tierRawIndex] || '')) {
+            cols = [...rawCols.slice(0, tierRawIndex), ...rawCols.slice(tierRawIndex + 1)];
+          }
+        }
+
+        const targetRowIdx = startRowIdx + lineIdx;
+        let rowDataToUpdate: Partial<SpreadsheetRow> = {};
+        
+        cols.forEach((colVal, colOffset) => {
+          const targetColIdx = startColIdx + colOffset;
+          if (targetColIdx < COLUMNS.length) {
+            const field = COLUMNS[targetColIdx];
+            let cleanVal = colVal;
+            
+            if (field === 'username') cleanVal = cleanVal.replace('@', '').trim().toLowerCase();
+            else if (['followers', 'level', 'gmv_30d', 'ratecard'].includes(field)) cleanVal = cleanVal.replace(/[^0-9]/g, '');
+            else cleanVal = cleanVal.trim();
+
+            rowDataToUpdate[field] = cleanVal as any;
+            
+            if (field === 'username' && cleanVal) {
+              pastedUsernames.push(cleanVal);
+            }
+          }
+        });
+
+        if (targetRowIdx < newRows.length) {
+          Object.assign(newRows[targetRowIdx], rowDataToUpdate);
+        } else {
+          newRows.push({
+            ...getEmptyRow(),
+            ...rowDataToUpdate
+          } as SpreadsheetRow);
+        }
+      });
+
+      if (pastedUsernames.length > 0) {
+        setTimeout(() => runBulkAutoDetect(pastedUsernames), 100);
+      }
+
+      return newRows;
+    });
+  };
+
   const handleVerify = async () => {
     let filledRows = [...rows].filter(r => r.username.trim() !== '');
     if (filledRows.length === 0) {
@@ -407,90 +484,35 @@ export default function SpreadsheetImportClient() {
                              const val = e.target.value.trim();
                              if (val) runBulkAutoDetect([val]);
                           }}
-                          onPaste={(e) => {
-                            const text = e.clipboardData.getData('text');
-                            if (text.includes('\n') || text.includes('\t')) {
-                              e.preventDefault();
-                              const lines = text.split(/\r?\n/).filter(line => line.trim());
-                              const newRows = [...rows];
-                              
-                              lines.forEach((line, i) => {
-                                const cols = line.split('\t');
-                                const uname = (cols[0] || '').replace('@', '').trim().toLowerCase();
-                                const wa = (cols[1] || '').trim();
-                                const followers = (cols[2] || '').replace(/[^0-9]/g, '');
-                                
-                                // Auto-detect if user included the 'Tier' column from their Excel
-                                // If they pasted 10 or more columns, or if cols[3] contains text like 'Nano'/'Micro', they included Tier.
-                                let offset = 0;
-                                if (cols.length >= 10 || /nano|micro|macro|mega|auto/i.test(cols[3] || '')) {
-                                  offset = 1; // Skip the Tier column since it's auto-calculated
-                                }
-
-                                const level = (cols[3 + offset] || '').replace(/[^0-9]/g, '');
-                                const audAge = (cols[4 + offset] || '').trim();
-                                const gmv = (cols[5 + offset] || '').replace(/[^0-9]/g, '');
-                                const niche = (cols[6 + offset] || '').trim();
-                                const mcn = (cols[7 + offset] || '').trim();
-                                const rate = (cols[8 + offset] || '').replace(/[^0-9]/g, '');
-                                
-                                const newRowData: Partial<SpreadsheetRow> = {
-                                  username: uname,
-                                  whatsapp: wa,
-                                  followers: followers,
-                                  level: level,
-                                  audience_age: audAge,
-                                  gmv_30d: gmv,
-                                  niche: niche,
-                                  mcn: mcn,
-                                  ratecard: rate
-                                };
-
-                                if (i === 0) {
-                                  Object.assign(newRows[idx], newRowData);
-                                } else {
-                                  newRows.splice(idx + i, 0, {
-                                    id: Math.random().toString(36).substring(2, 9),
-                                    ...newRowData
-                                  } as SpreadsheetRow);
-                                }
-                              });
-                              setRows(newRows);
-                              
-                              const pastedUsernames = lines.map(line => (line.split('\t')[0] || '').replace('@', '').trim()).filter(Boolean);
-                              if (pastedUsernames.length > 0) {
-                                runBulkAutoDetect(pastedUsernames);
-                              }
-                            }
-                          }}
+                          onPaste={(e) => handleGlobalPaste(e, idx, 'username')}
                           onChange={e => updateRow(row.id, 'username', e.target.value.replace('@', '').toLowerCase())} className="w-full border-none bg-transparent focus:ring-1 focus:ring-blue-500 p-1 rounded" placeholder="username" />
                       </td>
                       <td className="p-2">
-                        <input type="text" value={row.whatsapp} onChange={e => updateRow(row.id, 'whatsapp', e.target.value)} className="w-full border-none bg-transparent focus:ring-1 focus:ring-blue-500 p-1 rounded" placeholder="08..." />
+                        <input type="text" value={row.whatsapp} onPaste={(e) => handleGlobalPaste(e, idx, 'whatsapp')} onChange={e => updateRow(row.id, 'whatsapp', e.target.value)} className="w-full border-none bg-transparent focus:ring-1 focus:ring-blue-500 p-1 rounded" placeholder="08..." />
                       </td>
                       <td className="p-2">
-                        <input type="number" value={row.followers} onChange={e => updateRow(row.id, 'followers', e.target.value)} className="w-full border-none bg-transparent focus:ring-1 focus:ring-blue-500 p-1 rounded" placeholder="10000" />
+                        <input type="number" value={row.followers} onPaste={(e) => handleGlobalPaste(e, idx, 'followers')} onChange={e => updateRow(row.id, 'followers', e.target.value)} className="w-full border-none bg-transparent focus:ring-1 focus:ring-blue-500 p-1 rounded" placeholder="10000" />
                       </td>
                       <td className="p-2">
                         <input type="text" value={row.followers ? getAutoTier(parseInt(row.followers) || 0) : ''} readOnly className="w-full border-none bg-transparent p-1 rounded text-slate-400 font-medium cursor-not-allowed" placeholder="Auto" />
                       </td>
                       <td className="p-2">
-                        <input type="number" value={row.level} onChange={e => updateRow(row.id, 'level', e.target.value)} className="w-full border-none bg-transparent focus:ring-1 focus:ring-blue-500 p-1 rounded" placeholder="2" />
+                        <input type="number" value={row.level} onPaste={(e) => handleGlobalPaste(e, idx, 'level')} onChange={e => updateRow(row.id, 'level', e.target.value)} className="w-full border-none bg-transparent focus:ring-1 focus:ring-blue-500 p-1 rounded" placeholder="2" />
                       </td>
                       <td className="p-2">
-                        <input type="text" value={row.audience_age} onChange={e => updateRow(row.id, 'audience_age', e.target.value)} className="w-full border-none bg-transparent focus:ring-1 focus:ring-blue-500 p-1 rounded" placeholder="18-24" />
+                        <input type="text" value={row.audience_age} onPaste={(e) => handleGlobalPaste(e, idx, 'audience_age')} onChange={e => updateRow(row.id, 'audience_age', e.target.value)} className="w-full border-none bg-transparent focus:ring-1 focus:ring-blue-500 p-1 rounded" placeholder="18-24" />
                       </td>
                       <td className="p-0 border-r border-slate-200">
-                        <input type="number" className="w-full h-full p-2 bg-transparent border-none outline-none" value={row.gmv_30d} onChange={(e) => updateRow(row.id, 'gmv_30d', e.target.value)} placeholder="5000000" />
+                        <input type="number" className="w-full h-full p-2 bg-transparent border-none outline-none" value={row.gmv_30d} onPaste={(e) => handleGlobalPaste(e, idx, 'gmv_30d')} onChange={(e) => updateRow(row.id, 'gmv_30d', e.target.value)} placeholder="5000000" />
                       </td>
                       <td className="p-0 border-r border-rose-100 bg-rose-50/30">
-                        <input type="text" list="niche-options" className="w-full h-full p-2 bg-transparent border-none outline-none" value={row.niche} onChange={(e) => updateRow(row.id, 'niche', e.target.value)} placeholder="Ketik..." />
+                        <input type="text" list="niche-options" className="w-full h-full p-2 bg-transparent border-none outline-none" value={row.niche} onPaste={(e) => handleGlobalPaste(e, idx, 'niche')} onChange={(e) => updateRow(row.id, 'niche', e.target.value)} placeholder="Ketik..." />
                       </td>
                       <td className="p-0 border-r border-slate-200">
-                        <input type="text" className="w-full h-full p-2 bg-transparent border-none outline-none" value={row.mcn} onChange={(e) => updateRow(row.id, 'mcn', e.target.value)} placeholder="MCN" />
+                        <input type="text" className="w-full h-full p-2 bg-transparent border-none outline-none" value={row.mcn} onPaste={(e) => handleGlobalPaste(e, idx, 'mcn')} onChange={(e) => updateRow(row.id, 'mcn', e.target.value)} placeholder="MCN" />
                       </td>
                       <td className="p-0 border-r border-slate-200">
-                        <input type="number" className="w-full h-full p-2 bg-transparent border-none outline-none" value={row.ratecard} onChange={(e) => updateRow(row.id, 'ratecard', e.target.value)} placeholder="150000" />
+                        <input type="number" className="w-full h-full p-2 bg-transparent border-none outline-none" value={row.ratecard} onPaste={(e) => handleGlobalPaste(e, idx, 'ratecard')} onChange={(e) => updateRow(row.id, 'ratecard', e.target.value)} placeholder="150000" />
                       </td>
                       <td className="p-2 text-center">
                         <button onClick={() => setRows(rows.filter(r => r.id !== row.id))} className="text-red-400 hover:text-red-600 p-1 rounded transition-colors">
