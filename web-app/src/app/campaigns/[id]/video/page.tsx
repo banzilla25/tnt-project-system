@@ -6,7 +6,8 @@ import { useDraftLocalStorage } from "@/hooks/useDraftLocalStorage";
 // Replaced standard UI imports
 import { createClient } from "@/utils/supabase/client";
 import { useParams } from "next/navigation";
-import { AlertCircle, Link as LinkIcon, Save, Edit2, Loader2, ChevronDown, Plus } from "lucide-react";
+import { AlertCircle, Link as LinkIcon, Save, Edit2, Loader2, ChevronDown, Plus, PlayCircle, X } from "lucide-react";
+import { Dialog, DialogContent } from "@/components/ui/Dialog";
 import { useAuth } from "@/providers/AuthProvider";
 
 export default function CampaignVideoPage() {
@@ -33,6 +34,23 @@ export default function CampaignVideoPage() {
   const [localVideos, setLocalVideos] = useDraftLocalStorage<any[]>(`draft_videos_campaign_${campaignId}`, []);
   const [listingData, setListingData] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState('');
+  const previewRef = React.useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!previewOpen || !previewUrl) return;
+    const existingScript = document.querySelector('script[src="https://www.tiktok.com/embed.js"]');
+    if (existingScript) existingScript.remove();
+    const timer = setTimeout(() => {
+      const script = document.createElement('script');
+      script.src = 'https://www.tiktok.com/embed.js';
+      script.async = true;
+      document.body.appendChild(script);
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [previewOpen, previewUrl]);
 
   const supabase = createClient();
 
