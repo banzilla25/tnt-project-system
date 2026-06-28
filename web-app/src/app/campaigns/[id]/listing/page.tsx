@@ -52,6 +52,7 @@ function CampaignListingContent() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editPrice, setEditPrice] = useState('0');
   const [editQtyVt, setEditQtyVt] = useState('1');
+  const [editQtyLive, setEditQtyLive] = useState('0');
   const [editApproval, setEditApproval] = useState<any>('');
   const [editClientApproval, setEditClientApproval] = useState<any>('');
   const [editSampleProgress, setEditSampleProgress] = useState<any>('Done Req Sample');
@@ -473,6 +474,7 @@ function CampaignListingContent() {
     setEditingId(cc.id);
     setEditPrice(cc.price?.toString() || '0');
     setEditQtyVt(cc.qty_vt?.toString() || '1');
+    setEditQtyLive(cc.qty_live?.toString() || '0');
     setEditApproval(cc.approval);
     setEditClientApproval(cc.client_approval || 'not_required');
     setEditSampleProgress(cc.sample_progress || 'Done Req Sample');
@@ -499,6 +501,7 @@ function CampaignListingContent() {
     await updateCampaignCreator(ccId, {
       price: Number(editPrice),
       qty_vt: Number(editQtyVt),
+      qty_live: Number(editQtyLive),
       approval: editApproval,
       sample_progress: editSampleProgress,
       notes_manager: editNotesManager,
@@ -1356,6 +1359,11 @@ function CampaignListingContent() {
                   Qty VT SOW <SortIcon col="qty_vt" />
                 </button>
               </th>
+              <th>
+                <button onClick={() => toggleSort('qty_live')} className="flex items-center font-semibold hover:text-p300 transition-colors">
+                  Qty Live SOW <SortIcon col="qty_live" />
+                </button>
+              </th>
               <th>Tipe Konten</th>
               <th>Produk</th>
               <th>
@@ -1468,6 +1476,19 @@ function CampaignListingContent() {
                           />
                         ) : (
                           <span className="text-[13px] font-medium">{cc.qty_vt}</span>
+                        )}
+                      </td>
+                      <td>
+                        {isEditing ? (
+                          <input 
+                            type="number" 
+                            min="0"
+                            value={editQtyLive} 
+                            onChange={e => setEditQtyLive(e.target.value)}
+                            className="input w-16 !p-[4px] text-center"
+                          />
+                        ) : (
+                          <span className="text-[13px] font-medium">{cc.qty_live}</span>
                         )}
                       </td>
                       <td>
