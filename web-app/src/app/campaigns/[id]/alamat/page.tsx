@@ -69,7 +69,7 @@ export default function AlamatPage() {
       while (hasMore) {
         let query = supabase
           .from('campaign_creators')
-          .select('*, creators(*)')
+          .select('*, creators(*, creator_contacts(nomor, status))')
           .eq('campaign_id', campaignId);
           
         if (campaign?.require_client_approval) {
@@ -112,20 +112,34 @@ export default function AlamatPage() {
     });
 
   const handleExport = () => {
-    const exportData = approvedCCs.map(cc => {
+    const exportData = approvedCCs.map((cc, idx) => {
       const addr = creator_addresses.find(a => a.campaign_creator_id === cc.id);
+      const contacts = Array.isArray(cc.creators?.creator_contacts) ? cc.creators.creator_contacts : (cc.creators?.creator_contacts ? [cc.creators.creator_contacts] : []);
+      const activeContact = contacts.find((c: any) => c.status === 'aktif') || contacts[0];
+      const noWhatsapp = activeContact?.nomor || '';
+
+      const skuNames = (cc.assigned_sku_ids || []).map((id: number) => {
+        const sku = campaignSkus.find(s => s.id === id);
+        return sku ? sku.nama_produk : '';
+      }).filter(Boolean).join(', ');
+
       return {
+        'No': idx + 1,
+        'Product': skuNames || '',
         'Username': cc.creators?.username,
+        'No Whatsapp': noWhatsapp,
         'Nama Penerima': addr?.nama_penerima || '',
-        'Alamat': addr?.nama_jalan || '',
-        'Kecamatan': addr?.kecamatan || '',
-        'Kota/Kabupaten': addr?.kabupaten_kota || '',
+        'Nama Jalan': addr?.nama_jalan || '',
         'Provinsi': addr?.provinsi || '',
+        'Kabupaten/Kota': addr?.kabupaten_kota || '',
+        'Kecamatan': addr?.kecamatan || '',
+        'Kelurahan': addr?.kelurahan || '',
         'Kode Pos': addr?.kode_pos || '',
-        'Produk Dikirim': addr?.produk_dikirim || '',
-        'Resi': addr?.resi || '',
-        'Status Pengiriman': addr?.proses || 'Diproses',
+        'Proses': addr?.proses || 'Diproses',
         'Tanggal Kirim': addr?.tanggal_kirim || '',
+        'Resi': addr?.resi || '',
+        'Notes': addr?.notes || '',
+        'Status': cc.approval || 'pending',
       };
     });
     exportToCSV(exportData, `campaign_${campaignId}_alamat`);
@@ -248,132 +262,60 @@ export default function AlamatPage() {
             />
           </div>
         </div>
-        <div className="tbl-wrap !border-0 !rounded-none">
-          <table className="w-full">
+        <div className="tbl-wrap !border-0 !rounded-none overflow-x-auto pb-4">
+          <table className="w-full whitespace-nowrap text-[13px]">
             <thead className="border-b border-line bg-slate-50">
               <tr>
-                <th className="w-48 py-[16px]">
+                <th className="py-[16px] px-3">No</th>
+                <th className="py-[16px] px-3 min-w-[150px]">Product</th>
+                <th className="py-[16px] px-3">
                   <button onClick={() => toggleSort('username')} className="flex items-center font-semibold hover:text-blue-600 transition-colors">
-                    Kreator <SortIcon col="username" />
+                    Username <SortIcon col="username" />
                   </button>
                 </th>
-                <th className="py-[16px]">Alamat Lengkap</th>
-                <th className="w-32 py-[16px]">Resi</th>
-                <th className="w-32 py-[16px]">
+                <th className="py-[16px] px-3">No Whatsapp</th>
+                <th className="py-[16px] px-3 min-w-[150px]">Nama Penerima</th>
+                <th className="py-[16px] px-3 min-w-[200px]">Nama Jalan</th>
+                <th className="py-[16px] px-3">Provinsi</th>
+                <th className="py-[16px] px-3">Kabupaten/Kota</th>
+                <th className="py-[16px] px-3">Kecamatan</th>
+                <th className="py-[16px] px-3">Kelurahan</th>
+                <th className="py-[16px] px-3">Kode Pos</th>
+                <th className="py-[16px] px-3 min-w-[120px]">
                   <button onClick={() => toggleSort('status')} className="flex items-center font-semibold hover:text-blue-600 transition-colors">
-                    Status <SortIcon col="status" />
+                    Proses <SortIcon col="status" />
                   </button>
                 </th>
-                {hasAccess && <th className="w-24 text-right py-[16px]">Aksi</th>}
+                <th className="py-[16px] px-3">Tanggal Kirim</th>
+                <th className="py-[16px] px-3">Resi</th>
+                <th className="py-[16px] px-3 min-w-[150px]">Notes</th>
+                <th className="py-[16px] px-3">Status</th>
+                {hasAccess && <th className="text-center py-[16px] px-3 sticky right-0 bg-slate-50 shadow-[-4px_0_10px_-4px_rgba(0,0,0,0.1)]">Aksi</th>}
               </tr>
             </thead>
             <tbody>
               {approvedCCs.length === 0 ? (
                 <tr>
-                  <td colSpan={hasAccess ? 5 : 4} className="text-center py-8 text-text-soft">
+                  <td colSpan={hasAccess ? 17 : 16} className="text-center py-8 text-text-soft">
                     Belum ada kreator yang di-approve di campaign ini.
                   </td>
                 </tr>
               ) : (
-                approvedCCs.map((cc) => {
+                approvedCCs.map((cc, idx) => {
                   const creator = cc.creators;
                   const addr = creator_addresses.find(a => a.campaign_creator_id === cc.id);
                   const isEditing = editId === addr?.id || editId === -cc.id;
+                  
+                  const contacts = Array.isArray(creator?.creator_contacts) ? creator.creator_contacts : (creator?.creator_contacts ? [creator.creator_contacts] : []);
+                  const activeContact = contacts.find((c: any) => c.status === 'aktif') || contacts[0];
+                  const noWhatsapp = activeContact?.nomor || '';
 
                   return (
                     <tr key={cc.id} className="border-b border-line hover:bg-slate-50/50">
-                      <td>
-                        <div className="font-medium flex items-center gap-2">
-                          @{creator?.username}
-                          {cc.approval !== 'approved' && (
-                            <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200 font-bold" title="Silakan cek status kreator ini di bagian Listing">
-                              ⚠️ Listing: {cc.approval}
-                            </span>
-                          )}
-                        </div>
-                        {cc.approval === 'approved' && (
-                          <span className="inline-block mt-[4px] px-[8px] py-[2px] border border-line rounded-[4px] text-[10px] font-semibold text-text-soft uppercase bg-slate-100">{cc.approval}</span>
-                        )}
-                      </td>
-                      <td>
+                      <td className="px-3 py-3 text-center">{idx + 1}</td>
+                      <td className="px-3 py-3 whitespace-normal">
                         {isEditing ? (
-                          <div className="space-y-[8px]">
-                            {addressBook.length > 0 && (
-                              <select 
-                                value={selectedBookId}
-                                onChange={e => handleSelectBook(e.target.value)}
-                                className="input w-full bg-blue-50 border-blue-300 text-blue-800 font-medium"
-                              >
-                                <option value="">-- Ketik Alamat Baru --</option>
-                                {addressBook.map(b => (
-                                  <option key={b.id} value={b.id.toString()}>{b.label || 'Alamat'} - {b.alamat_jalan?.substring(0,30)}...</option>
-                                ))}
-                              </select>
-                            )}
-                            <input
-                              type="text"
-                              placeholder="Nama Penerima"
-                              className="input w-full"
-                              value={formData.nama_penerima || ''}
-                              onChange={e => setFormData({ ...formData, nama_penerima: e.target.value })}
-                            />
-                            <textarea
-                              placeholder="Jalan, RT/RW, Patokan"
-                              className="input w-full h-20"
-                              value={formData.nama_jalan || ''}
-                              onChange={e => setFormData({ ...formData, nama_jalan: e.target.value })}
-                            />
-                            <div className="grid grid-cols-2 gap-[8px]">
-                              <input
-                                type="text"
-                                placeholder="Kecamatan"
-                                className="input w-full"
-                                value={formData.kecamatan || ''}
-                                onChange={e => setFormData({ ...formData, kecamatan: e.target.value })}
-                              />
-                              <input
-                                type="text"
-                                placeholder="Kab/Kota"
-                                className="input w-full"
-                                value={formData.kabupaten_kota || ''}
-                                onChange={e => setFormData({ ...formData, kabupaten_kota: e.target.value })}
-                              />
-                            </div>
-                            <div className="grid grid-cols-2 gap-[8px]">
-                              <input
-                                type="text"
-                                placeholder="Provinsi"
-                                className="input w-full"
-                                value={formData.provinsi || ''}
-                                onChange={e => setFormData({ ...formData, provinsi: e.target.value })}
-                              />
-                              <input
-                                type="text"
-                                placeholder="Kode Pos"
-                                className="input w-full"
-                                value={formData.kode_pos || ''}
-                                onChange={e => setFormData({ ...formData, kode_pos: e.target.value })}
-                              />
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="text-[13px]">
-                            {addr ? (
-                              <>
-                                <div className="font-semibold text-text">{addr.nama_penerima || '-'}</div>
-                                <div className="text-text-soft mt-[4px]">{addr.nama_jalan}</div>
-                                <div className="text-text-soft mt-[4px]">
-                                  {addr.kelurahan ? `${addr.kelurahan}, ` : ''}{addr.kecamatan ? `${addr.kecamatan}, ` : ''}{addr.kabupaten_kota}, {addr.provinsi} {addr.kode_pos}
-                                </div>
-                              </>
-                            ) : (
-                              <span className="text-text-soft italic">Belum ada alamat di-input</span>
-                            )}
-                          </div>
-                        )}
-
-                        {isEditing ? (
-                          <div className="mt-[12px]">
+                          <div className="w-[200px]">
                             <MultiSelect 
                               options={campaignSkus.map(s => ({ id: s.id, label: s.nama_produk }))}
                               selectedIds={editAssignedSkus}
@@ -381,15 +323,9 @@ export default function AlamatPage() {
                               placeholder="Pilih Produk..."
                               emptyMessage="Belum ada produk"
                             />
-                            {campaignSkus.length === 0 && (
-                              <p className="text-[10px] text-orange-600 mt-1">
-                                Jika produk belum ada di list, maka daftarkan di bagian tab Produk.
-                              </p>
-                            )}
                           </div>
                         ) : (
-                          <div className="mt-[12px] text-[13px] flex flex-wrap gap-1">
-                            <span className="font-medium text-text-soft block w-full mb-1">Produk:</span>
+                          <div className="flex flex-col gap-1 w-[200px]">
                             {cc.assigned_sku_ids && cc.assigned_sku_ids.length > 0 ? (
                               cc.assigned_sku_ids.map((id: number) => {
                                 const sku = campaignSkus.find(s => s.id === id);
@@ -401,26 +337,61 @@ export default function AlamatPage() {
                           </div>
                         )}
                       </td>
-                      <td>
+                      <td className="px-3 py-3 font-medium">@{creator?.username}</td>
+                      <td className="px-3 py-3">{noWhatsapp || '-'}</td>
+                      
+                      <td className="px-3 py-3">
                         {isEditing ? (
-                          <input
-                            type="text"
-                            placeholder="No. Resi"
-                            className="input w-full"
-                            value={formData.resi || ''}
-                            onChange={e => setFormData({ ...formData, resi: e.target.value })}
-                          />
+                          <input type="text" className="input w-full min-w-[150px]" value={formData.nama_penerima || ''} onChange={e => setFormData({ ...formData, nama_penerima: e.target.value })} />
                         ) : (
-                          <div className="text-[13px] font-mono">{addr?.resi || '-'}</div>
+                          addr?.nama_penerima || '-'
                         )}
                       </td>
-                      <td>
+                      <td className="px-3 py-3 whitespace-normal">
                         {isEditing ? (
-                          <select
-                            className="input w-full"
-                            value={formData.proses || 'Diproses'}
-                            onChange={e => setFormData({ ...formData, proses: e.target.value })}
-                          >
+                          <textarea className="input w-full min-w-[200px] h-20" value={formData.nama_jalan || ''} onChange={e => setFormData({ ...formData, nama_jalan: e.target.value })} />
+                        ) : (
+                          addr?.nama_jalan || '-'
+                        )}
+                      </td>
+                      <td className="px-3 py-3">
+                        {isEditing ? (
+                          <input type="text" className="input w-full min-w-[120px]" value={formData.provinsi || ''} onChange={e => setFormData({ ...formData, provinsi: e.target.value })} />
+                        ) : (
+                          addr?.provinsi || '-'
+                        )}
+                      </td>
+                      <td className="px-3 py-3">
+                        {isEditing ? (
+                          <input type="text" className="input w-full min-w-[120px]" value={formData.kabupaten_kota || ''} onChange={e => setFormData({ ...formData, kabupaten_kota: e.target.value })} />
+                        ) : (
+                          addr?.kabupaten_kota || '-'
+                        )}
+                      </td>
+                      <td className="px-3 py-3">
+                        {isEditing ? (
+                          <input type="text" className="input w-full min-w-[120px]" value={formData.kecamatan || ''} onChange={e => setFormData({ ...formData, kecamatan: e.target.value })} />
+                        ) : (
+                          addr?.kecamatan || '-'
+                        )}
+                      </td>
+                      <td className="px-3 py-3">
+                        {isEditing ? (
+                          <input type="text" className="input w-full min-w-[120px]" value={formData.kelurahan || ''} onChange={e => setFormData({ ...formData, kelurahan: e.target.value })} />
+                        ) : (
+                          addr?.kelurahan || '-'
+                        )}
+                      </td>
+                      <td className="px-3 py-3">
+                        {isEditing ? (
+                          <input type="text" className="input w-full w-24" value={formData.kode_pos || ''} onChange={e => setFormData({ ...formData, kode_pos: e.target.value })} />
+                        ) : (
+                          addr?.kode_pos || '-'
+                        )}
+                      </td>
+                      <td className="px-3 py-3">
+                        {isEditing ? (
+                          <select className="input w-full min-w-[120px]" value={formData.proses || 'Diproses'} onChange={e => setFormData({ ...formData, proses: e.target.value })}>
                             <option value="Diproses">Diproses</option>
                             <option value="Dikirim">Dikirim</option>
                             <option value="Diterima">Diterima</option>
@@ -432,31 +403,39 @@ export default function AlamatPage() {
                           </span>
                         )}
                       </td>
+                      <td className="px-3 py-3">
+                        {isEditing ? (
+                          <input type="date" className="input w-full min-w-[130px]" value={formData.tanggal_kirim || ''} onChange={e => setFormData({ ...formData, tanggal_kirim: e.target.value })} />
+                        ) : (
+                          addr?.tanggal_kirim || '-'
+                        )}
+                      </td>
+                      <td className="px-3 py-3">
+                        {isEditing ? (
+                          <input type="text" className="input w-full min-w-[150px]" value={formData.resi || ''} onChange={e => setFormData({ ...formData, resi: e.target.value })} />
+                        ) : (
+                          <span className="font-mono">{addr?.resi || '-'}</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-3 whitespace-normal">
+                        {isEditing ? (
+                          <input type="text" className="input w-full min-w-[150px]" value={formData.notes || ''} onChange={e => setFormData({ ...formData, notes: e.target.value })} />
+                        ) : (
+                          addr?.notes || '-'
+                        )}
+                      </td>
+                      <td className="px-3 py-3 text-center">
+                        <span className="inline-block px-[8px] py-[2px] border border-line rounded-[4px] text-[10px] font-semibold text-text-soft uppercase bg-slate-100">{cc.approval}</span>
+                      </td>
                       {hasAccess && (
-                        <td className="text-right align-top">
+                        <td className="text-center align-middle px-3 py-3 sticky right-0 bg-white/95 backdrop-blur-sm shadow-[-4px_0_10px_-4px_rgba(0,0,0,0.1)]">
                           {isEditing ? (
-                            <div className="flex flex-col gap-[8px]">
-                              <button
-                                onClick={() => handleSave(cc.id)}
-                                disabled={isSaving}
-                                className="btn btn-primary w-full !py-[6px] !text-[12px]"
-                              >
-                                {isSaving ? 'Menyimpan...' : 'Simpan'}
-                              </button>
-                              <button
-                                onClick={() => setEditId(null)}
-                                className="btn btn-outline w-full !py-[6px] !text-[12px]"
-                              >
-                                Batal
-                              </button>
+                            <div className="flex flex-col gap-[8px] w-[80px] mx-auto">
+                              <button onClick={() => handleSave(cc.id)} disabled={isSaving} className="btn btn-primary w-full !py-[6px] !text-[12px]">{isSaving ? '...' : 'Simpan'}</button>
+                              <button onClick={() => setEditId(null)} className="btn btn-outline w-full !py-[6px] !text-[12px]">Batal</button>
                             </div>
                           ) : (
-                            <button
-                              onClick={() => handleEdit(cc.id)}
-                              className="text-[12px] text-blue-600 hover:text-blue-800 hover:underline font-semibold"
-                            >
-                              Edit Data
-                            </button>
+                            <button onClick={() => handleEdit(cc.id)} className="text-[12px] text-blue-600 hover:text-blue-800 hover:underline font-semibold whitespace-nowrap">Edit Data</button>
                           )}
                         </td>
                       )}

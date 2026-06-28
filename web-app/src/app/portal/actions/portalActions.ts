@@ -96,7 +96,8 @@ export async function getPortalData(campaignId: number) {
       tier,
       content_type,
       sample_progress,
-      creators(username, nama_asli, link_account, creator_snapshots(followers, level, tier)),
+      sample_progress,
+      creators(username, nama_asli, link_account, creator_snapshots(followers, level, tier), creator_contacts(nomor, status)),
       videos(id, link_video, content_uid, vt_approval, urutan)
     `)
     .eq('campaign_id', campaignId)
@@ -105,7 +106,7 @@ export async function getPortalData(campaignId: number) {
   // Fetch sales summary and ads performance for GMV calculation
   const { data: salesSummary } = await supabase
     .from('campaign_sales_summary')
-    .select('creator_username, gmv_organic')
+    .select('creator_username, gmv_organic, items_sold')
     .eq('campaign_id', campaignId);
 
   const { data: adsPerf } = await supabase
@@ -127,7 +128,11 @@ export async function getPortalData(campaignId: number) {
   });
 
   const salesMap = new Map();
-  salesSummary?.forEach(s => salesMap.set(s.creator_username, s.gmv_organic));
+  const itemsMap = new Map();
+  salesSummary?.forEach(s => {
+    salesMap.set(s.creator_username, s.gmv_organic);
+    itemsMap.set(s.creator_username, s.items_sold);
+  });
 
   const adsMap = new Map();
   adsPerf?.forEach(a => {
@@ -143,12 +148,17 @@ export async function getPortalData(campaignId: number) {
       : null;
     const username = creator?.username || '';
     const creatorId = cc.creator_id;
+    const contacts = Array.isArray(creator?.creator_contacts) ? creator.creator_contacts : (creator?.creator_contacts ? [creator.creator_contacts] : []);
+    const activeContact = contacts.find((c: any) => c.status === 'aktif') || contacts[0];
+
     return {
       ...cc,
       followers: snap?.followers || 0,
       level: snap?.level || '-',
       tier: snap?.tier || cc.tier,
+      no_whatsapp: activeContact?.nomor || '',
       gmv_organic: salesMap.get(username) || 0,
+      items_sold: itemsMap.get(username) || 0,
       gmv_ads: adsMap.get(creatorId) || 0
     };
   }) || [];
@@ -165,14 +175,13 @@ export async function getPortalData(campaignId: number) {
       id,
       campaign_creator_id,
       nama_penerima,
-      nohp_penerima,
       nama_jalan,
       provinsi,
       kabupaten_kota,
       kecamatan,
       kelurahan,
       kode_pos,
-      catatan,
+      notes,
       resi,
       proses,
       produk_dikirim,
