@@ -34,7 +34,9 @@ export function AddressSyncModal({ campaignId: initialCampaignId, onComplete }: 
     kode_pos: '',
     resi: '',
     proses: '',
-    produk: ''
+    produk: '',
+    tanggal_kirim: '',
+    notes: ''
   });
 
   const [preview, setPreview] = useState<ParsedAddressRow[]>([]);
@@ -84,6 +86,8 @@ export function AddressSyncModal({ campaignId: initialCampaignId, onComplete }: 
         if (lh === 'resi' || lh === 'no resi' || lh.includes('resi')) guessMapping.resi = h;
         if (lh === 'status' || lh === 'status pengiriman' || lh === 'proses') guessMapping.proses = h;
         if (lh === 'produk' || lh === 'produk dikirim' || lh === 'product' || lh.includes('produk')) guessMapping.produk = h;
+        if (lh === 'tanggal kirim' || lh === 'tgl kirim' || lh.includes('tanggal')) guessMapping.tanggal_kirim = h;
+        if (lh === 'notes' || lh === 'catatan' || lh === 'keterangan') guessMapping.notes = h;
       });
       
       setMapping(guessMapping);
@@ -234,6 +238,8 @@ export function AddressSyncModal({ campaignId: initialCampaignId, onComplete }: 
             ...(row.kode_pos && { kode_pos: row.kode_pos }),
             ...(row.resi && { resi: row.resi }),
             ...(row.proses && { proses: row.proses }),
+            ...(row.tanggal_kirim && { tanggal_kirim: row.tanggal_kirim }),
+            ...(row.notes && { notes: row.notes }),
           };
 
           if (existingAddrId) {

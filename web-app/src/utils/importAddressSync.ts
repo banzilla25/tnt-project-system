@@ -13,6 +13,8 @@ export type AddressColumnMapping = {
   resi: string;
   proses: string;
   produk: string;
+  tanggal_kirim: string;
+  notes: string;
 };
 
 export type ParsedAddressRow = {
@@ -27,6 +29,8 @@ export type ParsedAddressRow = {
   resi: string | null;
   proses: string | null;
   produk: string | null;
+  tanggal_kirim: string | null;
+  notes: string | null;
   raw_row: any;
 };
 
@@ -80,6 +84,27 @@ export const parseAddressSyncFile = async (file: File, mapping: AddressColumnMap
     const kode_pos = mapping.kode_pos ? (row[mapping.kode_pos] || '').toString().trim() || null : null;
     const resi = mapping.resi ? (row[mapping.resi] || '').toString().trim() || null : null;
     const produk = mapping.produk ? (row[mapping.produk] || '').toString().trim() || null : null;
+    const notes = mapping.notes ? (row[mapping.notes] || '').toString().trim() || null : null;
+    
+    // Convert Excel serial date to ISO string if needed for tanggal_kirim
+    let tanggal_kirim = null;
+    if (mapping.tanggal_kirim && row[mapping.tanggal_kirim]) {
+      let tkRaw = row[mapping.tanggal_kirim];
+      if (typeof tkRaw === 'number') {
+        const d = new Date(Math.round((tkRaw - 25569) * 86400 * 1000));
+        tanggal_kirim = d.toISOString().split('T')[0];
+      } else {
+        const tkStr = tkRaw.toString().trim();
+        if (tkStr) {
+           const d = new Date(tkStr);
+           if (!isNaN(d.getTime())) {
+             tanggal_kirim = d.toISOString().split('T')[0];
+           } else {
+             tanggal_kirim = tkStr; // fallback to raw string if unrecognized
+           }
+        }
+      }
+    }
     
     // Status mapping logic
     const prosesRaw = mapping.proses ? (row[mapping.proses] || '').toString().toLowerCase().trim() : '';
@@ -106,6 +131,8 @@ export const parseAddressSyncFile = async (file: File, mapping: AddressColumnMap
       resi,
       proses,
       produk,
+      tanggal_kirim,
+      notes,
       raw_row: row
     });
   });
