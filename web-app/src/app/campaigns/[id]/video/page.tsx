@@ -443,16 +443,31 @@ export default function CampaignVideoPage() {
                                 </td>
                                 <td>
                                   <div className="space-y-[8px]">
-                                    <div className="relative">
-                                      <LinkIcon className="w-4 h-4 absolute left-[10px] top-[10px] text-text-soft" />
-                                      <input 
-                                        type="text"
-                                        className={`input !pl-[34px] ${warningShortLink ? 'border-amber-400 bg-amber-50' : ''}`}
-                                        placeholder={isAwareness ? "https://..." : "https://www.tiktok.com/@..."}
-                                        value={v.link_video || ''}
-                                        onChange={(e) => handleVideoChange(cc.id, v.urutan, 'link_video', e.target.value)}
-                                        disabled={!hasAccess}
-                                      />
+                                    <div className="flex items-center gap-2">
+                                      <button 
+                                        className={`btn btn-soft p-0 flex items-center justify-center h-10 w-10 flex-shrink-0 ${v.link_video ? 'text-indigo-600 hover:bg-indigo-100' : 'text-slate-400'}`}
+                                        title={v.link_video ? "Tonton Video" : "Link video belum diisi"}
+                                        disabled={!v.link_video}
+                                        onClick={() => {
+                                          if(v.link_video) {
+                                            setPreviewUrl(v.link_video);
+                                            setPreviewOpen(true);
+                                          }
+                                        }}
+                                      >
+                                        <PlayCircle className="w-5 h-5" />
+                                      </button>
+                                      <div className="relative flex-grow">
+                                        <LinkIcon className="w-4 h-4 absolute left-[10px] top-[10px] text-text-soft" />
+                                        <input 
+                                          type="text"
+                                          className={`input !pl-[34px] ${warningShortLink ? 'border-amber-400 bg-amber-50' : ''}`}
+                                          placeholder={isAwareness ? "https://..." : "https://www.tiktok.com/@..."}
+                                          value={v.link_video || ''}
+                                          onChange={(e) => handleVideoChange(cc.id, v.urutan, 'link_video', e.target.value)}
+                                          disabled={!hasAccess}
+                                        />
+                                      </div>
                                     </div>
                                     {warningShortLink && (
                                       <p className="text-[11px] text-amber-600 flex items-start gap-[4px]">
