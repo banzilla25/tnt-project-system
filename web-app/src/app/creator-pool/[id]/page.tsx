@@ -3,11 +3,12 @@
 import { useDatabaseStore } from "@/store/useDatabaseStore";
 import { getCreatorType, getLatestSnapshot, computeCampaignGMV, computeHighestVideoGMV, getJenisKerjasama } from "@/utils/computed";
 import { useDraftLocalStorage } from "@/hooks/useDraftLocalStorage";
+import { formatAbbreviated } from "@/utils/formatters";
 
 
 
 
-import { ArrowLeft, UserPlus, Phone, CreditCard, Activity, ArrowUpDown, ChevronDown, ChevronRight } from "lucide-react";
+import { ArrowLeft, UserPlus, Phone, CreditCard, Activity, ArrowUpDown, ChevronDown, ChevronRight, Edit, Save, Plus, X, Trash2, Check, Video, TrendingUp, DollarSign, Calendar, Users, Briefcase, ExternalLink, ArrowRight, TrendingDown } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState, ReactNode, useEffect } from "react";
@@ -549,10 +550,12 @@ export default function CreatorProfilePage() {
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-col justify-center items-center text-center">
-                  <p className="text-sm text-slate-500 mb-1">Followers</p>
-                  <p className="font-bold text-lg">{mergedProfile.followers?.toLocaleString() || '-'}</p>
+                  <div className="flex items-center text-slate-500 mb-1">
+                    <Users className="w-4 h-4 mr-1" /> Followers
+                  </div>
+                  <p className="font-bold text-lg">{formatAbbreviated(mergedProfile.followers, false)}</p>
                 </div>
-                <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-col justify-center items-center text-center">
+                <div className="bg-slate-50 rounded-xl p-3 border border-slate-100 flex flex-col justify-center items-center text-center">
                   <p className="text-sm text-slate-500 mb-1">Audience Age</p>
                   <p className="font-bold text-lg">{mergedProfile.audience_age || '-'}</p>
                 </div>
@@ -1077,12 +1080,12 @@ export default function CreatorProfilePage() {
                   {snapshots.map(s => (
                     <tr className="border-b border-line hover:bg-slate-50/50" key={s.id}>
                       <td className="py-[12px] px-[16px]">{new Date(s.tanggal_update).toLocaleDateString('id-ID')}</td>
-                      <td className="py-[12px] px-[16px] text-right">{s.followers?.toLocaleString() || '-'}</td>
+                      <td className="py-[12px] px-[16px] text-right">{formatAbbreviated(s.followers, false)}</td>
                       <td className="py-[12px] px-[16px] text-right">{s.tier || '-'}</td>
                       <td className="py-[12px] px-[16px] text-right">{s.audience_age || '-'}</td>
                       <td className="py-[12px] px-[16px] text-right">{s.level || '-'}</td>
                       <td className="py-[12px] px-[16px] text-right">{s.ratecard === 0 ? 'Barter' : (s.ratecard ? `Rp ${s.ratecard.toLocaleString()}` : '-')}</td>
-                      <td className="py-[12px] px-[16px] text-right">{s.gmv_30d ? `Rp ${s.gmv_30d.toLocaleString()}` : '-'}</td>
+                      <td className="py-[12px] px-[16px] text-right">{formatAbbreviated(s.gmv_30d, true)}</td>
                       <td className="py-[12px] px-[16px] text-right text-slate-500">{s.updated_by || '-'}</td>
                     </tr>
                   ))}

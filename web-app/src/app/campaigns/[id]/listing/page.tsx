@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useDatabaseStore } from "@/store/useDatabaseStore";
 import { getCreatorType, getJenisKerjasama } from "@/utils/computed";
+import { formatAbbreviated } from "@/utils/formatters";
 import { ChevronDown, ChevronRight, ChevronLeft, Edit2, Check, X, Loader2, Trash2, Download, ArrowUp, ArrowDown, ArrowUpDown, Plus, AlertCircle, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -1427,7 +1428,7 @@ function CampaignListingContent() {
                         </a>
                       </td>
                       <td className="text-right text-[13px] font-medium text-text">
-                        {snapshot?.followers ? snapshot.followers.toLocaleString() : '-'}
+                        {formatAbbreviated(snapshot?.followers, false)}
                       </td>
                       <td className="text-right text-[13px] font-medium text-text">
                         {snapshot?.tier || '-'}
@@ -1581,8 +1582,8 @@ function CampaignListingContent() {
                           )}
                         </td>
                       )}
-                      <td className="text-right text-[13px] font-medium">
-                        {gmvCreator > 0 ? `Rp ${gmvCreator.toLocaleString()}` : '-'}
+                      <td className="text-right text-[13px] font-semibold text-text">
+                        {gmvCreator > 0 ? formatAbbreviated(gmvCreator, true) : '-'}
                       </td>
                       <td className="text-right">
                         {isEditing ? (

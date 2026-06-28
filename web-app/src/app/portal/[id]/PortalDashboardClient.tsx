@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/Badge";
 import { TrendingUp, Video, Users, Package, Calendar, CheckCircle, Activity, BarChart3, ChevronDown, ChevronUp } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/Table";
 import { submitClientApproval, updateResiByClient, batchUpdateResiByClient, type BatchUpdateData } from "../actions/portalActions";
+import { formatAbbreviated } from "@/utils/formatters";
 import { useRouter } from "next/navigation";
 
 export default function PortalDashboardClient({ data, campaignId }: { data: any, campaignId: number }) {
@@ -334,7 +335,7 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                               <div className="font-semibold text-slate-900">@{cc.creators?.username}</div>
                             </TableCell>
                             <TableCell className="align-top text-sm">
-                              {cc.followers ? cc.followers.toLocaleString() : '-'}
+                              {formatAbbreviated(cc.followers, false)}
                             </TableCell>
                             <TableCell className="align-top text-sm">
                               {cc.level || '-'}
