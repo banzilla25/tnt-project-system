@@ -586,19 +586,24 @@ export default function CreatorProfilePage() {
               </p>
             </div>
             <div style={{ maxWidth: '100%' }} className="[&_iframe]:!max-w-full [&_.tiktok-embed]:!max-w-full">
-              <blockquote 
-                className="tiktok-embed" 
-                cite={`https://www.tiktok.com/@${creator.username}`}
-                data-unique-id={creator.username}
-                data-embed-type="creator"
-                style={{ maxWidth: '100%', minWidth: '288px', width: '100%' }}
-              >
-                <section>
-                  <a target="_blank" href={`https://www.tiktok.com/@${creator.username}?refer=creator_embed`}>
-                    @{creator.username}
-                  </a>
-                </section>
-              </blockquote>
+              {(() => {
+                const cleanUsername = creator.username.replace(/^@/, '').trim();
+                return (
+                  <blockquote 
+                    className="tiktok-embed" 
+                    cite={`https://www.tiktok.com/@${cleanUsername}`}
+                    data-unique-id={cleanUsername}
+                    data-embed-type="creator"
+                    style={{ maxWidth: '100%', minWidth: '288px', width: '100%' }}
+                  >
+                    <section>
+                      <a target="_blank" href={`https://www.tiktok.com/@${cleanUsername}?refer=creator_embed`}>
+                        @{cleanUsername}
+                      </a>
+                    </section>
+                  </blockquote>
+                );
+              })()}
             </div>
           </div>
         )}
