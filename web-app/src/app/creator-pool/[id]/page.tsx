@@ -11,7 +11,7 @@ import { formatAbbreviated } from "@/utils/formatters";
 import { ArrowLeft, UserPlus, Phone, CreditCard, Activity, ArrowUpDown, ChevronDown, ChevronRight, Edit, Save, Plus, X, Trash2, Check, Video, TrendingUp, DollarSign, Calendar, Users, Briefcase, ExternalLink, ArrowRight, TrendingDown } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useState, ReactNode, useEffect } from "react";
+import { useState, ReactNode, useEffect, useRef, useCallback } from "react";
 import React from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/Dialog";
 import { Edit2 } from "lucide-react";
@@ -158,6 +158,25 @@ export default function CreatorProfilePage() {
   const notes = localData?.notes?.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()) || [];
   
   // States
+  const [tiktokEmbedOpen, setTiktokEmbedOpen] = useState(true);
+  const tiktokRef = useRef<HTMLDivElement>(null);
+
+  // Load TikTok embed script when accordion is open
+  useEffect(() => {
+    if (!tiktokEmbedOpen || !creator?.username) return;
+    // Remove old script if any to force re-render
+    const existingScript = document.querySelector('script[src="https://www.tiktok.com/embed.js"]');
+    if (existingScript) existingScript.remove();
+    // Small delay to let DOM render the blockquote first
+    const timer = setTimeout(() => {
+      const script = document.createElement('script');
+      script.src = 'https://www.tiktok.com/embed.js';
+      script.async = true;
+      document.body.appendChild(script);
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [tiktokEmbedOpen, creator?.username]);
+
   const [sortField, setSortField] = useState<'gmv' | 'highestVideoGmv' | 'campaign_name' | 'price'>('gmv');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
@@ -539,6 +558,42 @@ export default function CreatorProfilePage() {
             </DialogContent>
           </Dialog>
         </div>
+      </div>
+
+      {/* TikTok Profile Embed - Accordion */}
+      <div className="ccard overflow-hidden">
+        <button 
+          onClick={() => setTiktokEmbedOpen(!tiktokEmbedOpen)}
+          className="w-full flex items-center justify-between p-[16px] hover:bg-slate-50 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#25F4EE] via-[#FE2C55] to-[#000] flex items-center justify-center">
+              <Video className="w-4 h-4 text-white" />
+            </div>
+            <div className="text-left">
+              <h3 className="font-bold text-[16px] text-text">Profil TikTok Live</h3>
+              <p className="text-[12px] text-text-soft">Widget langsung dari TikTok • Data real-time</p>
+            </div>
+          </div>
+          <ChevronDown className={`w-5 h-5 text-text-soft transition-transform duration-300 ${tiktokEmbedOpen ? 'rotate-180' : ''}`} />
+        </button>
+        {tiktokEmbedOpen && creator?.username && (
+          <div className="border-t border-line p-[16px]" ref={tiktokRef}>
+            <blockquote 
+              className="tiktok-embed" 
+              cite={`https://www.tiktok.com/@${creator.username}`}
+              data-unique-id={creator.username}
+              data-embed-type="creator"
+              style={{ maxWidth: '100%', minWidth: '288px' }}
+            >
+              <section>
+                <a target="_blank" href={`https://www.tiktok.com/@${creator.username}?refer=creator_embed`}>
+                  @{creator.username}
+                </a>
+              </section>
+            </blockquote>
+          </div>
+        )}
       </div>
 
       <div className="grid gap-6 md:grid-cols-3">
