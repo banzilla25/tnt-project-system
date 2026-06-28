@@ -19,8 +19,7 @@ export default function PortalLoginForm({ campaignId }: { campaignId: number }) 
     try {
       const res = await loginPortal(campaignId, pin);
       if (res.success) {
-        router.push(`/portal/${campaignId}/dashboard`);
-        router.refresh();
+        window.location.href = `/portal/${campaignId}/dashboard`;
       } else {
         setError(res.message || "PIN tidak valid.");
       }

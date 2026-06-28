@@ -4,8 +4,8 @@ import { createClient } from "@supabase/supabase-js";
 import PortalLoginForm from './PortalLoginForm';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 export default async function PortalLogin({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
