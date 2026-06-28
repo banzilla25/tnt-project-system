@@ -29,6 +29,14 @@ type SpreadsheetRow = {
   existingInfo?: string;
 };
 
+type DragFillState = {
+  active: boolean;
+  startRowIdx: number;
+  currentRowIdx: number;
+  colName: keyof SpreadsheetRow;
+  value: string;
+};
+
 const getEmptyRow = (): SpreadsheetRow => ({
   id: Math.random().toString(36).substring(2, 9),
   username: '',
@@ -66,6 +74,7 @@ export default function SpreadsheetImportClient() {
   const [isVerifying, setIsVerifying] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [isAutoDetecting, setIsAutoDetecting] = useState(false);
+  const [dragFill, setDragFill] = useState<DragFillState | null>(null);
 
   const runBulkAutoDetect = async (usernamesToDetect: string[]) => {
     const usernames = usernamesToDetect.map(u => u.trim().toLowerCase()).filter(Boolean);
@@ -138,6 +147,61 @@ export default function SpreadsheetImportClient() {
       localStorage.removeItem(`tnt_import_draft_global`);
     }
   }, [rows]);
+
+  const handleFillHandleMouseDown = (e: React.MouseEvent, rowIdx: number, colName: keyof SpreadsheetRow, value: string) => {
+    e.preventDefault();
+    setDragFill({
+      active: true,
+      startRowIdx: rowIdx,
+      currentRowIdx: rowIdx,
+      colName,
+      value
+    });
+  };
+
+  const handleCellMouseEnter = (rowIdx: number, colName: keyof SpreadsheetRow) => {
+    if (dragFill && dragFill.active && dragFill.colName === colName) {
+      setDragFill({ ...dragFill, currentRowIdx: rowIdx });
+    }
+  };
+
+  useEffect(() => {
+    const handleMouseUp = () => {
+      if (dragFill && dragFill.active) {
+        setRows(prevRows => {
+          const newRows = [...prevRows];
+          const minRow = Math.min(dragFill.startRowIdx, dragFill.currentRowIdx);
+          const maxRow = Math.max(dragFill.startRowIdx, dragFill.currentRowIdx);
+          
+          for (let i = minRow; i <= maxRow; i++) {
+            if (i !== dragFill.startRowIdx && i < newRows.length) {
+              newRows[i] = { ...newRows[i], [dragFill.colName]: dragFill.value };
+              if (dragFill.colName === 'username') {
+                newRows[i].status = undefined;
+              }
+            }
+          }
+          
+          if (dragFill.colName === 'username') {
+            const namesToDetect: string[] = [];
+            for (let i = minRow; i <= maxRow; i++) {
+              if (i !== dragFill.startRowIdx && i < newRows.length && newRows[i].username) {
+                namesToDetect.push(newRows[i].username);
+              }
+            }
+            if (namesToDetect.length > 0) {
+              setTimeout(() => runBulkAutoDetect(namesToDetect), 100);
+            }
+          }
+          return newRows;
+        });
+        setDragFill(null);
+      }
+    };
+
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => window.removeEventListener('mouseup', handleMouseUp);
+  }, [dragFill]);
 
   useEffect(() => {
     const usernamesParam = searchParams.get('usernames');
@@ -438,6 +502,28 @@ export default function SpreadsheetImportClient() {
     }
   };
 
+  const renderTd = (colName: keyof SpreadsheetRow, rowIdx: number, value: string, children: React.ReactNode, tdClassName: string = "p-2") => {
+    const isDraggingHere = dragFill && dragFill.active && dragFill.colName === colName && 
+      rowIdx >= Math.min(dragFill.startRowIdx, dragFill.currentRowIdx) && 
+      rowIdx <= Math.max(dragFill.startRowIdx, dragFill.currentRowIdx);
+
+    return (
+      <td 
+        className={`relative group ${tdClassName}`}
+        onMouseEnter={() => handleCellMouseEnter(rowIdx, colName)}
+      >
+        {children}
+        <div 
+          className="absolute bottom-0 right-0 w-2 h-2 bg-blue-500 cursor-crosshair opacity-0 group-hover:opacity-100 transition-opacity z-10 hover:scale-150"
+          onMouseDown={(e) => handleFillHandleMouseDown(e, rowIdx, colName, value)}
+        />
+        {isDraggingHere && (
+          <div className="absolute inset-0 border-2 border-blue-400 pointer-events-none z-20 bg-blue-50/20" />
+        )}
+      </td>
+    );
+  };
+
   return (
     <div className="space-y-6 max-w-7xl mx-auto py-6 px-4">
       <div className="flex items-center gap-4">
@@ -478,7 +564,7 @@ export default function SpreadsheetImportClient() {
                         {idx + 1}
                         {row.status === 'error' && <span title={row.errorMsg}><AlertCircle className="w-4 h-4 text-red-500 inline ml-1" /></span>}
                       </td>
-                      <td className="p-2">
+                      {renderTd('username', idx, row.username, (
                         <input type="text" value={row.username} 
                           onBlur={(e) => {
                              const val = e.target.value.trim();
@@ -486,34 +572,34 @@ export default function SpreadsheetImportClient() {
                           }}
                           onPaste={(e) => handleGlobalPaste(e, idx, 'username')}
                           onChange={e => updateRow(row.id, 'username', e.target.value.replace('@', '').toLowerCase())} className="w-full border-none bg-transparent focus:ring-1 focus:ring-blue-500 p-1 rounded" placeholder="username" />
-                      </td>
-                      <td className="p-2">
+                      ))}
+                      {renderTd('whatsapp', idx, row.whatsapp, (
                         <input type="text" value={row.whatsapp} onPaste={(e) => handleGlobalPaste(e, idx, 'whatsapp')} onChange={e => updateRow(row.id, 'whatsapp', e.target.value)} className="w-full border-none bg-transparent focus:ring-1 focus:ring-blue-500 p-1 rounded" placeholder="08..." />
-                      </td>
-                      <td className="p-2">
+                      ))}
+                      {renderTd('followers', idx, row.followers, (
                         <input type="number" value={row.followers} onPaste={(e) => handleGlobalPaste(e, idx, 'followers')} onChange={e => updateRow(row.id, 'followers', e.target.value)} className="w-full border-none bg-transparent focus:ring-1 focus:ring-blue-500 p-1 rounded" placeholder="10000" />
-                      </td>
+                      ))}
                       <td className="p-2">
                         <input type="text" value={row.followers ? getAutoTier(parseInt(row.followers) || 0) : ''} readOnly className="w-full border-none bg-transparent p-1 rounded text-slate-400 font-medium cursor-not-allowed" placeholder="Auto" />
                       </td>
-                      <td className="p-2">
+                      {renderTd('level', idx, row.level, (
                         <input type="number" value={row.level} onPaste={(e) => handleGlobalPaste(e, idx, 'level')} onChange={e => updateRow(row.id, 'level', e.target.value)} className="w-full border-none bg-transparent focus:ring-1 focus:ring-blue-500 p-1 rounded" placeholder="2" />
-                      </td>
-                      <td className="p-2">
+                      ))}
+                      {renderTd('audience_age', idx, row.audience_age, (
                         <input type="text" value={row.audience_age} onPaste={(e) => handleGlobalPaste(e, idx, 'audience_age')} onChange={e => updateRow(row.id, 'audience_age', e.target.value)} className="w-full border-none bg-transparent focus:ring-1 focus:ring-blue-500 p-1 rounded" placeholder="18-24" />
-                      </td>
-                      <td className="p-0 border-r border-slate-200">
+                      ))}
+                      {renderTd('gmv_30d', idx, row.gmv_30d, (
                         <input type="number" className="w-full h-full p-2 bg-transparent border-none outline-none" value={row.gmv_30d} onPaste={(e) => handleGlobalPaste(e, idx, 'gmv_30d')} onChange={(e) => updateRow(row.id, 'gmv_30d', e.target.value)} placeholder="5000000" />
-                      </td>
-                      <td className="p-0 border-r border-rose-100 bg-rose-50/30">
+                      ), "p-0 border-r border-slate-200")}
+                      {renderTd('niche', idx, row.niche, (
                         <input type="text" list="niche-options" className="w-full h-full p-2 bg-transparent border-none outline-none" value={row.niche} onPaste={(e) => handleGlobalPaste(e, idx, 'niche')} onChange={(e) => updateRow(row.id, 'niche', e.target.value)} placeholder="Ketik..." />
-                      </td>
-                      <td className="p-0 border-r border-slate-200">
+                      ), "p-0 border-r border-rose-100 bg-rose-50/30")}
+                      {renderTd('mcn', idx, row.mcn, (
                         <input type="text" className="w-full h-full p-2 bg-transparent border-none outline-none" value={row.mcn} onPaste={(e) => handleGlobalPaste(e, idx, 'mcn')} onChange={(e) => updateRow(row.id, 'mcn', e.target.value)} placeholder="MCN" />
-                      </td>
-                      <td className="p-0 border-r border-slate-200">
+                      ), "p-0 border-r border-slate-200")}
+                      {renderTd('ratecard', idx, row.ratecard, (
                         <input type="number" className="w-full h-full p-2 bg-transparent border-none outline-none" value={row.ratecard} onPaste={(e) => handleGlobalPaste(e, idx, 'ratecard')} onChange={(e) => updateRow(row.id, 'ratecard', e.target.value)} placeholder="150000" />
-                      </td>
+                      ), "p-0 border-r border-slate-200")}
                       <td className="p-2 text-center">
                         <button onClick={() => setRows(rows.filter(r => r.id !== row.id))} className="text-red-400 hover:text-red-600 p-1 rounded transition-colors">
                           <Trash2 className="w-4 h-4" />
