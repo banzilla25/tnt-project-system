@@ -587,7 +587,10 @@ export default function CreatorProfilePage() {
             </div>
             <div style={{ maxWidth: '100%' }} className="[&_iframe]:!max-w-full [&_.tiktok-embed]:!max-w-full">
               {(() => {
-                const cleanUsername = creator.username.replace(/^@/, '').trim();
+                let cleanUsername = creator.username.trim();
+                cleanUsername = cleanUsername.replace(/^[@.]+/, ''); // Hapus @ dan titik di awal (typo umum)
+                cleanUsername = cleanUsername.replace(/\.+$/, '');   // Hapus titik di akhir
+                
                 return (
                   <blockquote 
                     className="tiktok-embed" 
