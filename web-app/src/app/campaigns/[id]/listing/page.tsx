@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useDatabaseStore } from "@/store/useDatabaseStore";
 import { getCreatorType, getJenisKerjasama } from "@/utils/computed";
 import { formatAbbreviated } from "@/utils/formatters";
-import { ChevronDown, ChevronRight, ChevronLeft, Edit2, Check, X, Loader2, Trash2, Download, ArrowUp, ArrowDown, ArrowUpDown, Plus, AlertCircle, CheckCircle2 } from "lucide-react";
+import { ChevronDown, ChevronRight, ChevronLeft, Edit2, Check, X, Loader2, Trash2, Download, ArrowUp, ArrowDown, ArrowUpDown, Plus, AlertCircle, CheckCircle2, Save, Filter } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -50,17 +50,125 @@ function CampaignListingContent() {
   const campaignSkus = skus.filter(s => s.campaign_id === campaignId);
 
   const [expandedRows, setExpandedRows] = useState<Record<number, boolean>>({});
+
+  // --- Batch Edit System ---
+  type PendingChange = {
+    price?: number;
+    qty_vt?: number;
+    qty_live?: number;
+    approval?: string;
+    client_approval?: string;
+    assigned_sku_ids?: number[];
+    original: { price: number; qty_vt: number; qty_live: number; approval: string; client_approval: string; assigned_sku_ids: number[] };
+  };
+  const [pendingChanges, setPendingChanges] = useState<Map<number, PendingChange>>(new Map());
+  const [editingCellId, setEditingCellId] = useState<string | null>(null); // "ccId-field" e.g. "123-price"
+  const [showUnsavedFirst, setShowUnsavedFirst] = useState(false);
+  const [isBatchSaving, setIsBatchSaving] = useState(false);
+  const [batchSaveProgress, setBatchSaveProgress] = useState(0);
+
+  // beforeunload protection
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (pendingChanges.size > 0) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [pendingChanges.size]);
+
+  const getPendingValue = (ccId: number, field: keyof PendingChange, originalValue: any) => {
+    const change = pendingChanges.get(ccId);
+    if (change && change[field] !== undefined) return change[field];
+    return originalValue;
+  };
+
+  const setCellChange = (ccId: number, field: string, value: any, cc: any) => {
+    setPendingChanges(prev => {
+      const next = new Map(prev);
+      const existing = next.get(ccId) || {
+        original: {
+          price: cc.price,
+          qty_vt: cc.qty_vt,
+          qty_live: cc.qty_live || 0,
+          approval: cc.approval,
+          client_approval: cc.client_approval || 'not_required',
+          assigned_sku_ids: cc.assigned_sku_ids || []
+        }
+      };
+      (existing as any)[field] = value;
+
+      // Check if all changed fields match original
+      const orig = existing.original;
+      const fields = ['price', 'qty_vt', 'qty_live', 'approval', 'client_approval', 'assigned_sku_ids'] as const;
+      let hasRealChange = false;
+      for (const f of fields) {
+        const changedVal = (existing as any)[f];
+        if (changedVal !== undefined) {
+          if (f === 'assigned_sku_ids') {
+            if (JSON.stringify(changedVal) !== JSON.stringify(orig[f])) hasRealChange = true;
+          } else {
+            if (changedVal !== orig[f]) hasRealChange = true;
+          }
+        }
+      }
+
+      if (hasRealChange) {
+        next.set(ccId, existing);
+      } else {
+        next.delete(ccId);
+      }
+      return next;
+    });
+  };
+
+  const batchSaveAll = async () => {
+    if (pendingChanges.size === 0) return;
+    setIsBatchSaving(true);
+    setBatchSaveProgress(0);
+    const entries = Array.from(pendingChanges.entries());
+    let done = 0;
+    for (const [ccId, change] of entries) {
+      const updates: any = {};
+      if (change.price !== undefined) updates.price = change.price;
+      if (change.qty_vt !== undefined) updates.qty_vt = change.qty_vt;
+      if (change.qty_live !== undefined) updates.qty_live = change.qty_live;
+      if (change.assigned_sku_ids !== undefined) updates.assigned_sku_ids = change.assigned_sku_ids;
+      if (change.approval !== undefined) {
+        updates.approval = change.approval;
+        if (change.approval !== change.original.approval) {
+          if (change.approval === 'approved') {
+            updates.approved_by = profile?.id;
+            updates.approved_at = new Date().toISOString();
+          } else if (change.approval === 'not_approved' || change.approval === 'alternate') {
+            updates.not_approved_by = profile?.id;
+            updates.not_approved_at = new Date().toISOString();
+          }
+        }
+      }
+      if (isClientApprovalRequired && change.client_approval !== undefined) {
+        updates.client_approval = change.client_approval;
+      }
+      await updateCampaignCreator(ccId, updates, profile?.nama || 'System');
+      done++;
+      setBatchSaveProgress(Math.round((done / entries.length) * 100));
+    }
+    setPendingChanges(new Map());
+    setIsBatchSaving(false);
+    setShowUnsavedFirst(false);
+    setPage(0);
+    fetchListing(0, true);
+    fetchCounts();
+  };
+
+  // Legacy single-row edit state (kept for backwards compat with pencil icon)
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [editPrice, setEditPrice] = useState('0');
-  const [editQtyVt, setEditQtyVt] = useState('1');
-  const [editQtyLive, setEditQtyLive] = useState('0');
-  const [editApproval, setEditApproval] = useState<any>('');
-  const [editClientApproval, setEditClientApproval] = useState<any>('');
   const [editSampleProgress, setEditSampleProgress] = useState<any>('Done Req Sample');
   const [editStatusBayar, setEditStatusBayar] = useState<any>('belum');
   const [editNotesManager, setEditNotesManager] = useState('');
   const [editNotesPic, setEditNotesPic] = useState('');
-  const [editAssignedSkus, setEditAssignedSkus] = useState<number[]>([]);
 
   const [filterType, setFilterType] = useState<'all' | 'regular' | 'auto_detect'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'alternate' | 'not_approved'>('all');
@@ -473,49 +581,23 @@ function CampaignListingContent() {
 
   const startEdit = (cc: any) => {
     setEditingId(cc.id);
-    setEditPrice(cc.price?.toString() || '0');
-    setEditQtyVt(cc.qty_vt?.toString() || '1');
-    setEditQtyLive(cc.qty_live?.toString() || '0');
-    setEditApproval(cc.approval);
-    setEditClientApproval(cc.client_approval || 'not_required');
     setEditSampleProgress(cc.sample_progress || 'Done Req Sample');
     setEditStatusBayar(cc.status_bayar || 'belum');
     setEditNotesManager(cc.notes_manager || '');
     setEditNotesPic(cc.notes_pic || '');
-    setEditAssignedSkus(cc.assigned_sku_ids || []);
   };
 
   const saveEdit = async (ccId: number) => {
     if (!hasAccess) return;
-    const oldCc = listingData.find(c => c.id === ccId);
-    let extraUpdates: any = {};
-    if (oldCc && oldCc.approval !== editApproval) {
-      if (editApproval === 'approved') {
-        extraUpdates.approved_by = profile?.id;
-        extraUpdates.approved_at = new Date().toISOString();
-      } else if (editApproval === 'not_approved' || editApproval === 'alternate') {
-        extraUpdates.not_approved_by = profile?.id;
-        extraUpdates.not_approved_at = new Date().toISOString();
-      }
-    }
-
+    // Only save notes/sample_progress/status_bayar via legacy edit (non-batch fields)
     await updateCampaignCreator(ccId, {
-      price: Number(editPrice),
-      qty_vt: Number(editQtyVt),
-      qty_live: Number(editQtyLive),
-      approval: editApproval,
       sample_progress: editSampleProgress,
       notes_manager: editNotesManager,
       notes_pic: editNotesPic,
-      assigned_sku_ids: editAssignedSkus,
-      ...(isClientApprovalRequired && { client_approval: editClientApproval }),
-      ...extraUpdates
     }, profile?.nama || 'System');
     setEditingId(null);
-    // Refresh to show changes immediately
     setPage(0);
     fetchListing(0, true);
-    fetchCounts();
   };
 
   const cancelEdit = () => {
@@ -1334,6 +1416,47 @@ function CampaignListingContent() {
         </div>
       )}
 
+      {/* Batch Save Banner */}
+      {pendingChanges.size > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4 flex items-center justify-between gap-4 animate-in slide-in-from-top-2">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center">
+              <AlertCircle className="w-5 h-5 text-amber-600" />
+            </div>
+            <div>
+              <p className="font-semibold text-amber-900">Ada {pendingChanges.size} data yang belum disimpan</p>
+              <p className="text-[12px] text-amber-700">Pastikan simpan terlebih dahulu sebelum meninggalkan halaman.</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowUnsavedFirst(prev => !prev)}
+              className={`btn btn-outline text-sm ${showUnsavedFirst ? 'bg-amber-100 border-amber-400 text-amber-800' : ''}`}
+            >
+              <Filter className="w-4 h-4" />
+              {showUnsavedFirst ? 'Tampil Normal' : 'Filter Belum Disimpan'}
+            </button>
+            <button
+              onClick={() => { setPendingChanges(new Map()); setShowUnsavedFirst(false); }}
+              className="btn btn-outline text-sm text-red-600 border-red-200 hover:bg-red-50"
+            >
+              <X className="w-4 h-4" /> Batalkan Semua
+            </button>
+            <button
+              onClick={batchSaveAll}
+              disabled={isBatchSaving}
+              className="btn btn-primary text-sm"
+            >
+              {isBatchSaving ? (
+                <><Loader2 className="w-4 h-4 animate-spin" /> Menyimpan {batchSaveProgress}%</>
+              ) : (
+                <><Save className="w-4 h-4" /> Simpan {pendingChanges.size} Perubahan</>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="tbl-wrap">
         <table className="w-full">
           <thead>
@@ -1378,16 +1501,25 @@ function CampaignListingContent() {
             </tr>
           </thead>
           <tbody>
-            {listingData.length === 0 && !isLoading ? (
+            {(() => {
+              const displayData = showUnsavedFirst
+                ? [...listingData].sort((a, b) => {
+                    const aHas = pendingChanges.has(a.id) ? 0 : 1;
+                    const bHas = pendingChanges.has(b.id) ? 0 : 1;
+                    return aHas - bHas;
+                  })
+                : listingData;
+              return displayData.length === 0 && !isLoading ? (
               <tr>
                 <td colSpan={isClientApprovalRequired ? 12 : 11} className="text-center py-[32px] text-text-soft">
                   Belum ada creator di campaign ini.
                 </td>
               </tr>
             ) : (
-              listingData.map((cc) => {
+              displayData.map((cc) => {
                 const creator = cc.creators;
                 if (!creator) return null;
+                const hasPending = pendingChanges.has(cc.id);
                 const snaps = creator.creator_snapshots || [];
                 const sortedSnaps = snaps.sort((a:any, b:any) => {
                   const tDiff = new Date(b.tanggal_update || 0).getTime() - new Date(a.tanggal_update || 0).getTime();
@@ -1410,7 +1542,7 @@ function CampaignListingContent() {
 
                 return (
                   <React.Fragment key={cc.id}>
-                    <tr className="group hover:bg-[#f8fafc] transition-colors">
+                    <tr className={`group transition-colors ${hasPending ? 'bg-amber-50/70 hover:bg-amber-50' : 'hover:bg-[#f8fafc]'}`}>
                       <td>
                         <button onClick={() => toggleExpand(cc.id)} className="p-[4px] hover:bg-slate-200 rounded">
                           {isExpanded ? <ChevronDown className="w-4 h-4 text-text-soft" /> : <ChevronRight className="w-4 h-4 text-text-soft" />}
@@ -1455,83 +1587,99 @@ function CampaignListingContent() {
                         {getJenisKerjasama(cc.price)}
                       </td>
                       <td>
-                        {isEditing ? (
+                        {editingCellId === `${cc.id}-price` ? (
                           <input 
                             type="number" 
-                            value={editPrice} 
-                            onChange={e => setEditPrice(e.target.value)}
+                            autoFocus
+                            defaultValue={getPendingValue(cc.id, 'price', cc.price)}
+                            onBlur={e => { setCellChange(cc.id, 'price', Number(e.target.value), cc); setEditingCellId(null); }}
+                            onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
                             className="input w-24 !p-[4px]"
                           />
                         ) : (
-                          <span className="text-[13px] font-semibold text-text">Rp {cc.price.toLocaleString()}</span>
+                          <span 
+                            className={`text-[13px] font-semibold cursor-pointer hover:bg-blue-50 px-1 py-0.5 rounded ${hasPending && pendingChanges.get(cc.id)?.price !== undefined ? 'text-amber-700' : 'text-text'}`}
+                            onClick={() => hasAccess && setEditingCellId(`${cc.id}-price`)}
+                          >Rp {(getPendingValue(cc.id, 'price', cc.price) as number).toLocaleString()}</span>
                         )}
                       </td>
                       <td>
-                        {isEditing ? (
+                        {editingCellId === `${cc.id}-qty_vt` ? (
                           <input 
                             type="number" 
                             min="1"
-                            value={editQtyVt} 
-                            onChange={e => setEditQtyVt(e.target.value)}
+                            autoFocus
+                            defaultValue={getPendingValue(cc.id, 'qty_vt', cc.qty_vt)}
+                            onBlur={e => { setCellChange(cc.id, 'qty_vt', Number(e.target.value), cc); setEditingCellId(null); }}
+                            onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
                             className="input w-16 !p-[4px] text-center"
                           />
                         ) : (
-                          <span className="text-[13px] font-medium">{cc.qty_vt}</span>
+                          <span 
+                            className={`text-[13px] font-medium cursor-pointer hover:bg-blue-50 px-1 py-0.5 rounded ${hasPending && pendingChanges.get(cc.id)?.qty_vt !== undefined ? 'text-amber-700' : ''}`}
+                            onClick={() => hasAccess && setEditingCellId(`${cc.id}-qty_vt`)}
+                          >{getPendingValue(cc.id, 'qty_vt', cc.qty_vt)}</span>
                         )}
                       </td>
                       <td>
-                        {isEditing ? (
+                        {editingCellId === `${cc.id}-qty_live` ? (
                           <input 
                             type="number" 
                             min="0"
-                            value={editQtyLive} 
-                            onChange={e => setEditQtyLive(e.target.value)}
+                            autoFocus
+                            defaultValue={getPendingValue(cc.id, 'qty_live', cc.qty_live || 0)}
+                            onBlur={e => { setCellChange(cc.id, 'qty_live', Number(e.target.value), cc); setEditingCellId(null); }}
+                            onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
                             className="input w-16 !p-[4px] text-center"
                           />
                         ) : (
-                          <span className="text-[13px] font-medium">{cc.qty_live}</span>
+                          <span 
+                            className={`text-[13px] font-medium cursor-pointer hover:bg-blue-50 px-1 py-0.5 rounded ${hasPending && pendingChanges.get(cc.id)?.qty_live !== undefined ? 'text-amber-700' : ''}`}
+                            onClick={() => hasAccess && setEditingCellId(`${cc.id}-qty_live`)}
+                          >{getPendingValue(cc.id, 'qty_live', cc.qty_live || 0)}</span>
                         )}
                       </td>
                       <td>
                         <span className="text-[13px] font-medium text-text">{cc.content_type || '-'}</span>
                       </td>
                       <td className="min-w-[150px]">
-                        {isEditing ? (
+                        {editingCellId === `${cc.id}-produk` ? (
                            <div className="w-full">
                             <MultiSelect 
                               options={campaignSkus.map(s => ({ id: s.id, label: s.nama_produk }))}
-                              selectedIds={editAssignedSkus}
-                              onChange={setEditAssignedSkus}
+                              selectedIds={(getPendingValue(cc.id, 'assigned_sku_ids', cc.assigned_sku_ids || []) as number[])}
+                              onChange={(ids: number[]) => { setCellChange(cc.id, 'assigned_sku_ids', ids, cc); }}
                               placeholder="Pilih Produk..."
                               emptyMessage="Belum ada produk"
                             />
-                            {campaignSkus.length === 0 && (
-                              <p className="text-[10px] text-orange-600 mt-1 leading-tight">
-                                Jika produk belum ada di list, maka daftarkan di bagian tab Produk.
-                              </p>
-                            )}
+                            <button onClick={() => setEditingCellId(null)} className="text-[10px] text-blue-600 mt-1 hover:underline">Tutup</button>
                           </div>
                         ) : (
-                           <div className="flex flex-wrap gap-1">
-                             {cc.assigned_sku_ids && cc.assigned_sku_ids.length > 0 ? (
-                               cc.assigned_sku_ids.map((id: number) => {
-                                 const sku = campaignSkus.find(s => s.id === id);
-                                 return sku ? <span key={id} className="inline-flex items-center gap-1 bg-blue-50 text-blue-700 text-[11px] px-2 py-0.5 rounded border border-blue-100">{sku.nama_produk}</span> : null;
-                               })
-                             ) : (
-                               <span className="text-[11px] text-slate-400 italic">Belum di-set</span>
-                             )}
-                             {!isEditing && campaignSkus.length === 0 && (
-                               <span className="text-[10px] text-red-500 block mt-1">Daftarkan produk di tab Produk</span>
-                             )}
+                           <div 
+                             className={`flex flex-wrap gap-1 cursor-pointer hover:bg-blue-50 rounded p-1 ${hasPending && pendingChanges.get(cc.id)?.assigned_sku_ids !== undefined ? 'ring-1 ring-amber-300' : ''}`}
+                             onClick={() => hasAccess && setEditingCellId(`${cc.id}-produk`)}
+                           >
+                             {(() => {
+                               const skuIds = getPendingValue(cc.id, 'assigned_sku_ids', cc.assigned_sku_ids || []) as number[];
+                               return skuIds && skuIds.length > 0 ? (
+                                 skuIds.map((skuId: number) => {
+                                   const sku = campaignSkus.find(s => s.id === skuId);
+                                   return sku ? <span key={skuId} className="inline-flex items-center gap-1 bg-blue-50 text-blue-700 text-[11px] px-2 py-0.5 rounded border border-blue-100">{sku.nama_produk}</span> : null;
+                                 })
+                               ) : (
+                                 <span className="text-[11px] text-slate-400 italic">Belum di-set</span>
+                               );
+                             })()}
                            </div>
                         )}
                       </td>
                       <td>
-                        {isEditing ? (
+                        {editingCellId === `${cc.id}-approval` ? (
                           <select 
-                            value={editApproval} 
-                            onChange={e => setEditApproval(e.target.value)}
+                            autoFocus
+                            value={getPendingValue(cc.id, 'approval', cc.approval) as string}
+                            onChange={e => { setCellChange(cc.id, 'approval', e.target.value, cc); setEditingCellId(null); }}
+                            onBlur={() => setEditingCellId(null)}
                             className="select !p-[4px]"
                           >
                             <option value="pending">Pending</option>
@@ -1540,21 +1688,26 @@ function CampaignListingContent() {
                             <option value="not_approved">Not Approved</option>
                           </select>
                         ) : (
-                          <div className="flex flex-col items-center">
-                            <span className={`badge ${
-                              cc.approval === 'approved' ? 'b-approved' : 
-                              cc.approval === 'not_approved' ? 'b-rejected' : 
-                              cc.approval === 'alternate' ? 'b-alternate' : 'b-pending'
-                            }`}>
-                              {cc.approval}
-                            </span>
-                            {(cc.approval === 'approved' && cc.approved_by_profile) && (
+                          <div 
+                            className={`flex flex-col items-center cursor-pointer hover:bg-blue-50 rounded p-1 ${hasPending && pendingChanges.get(cc.id)?.approval !== undefined ? 'ring-1 ring-amber-300' : ''}`}
+                            onClick={() => hasAccess && setEditingCellId(`${cc.id}-approval`)}
+                          >
+                            {(() => {
+                              const approvalVal = getPendingValue(cc.id, 'approval', cc.approval) as string;
+                              return (
+                                <span className={`badge ${
+                                  approvalVal === 'approved' ? 'b-approved' : 
+                                  approvalVal === 'not_approved' ? 'b-rejected' : 
+                                  approvalVal === 'alternate' ? 'b-alternate' : 'b-pending'
+                                }`}>
+                                  {approvalVal}
+                                </span>
+                              );
+                            })()}
+                            {!hasPending && (cc.approval === 'approved' && cc.approved_by_profile) && (
                               <div className="text-[10px] text-text-soft mt-1 leading-tight text-center">Oleh: {cc.approved_by_profile.nama}</div>
                             )}
-                            {(cc.approval === 'not_approved' && cc.not_approved_by_profile) && (
-                              <div className="text-[10px] text-text-soft mt-1 leading-tight text-center">Oleh: {cc.not_approved_by_profile.nama}</div>
-                            )}
-                            {(cc.approval === 'alternate' && cc.not_approved_by_profile) && (
+                            {!hasPending && ((cc.approval === 'not_approved' || cc.approval === 'alternate') && cc.not_approved_by_profile) && (
                               <div className="text-[10px] text-text-soft mt-1 leading-tight text-center">Oleh: {cc.not_approved_by_profile.nama}</div>
                             )}
                           </div>
@@ -1562,10 +1715,12 @@ function CampaignListingContent() {
                       </td>
                       {isClientApprovalRequired && (
                         <td>
-                          {isEditing ? (
+                          {editingCellId === `${cc.id}-client_approval` ? (
                             <select 
-                              value={editClientApproval} 
-                              onChange={e => setEditClientApproval(e.target.value)}
+                              autoFocus
+                              value={getPendingValue(cc.id, 'client_approval', cc.client_approval || 'not_required') as string}
+                              onChange={e => { setCellChange(cc.id, 'client_approval', e.target.value, cc); setEditingCellId(null); }}
+                              onBlur={() => setEditingCellId(null)}
                               className="select !p-[4px]"
                             >
                               <option value="pending">Pending</option>
@@ -1573,11 +1728,14 @@ function CampaignListingContent() {
                               <option value="rejected">Rejected</option>
                             </select>
                           ) : (
-                            <span className={`badge ${
-                              cc.client_approval === 'approved' ? 'b-success' : 
-                              cc.client_approval === 'rejected' ? 'b-destructive' : 'b-neutral'
-                            }`}>
-                              {cc.client_approval === 'not_required' ? 'Pending' : cc.client_approval}
+                            <span 
+                              className={`badge cursor-pointer hover:opacity-80 ${
+                                (getPendingValue(cc.id, 'client_approval', cc.client_approval) as string) === 'approved' ? 'b-success' : 
+                                (getPendingValue(cc.id, 'client_approval', cc.client_approval) as string) === 'rejected' ? 'b-destructive' : 'b-neutral'
+                              } ${hasPending && pendingChanges.get(cc.id)?.client_approval !== undefined ? 'ring-1 ring-amber-300' : ''}`}
+                              onClick={() => hasAccess && setEditingCellId(`${cc.id}-client_approval`)}
+                            >
+                              {(getPendingValue(cc.id, 'client_approval', cc.client_approval) as string) === 'not_required' ? 'Pending' : (getPendingValue(cc.id, 'client_approval', cc.client_approval) as string)}
                             </span>
                           )}
                         </td>
@@ -1586,17 +1744,12 @@ function CampaignListingContent() {
                         {gmvCreator > 0 ? formatAbbreviated(gmvCreator, true) : '-'}
                       </td>
                       <td className="text-right">
-                        {isEditing ? (
-                          <div className="flex justify-end gap-[4px]">
-                            <button onClick={() => saveEdit(cc.id)} className="p-[6px] hover:bg-green-50 rounded text-green-600"><Check className="w-4 h-4" /></button>
-                            <button onClick={cancelEdit} className="p-[6px] hover:bg-slate-100 rounded text-text-soft"><X className="w-4 h-4" /></button>
-                          </div>
-                        ) : hasAccess ? (
+                        {hasAccess ? (
                           <div className="flex justify-end gap-[4px] transition-opacity">
-                            <button onClick={() => startEdit(cc)} className="p-[6px] hover:bg-p50 rounded">
+                            <button onClick={() => startEdit(cc)} className="p-[6px] hover:bg-p50 rounded" title="Edit Notes & Detail">
                               <Edit2 className="w-4 h-4 text-text-soft hover:text-p300" />
                             </button>
-                            <button onClick={() => handleDeleteCreator(cc.id)} className="p-[6px] hover:bg-red-50 rounded">
+                            <button onClick={() => handleDeleteCreator(cc.id)} className="p-[6px] hover:bg-red-50 rounded" title="Hapus Creator">
                               <Trash2 className="w-4 h-4 text-text-soft hover:text-red-600" />
                             </button>
                           </div>
@@ -1741,7 +1894,8 @@ function CampaignListingContent() {
                   </React.Fragment>
                 );
               })
-            )}
+            );
+            })()}
           </tbody>
         </table>
       </div>
