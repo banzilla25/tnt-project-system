@@ -17,7 +17,7 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
   
   // Calculate display values based on campaign type and modern tracking data
   const isAwareness = campaign?.tipe_campaign === 'awareness' || campaign?.tipe_campaign === 'gmv_awareness';
-  const displayOrganic = approvalList.reduce((sum: number, c: any) => sum + (c.gmv_organic || 0), 0);
+  const displayOrganic = isAwareness ? (totalAwareness?.total_organic_gmv || summary.total_daily_organic || 0) : (totalSales?.total_organic_gmv || summary.total_daily_organic || 0);
   const displayAds = approvalList.reduce((sum: number, c: any) => sum + (c.gmv_ads || 0), 0);
   const displayTotalGmv = displayOrganic + displayAds;
   const displayTotalVideo = isAwareness ? (totalAwareness?.total_video || summary.achievement_video || 0) : (summary.achievement_video || 0);

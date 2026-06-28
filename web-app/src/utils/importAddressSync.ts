@@ -12,6 +12,7 @@ export type AddressColumnMapping = {
   kode_pos: string;
   resi: string;
   proses: string;
+  produk: string;
 };
 
 export type ParsedAddressRow = {
@@ -25,6 +26,7 @@ export type ParsedAddressRow = {
   kode_pos: string | null;
   resi: string | null;
   proses: string | null;
+  produk: string | null;
   raw_row: any;
 };
 
@@ -77,6 +79,7 @@ export const parseAddressSyncFile = async (file: File, mapping: AddressColumnMap
     const provinsi = mapping.provinsi ? (row[mapping.provinsi] || '').toString().trim() || null : null;
     const kode_pos = mapping.kode_pos ? (row[mapping.kode_pos] || '').toString().trim() || null : null;
     const resi = mapping.resi ? (row[mapping.resi] || '').toString().trim() || null : null;
+    const produk = mapping.produk ? (row[mapping.produk] || '').toString().trim() || null : null;
     
     // Status mapping logic
     const prosesRaw = mapping.proses ? (row[mapping.proses] || '').toString().toLowerCase().trim() : '';
@@ -102,6 +105,7 @@ export const parseAddressSyncFile = async (file: File, mapping: AddressColumnMap
       kode_pos,
       resi,
       proses,
+      produk,
       raw_row: row
     });
   });
@@ -111,9 +115,9 @@ export const parseAddressSyncFile = async (file: File, mapping: AddressColumnMap
 
 export const downloadAddressSyncTemplate = () => {
   const BOM = '\uFEFF';
-  const csvContent = BOM + 'Username,Nama Penerima,Alamat Lengkap,Kecamatan,Kota/Kabupaten,Provinsi,Kode Pos,Resi,Status\n' +
-    'johndoe,John Doe,Jl. Merdeka No 1,Gambir,Jakarta Pusat,DKI Jakarta,10110,JP12345678,Dikirim\n' +
-    'janedoe,Jane Doe,Jl. Sudirman 2,,,,,,,Diproses';
+  const csvContent = BOM + 'Username,Nama Penerima,Alamat Lengkap,Kecamatan,Kota/Kabupaten,Provinsi,Kode Pos,Resi,Status,Produk\n' +
+    'johndoe,John Doe,Jl. Merdeka No 1,Gambir,Jakarta Pusat,DKI Jakarta,10110,JP12345678,Dikirim,Lipstik\n' +
+    'janedoe,Jane Doe,Jl. Sudirman 2,,,,,,,Diproses,Bedak';
 
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);

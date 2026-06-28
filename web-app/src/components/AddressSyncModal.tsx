@@ -15,7 +15,7 @@ import { exportErrorLogToExcel, ErrorLogItem } from "@/utils/exportErrorLog";
 const supabase = createClient();
 
 export function AddressSyncModal({ campaignId: initialCampaignId, onComplete }: { campaignId?: number; onComplete?: () => void }) {
-  const { campaigns, fetchData, creators } = useDatabaseStore();
+  const { campaigns, fetchData, creators, skus } = useDatabaseStore();
   const creatorUsernames = creators.map(c => c.username);
   const [campaignId, setCampaignId] = useState(initialCampaignId || 0);
   const [open, setOpen] = useState(false);
@@ -33,7 +33,8 @@ export function AddressSyncModal({ campaignId: initialCampaignId, onComplete }: 
     provinsi: '',
     kode_pos: '',
     resi: '',
-    proses: ''
+    proses: '',
+    produk: ''
   });
 
   const [preview, setPreview] = useState<ParsedAddressRow[]>([]);
@@ -82,6 +83,7 @@ export function AddressSyncModal({ campaignId: initialCampaignId, onComplete }: 
         if (lh === 'kode pos' || lh === 'kodepos') guessMapping.kode_pos = h;
         if (lh === 'resi' || lh === 'no resi' || lh.includes('resi')) guessMapping.resi = h;
         if (lh === 'status' || lh === 'status pengiriman' || lh === 'proses') guessMapping.proses = h;
+        if (lh === 'produk' || lh === 'produk dikirim' || lh === 'product' || lh.includes('produk')) guessMapping.produk = h;
       });
       
       setMapping(guessMapping);
@@ -151,6 +153,8 @@ export function AddressSyncModal({ campaignId: initialCampaignId, onComplete }: 
         .from('campaign_creators')
         .select('id, creator_id, creators(username)')
         .eq('campaign_id', campaignId);
+        
+      const campaignSkus = skus.filter(s => s.campaign_id === campaignId);
 
       const usernameToCcId = new Map<string, number>();
       ccs?.forEach(cc => {
@@ -236,6 +240,22 @@ export function AddressSyncModal({ campaignId: initialCampaignId, onComplete }: 
             await supabase.from('creator_addresses').update(payload).eq('id', existingAddrId);
           } else {
             await supabase.from('creator_addresses').insert(payload);
+          }
+
+          if (row.produk) {
+            const inputSkus = row.produk.split(',').map((p: string) => p.trim().toLowerCase()).filter(Boolean);
+            const matchedSkuIds: number[] = [];
+            
+            inputSkus.forEach((inputSkuName: string) => {
+              const matched = campaignSkus.find(s => s.nama_produk.toLowerCase().includes(inputSkuName) || inputSkuName.includes(s.nama_produk.toLowerCase()));
+              if (matched) {
+                matchedSkuIds.push(matched.id);
+              }
+            });
+
+            if (matchedSkuIds.length > 0) {
+              await supabase.from('campaign_creators').update({ assigned_sku_ids: matchedSkuIds }).eq('id', ccId);
+            }
           }
         }));
 
@@ -444,6 +464,7 @@ export function AddressSyncModal({ campaignId: initialCampaignId, onComplete }: 
                             <th className="p-2 font-medium">Username</th>
                             <th className="p-2 font-medium">Nama Penerima</th>
                             <th className="p-2 font-medium">Alamat</th>
+                            <th className="p-2 font-medium">Produk</th>
                             <th className="p-2 font-medium">Resi</th>
                             <th className="p-2 font-medium">Status</th>
                           </tr>
@@ -490,6 +511,7 @@ export function AddressSyncModal({ campaignId: initialCampaignId, onComplete }: 
                               </td>
                               <td className="p-2 align-top font-medium max-w-[150px] truncate">{row.nama_penerima || '-'}</td>
                               <td className="p-2 align-top text-xs max-w-[200px] truncate">{row.nama_jalan || '-'}</td>
+                              <td className="p-2 align-top text-xs max-w-[150px] truncate">{row.produk || '-'}</td>
                               <td className="p-2 align-top text-xs max-w-[100px] truncate">{row.kabupaten_kota || '-'}</td>
                               <td className="p-2 align-top">
                                 <span className={`px-2 py-1 text-xs rounded-full bg-slate-100 text-slate-700`}>
