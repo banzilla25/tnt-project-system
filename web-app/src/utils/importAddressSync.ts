@@ -142,9 +142,9 @@ export const parseAddressSyncFile = async (file: File, mapping: AddressColumnMap
 
 export const downloadAddressSyncTemplate = () => {
   const BOM = '\uFEFF';
-  const csvContent = BOM + 'Username,Nama Penerima,Alamat Lengkap,Kecamatan,Kota/Kabupaten,Provinsi,Kode Pos,Resi,Status,Produk\n' +
-    'johndoe,John Doe,Jl. Merdeka No 1,Gambir,Jakarta Pusat,DKI Jakarta,10110,JP12345678,Dikirim,Lipstik\n' +
-    'janedoe,Jane Doe,Jl. Sudirman 2,,,,,,,Diproses,Bedak';
+  const csvContent = BOM + 'No,Product,Username,No Whatsapp,Nama Penerima,Nama Jalan,Provinsi,Kabupaten/Kota,Kecamatan,Kelurahan,Kode Pos,Proses,Tanggal Kirim,Resi,Notes,Status\n' +
+    '1,Lipstik,johndoe,08123456789,John Doe,Jl. Merdeka No 1,DKI Jakarta,Jakarta Pusat,Gambir,Gambir,10110,Dikirim,2026-06-25,JP12345678,Titip di satpam,Approved\n' +
+    '2,Bedak,janedoe,08987654321,Jane Doe,Jl. Sudirman 2,,,,,,,Diproses,,,,,';
 
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
