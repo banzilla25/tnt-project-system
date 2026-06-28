@@ -104,10 +104,13 @@ function CampaignListingContent() {
   const [recapStartIndex, setRecapStartIndex] = useState(0);
 
   // Add Creator Modal State
-  type DynamicRow = { id: string; username: string; price: string; qtyVt: string; contentType: string };
+  type DynamicRow = { id: string; username: string; price: string; qtyVt: string; qtyLive: string; contentType: string };
+  type DragFillState = { active: boolean; startRowIdx: number; currentRowIdx: number; colName: keyof DynamicRow; value: string; };
+
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [modalStep, setModalStep] = useState<1 | 2>(1);
-  const [dynamicRows, setDynamicRows] = useState<DynamicRow[]>([{ id: Math.random().toString(36).substring(2, 9), username: '', price: '0', qtyVt: '1', contentType: 'Video' }]);
+  const [dynamicRows, setDynamicRows] = useState<DynamicRow[]>([{ id: Math.random().toString(36).substring(2, 9), username: '', price: '0', qtyVt: '1', qtyLive: '0', contentType: 'Video' }]);
+  const [dragFill, setDragFill] = useState<DragFillState | null>(null);
   const [existingCreators, setExistingCreators] = useState<any[]>([]);
   const [missingCreators, setMissingCreators] = useState<any[]>([]);
   const [isAddingBulk, setIsAddingBulk] = useState(false);
@@ -152,6 +155,49 @@ function CampaignListingContent() {
     }
     setIsAutoDetecting(false);
   };
+
+  useEffect(() => {
+    const handleGlobalMouseUp = () => {
+      if (dragFill) {
+        setDragFill(null);
+      }
+    };
+    window.addEventListener('mouseup', handleGlobalMouseUp);
+    return () => {
+      window.removeEventListener('mouseup', handleGlobalMouseUp);
+    };
+  }, [dragFill]);
+
+  const handleFillHandleMouseDown = (rowIdx: number, colName: keyof DynamicRow, value: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    setDragFill({
+      active: true,
+      startRowIdx: rowIdx,
+      currentRowIdx: rowIdx,
+      colName,
+      value
+    });
+  };
+
+  const handleCellMouseEnter = (rowIdx: number, colName: keyof DynamicRow) => {
+    if (!dragFill?.active || dragFill.colName !== colName) return;
+    
+    if (rowIdx !== dragFill.currentRowIdx) {
+      setDragFill(prev => prev ? { ...prev, currentRowIdx: rowIdx } : null);
+      
+      const start = Math.min(dragFill.startRowIdx, rowIdx);
+      const end = Math.max(dragFill.startRowIdx, rowIdx);
+      
+      setDynamicRows(prev => prev.map((r, i) => {
+        if (i >= start && i <= end) {
+          const updated = { ...r, [dragFill.colName]: dragFill.value };
+          return updated;
+        }
+        return r;
+      }));
+    }
+  };
+
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -554,6 +600,7 @@ function CampaignListingContent() {
         tier: 'NANO',
         price: Number(c.price),
         qty_vt: Number(c.qtyVt),
+        qty_live: Number(c.qtyLive) || 0,
         content_type: c.contentType || 'Video',
         approval: 'pending',
         pic_assist: profile?.nama || '-',
@@ -661,6 +708,28 @@ function CampaignListingContent() {
     exportToCSV(exportData, `campaign_${campaignId}_creators`);
   };
 
+  const renderTd = (colName: keyof DynamicRow, rowIdx: number, value: string, children: React.ReactNode, tdClassName: string = "py-2 pr-2") => {
+    const isDraggingHere = dragFill && dragFill.active && dragFill.colName === colName && 
+      rowIdx >= Math.min(dragFill.startRowIdx, dragFill.currentRowIdx) && 
+      rowIdx <= Math.max(dragFill.startRowIdx, dragFill.currentRowIdx);
+
+    return (
+      <td 
+        className={`relative group ${tdClassName}`}
+        onMouseEnter={() => handleCellMouseEnter(rowIdx, colName)}
+      >
+        {children}
+        <div 
+          className="absolute bottom-0 right-2 w-2 h-2 bg-blue-500 cursor-crosshair opacity-0 group-hover:opacity-100 transition-opacity z-10 hover:scale-150"
+          onMouseDown={(e) => handleFillHandleMouseDown(rowIdx, colName, value, e)}
+        />
+        {isDraggingHere && (
+          <div className="absolute inset-0 border-2 border-blue-400 pointer-events-none z-20 bg-blue-50/20" />
+        )}
+      </td>
+    );
+  };
+
   return (
     <div className="space-y-[32px]">
       <div className="flex justify-between items-start mb-[24px] gap-[16px] flex-wrap">
@@ -711,7 +780,7 @@ function CampaignListingContent() {
             <button className="btn btn-primary" onClick={() => {
               setIsAddModalOpen(true);
               setModalStep(1);
-              setDynamicRows([{ id: Math.random().toString(36).substring(2, 9), username: '', price: '0', qtyVt: '1', contentType: 'Video' }]);
+              setDynamicRows([{ id: Math.random().toString(36).substring(2, 9), username: '', price: '0', qtyVt: '1', qtyLive: '0', contentType: 'Video' }]);
             }}>
               + Tambah Creator
             </button>
@@ -917,6 +986,7 @@ function CampaignListingContent() {
                           <th className="pb-2">Username</th>
                           <th className="pb-2">Rate Card (Rp)</th>
                           <th className="pb-2">Qty VT</th>
+                          <th className="pb-2">Qty Live</th>
                           <th className="pb-2">Tipe Konten</th>
                           <th className="pb-2 w-10"></th>
                         </tr>
@@ -924,7 +994,7 @@ function CampaignListingContent() {
                       <tbody>
                         {dynamicRows.map((row, index) => (
                           <tr key={row.id} className="border-b">
-                            <td className="py-2 pr-2">
+                            {renderTd('username', index, row.username, (
                               <input 
                                 type="text"
                                 required
@@ -946,7 +1016,8 @@ function CampaignListingContent() {
                                       const uname = (cols[0] || '').replace('@', '').trim().toLowerCase();
                                       const rate = (cols[1] || '').replace(/[^0-9]/g, ''); 
                                       const qty = (cols[2] || '').replace(/[^0-9]/g, '');
-                                      const ctypeRaw = (cols[3] || '').trim().toLowerCase();
+                                      const qtyLive = (cols[3] || '').replace(/[^0-9]/g, '');
+                                      const ctypeRaw = (cols[4] || '').trim().toLowerCase();
                                       let ctype = 'Video';
                                       if (ctypeRaw.includes('live') && ctypeRaw.includes('video')) ctype = 'Video & Live';
                                       else if (ctypeRaw.includes('live')) ctype = 'Live';
@@ -955,13 +1026,15 @@ function CampaignListingContent() {
                                         newRows[index].username = uname;
                                         if(rate) newRows[index].price = rate;
                                         if(qty) newRows[index].qtyVt = qty;
-                                        if(cols[3]) newRows[index].contentType = ctype;
+                                        if(qtyLive) newRows[index].qtyLive = qtyLive;
+                                        if(cols[4]) newRows[index].contentType = ctype;
                                       } else {
                                         newRows.splice(index + i, 0, {
                                           id: Math.random().toString(36).substring(2, 9),
                                           username: uname,
                                           price: rate || '0',
                                           qtyVt: qty || '1',
+                                          qtyLive: qtyLive || '0',
                                           contentType: ctype
                                         });
                                       }
@@ -981,8 +1054,8 @@ function CampaignListingContent() {
                                 className="input h-9 text-sm w-full"
                                 placeholder="tanpa @"
                               />
-                            </td>
-                            <td className="py-2 pr-2">
+                            ))}
+                            {renderTd('price', index, row.price, (
                               <input 
                                 type="number"
                                 required
@@ -995,12 +1068,12 @@ function CampaignListingContent() {
                                 }}
                                 className="input h-9 text-sm w-full"
                               />
-                            </td>
-                            <td className="py-2 pr-2">
+                            ))}
+                            {renderTd('qtyVt', index, row.qtyVt, (
                               <input 
                                 type="number"
                                 required
-                                min="1"
+                                min="0"
                                 value={row.qtyVt}
                                 onChange={e => {
                                   const newRows = [...dynamicRows];
@@ -1009,8 +1082,22 @@ function CampaignListingContent() {
                                 }}
                                 className="input h-9 text-sm w-full"
                               />
-                            </td>
-                            <td className="py-2 pr-2">
+                            ))}
+                            {renderTd('qtyLive', index, row.qtyLive, (
+                              <input 
+                                type="number"
+                                required
+                                min="0"
+                                value={row.qtyLive}
+                                onChange={e => {
+                                  const newRows = [...dynamicRows];
+                                  newRows[index].qtyLive = e.target.value;
+                                  setDynamicRows(newRows);
+                                }}
+                                className="input h-9 text-sm w-full"
+                              />
+                            ))}
+                            {renderTd('contentType', index, row.contentType, (
                               <select
                                 value={row.contentType}
                                 onChange={e => {
@@ -1024,7 +1111,7 @@ function CampaignListingContent() {
                                 <option value="Live">Live</option>
                                 <option value="Video & Live">Video & Live</option>
                               </select>
-                            </td>
+                            ))}
                             <td className="py-2 text-center">
                               <button 
                                 type="button" 
@@ -1048,7 +1135,7 @@ function CampaignListingContent() {
                     <button 
                       type="button" 
                       onClick={() => {
-                        setDynamicRows([...dynamicRows, { id: Math.random().toString(36).substring(2, 9), username: '', price: '0', qtyVt: '1', contentType: 'Video' }]);
+                        setDynamicRows([...dynamicRows, { id: Math.random().toString(36).substring(2, 9), username: '', price: '0', qtyVt: '1', qtyLive: '0', contentType: 'Video' }]);
                       }}
                       className="text-p500 text-sm font-semibold hover:underline flex items-center"
                     >
@@ -1195,7 +1282,7 @@ function CampaignListingContent() {
                     <button type="button" className="btn btn-outline" onClick={() => {
                       setIsAddModalOpen(false);
                       setModalStep(1);
-                      setDynamicRows([{ id: Math.random().toString(36).substring(2, 9), username: '', price: '0', qtyVt: '1', contentType: 'Video' }]);
+                      setDynamicRows([{ id: Math.random().toString(36).substring(2, 9), username: '', price: '0', qtyVt: '1', qtyLive: '0', contentType: 'Video' }]);
                     }}>
                       Tutup Modal
                     </button>

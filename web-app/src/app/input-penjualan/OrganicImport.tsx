@@ -238,9 +238,17 @@ export default function OrganicImport() {
         gmv = Math.round(price * quantity);
         const rawUsername = row['Creator Username'] || row['Creator'] || row['Kreator'] || row['Username'] || '';
         creatorUsername = rawUsername.replace('@', '').toLowerCase();
-        contentUid = row['Content ID']?.toString() || '';
+        
+        const liveIdRaw = row['Live ID'] || row['Live stream ID'] || row['Livestream ID'] || '';
+        if (liveIdRaw && liveIdRaw !== '-' && liveIdRaw !== '0') {
+           contentUid = liveIdRaw.toString();
+           contentType = 'Live';
+        } else {
+           contentUid = row['Content ID']?.toString() || '';
+           contentType = row['Content Type'] || 'Video';
+        }
+        
         tanggal = parseTikTokDate(row['Time Created']?.toString() || '');
-        contentType = row['Content Type'] || 'Video';
         // Super Composite Key sama persis dengan backend: Order ID + SKU ID + Creator + Product ID
         const orderIdRaw = row['Order ID']?.toString() || '';
         const skuIdStr = row['SKU ID']?.toString() || '';
