@@ -579,19 +579,27 @@ export default function CreatorProfilePage() {
         </button>
         {tiktokEmbedOpen && creator?.username && (
           <div className="border-t border-line p-[16px]" ref={tiktokRef}>
-            <blockquote 
-              className="tiktok-embed" 
-              cite={`https://www.tiktok.com/@${creator.username}`}
-              data-unique-id={creator.username}
-              data-embed-type="creator"
-              style={{ maxWidth: '100%', minWidth: '288px' }}
-            >
-              <section>
-                <a target="_blank" href={`https://www.tiktok.com/@${creator.username}?refer=creator_embed`}>
-                  @{creator.username}
-                </a>
-              </section>
-            </blockquote>
+            <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3 flex items-start gap-2">
+              <span className="text-amber-600 text-[16px] mt-0.5">💡</span>
+              <p className="text-[12px] text-amber-800 leading-relaxed">
+                <strong>Reminder:</strong> Jangan lupa update data followers di tombol <strong>&quot;Update Data&quot;</strong> (pojok kanan atas) sesuai angka yang tampil di widget ini agar database kita selalu akurat.
+              </p>
+            </div>
+            <div style={{ maxWidth: '100%' }} className="[&_iframe]:!max-w-full [&_.tiktok-embed]:!max-w-full">
+              <blockquote 
+                className="tiktok-embed" 
+                cite={`https://www.tiktok.com/@${creator.username}`}
+                data-unique-id={creator.username}
+                data-embed-type="creator"
+                style={{ maxWidth: '100%', minWidth: '288px', width: '100%' }}
+              >
+                <section>
+                  <a target="_blank" href={`https://www.tiktok.com/@${creator.username}?refer=creator_embed`}>
+                    @{creator.username}
+                  </a>
+                </section>
+              </blockquote>
+            </div>
           </div>
         )}
       </div>
