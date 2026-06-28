@@ -183,14 +183,14 @@ function scrapeKalodata() {
   if (followersLabel) {
     // Try to find the value near it. In Kalodata it's usually in another table-cell or div below
     // We parsed it and found 124.2k inside a div under flex items-center gap-[8px]
-    const valueEl = Array.from(document.querySelectorAll('.flex.items-center.gap-\\[8px\\] > div')).find(el => el.textContent.includes('k') || el.textContent.includes('m') || /\d/.test(el.textContent));
+    const valueEl = Array.from(document.querySelectorAll('.flex.items-center.gap-\\[8px\\] > div')).find(el => el.textContent.match(/[km]|rb|jt/i) || /\d/.test(el.textContent));
     if (valueEl) followers = valueEl.textContent.trim();
   }
   if (!followers) {
     // Fallback: look for exactly the text format like "124.2k" near the top
     const allDivs = document.querySelectorAll('div');
     for (let el of allDivs) {
-       if (el.textContent.match(/^\d+(\.\d+)?[km]$/i)) {
+       if (el.textContent.match(/^\d+(\.\d+)?([km]|rb|jt)$/i)) {
           followers = el.textContent.trim();
           break;
        }
@@ -208,7 +208,7 @@ function scrapeKalodata() {
         gmv_30d = valueDiv.textContent.trim();
       } else {
         const text = itemCard.textContent;
-        const matches = text.match(/Rp\s*[\d\.,]+[kmb]?/ig);
+        const matches = text.match(/Rp\s*[\d\.,]+([kmb]|rb|jt)?/ig);
         if (matches && matches.length > 0) {
           gmv_30d = matches[0]; // Usually the first one is the total, second is per day
         }
