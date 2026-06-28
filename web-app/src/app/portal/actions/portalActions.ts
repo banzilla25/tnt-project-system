@@ -378,3 +378,64 @@ export async function updateResiByClient(campaignId: number, addressId: number, 
   if (error) throw error;
   return { success: true };
 }
+
+export type BatchUpdateData = {
+  addressId: number;
+  resi?: string;
+  proses?: string;
+  produk_dikirim?: string;
+  notes?: string;
+};
+
+export async function batchUpdateResiByClient(campaignId: number, updates: BatchUpdateData[]) {
+  if (!updates || updates.length === 0) return { success: true };
+
+  const cookieStore = await cookies();
+  const pin = cookieStore.get(`portal_pin_${campaignId}`)?.value;
+  if (!pin) throw new Error('Not authenticated');
+
+  // Cek otorisasi
+  const { data: campaign } = await supabase.from('campaigns').select('pin').eq('id', campaignId).single();
+  if (!campaign || campaign.pin !== pin) throw new Error('Unauthorized');
+
+  // Ambil semua addressIds yang akan diupdate
+  const addressIds = updates.map(u => u.addressId);
+
+  // Verifikasi bahwa semua addressId ini benar-benar milik campaignId ini
+  const { data: addrs } = await supabase
+    .from('creator_addresses')
+    .select('id, campaign_creators(campaign_id)')
+    .in('id', addressIds);
+
+  const invalidAddrs = addrs?.filter((a: any) => a.campaign_creators?.campaign_id !== campaignId) || [];
+  if (invalidAddrs.length > 0 || (addrs && addrs.length !== addressIds.length)) {
+    throw new Error('Unauthorized address modification detected in batch');
+  }
+
+  // Update batch sequentially
+  // Supabase JS tidak punya upsert multiple fields gampang kecuali semua fields lengkap
+  // Jadi kita loop dan update satu-satu secara berurutan. Karena jalan di server action (backend), latency db sangat kecil.
+  for (const update of updates) {
+    const updatePayload: any = {};
+    if (update.resi !== undefined) updatePayload.resi = update.resi;
+    if (update.proses !== undefined) {
+      updatePayload.proses = update.proses;
+      if (update.proses === 'Dikirim') {
+        updatePayload.tanggal_kirim = new Date().toISOString();
+      }
+    }
+    if (update.produk_dikirim !== undefined) updatePayload.produk_dikirim = update.produk_dikirim;
+    if (update.notes !== undefined) updatePayload.notes = update.notes;
+
+    if (Object.keys(updatePayload).length > 0) {
+      const { error } = await supabase
+        .from('creator_addresses')
+        .update(updatePayload)
+        .eq('id', update.addressId);
+        
+      if (error) throw error;
+    }
+  }
+
+  return { success: true };
+}

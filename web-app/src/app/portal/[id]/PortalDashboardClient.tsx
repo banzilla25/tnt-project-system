@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { TrendingUp, Video, Users, Package, Calendar, CheckCircle, Activity, BarChart3, ChevronDown, ChevronUp } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/Table";
-import { submitClientApproval, updateResiByClient } from "../actions/portalActions";
+import { submitClientApproval, updateResiByClient, batchUpdateResiByClient, type BatchUpdateData } from "../actions/portalActions";
 import { useRouter } from "next/navigation";
 
 export default function PortalDashboardClient({ data, campaignId }: { data: any, campaignId: number }) {
@@ -13,6 +13,20 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
   const [activeTab, setActiveTab] = useState<'performa' | 'approval' | 'sampel' | 'live' | 'video'>('performa');
   const [expandedVideos, setExpandedVideos] = useState<Record<string, boolean>>({});
   const [isApproving, setIsApproving] = useState<number | null>(null);
+  const [editedSamples, setEditedSamples] = useState<Record<number, BatchUpdateData>>({});
+  const [isSavingBatch, setIsSavingBatch] = useState(false);
+
+  // Mencegah user close tab/refresh saat ada data belum disave
+  React.useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (Object.keys(editedSamples).length > 0) {
+        e.preventDefault();
+        e.returnValue = ''; // Standard untuk memunculkan prompt browser
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [editedSamples]);
 
   const { campaign, summary, dailyPerf, approvalList, samples, schedules, videos, skus, totalSales, totalAwareness } = data;
   
@@ -38,12 +52,31 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
     }
   };
 
-  const handleUpdateResi = async (addrId: number, resi: string, proses: string, produk?: string, notes?: string) => {
+  const handleQueueUpdate = (addrId: number, field: keyof BatchUpdateData, value: string) => {
+    setEditedSamples(prev => ({
+      ...prev,
+      [addrId]: {
+        ...prev[addrId],
+        addressId: addrId,
+        [field]: value
+      }
+    }));
+  };
+
+  const handleBatchSave = async () => {
+    const updates = Object.values(editedSamples);
+    if (updates.length === 0) return;
+
+    setIsSavingBatch(true);
     try {
-      await updateResiByClient(campaignId, addrId, resi, proses, produk, notes);
+      await batchUpdateResiByClient(campaignId, updates);
+      setEditedSamples({});
       router.refresh();
+      alert("Semua perubahan berhasil disimpan!");
     } catch (err) {
-      alert("Gagal memperbarui status pengiriman. Silakan coba lagi.");
+      alert("Gagal menyimpan perubahan. Silakan coba lagi.");
+    } finally {
+      setIsSavingBatch(false);
     }
   };
 
@@ -286,7 +319,7 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                         <TableHead>Tier</TableHead>
                         <TableHead>Tipe Konten</TableHead>
                         <TableHead>Progres Sampel</TableHead>
-                        <TableHead className="w-48 text-center">Status Approval</TableHead>
+                        {campaign.require_client_approval && <TableHead className="w-48 text-center">Status Approval</TableHead>}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -315,36 +348,36 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                             <TableCell className="align-top text-sm">
                               {cc.sample_progress || 'Belum dikirim'}
                             </TableCell>
-                            <TableCell className="align-top text-center">
-                              {campaign.require_client_approval ? (
-                                cc.client_approval === 'pending' ? (
+                            {campaign.require_client_approval && (
+                              <TableCell className="align-top text-center">
+                                {cc.client_approval === 'pending' ? (
                                   <div className="flex items-center justify-center gap-2">
                                     <button 
                                       onClick={() => handleApproval(cc.id, 'approved')}
                                       disabled={isApproving === cc.id}
-                                      className="bg-green-600 hover:bg-green-700 text-white text-xs px-3 py-1.5 rounded disabled:opacity-50 transition-colors"
+                                      className="px-3 py-1.5 bg-green-100 hover:bg-green-200 text-green-700 text-xs font-semibold rounded-md transition-colors"
                                     >
-                                      Setuju
+                                      SETUJUI
                                     </button>
                                     <button 
                                       onClick={() => handleApproval(cc.id, 'rejected')}
                                       disabled={isApproving === cc.id}
-                                      className="bg-red-100 hover:bg-red-200 text-red-700 text-xs px-3 py-1.5 rounded disabled:opacity-50 transition-colors"
+                                      className="px-3 py-1.5 bg-red-100 hover:bg-red-200 text-red-700 text-xs font-semibold rounded-md transition-colors"
                                     >
-                                      Tolak
+                                      TOLAK
                                     </button>
                                   </div>
-                                ) : (
-                                  <Badge variant={cc.client_approval === 'approved' ? 'success' : 'destructive'} className="uppercase shadow-sm">
-                                    {cc.client_approval === 'approved' ? 'DISETUJUI' : 'DITOLAK'}
+                                ) : cc.client_approval === 'rejected' ? (
+                                  <Badge variant="destructive" className="uppercase shadow-sm">
+                                    DITOLAK
                                   </Badge>
-                                )
-                              ) : (
-                                <Badge variant="success" className="uppercase shadow-sm">
-                                  DISETUJUI
-                                </Badge>
-                              )}
-                            </TableCell>
+                                ) : (
+                                  <Badge variant="success" className="uppercase shadow-sm">
+                                    DISETUJUI
+                                  </Badge>
+                                )}
+                              </TableCell>
+                            )}
                           </TableRow>
                         ))
                       )}
@@ -426,7 +459,11 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                               <TableCell className="px-3 py-3">{addr.kelurahan || '-'}</TableCell>
                               <TableCell className="px-3 py-3">{addr.kode_pos || '-'}</TableCell>
                               <TableCell className="px-3 py-3">
-                                <select className="w-full text-[12px] p-1 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none bg-white" defaultValue={addr.proses || 'Diproses'} onChange={e => handleUpdateResi(addr.id, addr.resi || '', e.target.value, undefined, addr.notes || '')}>
+                                <select 
+                                  className="w-full text-[12px] p-1 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none bg-white" 
+                                  value={editedSamples[addr.id]?.proses ?? (addr.proses || 'Diproses')} 
+                                  onChange={e => handleQueueUpdate(addr.id, 'proses', e.target.value)}
+                                >
                                   <option value="Diproses">Diproses</option>
                                   <option value="Dikirim">Dikirim</option>
                                   <option value="Diterima">Diterima</option>
@@ -434,12 +471,26 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                                   <option value="Batal">Batal</option>
                                 </select>
                               </TableCell>
-                              <TableCell className="px-3 py-3">{addr.tanggal_kirim || '-'}</TableCell>
+                              <TableCell className="px-3 py-3">
+                                {editedSamples[addr.id]?.proses === 'Dikirim' ? 'Akan set hari ini' : (addr.tanggal_kirim || '-')}
+                              </TableCell>
                               <TableCell className="px-3 py-3 font-mono">
-                                <input type="text" className="w-full text-[12px] p-1 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none bg-white min-w-[120px]" placeholder="Input resi..." defaultValue={addr.resi || ''} onBlur={e => { if (e.target.value !== addr.resi) handleUpdateResi(addr.id, e.target.value, addr.proses || 'Diproses', undefined, addr.notes || '') }} />
+                                <input 
+                                  type="text" 
+                                  className="w-full text-[12px] p-1 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none bg-white min-w-[120px]" 
+                                  placeholder="Input resi..." 
+                                  value={editedSamples[addr.id]?.resi ?? (addr.resi || '')} 
+                                  onChange={e => handleQueueUpdate(addr.id, 'resi', e.target.value)} 
+                                />
                               </TableCell>
                               <TableCell className="px-3 py-3 whitespace-normal">
-                                <input type="text" className="w-full text-[12px] p-1 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none bg-white min-w-[150px]" placeholder="Notes..." defaultValue={addr.notes || ''} onBlur={e => { if (e.target.value !== addr.notes) handleUpdateResi(addr.id, addr.resi || '', addr.proses || 'Diproses', undefined, e.target.value) }} />
+                                <input 
+                                  type="text" 
+                                  className="w-full text-[12px] p-1 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none bg-white min-w-[150px]" 
+                                  placeholder="Notes..." 
+                                  value={editedSamples[addr.id]?.notes ?? (addr.notes || '')} 
+                                  onChange={e => handleQueueUpdate(addr.id, 'notes', e.target.value)} 
+                                />
                               </TableCell>
                               <TableCell className="px-3 py-3 text-center">
                                 <span className="inline-block px-[8px] py-[2px] border border-slate-200 rounded-[4px] text-[10px] font-semibold text-slate-500 uppercase bg-slate-100">
