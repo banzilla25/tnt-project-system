@@ -1,16 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import { TrendingUp, Video, Users, Package, Calendar, CheckCircle, Activity, BarChart3 } from "lucide-react";
+import { TrendingUp, Video, Users, Package, Calendar, CheckCircle, Activity, BarChart3, ChevronDown, ChevronUp } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/Table";
 import { submitClientApproval, updateResiByClient } from "../actions/portalActions";
 import { useRouter } from "next/navigation";
 
 export default function PortalDashboardClient({ data, campaignId }: { data: any, campaignId: number }) {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<'performa' | 'approval' | 'sampel' | 'live'>('performa');
+  const [activeTab, setActiveTab] = useState<'performa' | 'approval' | 'sampel' | 'live' | 'video'>('performa');
+  const [expandedVideos, setExpandedVideos] = useState<Record<string, boolean>>({});
   const [isApproving, setIsApproving] = useState<number | null>(null);
 
   const { campaign, summary, dailyPerf, approvalList, samples, schedules, videos, skus, totalSales, totalAwareness } = data;
@@ -516,37 +517,95 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                       <TableRow>
                         <TableHead className="w-16 text-center">No</TableHead>
                         <TableHead className="w-48">Kreator</TableHead>
-                        <TableHead>Link Video</TableHead>
-                        <TableHead className="text-right">Views</TableHead>
-                        <TableHead className="text-right">Likes</TableHead>
-                        <TableHead className="text-right">Sales GMV</TableHead>
+                        <TableHead className="w-32 text-center">Total Video</TableHead>
+                        <TableHead className="text-right">Total Views</TableHead>
+                        <TableHead className="text-right">Total Likes</TableHead>
+                        <TableHead className="text-right">Total Sales GMV</TableHead>
+                        <TableHead className="w-16"></TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {(!videos || videos.length === 0) ? (
                         <TableRow>
-                          <TableCell colSpan={6} className="text-center py-8 text-slate-500">Belum ada video yang disubmit.</TableCell>
+                          <TableCell colSpan={7} className="text-center py-8 text-slate-500">Belum ada video yang disubmit.</TableCell>
                         </TableRow>
                       ) : (
-                        videos.map((v: any, index: number) => (
-                          <TableRow key={v.id || index} className="hover:bg-slate-50 transition-colors">
-                            <TableCell className="text-center text-slate-500">{index + 1}</TableCell>
-                            <TableCell className="font-medium text-slate-900">@{v.creator_username}</TableCell>
-                            <TableCell>
-                              {v.link_video ? (
-                                <a href={v.link_video} target="_blank" rel="noreferrer" className="text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1 text-sm">
-                                  <Video className="w-4 h-4" /> Nonton di TikTok
+                        videos.map((creatorGroup: any, index: number) => (
+                          <React.Fragment key={creatorGroup.creator_username || index}>
+                            <TableRow 
+                              className="hover:bg-slate-50 transition-colors cursor-pointer group"
+                              onClick={() => setExpandedVideos(prev => ({...prev, [creatorGroup.creator_username]: !prev[creatorGroup.creator_username]}))}
+                            >
+                              <TableCell className="text-center font-medium text-slate-500">{index + 1}</TableCell>
+                              <TableCell>
+                                <a 
+                                  href={`https://www.tiktok.com/@${creatorGroup.creator_username}`} 
+                                  target="_blank" 
+                                  rel="noreferrer" 
+                                  className="font-bold text-blue-600 hover:text-blue-800 hover:underline"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  @{creatorGroup.creator_username}
                                 </a>
-                              ) : (
-                                <span className="text-slate-400 text-sm">Belum ada link</span>
-                              )}
-                            </TableCell>
-                            <TableCell className="text-right text-slate-400">-</TableCell>
-                            <TableCell className="text-right text-slate-400">-</TableCell>
-                            <TableCell className="text-right font-semibold text-green-700">
-                              Rp {(v.gmv || 0).toLocaleString()}
-                            </TableCell>
-                          </TableRow>
+                              </TableCell>
+                              <TableCell className="text-center font-semibold text-slate-700">
+                                {creatorGroup.total_videos} Video
+                              </TableCell>
+                              <TableCell className="text-right font-medium text-slate-700">{creatorGroup.total_views > 0 ? creatorGroup.total_views.toLocaleString() : '-'}</TableCell>
+                              <TableCell className="text-right font-medium text-slate-700">{creatorGroup.total_likes > 0 ? creatorGroup.total_likes.toLocaleString() : '-'}</TableCell>
+                              <TableCell className="text-right font-bold text-green-700">
+                                Rp {creatorGroup.total_gmv.toLocaleString()}
+                              </TableCell>
+                              <TableCell className="text-center">
+                                {expandedVideos[creatorGroup.creator_username] ? (
+                                  <ChevronUp className="w-5 h-5 text-slate-400 group-hover:text-blue-500 mx-auto" />
+                                ) : (
+                                  <ChevronDown className="w-5 h-5 text-slate-400 group-hover:text-blue-500 mx-auto" />
+                                )}
+                              </TableCell>
+                            </TableRow>
+                            {expandedVideos[creatorGroup.creator_username] && (
+                              <TableRow className="bg-slate-50/50">
+                                <TableCell colSpan={7} className="p-0 border-b-2 border-slate-200">
+                                  <div className="px-16 py-4">
+                                    <Table className="w-full text-sm bg-white border border-slate-200 rounded-lg overflow-hidden shadow-sm">
+                                      <TableHeader className="bg-slate-100/50">
+                                        <TableRow>
+                                          <TableHead className="w-12 text-center text-slate-500">No</TableHead>
+                                          <TableHead>Link Video</TableHead>
+                                          <TableHead className="text-right text-slate-500">Views</TableHead>
+                                          <TableHead className="text-right text-slate-500">Likes</TableHead>
+                                          <TableHead className="text-right text-slate-500">Sales GMV</TableHead>
+                                        </TableRow>
+                                      </TableHeader>
+                                      <TableBody>
+                                        {creatorGroup.videos.map((v: any, vIdx: number) => (
+                                          <TableRow key={v.id || vIdx}>
+                                            <TableCell className="text-center text-slate-400">{vIdx + 1}</TableCell>
+                                            <TableCell>
+                                              {v.link_video ? (
+                                                <a href={v.link_video} target="_blank" rel="noreferrer" className="text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1.5 font-medium">
+                                                  <Video className="w-4 h-4" /> Nonton di TikTok
+                                                </a>
+                                              ) : (
+                                                <span className="text-slate-400 italic">Belum ada link</span>
+                                              )}
+                                              {v.isAuto && (
+                                                <span className="inline-block mt-1 bg-green-100 text-green-700 text-[10px] px-1.5 py-0.5 rounded uppercase font-semibold">Auto Tracked</span>
+                                              )}
+                                            </TableCell>
+                                            <TableCell className="text-right font-medium text-slate-600">{v.views > 0 ? v.views.toLocaleString() : '-'}</TableCell>
+                                            <TableCell className="text-right font-medium text-slate-600">{v.likes > 0 ? v.likes.toLocaleString() : '-'}</TableCell>
+                                            <TableCell className="text-right font-semibold text-green-700">Rp {(v.gmv || 0).toLocaleString()}</TableCell>
+                                          </TableRow>
+                                        ))}
+                                      </TableBody>
+                                    </Table>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            )}
+                          </React.Fragment>
                         ))
                       )}
                     </TableBody>

@@ -116,14 +116,27 @@ export async function getPortalData(campaignId: number) {
 
   const { data: salesForVideos } = await supabase
     .from('sales')
-    .select('content_uid, gmv')
+    .select('content_uid, gmv, creator_username, raw_data')
     .eq('campaign_id', campaignId)
     .not('content_uid', 'is', null);
 
   const videoGmvMap = new Map();
+  const videoViewsMap = new Map();
+  const videoLikesMap = new Map();
+
   salesForVideos?.forEach(s => {
-    if (s.content_uid) {
-      videoGmvMap.set(s.content_uid, (videoGmvMap.get(s.content_uid) || 0) + s.gmv);
+    let vid = s.content_uid;
+    if (vid && vid.startsWith('video_')) {
+       vid = vid.split('_')[1];
+    }
+    if (vid) {
+      videoGmvMap.set(vid, (videoGmvMap.get(vid) || 0) + s.gmv);
+      
+      const views = parseInt(s.raw_data?.['Video views']?.toString().replace(/[^0-9]/g, '')) || 0;
+      const likes = parseInt(s.raw_data?.['Likes']?.toString().replace(/[^0-9]/g, '')) || parseInt(s.raw_data?.['Like']?.toString().replace(/[^0-9]/g, '')) || 0;
+      
+      if (views > (videoViewsMap.get(vid) || 0)) videoViewsMap.set(vid, views);
+      if (likes > (videoLikesMap.get(vid) || 0)) videoLikesMap.set(vid, likes);
     }
   });
 
@@ -222,16 +235,67 @@ export async function getPortalData(campaignId: number) {
     .select('id, product_id, nama_produk')
     .eq('campaign_id', campaignId);
 
-  // Extract videos and attach GMV
+  // Extract videos and attach GMV (merging DB videos + organic auto-detected videos)
   const portalVideos: any[] = [];
   enrichedCcData.forEach((cc: any) => {
+    const username = cc.creators?.username || 'Unknown';
+    const creatorVideos: any[] = [];
+    
+    // 1. Add DB videos
     if (cc.videos && Array.isArray(cc.videos)) {
       cc.videos.forEach((v: any) => {
-        portalVideos.push({
+        let vid = v.content_uid;
+        if (v.link_video && !vid) {
+            const match = v.link_video.match(/video\/(\d+)/);
+            if (match) vid = match[1];
+        }
+        creatorVideos.push({
           ...v,
-          creator_username: cc.creators?.username || 'Unknown',
-          gmv: videoGmvMap.get(v.content_uid) || 0
+          content_uid: vid,
+          creator_username: username,
+          gmv: videoGmvMap.get(vid) || 0,
+          views: videoViewsMap.get(vid) || 0,
+          likes: videoLikesMap.get(vid) || 0,
+          isAuto: false
         });
+      });
+    }
+
+    // 2. Add Auto-detected videos from sales
+    const creatorSales = salesForVideos?.filter((s: any) => s.creator_username === username && s.content_uid) || [];
+    const uniqueContentUids = new Set<string>();
+    creatorSales.forEach((s: any) => {
+       let vid = s.content_uid;
+       if (vid && vid.startsWith('video_')) {
+          vid = vid.split('_')[1];
+       }
+       if (vid && !uniqueContentUids.has(vid)) {
+          uniqueContentUids.add(vid);
+          // check if exists
+          const exists = creatorVideos.some(v => v.content_uid === vid || v.vt_code === vid);
+          if (!exists) {
+             creatorVideos.push({
+                id: `auto_${vid}`,
+                content_uid: vid,
+                link_video: `https://www.tiktok.com/@${username}/video/${vid}`,
+                creator_username: username,
+                gmv: videoGmvMap.get(vid) || 0,
+                views: videoViewsMap.get(vid) || 0,
+                likes: videoLikesMap.get(vid) || 0,
+                isAuto: true
+             });
+          }
+       }
+    });
+
+    if (creatorVideos.length > 0) {
+      portalVideos.push({
+        creator_username: username,
+        total_videos: creatorVideos.length,
+        total_gmv: creatorVideos.reduce((sum, v) => sum + (v.gmv || 0), 0),
+        total_views: creatorVideos.reduce((sum, v) => sum + (v.views || 0), 0),
+        total_likes: creatorVideos.reduce((sum, v) => sum + (v.likes || 0), 0),
+        videos: creatorVideos
       });
     }
   });
