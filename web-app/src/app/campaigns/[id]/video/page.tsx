@@ -305,7 +305,8 @@ export default function CampaignVideoPage() {
   };
 
   return (
-    <div className="space-y-[32px]">
+    <>
+      <div className="space-y-[32px]">
       <div className="flex justify-between items-center mb-[24px] gap-[16px] flex-wrap">
         <div>
           <h2 className="text-[20px] font-bold">Video & VT</h2>
@@ -572,5 +573,36 @@ export default function CampaignVideoPage() {
         )}
       </div>
     </div>
+
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent className="max-w-[400px] p-0 overflow-hidden bg-black/95 border-none">
+          <div className="relative">
+            <button 
+              onClick={() => setPreviewOpen(false)}
+              className="absolute top-2 right-2 z-50 p-2 bg-black/50 hover:bg-black text-white rounded-full transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <div className="w-full min-h-[500px] flex items-center justify-center bg-black pt-12 pb-4 px-4 overflow-y-auto max-h-[85vh]" ref={previewRef}>
+              {previewUrl && (
+                <div style={{ maxWidth: '100%', width: '100%' }} className="[&_iframe]:!max-w-full [&_.tiktok-embed]:!max-w-full flex justify-center">
+                  <blockquote 
+                    className="tiktok-embed" 
+                    cite={previewUrl}
+                    data-video-id={(() => {
+                      const match = previewUrl.match(/video\/(\d+)/);
+                      return match ? match[1] : '';
+                    })()}
+                    style={{ maxWidth: '100%', minWidth: '325px', width: '100%' }}
+                  >
+                    <section></section>
+                  </blockquote>
+                </div>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
