@@ -121,11 +121,14 @@ export function BudgetSyncModal({ campaignId: initialCampaignId, onComplete }: {
     // Process in chunks of 50 to speed up significantly
     const CHUNK_SIZE = 50;
     
-    for (let i = 0; i < preview.length; i += CHUNK_SIZE) {
-      const chunk = preview.slice(i, i + CHUNK_SIZE);
+    // Deduplikasi preview (ambil data terakhir jika ada username ganda di excel)
+    const uniquePreview = Array.from(new Map(preview.map(item => [item.username.toLowerCase(), item])).values());
+    
+    for (let i = 0; i < uniquePreview.length; i += CHUNK_SIZE) {
+      const chunk = uniquePreview.slice(i, i + CHUNK_SIZE);
       
-      setCommitStatus(`Memproses ${i + 1} - ${Math.min(i + CHUNK_SIZE, preview.length)} dari ${preview.length}`);
-      setCommitProgress(Math.round(((i + CHUNK_SIZE) / preview.length) * 100));
+      setCommitStatus(`Memproses ${i + 1} - ${Math.min(i + CHUNK_SIZE, uniquePreview.length)} dari ${uniquePreview.length}`);
+      setCommitProgress(Math.round(((i + CHUNK_SIZE) / uniquePreview.length) * 100));
 
       await Promise.all(chunk.map(async (row) => {
         const cc = ccMap.get(row.username.toLowerCase());

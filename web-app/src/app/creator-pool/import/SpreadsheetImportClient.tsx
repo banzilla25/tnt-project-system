@@ -419,12 +419,20 @@ export default function SpreadsheetImportClient() {
                                 const uname = (cols[0] || '').replace('@', '').trim().toLowerCase();
                                 const wa = (cols[1] || '').trim();
                                 const followers = (cols[2] || '').replace(/[^0-9]/g, '');
-                                const level = (cols[3] || '').replace(/[^0-9]/g, '');
-                                const audAge = (cols[4] || '').trim();
-                                const gmv = (cols[5] || '').replace(/[^0-9]/g, '');
-                                const niche = (cols[6] || '').trim();
-                                const mcn = (cols[7] || '').trim();
-                                const rate = (cols[8] || '').replace(/[^0-9]/g, '');
+                                
+                                // Auto-detect if user included the 'Tier' column from their Excel
+                                // If they pasted 10 or more columns, or if cols[3] contains text like 'Nano'/'Micro', they included Tier.
+                                let offset = 0;
+                                if (cols.length >= 10 || /nano|micro|macro|mega|auto/i.test(cols[3] || '')) {
+                                  offset = 1; // Skip the Tier column since it's auto-calculated
+                                }
+
+                                const level = (cols[3 + offset] || '').replace(/[^0-9]/g, '');
+                                const audAge = (cols[4 + offset] || '').trim();
+                                const gmv = (cols[5 + offset] || '').replace(/[^0-9]/g, '');
+                                const niche = (cols[6 + offset] || '').trim();
+                                const mcn = (cols[7 + offset] || '').trim();
+                                const rate = (cols[8 + offset] || '').replace(/[^0-9]/g, '');
                                 
                                 const newRowData: Partial<SpreadsheetRow> = {
                                   username: uname,
