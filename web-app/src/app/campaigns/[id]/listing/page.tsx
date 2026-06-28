@@ -199,6 +199,79 @@ function CampaignListingContent() {
   };
 
 
+  const COLUMNS: (keyof DynamicRow)[] = ['username', 'price', 'qtyVt', 'qtyLive', 'contentType'];
+
+  const handleGlobalPaste = (e: React.ClipboardEvent<HTMLInputElement | HTMLSelectElement>, startRowIdx: number, startColName: keyof DynamicRow) => {
+    const text = e.clipboardData.getData('text');
+    if (!text.includes('\n') && !text.includes('\t')) return;
+
+    e.preventDefault();
+    const lines = text.split(/\r?\n/).filter(line => line.trim());
+    if (lines.length === 0) return;
+
+    setDynamicRows(prevRows => {
+      const newRows = [...prevRows];
+      const startColIdx = COLUMNS.indexOf(startColName);
+      if (startColIdx === -1) return prevRows;
+
+      const pastedUsernames: string[] = [];
+
+      lines.forEach((line, lineIdx) => {
+        const rawCols = line.split('\t');
+        let cols = rawCols;
+
+        const targetRowIdx = startRowIdx + lineIdx;
+        let rowDataToUpdate: Partial<DynamicRow> = {};
+        
+        cols.forEach((colVal, colOffset) => {
+          const targetColIdx = startColIdx + colOffset;
+          if (targetColIdx < COLUMNS.length) {
+            const field = COLUMNS[targetColIdx];
+            let cleanVal = colVal;
+            
+            if (field === 'username') cleanVal = cleanVal.replace('@', '').trim().toLowerCase();
+            else if (['price', 'qtyVt', 'qtyLive'].includes(field)) cleanVal = cleanVal.replace(/[^0-9]/g, '');
+            else cleanVal = cleanVal.trim();
+
+            if (field === 'contentType') {
+                const ctypeRaw = cleanVal.toLowerCase();
+                let ctype = 'Video';
+                if (ctypeRaw.includes('live') && ctypeRaw.includes('video')) ctype = 'Video & Live';
+                else if (ctypeRaw.includes('live')) ctype = 'Live';
+                rowDataToUpdate[field] = ctype;
+            } else {
+                rowDataToUpdate[field] = cleanVal as any;
+            }
+            
+            if (field === 'username' && cleanVal) {
+              pastedUsernames.push(cleanVal);
+            }
+          }
+        });
+
+        if (targetRowIdx < newRows.length) {
+          Object.assign(newRows[targetRowIdx], rowDataToUpdate);
+        } else {
+          newRows.push({
+            id: Math.random().toString(36).substring(2, 9),
+            username: '',
+            price: '0',
+            qtyVt: '1',
+            qtyLive: '0',
+            contentType: 'Video',
+            ...rowDataToUpdate
+          } as DynamicRow);
+        }
+      });
+
+      if (pastedUsernames.length > 0) {
+        runBulkAutoDetect(pastedUsernames);
+      }
+
+      return newRows;
+    });
+  };
+
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearch(tableSearch);
@@ -1004,49 +1077,7 @@ function CampaignListingContent() {
                                   newRows[index].username = e.target.value;
                                   setDynamicRows(newRows);
                                 }}
-                                onPaste={(e) => {
-                                  const text = e.clipboardData.getData('text');
-                                  if (text.includes('\n') || text.includes('\t')) {
-                                    e.preventDefault();
-                                    const lines = text.split(/\r?\n/).filter(line => line.trim());
-                                    const newRows = [...dynamicRows];
-                                    
-                                    lines.forEach((line, i) => {
-                                      const cols = line.split('\t');
-                                      const uname = (cols[0] || '').replace('@', '').trim().toLowerCase();
-                                      const rate = (cols[1] || '').replace(/[^0-9]/g, ''); 
-                                      const qty = (cols[2] || '').replace(/[^0-9]/g, '');
-                                      const qtyLive = (cols[3] || '').replace(/[^0-9]/g, '');
-                                      const ctypeRaw = (cols[4] || '').trim().toLowerCase();
-                                      let ctype = 'Video';
-                                      if (ctypeRaw.includes('live') && ctypeRaw.includes('video')) ctype = 'Video & Live';
-                                      else if (ctypeRaw.includes('live')) ctype = 'Live';
-                                      
-                                      if (i === 0) {
-                                        newRows[index].username = uname;
-                                        if(rate) newRows[index].price = rate;
-                                        if(qty) newRows[index].qtyVt = qty;
-                                        if(qtyLive) newRows[index].qtyLive = qtyLive;
-                                        if(cols[4]) newRows[index].contentType = ctype;
-                                      } else {
-                                        newRows.splice(index + i, 0, {
-                                          id: Math.random().toString(36).substring(2, 9),
-                                          username: uname,
-                                          price: rate || '0',
-                                          qtyVt: qty || '1',
-                                          qtyLive: qtyLive || '0',
-                                          contentType: ctype
-                                        });
-                                      }
-                                    });
-                                    setDynamicRows(newRows);
-                                    
-                                    const pastedUsernames = lines.map(line => (line.split('\t')[0] || '').replace('@', '').trim()).filter(Boolean);
-                                    if (pastedUsernames.length > 0) {
-                                      runBulkAutoDetect(pastedUsernames);
-                                    }
-                                  }
-                                }}
+                                onPaste={e => handleGlobalPaste(e, index, 'username')}
                                 onBlur={e => {
                                   const val = e.target.value.replace('@', '').trim();
                                   if (val) runBulkAutoDetect([val]);
@@ -1061,6 +1092,7 @@ function CampaignListingContent() {
                                 required
                                 min="0"
                                 value={row.price}
+                                onPaste={e => handleGlobalPaste(e, index, 'price')}
                                 onChange={e => {
                                   const newRows = [...dynamicRows];
                                   newRows[index].price = e.target.value;
@@ -1075,6 +1107,7 @@ function CampaignListingContent() {
                                 required
                                 min="0"
                                 value={row.qtyVt}
+                                onPaste={e => handleGlobalPaste(e, index, 'qtyVt')}
                                 onChange={e => {
                                   const newRows = [...dynamicRows];
                                   newRows[index].qtyVt = e.target.value;
@@ -1089,6 +1122,7 @@ function CampaignListingContent() {
                                 required
                                 min="0"
                                 value={row.qtyLive}
+                                onPaste={e => handleGlobalPaste(e, index, 'qtyLive')}
                                 onChange={e => {
                                   const newRows = [...dynamicRows];
                                   newRows[index].qtyLive = e.target.value;
@@ -1100,6 +1134,7 @@ function CampaignListingContent() {
                             {renderTd('contentType', index, row.contentType, (
                               <select
                                 value={row.contentType}
+                                onPaste={e => handleGlobalPaste(e, index, 'contentType')}
                                 onChange={e => {
                                   const newRows = [...dynamicRows];
                                   newRows[index].contentType = e.target.value;
