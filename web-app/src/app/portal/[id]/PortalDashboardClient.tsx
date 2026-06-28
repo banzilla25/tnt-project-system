@@ -17,10 +17,10 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
   
   // Calculate display values based on campaign type and modern tracking data
   const isAwareness = campaign?.tipe_campaign === 'awareness' || campaign?.tipe_campaign === 'gmv_awareness';
-  const displayTotalGmv = isAwareness ? (totalAwareness?.total_gmv || summary.total_gmv_achievement || 0) : (totalSales?.total_gmv || summary.total_gmv_achievement || 0);
+  const displayOrganic = approvalList.reduce((sum: number, c: any) => sum + (c.gmv_organic || 0), 0);
+  const displayAds = approvalList.reduce((sum: number, c: any) => sum + (c.gmv_ads || 0), 0);
+  const displayTotalGmv = displayOrganic + displayAds;
   const displayTotalVideo = isAwareness ? (totalAwareness?.total_video || summary.achievement_video || 0) : (summary.achievement_video || 0);
-  const displayOrganic = isAwareness ? (totalAwareness?.total_organic || summary.total_daily_organic || 0) : (totalSales?.total_organic || summary.total_daily_organic || 0);
-  const displayAds = isAwareness ? (totalAwareness?.total_ads || summary.total_daily_vsa || 0) : (totalSales?.total_ads || summary.total_daily_vsa || 0);
 
   const percentGmv = summary.target_gmv ? Math.round((displayTotalGmv / summary.target_gmv) * 100) : 0;
   const percentVideo = summary.target_video ? Math.round((displayTotalVideo / summary.target_video) * 100) : 0;
@@ -425,15 +425,25 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                               <TableCell className="px-3 py-3">{addr.kelurahan || '-'}</TableCell>
                               <TableCell className="px-3 py-3">{addr.kode_pos || '-'}</TableCell>
                               <TableCell className="px-3 py-3">
-                                <span className={`inline-block px-[8px] py-[4px] rounded-[6px] text-[11px] font-bold ${(addr.proses === 'Dikirim' || addr.proses === 'Diterima') ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-700'}`}>
-                                  {addr.proses || 'Diproses'}
-                                </span>
+                                <select className="w-full text-[12px] p-1 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none bg-white" defaultValue={addr.proses || 'Diproses'} onChange={e => handleUpdateResi(addr.id, addr.resi || '', e.target.value, undefined, addr.notes || '')}>
+                                  <option value="Diproses">Diproses</option>
+                                  <option value="Dikirim">Dikirim</option>
+                                  <option value="Diterima">Diterima</option>
+                                  <option value="Kendala [FUI]">Kendala [FUI]</option>
+                                  <option value="Batal">Batal</option>
+                                </select>
                               </TableCell>
                               <TableCell className="px-3 py-3">{addr.tanggal_kirim || '-'}</TableCell>
-                              <TableCell className="px-3 py-3 font-mono">{addr.resi || '-'}</TableCell>
-                              <TableCell className="px-3 py-3 whitespace-normal">{addr.notes || '-'}</TableCell>
+                              <TableCell className="px-3 py-3 font-mono">
+                                <input type="text" className="w-full text-[12px] p-1 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none bg-white min-w-[120px]" placeholder="Input resi..." defaultValue={addr.resi || ''} onBlur={e => { if (e.target.value !== addr.resi) handleUpdateResi(addr.id, e.target.value, addr.proses || 'Diproses', undefined, addr.notes || '') }} />
+                              </TableCell>
+                              <TableCell className="px-3 py-3 whitespace-normal">
+                                <input type="text" className="w-full text-[12px] p-1 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none bg-white min-w-[150px]" placeholder="Notes..." defaultValue={addr.notes || ''} onBlur={e => { if (e.target.value !== addr.notes) handleUpdateResi(addr.id, addr.resi || '', addr.proses || 'Diproses', undefined, e.target.value) }} />
+                              </TableCell>
                               <TableCell className="px-3 py-3 text-center">
-                                <span className="inline-block px-[8px] py-[2px] border border-slate-200 rounded-[4px] text-[10px] font-semibold text-slate-500 uppercase bg-slate-100">{cc?.client_approval || 'pending'}</span>
+                                <span className="inline-block px-[8px] py-[2px] border border-slate-200 rounded-[4px] text-[10px] font-semibold text-slate-500 uppercase bg-slate-100">
+                                  {cc?.client_approval === 'NOT_REQUIRED' ? 'APPROVED' : (cc?.client_approval || 'pending')}
+                                </span>
                               </TableCell>
                             </TableRow>
                           );
