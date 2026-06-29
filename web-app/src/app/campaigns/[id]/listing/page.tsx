@@ -38,7 +38,6 @@ function CampaignListingContent() {
     videos,
     skus,
     niches,
-    vw_campaign_summary,
     updateCampaignCreator, 
     deleteCampaignCreator 
   } = useDatabaseStore();
@@ -613,9 +612,14 @@ function CampaignListingContent() {
         query = query.eq('approval', 'pending');
       } else if (filterUnattributed) {
         query = query.eq('approval', 'pending');
-        const salesUsernames = vw_campaign_summary
-          .filter(c => c.campaign_id === campaignId && c.gmv_organic > 0)
-          .map(c => c.creator_username.toLowerCase());
+        
+        const { data: salesData } = await supabase
+          .from('campaign_sales_summary')
+          .select('creator_username')
+          .eq('campaign_id', campaignId)
+          .gt('gmv_organic', 0);
+          
+        const salesUsernames = (salesData || []).map(c => c.creator_username.toLowerCase());
         
         if (salesUsernames.length > 0) {
           query = query.in('creators.username', salesUsernames);
