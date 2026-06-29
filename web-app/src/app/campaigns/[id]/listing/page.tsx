@@ -97,7 +97,7 @@ function CampaignListingContent() {
           approval: cc.approval,
           client_approval: cc.client_approval || 'not_required',
           assigned_sku_ids: cc.assigned_sku_ids || [],
-          content_type: cc.content_type || 'Video'
+          content_type: cc.content_type || null
         }
       };
       (existing as any)[field] = value;
