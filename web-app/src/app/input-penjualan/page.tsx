@@ -10,9 +10,10 @@ import { uploadAds } from './actions/uploadAds';
 import OrganicImport from './OrganicImport';
 import AdsImport from './AdsImport';
 import { useAuth } from '@/providers/AuthProvider';
+import { LiveSyncModal } from '@/components/LiveSyncModal';
 
 export default function InputPenjualanPage() {
-  const [activeTab, setActiveTab] = useState<'organik' | 'ads'>('organik');
+  const [activeTab, setActiveTab] = useState<'organik' | 'ads' | 'live'>('organik');
   const { profile } = useAuth();
   
   const isManager = profile?.role === 'manager';
@@ -57,6 +58,15 @@ export default function InputPenjualanPage() {
             <span className="absolute bottom-0 left-0 w-full h-0.5 bg-indigo-600 rounded-t-full" />
           )}
         </button>
+        <button
+          className={`pb-4 px-4 font-medium text-sm transition-colors relative ${activeTab === 'live' ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
+          onClick={() => setActiveTab('live')}
+        >
+          Data Live Organik
+          {activeTab === 'live' && (
+            <span className="absolute bottom-0 left-0 w-full h-0.5 bg-indigo-600 rounded-t-full" />
+          )}
+        </button>
       </div>
 
       {activeTab === 'organik' && (
@@ -65,6 +75,12 @@ export default function InputPenjualanPage() {
 
       {activeTab === 'ads' && (
         <AdsImport />
+      )}
+
+      {activeTab === 'live' && (
+        <div className="py-8">
+          <LiveSyncModal />
+        </div>
       )}
     </div>
   );
