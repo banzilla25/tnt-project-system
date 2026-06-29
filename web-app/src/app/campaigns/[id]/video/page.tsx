@@ -661,30 +661,23 @@ export default function CampaignVideoPage() {
                                 {isAwareness ? (
                                   <>
                                     <td>
-                                      {v.id || hasContentUid ? (
-                                        <div className="space-y-[4px]">
-                                          <div className="text-[13px] font-bold text-text">
-                                            {(() => {
-                                              const sales = (cc._localSales || []).filter((s: any) => s.content_uid && v.content_uid && s.content_uid === v.content_uid);
-                                              const maxViews = sales.length > 0 ? Math.max(...sales.map((s: any) => parseInt(s.raw_data?.['Video views']?.toString().replace(/[^0-9]/g, '')) || 0)) : 0;
-                                              return maxViews > 0 ? maxViews.toLocaleString() : '-';
-                                      <div className="space-y-[4px]">
-                                        <div className="text-[13px] font-bold text-text">
-                                          {vidViews.toLocaleString('id-ID')}
+                                      <div className="flex items-center gap-2">
+                                        <div className="flex-1">
+                                          <div className="text-[12px] text-text-soft">Views</div>
+                                          <div className="font-semibold">{vidViews.toLocaleString('id-ID')}</div>
                                         </div>
-                                        <div className="text-[11px] text-text-soft">Tayangan</div>
                                       </div>
                                     </td>
                                     <td>
                                       <select 
-                                        className="select"
+                                        className="select w-full"
                                         value={v.sku_id || ''}
                                         onChange={(e) => handleVideoChange(cc.id, v.urutan, 'sku_id', e.target.value)}
                                         disabled={!hasAccess}
                                       >
                                         <option value="">Pilih Produk...</option>
-                                        {skus.filter(s => s.campaign_id === campaignId).map(sku => (
-                                          <option key={sku.id} value={sku.id}>{sku.nama_produk}</option>
+                                        {skus.filter(s => s.campaign_id === campaignId).map(s => (
+                                          <option key={s.id} value={s.id}>{s.name || s.product_id}</option>
                                         ))}
                                       </select>
                                     </td>
@@ -692,27 +685,24 @@ export default function CampaignVideoPage() {
                                 ) : (
                                   <>
                                     <td>
-                                      {v.id || hasContentUid ? (
-                                        <div className="space-y-[4px]">
-                                          <div className="text-[13px] font-bold text-green-700">
-                                            Rp {(cc._localSales || []).filter((s: any) => s.content_uid && v.content_uid && s.content_uid === v.content_uid).reduce((sum: number, row: any) => sum + row.gmv, 0).toLocaleString()}
-                                          </div>
-                                          <div className="text-[11px] text-text-soft">Organic Sales</div>
-                                        </div>
-                                      ) : (
-                                        <span className="text-[12px] text-text-soft">Simpan video dulu</span>
-                                      )}
+                                      <div className="font-semibold text-[15px] text-green-600">
+                                        {hasContentUid ? (
+                                          `Rp ${vidGmv.toLocaleString('id-ID')}`
+                                        ) : (
+                                          <span className="text-text-soft text-[13px] font-normal">Simpan video dulu</span>
+                                        )}
+                                      </div>
                                     </td>
                                     <td>
                                       <select 
-                                        className="select"
+                                        className="select w-full"
                                         value={v.sku_id || ''}
                                         onChange={(e) => handleVideoChange(cc.id, v.urutan, 'sku_id', e.target.value)}
                                         disabled={!hasAccess}
                                       >
                                         <option value="">Pilih Produk...</option>
-                                        {skus.filter(s => s.campaign_id === campaignId).map(sku => (
-                                          <option key={sku.id} value={sku.id}>{sku.nama_produk}</option>
+                                        {skus.filter(s => s.campaign_id === campaignId).map(s => (
+                                          <option key={s.id} value={s.id}>{s.name || s.product_id}</option>
                                         ))}
                                       </select>
                                     </td>
