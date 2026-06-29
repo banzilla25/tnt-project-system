@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { useDatabaseStore } from "@/store/useDatabaseStore";
-import { Calendar, Trash2, Plus, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
+import { Calendar, Trash2, Plus, ArrowUp, ArrowDown, ArrowUpDown, CheckCircle2, XCircle } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 
 const supabase = createClient();
@@ -20,7 +20,8 @@ export default function LiveSchedulePage() {
     addLiveSchedule,
     deleteLiveSchedule,
     isLoading,
-    campaigns
+    campaigns,
+    skus
   } = useDatabaseStore();
 
   const campaign = campaigns.find(c => c.id === campaignId);
@@ -31,6 +32,10 @@ export default function LiveSchedulePage() {
 
   const [localCreators, setLocalCreators] = useState<any[]>([]);
   const [isFetchingCC, setIsFetchingCC] = useState(true);
+  
+  const [actualLives, setActualLives] = useState<any[]>([]);
+  const [actualLiveProducts, setActualLiveProducts] = useState<any[]>([]);
+
   const [sortConfig, setSortConfig] = useState<{ key: string; dir: 'asc' | 'desc' }>({ key: 'username', dir: 'asc' });
 
   const toggleSort = (key: string) => {
@@ -79,6 +84,40 @@ export default function LiveSchedulePage() {
     };
     fetchCCs();
   }, [campaignId, campaign?.require_client_approval]);
+
+  useEffect(() => {
+    const fetchActualLives = async () => {
+      if (!campaignId || localCreators.length === 0) return;
+      
+      const usernames = localCreators.map(cc => cc.creators?.username).filter(Boolean);
+      if (usernames.length === 0) return;
+      
+      // Fetch live sessions
+      const { data: sessions } = await supabase
+        .from('live_sessions')
+        .select('*')
+        .in('creator_username', usernames);
+        
+      if (sessions && sessions.length > 0) {
+        setActualLives(sessions);
+        
+        const roomIds = sessions.map(s => s.livestream_room_id);
+        
+        // Fetch products for these rooms
+        // Split into chunks if > 1000, but usually safe for a single campaign's lives
+        const { data: products } = await supabase
+          .from('live_session_products')
+          .select('*')
+          .in('livestream_room_id', roomIds);
+          
+        if (products) {
+          setActualLiveProducts(products);
+        }
+      }
+    };
+    
+    fetchActualLives();
+  }, [campaignId, localCreators]);
 
   const approvedCCs = localCreators
     .filter(cc => {
@@ -145,17 +184,17 @@ export default function LiveSchedulePage() {
           <table className="w-full">
             <thead className="border-b border-line bg-slate-50">
               <tr>
-                <th className="w-64 py-[16px]">
+                <th className="w-64 py-[16px] px-[16px] text-left">
                   <button onClick={() => toggleSort('username')} className="flex items-center font-semibold hover:text-blue-600 transition-colors">
                     Kreator <SortIcon col="username" />
                   </button>
                 </th>
-                <th className="py-[16px]">
+                <th className="py-[16px] px-[16px] text-left">
                   <button onClick={() => toggleSort('jadwal')} className="flex items-center font-semibold hover:text-blue-600 transition-colors">
-                    Jadwal Terdaftar <SortIcon col="jadwal" />
+                    Jadwal & Realisasi Live <SortIcon col="jadwal" />
                   </button>
                 </th>
-                <th className="w-64 py-[16px]">Tambah Jadwal</th>
+                <th className="w-64 py-[16px] px-[16px] text-left">Tambah Jadwal</th>
               </tr>
             </thead>
             <tbody>
@@ -168,31 +207,99 @@ export default function LiveSchedulePage() {
               ) : (
                 approvedCCs.map((cc) => {
                   const creator = cc.creators;
-                  const schedules = live_schedules.filter(l => l.campaign_creator_id === cc.id);
+                  const schedules = live_schedules.filter(l => l.campaign_creator_id === cc.id).sort((a, b) => new Date(a.tanggal_live).getTime() - new Date(b.tanggal_live).getTime());
+
+                  // Get actual lives for this creator
+                  const creatorLives = actualLives.filter(l => l.creator_username === creator?.username);
 
                   return (
                     <tr key={cc.id} className="border-b border-line hover:bg-slate-50/50">
-                      <td className="align-top">
+                      <td className="align-top px-[16px] py-[16px]">
                         <div className="font-medium text-text">@{creator?.username}</div>
                         <span className="inline-block mt-[4px] px-[8px] py-[2px] border border-line rounded-[4px] text-[10px] font-semibold text-text-soft uppercase bg-slate-100">{cc.approval}</span>
                       </td>
-                      <td className="align-top">
+                      <td className="align-top px-[16px] py-[16px]">
                         {schedules.length === 0 ? (
                           <span className="text-[13px] text-text-soft italic">Belum ada jadwal live</span>
                         ) : (
-                          <div className="flex flex-wrap gap-[8px]">
-                            {schedules.map(schedule => (
-                              <div key={schedule.id} className="flex items-center gap-[8px] bg-blue-50 text-blue-800 border border-blue-200 px-[12px] py-[6px] rounded-full text-[13px] font-medium">
-                                <span>{new Date(schedule.tanggal_live).toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short' })}</span>
-                                <button onClick={() => handleDelete(schedule.id)} className="text-red-500 hover:text-red-700">
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            ))}
+                          <div className="flex flex-col gap-[12px]">
+                            {schedules.map(schedule => {
+                              const scheduledDate = new Date(schedule.tanggal_live).toISOString().substring(0, 10);
+                              
+                              // Check if there are lives on this date
+                              const livesOnDate = creatorLives.filter(l => l.start_time && l.start_time.startsWith(scheduledDate));
+                              
+                              let totalViews = 0;
+                              let campaignGmv = 0;
+                              
+                              if (livesOnDate.length > 0) {
+                                totalViews = livesOnDate.reduce((sum, l) => sum + (l.live_views || 0), 0);
+                                
+                                const roomIds = livesOnDate.map(l => l.livestream_room_id);
+                                const products = actualLiveProducts.filter(p => roomIds.includes(p.livestream_room_id));
+                                
+                                // Calculate GMV strictly for this campaign
+                                products.forEach(p => {
+                                  if (p.product_id && skus.find(s => s.product_id === p.product_id && s.campaign_id === campaignId)) {
+                                    campaignGmv += (p.gmv || 0);
+                                  }
+                                });
+                              }
+
+                              const isDone = livesOnDate.length > 0;
+                              // Check if past (ignoring time by just using date string comparison)
+                              const todayDate = new Date().toISOString().substring(0, 10);
+                              const isPast = scheduledDate < todayDate;
+
+                              return (
+                                <div key={schedule.id} className={`flex items-start gap-[12px] p-3 rounded-lg border ${isDone ? 'bg-green-50 border-green-200' : isPast ? 'bg-red-50 border-red-200' : 'bg-blue-50 border-blue-200'}`}>
+                                  <div className="mt-0.5">
+                                    {isDone ? (
+                                      <CheckCircle2 className="w-5 h-5 text-green-600" />
+                                    ) : isPast ? (
+                                      <XCircle className="w-5 h-5 text-red-500" />
+                                    ) : (
+                                      <Calendar className="w-5 h-5 text-blue-500" />
+                                    )}
+                                  </div>
+                                  <div className="flex-1">
+                                    <div className="flex items-center justify-between">
+                                      <span className={`text-[14px] font-semibold ${isDone ? 'text-green-800' : isPast ? 'text-red-800' : 'text-blue-800'}`}>
+                                        {new Date(schedule.tanggal_live).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                                      </span>
+                                      <button onClick={() => handleDelete(schedule.id)} className="text-slate-400 hover:text-red-600 p-1">
+                                        <Trash2 className="w-4 h-4" />
+                                      </button>
+                                    </div>
+                                    
+                                    {isDone ? (
+                                      <div className="mt-2 grid grid-cols-2 gap-4 text-sm text-green-700 bg-white/50 p-2 rounded">
+                                        <div>
+                                          <div className="text-xs opacity-70">Total Views</div>
+                                          <div className="font-semibold">{totalViews.toLocaleString('id-ID')}</div>
+                                        </div>
+                                        <div>
+                                          <div className="text-xs opacity-70">GMV Campaign</div>
+                                          <div className="font-semibold">Rp {campaignGmv.toLocaleString('id-ID')}</div>
+                                        </div>
+                                      </div>
+                                    ) : isPast ? (
+                                      <div className="mt-1 text-sm text-red-600 italic">
+                                        Kreator tidak melakukan Live pada jadwal ini (Tidak ada data terdeteksi).
+                                      </div>
+                                    ) : (
+                                      <div className="mt-1 text-sm text-blue-600">
+                                        Menunggu pelaksanaan Live...
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
                           </div>
                         )}
                       </td>
-                      <td className="align-top">
+                      <td className="align-top px-[16px] py-[16px]">
                         <div className="flex gap-[8px]">
                           <input
                             type="date"
