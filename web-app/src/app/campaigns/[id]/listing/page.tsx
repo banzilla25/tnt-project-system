@@ -59,7 +59,8 @@ function CampaignListingContent() {
     approval?: string;
     client_approval?: string;
     assigned_sku_ids?: number[];
-    original: { price: number; qty_vt: number; qty_live: number; approval: string; client_approval: string; assigned_sku_ids: number[] };
+    content_type?: string;
+    original: { price: number; qty_vt: number; qty_live: number; approval: string; client_approval: string; assigned_sku_ids: number[]; content_type: string };
   };
   const [pendingChanges, setPendingChanges] = useState<Map<number, PendingChange>>(new Map());
   const [editingCellId, setEditingCellId] = useState<string | null>(null); // "ccId-field" e.g. "123-price"
@@ -95,14 +96,15 @@ function CampaignListingContent() {
           qty_live: cc.qty_live || 0,
           approval: cc.approval,
           client_approval: cc.client_approval || 'not_required',
-          assigned_sku_ids: cc.assigned_sku_ids || []
+          assigned_sku_ids: cc.assigned_sku_ids || [],
+          content_type: cc.content_type || 'Video'
         }
       };
       (existing as any)[field] = value;
 
       // Check if all changed fields match original
       const orig = existing.original;
-      const fields = ['price', 'qty_vt', 'qty_live', 'approval', 'client_approval', 'assigned_sku_ids'] as const;
+      const fields = ['price', 'qty_vt', 'qty_live', 'approval', 'client_approval', 'assigned_sku_ids', 'content_type'] as const;
       let hasRealChange = false;
       for (const f of fields) {
         const changedVal = (existing as any)[f];
@@ -136,6 +138,7 @@ function CampaignListingContent() {
       if (change.qty_vt !== undefined) updates.qty_vt = change.qty_vt;
       if (change.qty_live !== undefined) updates.qty_live = change.qty_live;
       if (change.assigned_sku_ids !== undefined) updates.assigned_sku_ids = change.assigned_sku_ids;
+      if (change.content_type !== undefined) updates.content_type = change.content_type;
       if (change.approval !== undefined) {
         updates.approval = change.approval;
         if (change.approval !== change.original.approval) {
