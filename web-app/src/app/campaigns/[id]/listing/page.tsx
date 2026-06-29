@@ -219,6 +219,7 @@ function CampaignListingContent() {
   const [rawRecapData, setRawRecapData] = useState<any[]>([]);
   const [recapFilterPic, setRecapFilterPic] = useState<string>('');
   const [recapStartIndex, setRecapStartIndex] = useState(0);
+  const [filterPendingWithVideo, setFilterPendingWithVideo] = useState(false);
 
   // Add Creator Modal State
   type DynamicRow = { id: string; username: string; price: string; qtyVt: string; qtyLive: string; contentType: string };
@@ -491,7 +492,7 @@ function CampaignListingContent() {
           creator_snapshots${filterTier || filterLevel ? '!inner' : ''} ( id, audience_age, level, gmv_30d, tanggal_update, followers, tier ),
           creator_niches${filterNiche ? '!inner' : ''} ( niche_id, niches ( nama ) )
         ),
-        videos (
+        videos${filterPendingWithVideo ? '!inner' : ''} (
           id, urutan, concept, link_video, vt_approval
         )
       `;
@@ -501,7 +502,12 @@ function CampaignListingContent() {
       // Filters
       if (filterType === 'auto_detect') query = query.eq('tier', 'Auto-Detect');
       if (filterType === 'regular') query = query.or('tier.neq.Auto-Detect,tier.is.null');
-      if (statusFilter !== 'all') query = query.eq('approval', statusFilter);
+      
+      if (filterPendingWithVideo) {
+        query = query.eq('approval', 'pending');
+      } else if (statusFilter !== 'all') {
+        query = query.eq('approval', statusFilter);
+      }
       
       // Multi-dimensional filters
       if (filterTier) query = query.ilike('creators.creator_snapshots.tier', `%${filterTier}%`);
@@ -1048,7 +1054,19 @@ function CampaignListingContent() {
               <option key={p.id} value={p.id}>{p.nama}</option>
             ))}
           </select>
-          {(statusFilter !== 'all' || filterTier || filterLevel || filterNiche || filterAddedBy || filterActionBy) && (
+          <label className="flex items-center gap-2 text-sm text-slate-700 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors">
+            <input 
+              type="checkbox" 
+              checked={filterPendingWithVideo}
+              onChange={(e) => {
+                setFilterPendingWithVideo(e.target.checked);
+                if (e.target.checked) setStatusFilter('pending');
+              }}
+              className="rounded border-slate-300 text-p300 focus:ring-p300"
+            />
+            <span className="font-medium whitespace-nowrap">Pending ber-Video (Sisa)</span>
+          </label>
+          {(statusFilter !== 'all' || filterTier || filterLevel || filterNiche || filterAddedBy || filterActionBy || filterPendingWithVideo) && (
             <button 
               onClick={() => {
                 setStatusFilter('all');
@@ -1057,6 +1075,7 @@ function CampaignListingContent() {
                 setFilterNiche('');
                 setFilterAddedBy('');
                 setFilterActionBy('');
+                setFilterPendingWithVideo(false);
               }} 
               className="btn btn-outline text-red-500 border-red-200 hover:bg-red-50 flex-1 md:flex-none"
             >
