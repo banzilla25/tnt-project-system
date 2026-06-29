@@ -220,6 +220,8 @@ function CampaignListingContent() {
   const [recapFilterPic, setRecapFilterPic] = useState<string>('');
   const [recapStartIndex, setRecapStartIndex] = useState(0);
   const [filterPendingWithVideo, setFilterPendingWithVideo] = useState(false);
+  const [duplicateGroups, setDuplicateGroups] = useState<any[]>([]);
+  const [isDuplicateModalOpen, setIsDuplicateModalOpen] = useState(false);
 
   // Add Creator Modal State
   type DynamicRow = { id: string; username: string; price: string; qtyVt: string; qtyLive: string; contentType: string };
@@ -397,6 +399,48 @@ function CampaignListingContent() {
     return () => clearTimeout(handler);
   }, [tableSearch]);
 
+  const checkDuplicates = useCallback(async () => {
+    let allData: any[] = [];
+    let start = 0;
+    const pageSize = 1000;
+    
+    while (true) {
+      const { data, error } = await supabase
+        .from('campaign_creators')
+        .select(`
+          id, campaign_id, creator_id, price, qty_vt, approval, sample_progress, status_bayar, notes_manager, notes_pic,
+          creators ( username ),
+          videos ( id, urutan, concept, link_video, vt_approval )
+        `)
+        .eq('campaign_id', campaignId)
+        .range(start, start + pageSize - 1);
+
+      if (error || !data || data.length === 0) break;
+      allData = allData.concat(data);
+      if (data.length < pageSize) break;
+      start += pageSize;
+    }
+
+    const groupings: Record<string, any[]> = {};
+    for (const row of allData) {
+      const key = `${row.campaign_id}_${row.creator_id}`;
+      if (!groupings[key]) groupings[key] = [];
+      groupings[key].push(row);
+    }
+
+    const dups: any[] = [];
+    for (const [key, rows] of Object.entries(groupings)) {
+      if (rows.length > 1) {
+        dups.push(rows);
+      }
+    }
+    setDuplicateGroups(dups);
+  }, [campaignId]);
+
+  useEffect(() => {
+    checkDuplicates();
+  }, [checkDuplicates]);
+
   const fetchCounts = useCallback(async () => {
     // Supabase has a default limit of 1000 rows for data fetching.
     // To get the true counts for large campaigns, we use head: true and count: 'exact'
@@ -417,11 +461,28 @@ function CampaignListingContent() {
 
     setCounts({ approved, pending, alternate, not_approved, all });
 
-    // Fetch Daily Recap Data and Tier Breakdown Data
-    const { data: recapData } = await supabase.from('campaign_creators').select('id, approval, approved_at, created_at, added_by, tier').eq('campaign_id', campaignId);
-    if (recapData) {
-      setRawRecapData(recapData);
+    // Fetch Daily Recap Data and Tier Breakdown Data using pagination to get true counts
+    let allRecapData: any[] = [];
+    let start = 0;
+    const pageSize = 1000;
+    while (true) {
+      const { data } = await supabase
+        .from('campaign_creators')
+        .select(`
+          id, approval, approved_at, created_at, added_by, tier,
+          creators (
+            creator_snapshots ( tier )
+          )
+        `)
+        .eq('campaign_id', campaignId)
+        .range(start, start + pageSize - 1);
+        
+      if (!data || data.length === 0) break;
+      allRecapData = allRecapData.concat(data);
+      if (data.length < pageSize) break;
+      start += pageSize;
     }
+    setRawRecapData(allRecapData);
   }, [campaignId]);
 
   useEffect(() => {
@@ -460,7 +521,8 @@ function CampaignListingContent() {
     };
 
     rawRecapData.forEach(r => {
-      const t = r.tier;
+      const snapshotTier = r.creators?.creator_snapshots?.[0]?.tier;
+      const t = snapshotTier || r.tier;
       if (t && ['Nano', 'Micro', 'Macro', 'Mega'].includes(t)) {
         tCounts.all[t]++;
         if (r.approval === 'approved') tCounts.approved[t]++;
@@ -510,7 +572,10 @@ function CampaignListingContent() {
       }
       
       // Multi-dimensional filters
-      if (filterTier) query = query.ilike('creators.creator_snapshots.tier', `%${filterTier}%`);
+      // Multi-dimensional filters
+      if (filterTier) {
+        query = query.eq('creators.creator_snapshots.tier', filterTier);
+      }
       if (filterLevel) query = query.eq('creators.creator_snapshots.level', filterLevel);
       if (filterNiche) query = query.eq('creators.creator_niches.niche_id', filterNiche);
       if (filterAddedBy) query = query.eq('added_by', filterAddedBy);
@@ -596,12 +661,12 @@ function CampaignListingContent() {
     } finally {
       setIsLoading(false);
     }
-  }, [campaignId, filterType, statusFilter, debouncedSearch, sortConfig, filterTier, filterLevel, filterNiche, filterAddedBy, filterActionBy]);
+  }, [campaignId, filterType, statusFilter, debouncedSearch, sortConfig, filterTier, filterLevel, filterNiche, filterAddedBy, filterActionBy, filterPendingWithVideo]);
 
   useEffect(() => {
     setPage(0);
     fetchListing(0, true);
-  }, [debouncedSearch, filterType, statusFilter, sortConfig, fetchListing, filterTier, filterLevel, filterNiche, filterAddedBy, filterActionBy]);
+  }, [debouncedSearch, filterType, statusFilter, sortConfig, fetchListing, filterTier, filterLevel, filterNiche, filterAddedBy, filterActionBy, filterPendingWithVideo]);
 
   const handleLoadMore = () => {
     const next = page + 1;
@@ -1001,6 +1066,19 @@ function CampaignListingContent() {
               }
             }}>
               Bulk Approve Klien
+            </button>
+          )}
+
+          {hasAccess && (
+            <button 
+              className={`btn ${duplicateGroups.length > 0 ? 'bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 animate-pulse' : 'btn-outline border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+              onClick={() => {
+                if (duplicateGroups.length > 0) setIsDuplicateModalOpen(true);
+              }}
+              disabled={duplicateGroups.length === 0}
+            >
+              <AlertCircle className="w-4 h-4 mr-2" />
+              Data Dobel ({duplicateGroups.length})
             </button>
           )}
 
@@ -2020,6 +2098,120 @@ function CampaignListingContent() {
          <div className="flex justify-center py-12">
             <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
          </div>
+      )}
+
+      {isDuplicateModalOpen && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl w-full max-w-5xl max-h-[90vh] flex flex-col shadow-xl">
+            <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-2xl">
+              <div>
+                <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                  <AlertCircle className="w-5 h-5 text-red-500" />
+                  Duplicate Manager
+                </h3>
+                <p className="text-sm text-slate-500 mt-1">
+                  Ditemukan {duplicateGroups.length} kreator dengan data ganda. Silakan pilih data mana yang ingin dihapus. Data video pada baris yang dihapus akan otomatis dipindahkan ke baris yang dipertahankan.
+                </p>
+              </div>
+              <button onClick={() => setIsDuplicateModalOpen(false)} className="text-slate-400 hover:text-slate-600 hover:bg-slate-200 p-2 rounded-full transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-6 bg-slate-50/50">
+              {duplicateGroups.length === 0 ? (
+                <div className="text-center py-12">
+                  <CheckCircle2 className="w-16 h-16 text-green-500 mx-auto mb-4" />
+                  <h4 className="text-lg font-bold text-slate-800">Semua Bersih!</h4>
+                  <p className="text-slate-500">Tidak ada data ganda yang terdeteksi.</p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {duplicateGroups.map((group, gIdx) => (
+                    <div key={gIdx} className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                      <div className="bg-slate-100 px-4 py-3 border-b border-slate-200 flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-sm">
+                          {gIdx + 1}
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-slate-800">@{group[0]?.creators?.username}</h4>
+                          <span className="text-xs text-slate-500">Terdapat {group.length} baris data</span>
+                        </div>
+                      </div>
+                      <div className="p-4 overflow-x-auto">
+                        <table className="w-full text-sm text-left">
+                          <thead className="text-xs text-slate-500 uppercase bg-slate-50">
+                            <tr>
+                              <th className="px-4 py-2 rounded-tl-lg">ID</th>
+                              <th className="px-4 py-2">Status</th>
+                              <th className="px-4 py-2">Harga</th>
+                              <th className="px-4 py-2">Progres Sampel</th>
+                              <th className="px-4 py-2">Status Bayar</th>
+                              <th className="px-4 py-2">Video (Qty)</th>
+                              <th className="px-4 py-2 rounded-tr-lg">Aksi</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {group.map((row: any, rIdx: number) => (
+                              <tr key={row.id} className="border-b border-slate-100 hover:bg-slate-50">
+                                <td className="px-4 py-3 font-mono text-xs">{row.id}</td>
+                                <td className="px-4 py-3">
+                                  <span className={`px-2 py-1 rounded text-xs font-semibold ${row.approval === 'approved' ? 'bg-green-100 text-green-700' : row.approval === 'pending' ? 'bg-orange-100 text-orange-700' : 'bg-slate-100 text-slate-700'}`}>
+                                    {row.approval}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3 font-medium">Rp {row.price?.toLocaleString('id-ID') || 0}</td>
+                                <td className="px-4 py-3 text-slate-600">{row.sample_progress || '-'}</td>
+                                <td className="px-4 py-3 text-slate-600">{row.status_bayar || 'belum'}</td>
+                                <td className="px-4 py-3">
+                                  <div className="flex items-center gap-1">
+                                    <span className="font-bold text-blue-600">{row.videos?.length || 0}</span>
+                                    <span className="text-slate-400 text-xs">/ {row.qty_vt || 0}</span>
+                                  </div>
+                                </td>
+                                <td className="px-4 py-3">
+                                  <button 
+                                    className="btn btn-sm bg-red-50 text-red-600 hover:bg-red-500 hover:text-white border-0 transition-colors"
+                                    onClick={async () => {
+                                      if (confirm(`Yakin ingin MENGHAPUS baris ID ${row.id} ini? \n\n(Jika ada video di baris ini, akan dipindahkan ke baris lain)`)) {
+                                        const keepRow = group.find((r: any) => r.id !== row.id);
+                                        try {
+                                          if (row.videos && row.videos.length > 0 && keepRow) {
+                                            for (const v of row.videos) {
+                                              await supabase.from('videos').update({ campaign_creator_id: keepRow.id }).eq('id', v.id);
+                                            }
+                                          }
+                                          await supabase.from('campaign_creators').delete().eq('id', row.id);
+                                          
+                                          setDuplicateGroups(prev => {
+                                            const next = [...prev];
+                                            next[gIdx] = next[gIdx].filter((r: any) => r.id !== row.id);
+                                            if (next[gIdx].length <= 1) next.splice(gIdx, 1);
+                                            return next;
+                                          });
+                                          fetchListing(0, true);
+                                          fetchCounts();
+                                        } catch (e) {
+                                          alert("Gagal menghapus data dobel.");
+                                        }
+                                      }
+                                    }}
+                                  >
+                                    <Trash2 className="w-3 h-3 mr-1" /> Hapus
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
