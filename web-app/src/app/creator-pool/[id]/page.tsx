@@ -50,6 +50,7 @@ export default function CreatorProfilePage() {
     auditLogs: any[];
     liveSessions: any[];
     liveProducts: any[];
+    organicVideos: any[];
   } | null>(null);
 
   useEffect(() => {
@@ -110,18 +111,17 @@ export default function CreatorProfilePage() {
         }
 
         let liveProducts: any[] = [];
-        const lsData = arguments[0]?.[8]?.data || []; // Note: actually we destructured it as a missing variable, let's just do another fetch or get it directly. Wait, the Promise.all array index is 8.
-        // It's cleaner to just fetch it separately since we didn't destructure it well in the array.
         const { data: liveSess } = await supabase.from('live_sessions').select('*').ilike('creator_username', creator.username).order('start_time', { ascending: false });
         if (liveSess && liveSess.length > 0) {
           const roomIds = liveSess.map((ls: any) => ls.livestream_room_id);
-          // fetch products in chunks
           for (let i = 0; i < roomIds.length; i += 100) {
             const chunk = roomIds.slice(i, i + 100);
             const { data: lp } = await supabase.from('live_session_products').select('*').in('livestream_room_id', chunk);
             if (lp) liveProducts = [...liveProducts, ...lp];
           }
         }
+
+        const { data: orgVids } = await supabase.from('organic_videos').select('*').ilike('creator_username', creator.username).order('post_time', { ascending: false });
 
         setLocalData({
           creator,
@@ -136,7 +136,8 @@ export default function CreatorProfilePage() {
           addressBook: addressBookResult || [],
           auditLogs: auditLogsResult || [],
           liveSessions: liveSess || [],
-          liveProducts: liveProducts || []
+          liveProducts: liveProducts || [],
+          organicVideos: orgVids || []
         });
       } catch (err) {
         console.error("Error fetching creator data:", err);
