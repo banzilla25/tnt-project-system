@@ -599,6 +599,33 @@ export default function CampaignVideoPage() {
                             const dynamicContentUid = extractedMatch ? extractedMatch[1] : v.content_uid;
                             const hasContentUid = !!dynamicContentUid;
 
+                            // Calculate metrics for this specific video
+                            let vidGmv = 0;
+                            let vidViews = 0;
+                            let vidLikes = 0;
+
+                            if (hasContentUid) {
+                               const ccSales = cc._localSales || [];
+                               ccSales.forEach((s: any) => {
+                                  if ((s.content_uid === dynamicContentUid || s.content_uid === `video_${dynamicContentUid}`) && s.product_id) {
+                                     const matchingSku = skus.find(sku => sku.product_id === s.product_id && sku.campaign_id === campaignId);
+                                     if (matchingSku) {
+                                        vidGmv += (s.gmv || 0);
+                                     }
+                                  }
+                               });
+
+                               const ccOrganic = cc._localOrganicVideos || [];
+                               ccOrganic.forEach((o: any) => {
+                                  if (o.vt_code === dynamicContentUid || o.content_uid === dynamicContentUid) {
+                                     vidViews += (o.views || 0);
+                                     vidLikes += (o.likes || 0);
+                                  }
+                               });
+                            }
+
+                            const rpm = vidViews > 0 ? (vidGmv / vidViews) * 1000 : 0;
+
                             return (
                               <tr key={v.urutan}>
                                 <td className="font-semibold text-center">{v.urutan}</td>
@@ -655,6 +682,22 @@ export default function CampaignVideoPage() {
                                       <p className="text-[11px] text-green-600 flex items-center gap-[4px]">
                                         ✓ Terhubung dengan Content ID: {dynamicContentUid}
                                       </p>
+                                    )}
+                                    {hasContentUid && (
+                                      <div className="mt-2 grid grid-cols-3 gap-2 bg-slate-50 border border-slate-200 p-2 rounded-md text-xs">
+                                         <div className="text-center">
+                                            <div className="text-slate-400">Views</div>
+                                            <div className="font-semibold text-slate-700">{vidViews.toLocaleString('id-ID')}</div>
+                                         </div>
+                                         <div className="text-center border-l border-r border-slate-200">
+                                            <div className="text-slate-400">Likes</div>
+                                            <div className="font-semibold text-slate-700">{vidLikes.toLocaleString('id-ID')}</div>
+                                         </div>
+                                         <div className="text-center">
+                                            <div className="text-slate-400">RPM</div>
+                                            <div className="font-semibold text-indigo-600">Rp {Math.round(rpm).toLocaleString('id-ID')}</div>
+                                         </div>
+                                      </div>
                                     )}
                                   </div>
                                 </td>
