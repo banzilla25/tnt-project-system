@@ -1841,7 +1841,23 @@ function CampaignListingContent() {
                         )}
                       </td>
                       <td>
-                        <span className="text-[13px] font-medium text-text">{cc.content_type || '-'}</span>
+                        {editingCellId === `${cc.id}-content_type` ? (
+                          <select
+                            autoFocus
+                            defaultValue={getPendingValue(cc.id, 'content_type', cc.content_type || 'Video')}
+                            onBlur={e => { setCellChange(cc.id, 'content_type', e.target.value, cc); setEditingCellId(null); }}
+                            className="select w-32 !p-[4px] text-[13px] !min-h-[28px]"
+                          >
+                            <option value="Video">Video</option>
+                            <option value="Live">Live</option>
+                            <option value="Video & Live">Video & Live</option>
+                          </select>
+                        ) : (
+                          <span 
+                            className={`text-[13px] font-medium cursor-pointer hover:bg-blue-50 px-1 py-0.5 rounded ${hasPending && pendingChanges.get(cc.id)?.content_type !== undefined ? 'text-amber-700' : 'text-text'}`}
+                            onClick={() => hasAccess && setEditingCellId(`${cc.id}-content_type`)}
+                          >{getPendingValue(cc.id, 'content_type', cc.content_type || '-')}</span>
+                        )}
                       </td>
                       <td className="min-w-[150px]">
                         {editingCellId === `${cc.id}-produk` ? (

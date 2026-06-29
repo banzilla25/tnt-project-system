@@ -58,7 +58,8 @@ export default function LiveSchedulePage() {
           .from('campaign_creators')
           .select('*, creators(*)')
           .eq('campaign_id', campaignId)
-          .in('approval', ['approved', 'alternate']);
+          .in('approval', ['approved', 'alternate'])
+          .ilike('content_type', '%Live%');
           
         if (campaign?.require_client_approval) {
           query = query.eq('client_approval', 'approved');
