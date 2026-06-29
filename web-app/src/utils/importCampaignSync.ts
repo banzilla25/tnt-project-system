@@ -37,6 +37,9 @@ export type CampaignColumnMapping = {
   notes_manager: string;
   notes_pic: string;
   sample_progress: string;
+  content_type: string;
+  qty_vt: string;
+  qty_live: string;
 };
 
 export type ParsedCampaignCreatorRow = {
@@ -45,6 +48,9 @@ export type ParsedCampaignCreatorRow = {
   notes_manager: string | null;
   notes_pic: string | null;
   sample_progress: string | null;
+  content_type: string | null;
+  qty_vt?: number;
+  qty_live?: number;
   raw_row: any;
 };
 
@@ -103,6 +109,9 @@ export const parseCampaignSyncFile = async (file: File, mapping: CampaignColumnM
     const notes_manager = mapping.notes_manager ? (row[mapping.notes_manager] || '').toString().trim() || null : null;
     const notes_pic = mapping.notes_pic ? (row[mapping.notes_pic] || '').toString().trim() || null : null;
     const sample_progress = mapping.sample_progress ? (row[mapping.sample_progress] || '').toString().trim() || null : null;
+    const content_type = mapping.content_type ? (row[mapping.content_type] || '').toString().trim() || null : null;
+    const qty_vt = mapping.qty_vt ? parseInt(row[mapping.qty_vt]) || 1 : undefined;
+    const qty_live = mapping.qty_live ? parseInt(row[mapping.qty_live]) || 0 : undefined;
 
     validData.push({
       username,
@@ -110,6 +119,9 @@ export const parseCampaignSyncFile = async (file: File, mapping: CampaignColumnM
       notes_manager,
       notes_pic,
       sample_progress,
+      content_type,
+      qty_vt,
+      qty_live,
       raw_row: row
     });
   });
@@ -119,9 +131,9 @@ export const parseCampaignSyncFile = async (file: File, mapping: CampaignColumnM
 
 export const downloadCampaignSyncTemplate = () => {
   const BOM = '\uFEFF';
-  const csvContent = BOM + 'Username,Approval,Notes Manager,Notes PIC,Sample Progress\n' +
-    'johndoe,Approve,Bagus,Lanjut kontak,Dikirim\n' +
-    'janedoe,Pending,,,Belum';
+  const csvContent = BOM + 'Username,Approval,Notes Manager,Notes PIC,Sample Progress,Tipe Konten,Qty Video,Qty Live\n' +
+    'johndoe,Approve,Bagus,Lanjut kontak,Dikirim,Video,1,0\n' +
+    'janedoe,Pending,,,Belum,Video & Live,2,1';
 
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);

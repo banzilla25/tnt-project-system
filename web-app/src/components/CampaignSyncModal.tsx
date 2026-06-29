@@ -27,7 +27,10 @@ export function CampaignSyncModal({ campaignId: initialCampaignId, onComplete }:
     approval: '',
     notes_manager: '',
     notes_pic: '',
-    sample_progress: ''
+    sample_progress: '',
+    content_type: '',
+    qty_vt: '',
+    qty_live: ''
   });
 
   const [preview, setPreview] = useState<ParsedCampaignCreatorRow[]>([]);
@@ -106,6 +109,9 @@ export function CampaignSyncModal({ campaignId: initialCampaignId, onComplete }:
         if (lh === 'notes manager' || lh === 'manager notes') guessMapping.notes_manager = h;
         if (lh === 'notes pic' || lh === 'pic notes') guessMapping.notes_pic = h;
         if (lh === 'sample progress' || lh === 'progress sample') guessMapping.sample_progress = h;
+        if (lh === 'tipe konten' || lh === 'content type' || lh === 'tipe') guessMapping.content_type = h;
+        if (lh === 'qty video' || lh === 'qty vt' || lh === 'video') guessMapping.qty_vt = h;
+        if (lh === 'qty live' || lh === 'live') guessMapping.qty_live = h;
       });
       
       setMapping(guessMapping);
@@ -131,7 +137,7 @@ export function CampaignSyncModal({ campaignId: initialCampaignId, onComplete }:
       let hasMore = true;
       let from = 0;
       while (hasMore) {
-        const { data } = await supabase.from('campaign_creators').select('id, creator_id, creators(username)').eq('campaign_id', campaignId).range(from, from + 999);
+        const { data } = await supabase.from('campaign_creators').select('id, creator_id, price, qty_vt, qty_live, content_type, status_bayar, creators(username)').eq('campaign_id', campaignId).range(from, from + 999);
         if (data && data.length > 0) {
           allCcData.push(...data);
           if (data.length < 1000) hasMore = false;
@@ -201,7 +207,7 @@ export function CampaignSyncModal({ campaignId: initialCampaignId, onComplete }:
       }
 
       setCommitStatus('Menyusun data campaign...');
-      const existingCcMap = new Map(existingDbCreators.map(cc => [cc.creator_id, cc.id]));
+      const existingCcMap = new Map(existingDbCreators.map(cc => [cc.creator_id, cc]));
 
       // 3. Siapkan data upsert untuk campaign_creators
       const toInsertMap = new Map();
@@ -216,22 +222,33 @@ export function CampaignSyncModal({ campaignId: initialCampaignId, onComplete }:
           return;
         }
         
-        const existingCcId = existingCcMap.get(creatorId);
-        const payload = {
+        const existingCc = existingCcMap.get(creatorId);
+        const payload: any = {
           campaign_id: campaignId,
           creator_id: creatorId,
           approval: row.approval,
           notes_manager: row.notes_manager,
           notes_pic: row.notes_pic,
           sample_progress: row.sample_progress || 'Belum',
-          price: 0,
-          qty_vt: 1,
-          client_approval: 'not_required',
-          status_bayar: 'belum'
+          client_approval: 'not_required'
         };
+
+        if (existingCc) {
+          payload.price = existingCc.price || 0;
+          payload.qty_vt = row.qty_vt !== undefined ? row.qty_vt : (existingCc.qty_vt || 1);
+          payload.qty_live = row.qty_live !== undefined ? row.qty_live : (existingCc.qty_live || 0);
+          payload.content_type = row.content_type !== null ? row.content_type : existingCc.content_type;
+          payload.status_bayar = existingCc.status_bayar || 'belum';
+        } else {
+          payload.price = 0;
+          payload.qty_vt = row.qty_vt !== undefined ? row.qty_vt : 1;
+          payload.qty_live = row.qty_live !== undefined ? row.qty_live : 0;
+          if (row.content_type !== null) payload.content_type = row.content_type;
+          payload.status_bayar = 'belum';
+        }
         
-        if (existingCcId) {
-          toUpdateMap.set(existingCcId, { id: existingCcId, ...payload });
+        if (existingCc) {
+          toUpdateMap.set(existingCc.id, { id: existingCc.id, ...payload });
         } else {
           // Jika db_acuan, JANGAN tambahkan orang baru ke dalam campaign
           if (syncMode !== 'db_acuan') {
@@ -516,6 +533,9 @@ export function CampaignSyncModal({ campaignId: initialCampaignId, onComplete }:
                       <tr>
                         <th className="p-2 font-medium">Username</th>
                         <th className="p-2 font-medium">Status Approval</th>
+                        <th className="p-2 font-medium">Tipe Konten</th>
+                        <th className="p-2 font-medium">Qty Video</th>
+                        <th className="p-2 font-medium">Qty Live</th>
                         <th className="p-2 font-medium">Sample Progress</th>
                         <th className="p-2 font-medium">Notes Manager</th>
                         <th className="p-2 font-medium">Notes PIC</th>
@@ -572,6 +592,9 @@ export function CampaignSyncModal({ campaignId: initialCampaignId, onComplete }:
                               {row.approval}
                             </span>
                           </td>
+                          <td className="p-2 align-top">{row.content_type || '-'}</td>
+                          <td className="p-2 align-top">{row.qty_vt !== undefined ? row.qty_vt : '-'}</td>
+                          <td className="p-2 align-top">{row.qty_live !== undefined ? row.qty_live : '-'}</td>
                           <td className="p-2 align-top max-w-[150px] truncate">{row.sample_progress || '-'}</td>
                           <td className="p-2 align-top max-w-[200px] truncate">{row.notes_manager || '-'}</td>
                           <td className="p-2 align-top max-w-[200px] truncate">{row.notes_pic || '-'}</td>
