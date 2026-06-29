@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { FolderKanban, Users, MapPin, TrendingUp, AlertCircle, UploadCloud, CheckCircle2, AlertTriangle, FileSpreadsheet, Download } from 'lucide-react';
 import { CreatorSyncModal } from '@/components/CreatorSyncModal';
 import { CampaignSyncModal } from '@/components/CampaignSyncModal';
+import { LiveSyncModal } from '@/components/LiveSyncModal';
 import { AddressSyncModal } from '@/components/AddressSyncModal';
 import { BudgetSyncModal } from '@/components/BudgetSyncModal';
 import { downloadCreatorSyncTemplate } from '@/utils/importCreatorSync';
@@ -59,6 +60,15 @@ export default function ImportDataPage() {
           <TrendingUp className="w-6 h-6" />
           <h3 className="font-bold">Migrasi Budget Creator</h3>
           <p className={`text-xs ${activeTab === 'budget' ? 'text-blue-100' : 'text-slate-500'}`}>Import data pembayaran kreator</p>
+        </button>
+
+        <button 
+          onClick={() => setActiveTab('live')}
+          className={`p-4 rounded-xl border text-left transition-colors flex flex-col gap-2 ${activeTab === 'live' ? 'bg-pink-600 border-pink-600 text-white shadow-md' : 'bg-white border-slate-200 hover:border-pink-300'}`}
+        >
+          <FileSpreadsheet className="w-6 h-6" />
+          <h3 className="font-bold">Migrasi Live Organik</h3>
+          <p className={`text-xs ${activeTab === 'live' ? 'text-pink-100' : 'text-slate-500'}`}>Upload export TikTok Partner</p>
         </button>
       </div>
 
@@ -180,6 +190,31 @@ export default function ImportDataPage() {
               >
                 <Download className="w-4 h-4" /> Unduh Template CSV
               </button>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'live' && (
+          <div className="space-y-6 max-w-3xl">
+            <div>
+              <h2 className="text-2xl font-bold mb-2">Migrasi Data Live Organik</h2>
+              <p className="text-slate-600">Menyinkronkan data analitik Live organik (Views, Likes, Durasi, dan Penjualan Produk) dari file export TikTok Partner Center.</p>
+            </div>
+
+            <div className="bg-pink-50 p-4 rounded-lg border border-pink-100 flex gap-3 text-pink-800 text-sm">
+              <AlertCircle className="w-5 h-5 shrink-0" />
+              <div>
+                <p className="font-semibold">Cara Kerja:</p>
+                <ul className="list-disc list-inside ml-1 mt-1 space-y-1 text-slate-700">
+                  <li>Pastikan file yang diunggah adalah file <strong>CustomReport_Campaign_Creator_Live_Product...</strong></li>
+                  <li>Sistem akan menyortir data penjualan per produk dan per sesi Live.</li>
+                  <li>Anda bisa melihat hasilnya di masing-masing Profil Kreator.</li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-4 mt-6">
+              <LiveSyncModal />
             </div>
           </div>
         )}

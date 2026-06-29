@@ -263,6 +263,36 @@ export type LiveSchedule = {
   created_at: string;
 };
 
+export type LiveSession = {
+  id: number;
+  livestream_room_id: string;
+  creator_username: string;
+  tt_campaign_id: string | null;
+  livestream_name: string | null;
+  start_time: string | null;
+  end_time: string | null;
+  duration_str: string | null;
+  live_views: number;
+  live_likes: number;
+  created_at: string;
+};
+
+export type LiveSessionProduct = {
+  id: number;
+  livestream_room_id: string;
+  product_id: string | null;
+  product_name: string | null;
+  shop_id: string | null;
+  shop_name: string | null;
+  category_1: string | null;
+  category_2: string | null;
+  gmv: number;
+  orders: number;
+  items_sold: number;
+  commission: number;
+  created_at: string;
+};
+
 export type CreatorAddressBook = {
   id: number;
   creator_id: number;
@@ -299,6 +329,8 @@ export interface DatabaseSchema {
   creator_addresses: CreatorAddress[];
   creator_address_book: CreatorAddressBook[];
   live_schedules: LiveSchedule[];
+  live_sessions: LiveSession[];
+  live_session_products: LiveSessionProduct[];
   sales: Sales[];
   ads_performance: AdsPerformance[];
   ad_name_mapping: AdNameMapping[];

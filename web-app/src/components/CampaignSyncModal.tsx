@@ -178,7 +178,6 @@ export function CampaignSyncModal({ campaignId: initialCampaignId, onComplete }:
       const existingCreatorUsernames = new Set(existingCreators.map(c => c.username.toLowerCase()));
       let newUsernames = usernamesArray.filter(u => !existingCreatorUsernames.has(u.toLowerCase()));
       
-      // Jika db_acuan, abaikan orang baru
       if (syncMode === 'db_acuan') {
         newUsernames = [];
       }
@@ -203,6 +202,67 @@ export function CampaignSyncModal({ campaignId: initialCampaignId, onComplete }:
           if (newC) {
             newC.forEach(c => creatorMap.set(c.username.toLowerCase(), c.id));
           }
+        }
+      }
+
+      setCommitStatus('Menyiapkan update Creator Pool (Super Import)...');
+      const snapshots: any[] = [];
+      const contacts: any[] = [];
+      const nowStr = new Date().toISOString();
+
+      preview.forEach(row => {
+        const creatorId = creatorMap.get(row.username.toLowerCase());
+        if (!creatorId) return;
+
+        const hasSnapshotData = row.followers !== null || row.ratecard !== null || row.level !== null || row.audience_age !== null || row.gmv_30d !== null || row.tier !== null;
+        
+        if (hasSnapshotData) {
+          // calculate tier if possible or use the row tier
+          let finalTier = row.tier || null;
+          if (!finalTier && typeof row.followers === 'number') {
+             // simplified tier fallback
+             if (row.followers < 10000) finalTier = 'Nano';
+             else if (row.followers < 100000) finalTier = 'Micro';
+             else if (row.followers < 500000) finalTier = 'Macro';
+             else finalTier = 'Mega';
+          }
+
+          snapshots.push({
+            creator_id: creatorId,
+            followers: row.followers ?? null,
+            tier: finalTier,
+            level: row.level ?? null,
+            audience_age: row.audience_age ?? null,
+            gmv_30d: row.gmv_30d ?? null,
+            ratecard: row.ratecard ?? null,
+            tanggal_update: nowStr,
+            updated_by: 'Super Import Listing'
+          });
+        }
+
+        if (row.no_whatsapp) {
+          contacts.push({
+            creator_id: creatorId,
+            nomor: row.no_whatsapp,
+            status: 'aktif',
+            created_at: nowStr
+          });
+        }
+      });
+
+      if (snapshots.length > 0) {
+        setCommitStatus('Menyimpan Snapshot Kreator...');
+        for (let i = 0; i < snapshots.length; i += 500) {
+          const chunk = snapshots.slice(i, i + 500);
+          await supabase.from('creator_snapshots').insert(chunk);
+        }
+      }
+
+      if (contacts.length > 0) {
+        setCommitStatus('Menyimpan Kontak Kreator...');
+        for (let i = 0; i < contacts.length; i += 500) {
+          const chunk = contacts.slice(i, i + 500);
+          await supabase.from('creator_contacts').insert(chunk);
         }
       }
 

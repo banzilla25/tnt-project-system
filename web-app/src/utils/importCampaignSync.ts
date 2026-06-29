@@ -32,25 +32,39 @@ export const parseFileHeaders = async (file: File): Promise<string[]> => {
 };
 
 export type CampaignColumnMapping = {
+  tier: string;
   username: string;
-  approval: string;
-  notes_manager: string;
-  notes_pic: string;
-  sample_progress: string;
-  content_type: string;
+  followers: string;
+  no_whatsapp: string;
+  ratecard: string;
   qty_vt: string;
   qty_live: string;
+  content_type: string;
+  level: string;
+  audience_age: string;
+  gmv_30d: string;
+  approval: string;
+  sample_progress: string;
+  notes_manager: string;
+  notes_pic: string;
 };
 
 export type ParsedCampaignCreatorRow = {
+  tier: string | null;
   username: string;
-  approval: 'pending' | 'approved' | 'alternate' | 'not_approved';
-  notes_manager: string | null;
-  notes_pic: string | null;
-  sample_progress: string | null;
-  content_type: string | null;
+  followers: number | null;
+  no_whatsapp: string | null;
+  ratecard: number | null;
   qty_vt?: number;
   qty_live?: number;
+  content_type: string | null;
+  level: number | null;
+  audience_age: string | null;
+  gmv_30d: number | null;
+  approval: 'pending' | 'approved' | 'alternate' | 'not_approved';
+  sample_progress: string | null;
+  notes_manager: string | null;
+  notes_pic: string | null;
   raw_row: any;
 };
 
@@ -129,15 +143,37 @@ export const parseCampaignSyncFile = async (file: File, mapping: CampaignColumnM
     const qty_vt = mapping.qty_vt ? parseInt(row[mapping.qty_vt]) || 1 : undefined;
     const qty_live = mapping.qty_live ? parseInt(row[mapping.qty_live]) || 0 : undefined;
 
+    const parseNum = (val: any) => {
+      if (!val) return null;
+      if (typeof val === 'number') return val;
+      const str = val.toString().replace(/[^0-9]/g, '');
+      return str ? parseInt(str) : null;
+    };
+
+    const tier = mapping.tier ? (row[mapping.tier] || '').toString().trim() || null : null;
+    const followers = mapping.followers ? parseNum(row[mapping.followers]) : null;
+    const no_whatsapp = mapping.no_whatsapp ? (row[mapping.no_whatsapp] || '').toString().trim() || null : null;
+    const ratecard = mapping.ratecard ? parseNum(row[mapping.ratecard]) : null;
+    const level = mapping.level ? parseNum(row[mapping.level]) : null;
+    const audience_age = mapping.audience_age ? (row[mapping.audience_age] || '').toString().trim() || null : null;
+    const gmv_30d = mapping.gmv_30d ? parseNum(row[mapping.gmv_30d]) : null;
+
     validData.push({
+      tier,
       username,
-      approval,
-      notes_manager,
-      notes_pic,
-      sample_progress,
-      content_type,
+      followers,
+      no_whatsapp,
+      ratecard,
       qty_vt,
       qty_live,
+      content_type,
+      level,
+      audience_age,
+      gmv_30d,
+      approval,
+      sample_progress,
+      notes_manager,
+      notes_pic,
       raw_row: row
     });
   });
@@ -147,9 +183,9 @@ export const parseCampaignSyncFile = async (file: File, mapping: CampaignColumnM
 
 export const downloadCampaignSyncTemplate = () => {
   const BOM = '\uFEFF';
-  const csvContent = BOM + 'Username,Approval,Notes Manager,Notes PIC,Sample Progress,Tipe Konten,Qty Video,Qty Live\n' +
-    'johndoe,Approve,Bagus,Lanjut kontak,Dikirim,Video,1,0\n' +
-    'janedoe,Pending,,,Belum,Video & Live,2,1';
+  const csvContent = BOM + 'Tier,Username,Followers,No. Whatsapp,Ratecard,Qty Video,qty Live,Type,Level,Audiens Age,GMV 30 days,Approval,Sample Progress\n' +
+    'Nano,johndoe,15000,081234567890,500000,1,0,Video,3,18-24,10000000,Approve,Dikirim\n' +
+    'Micro,janedoe,55000,,,2,1,Video & Live,4,25-34,25000000,Pending,Belum';
 
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);

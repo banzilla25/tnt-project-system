@@ -47,7 +47,10 @@ export default function CreatorProfilePage() {
     sales: any[];
     ads: any[];
     addressBook: any[];
+    addressBook: any[];
     auditLogs: any[];
+    liveSessions: any[];
+    liveProducts: any[];
   } | null>(null);
 
   useEffect(() => {
@@ -78,7 +81,8 @@ export default function CreatorProfilePage() {
           supabase.from('campaign_creators').select('*').eq('creator_id', creatorId),
           supabase.from('ads_performance').select('*').eq('creator_id', creatorId),
           supabase.from('creator_address_book').select('*').eq('creator_id', creatorId).order('id', { ascending: false }),
-          supabase.from('audit_logs').select('*').eq('table_name', 'creators').eq('record_id', creatorId.toString()).order('created_at', { ascending: false })
+          supabase.from('audit_logs').select('*').eq('table_name', 'creators').eq('record_id', creatorId.toString()).order('created_at', { ascending: false }),
+          supabase.from('live_sessions').select('*').ilike('creator_username', creator.username).order('start_time', { ascending: false })
         ]);
 
         let vids: any[] = [];
@@ -106,6 +110,20 @@ export default function CreatorProfilePage() {
           sls = [...sls, ...salesByUsername];
         }
 
+        let liveProducts: any[] = [];
+        const lsData = arguments[0]?.[8]?.data || []; // Note: actually we destructured it as a missing variable, let's just do another fetch or get it directly. Wait, the Promise.all array index is 8.
+        // It's cleaner to just fetch it separately since we didn't destructure it well in the array.
+        const { data: liveSess } = await supabase.from('live_sessions').select('*').ilike('creator_username', creator.username).order('start_time', { ascending: false });
+        if (liveSess && liveSess.length > 0) {
+          const roomIds = liveSess.map((ls: any) => ls.livestream_room_id);
+          // fetch products in chunks
+          for (let i = 0; i < roomIds.length; i += 100) {
+            const chunk = roomIds.slice(i, i + 100);
+            const { data: lp } = await supabase.from('live_session_products').select('*').in('livestream_room_id', chunk);
+            if (lp) liveProducts = [...liveProducts, ...lp];
+          }
+        }
+
         setLocalData({
           creator,
           snapshots: snapshots || [],
@@ -117,7 +135,9 @@ export default function CreatorProfilePage() {
           sales: sls,
           ads: ads || [],
           addressBook: addressBookResult || [],
-          auditLogs: auditLogsResult || []
+          auditLogs: auditLogsResult || [],
+          liveSessions: liveSess || [],
+          liveProducts: liveProducts || []
         });
       } catch (err) {
         console.error("Error fetching creator data:", err);
@@ -241,6 +261,13 @@ export default function CreatorProfilePage() {
   const [snapForm, setSnapForm] = useState({ audience_age: '', level: '', gmv_30d: '', followers: '', tier: '', ratecard: '' });
   const [snapOpen, setSnapOpen] = useState(false);
   const [expandedCampaigns, setExpandedCampaigns] = useState<Record<number, boolean>>({});
+  
+  const [activeHistoryTab, setActiveHistoryTab] = useState<'campaign' | 'live'>('campaign');
+  const [expandedLiveSessions, setExpandedLiveSessions] = useState<Record<string, boolean>>({});
+
+  const toggleLiveSession = (roomId: string) => {
+    setExpandedLiveSessions(prev => ({ ...prev, [roomId]: !prev[roomId] }));
+  };
 
   const toggleCampaign = (id: number) => {
     setExpandedCampaigns(prev => ({ ...prev, [id]: !prev[id] }));
@@ -900,10 +927,23 @@ export default function CreatorProfilePage() {
 
         <div className="md:col-span-2 space-y-6">
           <div className="ccard">
-            <div className="p-[16px] border-b border-line mb-[16px]">
-              <h3 className="font-bold text-[16px]">Rekam Jejak (Campaign History)</h3>
+            <div className="border-b border-line mb-[16px] flex">
+              <button 
+                onClick={() => setActiveHistoryTab('campaign')}
+                className={`py-[16px] px-[24px] font-bold text-[16px] border-b-2 transition-colors ${activeHistoryTab === 'campaign' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+              >
+                Rekam Jejak (Campaign History)
+              </button>
+              <button 
+                onClick={() => setActiveHistoryTab('live')}
+                className={`py-[16px] px-[24px] font-bold text-[16px] border-b-2 transition-colors ${activeHistoryTab === 'live' ? 'border-pink-600 text-pink-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+              >
+                Data Live Organik
+              </button>
             </div>
-            <div>
+            
+            {activeHistoryTab === 'campaign' && (
+              <div>
               {trackRecords.length > 0 ? (
                 <div className="tbl-wrap"><table className="w-full">
                   <thead className="border-b border-line bg-slate-50">
@@ -1119,14 +1159,99 @@ export default function CreatorProfilePage() {
                     )})}
                   </tbody>
                 </table></div>
-              ) : (
-                <div className="text-center py-8 border border-dashed border-slate-200 rounded-xl">
-                  <p className="text-slate-500">Belum pernah mengikuti campaign.</p>
-                </div>
               )}
             </div>
-          </div>
+            )}
 
+            {activeHistoryTab === 'live' && (
+              <div>
+                {(localData?.liveSessions && localData.liveSessions.length > 0) ? (
+                  <div className="tbl-wrap">
+                    <table className="w-full">
+                      <thead className="border-b border-line bg-pink-50/50">
+                        <tr className="border-b border-line">
+                          <th className="py-[12px] px-[16px] text-left font-semibold text-text-soft">Waktu Mulai</th>
+                          <th className="py-[12px] px-[16px] text-left font-semibold text-text-soft">Judul Live</th>
+                          <th className="py-[12px] px-[16px] text-center font-semibold text-text-soft">Durasi</th>
+                          <th className="py-[12px] px-[16px] text-right font-semibold text-text-soft">Views</th>
+                          <th className="py-[12px] px-[16px] text-right font-semibold text-text-soft">Likes</th>
+                          <th className="py-[12px] px-[16px] text-right font-semibold text-text-soft">Produk Terjual</th>
+                          <th className="py-[12px] px-[16px] text-right font-semibold text-text-soft">Total GMV</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {localData.liveSessions.map((session: any) => {
+                          const isExpanded = expandedLiveSessions[session.livestream_room_id];
+                          const products = localData.liveProducts?.filter((p: any) => p.livestream_room_id === session.livestream_room_id) || [];
+                          const totalItemsSold = products.reduce((sum: number, p: any) => sum + (p.items_sold || 0), 0);
+                          const totalGmv = products.reduce((sum: number, p: any) => sum + (p.gmv || 0), 0);
+
+                          return (
+                            <React.Fragment key={session.livestream_room_id}>
+                              <tr className="border-b border-line hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => toggleLiveSession(session.livestream_room_id)}>
+                                <td className="py-[12px] px-[16px] text-sm">
+                                  {session.start_time ? new Date(session.start_time).toLocaleString('id-ID') : '-'}
+                                </td>
+                                <td className="py-[12px] px-[16px] text-sm max-w-[200px] truncate" title={session.livestream_name || ''}>
+                                  {session.livestream_name || 'Tidak ada judul'}
+                                </td>
+                                <td className="py-[12px] px-[16px] text-sm text-center text-slate-500">{session.duration_str || '-'}</td>
+                                <td className="py-[12px] px-[16px] text-sm text-right font-medium">{session.live_views?.toLocaleString('id-ID') || 0}</td>
+                                <td className="py-[12px] px-[16px] text-sm text-right font-medium">{session.live_likes?.toLocaleString('id-ID') || 0}</td>
+                                <td className="py-[12px] px-[16px] text-sm text-right font-medium">{totalItemsSold}</td>
+                                <td className="py-[12px] px-[16px] text-sm text-right font-medium text-green-600">
+                                  Rp {totalGmv.toLocaleString('id-ID')}
+                                </td>
+                              </tr>
+                              {isExpanded && (
+                                <tr className="bg-slate-50 border-b border-line">
+                                  <td colSpan={7} className="p-4">
+                                    <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm">
+                                      <h4 className="font-semibold text-sm mb-3">Rincian Produk Terjual</h4>
+                                      {products.length > 0 ? (
+                                        <div className="overflow-x-auto">
+                                          <table className="w-full text-xs">
+                                            <thead className="border-b border-slate-200 text-slate-500">
+                                              <tr>
+                                                <th className="py-2 text-left">Nama Produk</th>
+                                                <th className="py-2 text-left">Toko</th>
+                                                <th className="py-2 text-center">Terjual</th>
+                                                <th className="py-2 text-right">GMV</th>
+                                                <th className="py-2 text-right">Est. Komisi</th>
+                                              </tr>
+                                            </thead>
+                                            <tbody>
+                                              {products.map((p: any, idx: number) => (
+                                                <tr key={idx} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
+                                                  <td className="py-2 pr-2 max-w-[300px] truncate" title={p.product_name || ''}>{p.product_name || 'Unknown Product'}</td>
+                                                  <td className="py-2 text-slate-600">{p.shop_name || '-'}</td>
+                                                  <td className="py-2 text-center font-medium">{p.items_sold || 0}</td>
+                                                  <td className="py-2 text-right text-green-600 font-medium">Rp {(p.gmv || 0).toLocaleString('id-ID')}</td>
+                                                  <td className="py-2 text-right font-medium">Rp {(p.commission || 0).toLocaleString('id-ID')}</td>
+                                                </tr>
+                                              ))}
+                                            </tbody>
+                                          </table>
+                                        </div>
+                                      ) : (
+                                        <p className="text-xs text-slate-500">Tidak ada data produk yang terjual di sesi ini.</p>
+                                      )}
+                                    </div>
+                                  </td>
+                                </tr>
+                              )}
+                            </React.Fragment>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-400 text-center py-6">Belum ada data Live Organik.</p>
+                )}
+              </div>
+            )}
+          </div>
           <div className="ccard">
             <div className="p-[16px] border-b border-line mb-[16px]">
               <h3 className="font-bold text-[16px]">Riwayat Snapshot (Pertumbuhan)</h3>
