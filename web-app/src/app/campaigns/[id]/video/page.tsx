@@ -58,6 +58,13 @@ export default function CampaignVideoPage() {
   const [hasMore, setHasMore] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
+  
+  // New Filters & Sort states
+  const [filterSow, setFilterSow] = useState('all');
+  const [filterSales, setFilterSales] = useState('all');
+  const [filterSku, setFilterSku] = useState('all');
+  const [sortBy, setSortBy] = useState('none');
+  
   const PAGE_SIZE = 50;
 
   useEffect(() => {
@@ -103,6 +110,8 @@ export default function CampaignVideoPage() {
 
       const creatorUsernames = results.map((cc: any) => cc.creators?.username).filter(Boolean);
       let localSalesData: any[] = [];
+      let localOrganicVideos: any[] = []; // <-- Fetch organic videos
+
       if (creatorUsernames.length > 0) {
         const { data: sData } = await supabaseClient
           .from('sales')
@@ -110,6 +119,13 @@ export default function CampaignVideoPage() {
           .eq('campaign_id', campaignId)
           .in('creator_username', creatorUsernames);
         if (sData) localSalesData = sData;
+
+        // Fetch organic videos
+        const { data: oData } = await supabaseClient
+          .from('organic_videos')
+          .select('*')
+          .in('creator_username', creatorUsernames);
+        if (oData) localOrganicVideos = oData;
       }
 
       const allVideosFromDb = results.flatMap((cc: any) => cc.videos || []);
@@ -169,18 +185,20 @@ export default function CampaignVideoPage() {
          });
       }
       
-      // We also need to store this localSalesData so the render function can calculate GMV per video
+      // We also need to store this localSalesData and localOrganicVideos so the render function can calculate GMV per video
       setListingData(prev => {
          if (isReset) {
             return results.map((cc: any) => ({
                 ...cc,
-                _localSales: localSalesData.filter((s: any) => s.creator_username === cc.creators?.username)
+                _localSales: localSalesData.filter((s: any) => s.creator_username === cc.creators?.username),
+                _localOrganicVideos: localOrganicVideos.filter((v: any) => v.creator_username === cc.creators?.username)
             }));
          } else {
             const existingIds = new Set(prev.map(p => p.id));
             const newResults = results.filter((r: any) => !existingIds.has(r.id)).map((cc: any) => ({
                 ...cc,
-                _localSales: localSalesData.filter((s: any) => s.creator_username === cc.creators?.username)
+                _localSales: localSalesData.filter((s: any) => s.creator_username === cc.creators?.username),
+                _localOrganicVideos: localOrganicVideos.filter((v: any) => v.creator_username === cc.creators?.username)
             }));
             return [...prev, ...newResults];
          }
@@ -304,9 +322,108 @@ export default function CampaignVideoPage() {
     });
   };
 
+  const handleResetSearch = () => {
+    setSearchQuery('');
+    setPage(0);
+    setListingData([]);
+  };
+
+  const processedListingData = React.useMemo(() => {
+    let data = [...listingData];
+
+    const metricsMap = new Map();
+    data.forEach(cc => {
+       const creator = cc.creators;
+       if (!creator) return;
+       
+       let creatorVideos = localVideos.filter(v => v.campaign_creator_id === cc.id);
+       const uploadedVtCount = creatorVideos.filter(v => v.link_video).length;
+       const targetVt = cc.qty_vt || 0;
+       
+       const ccSales = cc._localSales || [];
+       let totalGmv = 0;
+       
+       ccSales.forEach((s: any) => {
+          if (s.content_uid && s.product_id) {
+             const matchingSku = skus.find(sku => sku.product_id === s.product_id && sku.campaign_id === campaignId);
+             if (matchingSku) {
+                totalGmv += (s.gmv || 0);
+             }
+          }
+       });
+
+       const ccOrganic = cc._localOrganicVideos || [];
+       let totalViews = 0;
+       let totalLikes = 0;
+       ccOrganic.forEach((o: any) => {
+          totalViews += (o.views || 0);
+          totalLikes += (o.likes || 0);
+       });
+
+       metricsMap.set(cc.id, {
+          uploadedVtCount,
+          targetVt,
+          totalGmv,
+          totalViews,
+          totalLikes
+       });
+    });
+
+    if (filterSow !== 'all') {
+      data = data.filter(cc => {
+         const m = metricsMap.get(cc.id);
+         if (!m) return false;
+         if (filterSow === 'done') return m.uploadedVtCount >= m.targetVt && m.targetVt > 0;
+         if (filterSow === 'pending') return m.uploadedVtCount < m.targetVt;
+         return true;
+      });
+    }
+
+    if (filterSales !== 'all') {
+      data = data.filter(cc => {
+         const m = metricsMap.get(cc.id);
+         if (!m) return false;
+         if (filterSales === 'pecah') return m.totalGmv > 0;
+         if (filterSales === 'nol') return m.totalGmv === 0;
+         return true;
+      });
+    }
+
+    if (filterSku !== 'all') {
+       data = data.filter(cc => {
+          const ccSales = cc._localSales || [];
+          return ccSales.some((s: any) => s.product_id === filterSku);
+       });
+    }
+
+    if (sortBy !== 'none') {
+       data.sort((a, b) => {
+          const ma = metricsMap.get(a.id);
+          const mb = metricsMap.get(b.id);
+          if (!ma || !mb) return 0;
+
+          switch(sortBy) {
+             case 'gmv_desc': return mb.totalGmv - ma.totalGmv;
+             case 'gmv_asc': return ma.totalGmv - mb.totalGmv;
+             case 'vt_desc': return mb.uploadedVtCount - ma.uploadedVtCount;
+             case 'vt_asc': return ma.uploadedVtCount - mb.uploadedVtCount;
+             case 'views_desc': return mb.totalViews - ma.totalViews;
+             case 'views_asc': return ma.totalViews - mb.totalViews;
+             case 'likes_desc': return mb.totalLikes - ma.totalLikes;
+             case 'likes_asc': return ma.totalLikes - mb.totalLikes;
+             default: return 0;
+          }
+       });
+    }
+
+    return { data, metricsMap };
+  }, [listingData, localVideos, skus, campaignId, filterSow, filterSales, filterSku, sortBy]);
+
+  const { data: finalListingData, metricsMap } = processedListingData;
+
   return (
     <>
-      <div className="space-y-[32px]">
+      <div className="space-y-[24px]">
       <div className="flex justify-between items-center mb-[24px] gap-[16px] flex-wrap">
         <div>
           <h2 className="text-[20px] font-bold">Video & VT</h2>
@@ -331,13 +448,65 @@ export default function CampaignVideoPage() {
           </div>
         </div>
         <div>
-          <input 
-            type="text" 
-            placeholder="Cari username..." 
-            value={searchQuery} 
-            onChange={e => setSearchQuery(e.target.value)} 
-            className="input min-w-[200px]"
-          />
+          <div className="flex flex-col gap-4 bg-slate-50 p-4 border border-line rounded-lg">
+             <div className="flex flex-wrap gap-4 items-end">
+                <div className="space-y-2 flex-1 min-w-[200px]">
+                   <label className="text-xs font-semibold text-text-soft">Pencarian Kreator</label>
+                   <input 
+                      type="text" 
+                      placeholder="Cari username..." 
+                      className="input w-full"
+                      value={searchQuery}
+                      onChange={e => setSearchQuery(e.target.value)}
+                   />
+                </div>
+                <div className="space-y-2">
+                   <label className="text-xs font-semibold text-text-soft">Status SOW</label>
+                   <select className="select w-full" value={filterSow} onChange={e => setFilterSow(e.target.value)}>
+                      <option value="all">Semua SOW</option>
+                      <option value="done">Sudah Upload (Memenuhi Target)</option>
+                      <option value="pending">Belum Upload / Kurang Target</option>
+                   </select>
+                </div>
+                <div className="space-y-2">
+                   <label className="text-xs font-semibold text-text-soft">Status Penjualan</label>
+                   <select className="select w-full" value={filterSales} onChange={e => setFilterSales(e.target.value)}>
+                      <option value="all">Semua Status</option>
+                      <option value="pecah">Sudah Pecah Telur (GMV &gt; 0)</option>
+                      <option value="nol">Belum Ada Penjualan</option>
+                   </select>
+                </div>
+                <div className="space-y-2">
+                   <label className="text-xs font-semibold text-text-soft">Filter Produk</label>
+                   <select className="select w-full max-w-[200px]" value={filterSku} onChange={e => setFilterSku(e.target.value)}>
+                      <option value="all">Semua Produk Campaign</option>
+                      {skus.filter(s => s.campaign_id === campaignId).map(sku => (
+                         <option key={sku.id} value={sku.product_id}>{sku.name || sku.product_id}</option>
+                      ))}
+                   </select>
+                </div>
+                <div className="space-y-2">
+                   <label className="text-xs font-semibold text-text-soft">Urutkan (Sort)</label>
+                   <select className="select w-full font-semibold" value={sortBy} onChange={e => setSortBy(e.target.value)}>
+                      <option value="none">Tanpa Pengurutan</option>
+                      <optgroup label="Berdasarkan GMV">
+                         <option value="gmv_desc">Total GMV (Tertinggi)</option>
+                         <option value="gmv_asc">Total GMV (Terendah)</option>
+                      </optgroup>
+                      <optgroup label="Berdasarkan Upload">
+                         <option value="vt_desc">Jumlah Video (Terbanyak)</option>
+                         <option value="vt_asc">Jumlah Video (Terdikit)</option>
+                      </optgroup>
+                      <optgroup label="Berdasarkan Views & Likes">
+                         <option value="views_desc">Total Views (Tertinggi)</option>
+                         <option value="views_asc">Total Views (Terendah)</option>
+                         <option value="likes_desc">Total Likes (Tertinggi)</option>
+                         <option value="likes_asc">Total Likes (Terendah)</option>
+                      </optgroup>
+                   </select>
+                </div>
+             </div>
+          </div>
         </div>
       </div>
 
@@ -352,7 +521,7 @@ export default function CampaignVideoPage() {
           </div>
         ) : (
           <div className="space-y-[48px] pb-[24px]">
-            {listingData.map(cc => {
+            {finalListingData.map(cc => {
               const creator = cc.creators;
               if (!creator) return null;
               
@@ -499,13 +668,12 @@ export default function CampaignVideoPage() {
                                               const sales = (cc._localSales || []).filter((s: any) => s.content_uid && v.content_uid && s.content_uid === v.content_uid);
                                               const maxViews = sales.length > 0 ? Math.max(...sales.map((s: any) => parseInt(s.raw_data?.['Video views']?.toString().replace(/[^0-9]/g, '')) || 0)) : 0;
                                               return maxViews > 0 ? maxViews.toLocaleString() : '-';
-                                            })()}
-                                          </div>
-                                          <div className="text-[11px] text-text-soft">Tayangan</div>
+                                      <div className="space-y-[4px]">
+                                        <div className="text-[13px] font-bold text-text">
+                                          {vidViews.toLocaleString('id-ID')}
                                         </div>
-                                      ) : (
-                                        <span className="text-[12px] text-text-soft">Simpan video</span>
-                                      )}
+                                        <div className="text-[11px] text-text-soft">Tayangan</div>
+                                      </div>
                                     </td>
                                     <td>
                                       <select 
