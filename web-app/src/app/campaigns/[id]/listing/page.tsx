@@ -720,8 +720,11 @@ function CampaignListingContent() {
     } finally {
       setIsLoading(false);
     }
-    fetchListing(page);
   }, [campaignId, filterType, statusFilter, debouncedSearch, sortConfig, filterTier, filterLevel, filterNiche, filterAddedBy, filterActionBy, filterPendingWithVideo, filterUnattributed]);
+
+  useEffect(() => {
+    fetchListing(page);
+  }, [page, campaignId, filterType, statusFilter, debouncedSearch, sortConfig, filterTier, filterLevel, filterNiche, filterAddedBy, filterActionBy, filterPendingWithVideo, filterUnattributed]);
 
   useEffect(() => {
     setPage(0);
