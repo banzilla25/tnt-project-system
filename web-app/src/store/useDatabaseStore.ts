@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { createClient } from '@/utils/supabase/client';
-import { DatabaseSchema, Creator, CreatorSnapshot, CreatorContact, CampaignCreator, Video, AuditLog, CreatorNote, CreatorPayment, AdsSpend, CreatorAddress, LiveSchedule, DailyPerformance } from '@/types/database';
+import { DatabaseSchema, Creator, CreatorSnapshot, CreatorContact, CampaignCreator, Video, AuditLog, CreatorNote, CreatorPayment, AdsSpend, CreatorAddress, LiveSchedule, DailyPerformance, OrganicVideo } from '@/types/database';
 
 type DatabaseState = DatabaseSchema & {
   isLoading: boolean;
@@ -96,6 +96,7 @@ export const useDatabaseStore = create<DatabaseState>((set, get) => ({
   profiles: [],
   live_sessions: [],
   live_session_products: [],
+  organic_videos: [],
   isLoading: false,
   error: null,
 

@@ -23,6 +23,12 @@ type PreviewRow = {
   content_type: string;
   order_id: string | null;
   order_status: string | null;
+  commission_rate: string | null;
+  attribution_type: string | null;
+  video_views: number;
+  video_likes: number;
+  duration_str: string | null;
+  video_product_rpm: number;
   raw_data: any;
 };
 
@@ -226,6 +232,12 @@ export default function OrganicImport() {
       let contentType = 'Video';
       let orderId = '';
       let orderStatus = '';
+      let commissionRate = '';
+      let attributionType = '';
+      let videoViews = 0;
+      let videoLikes = 0;
+      let durationStr = '';
+      let videoProductRpm = 0;
 
       if (isSalesFormat) {
         const isRefundStr = row['Fully returned or refunded'] || 'No';
@@ -254,6 +266,8 @@ export default function OrganicImport() {
         const skuIdStr = row['SKU ID']?.toString() || '';
         orderId = `${orderIdRaw}_${skuIdStr}_${creatorUsername}_${rawProductId}`;
         orderStatus = row['Order settlement status'] || row['Order Status'] || '';
+        commissionRate = row['Standard affiliate partner commission rate']?.toString() || '';
+        attributionType = row['Attribution type']?.toString() || '';
       } else {
         // Awareness Format
         rawProductId = row['Product ID']?.toString() || '';
@@ -269,6 +283,11 @@ export default function OrganicImport() {
         contentType = 'Video';
         orderId = `video_${contentUid}_${rawProductId}`; 
         orderStatus = 'Completed'; 
+        videoViews = parseInt(row['Video views'] || 0);
+        videoLikes = parseInt(row['Video likes'] || 0);
+        durationStr = row['Duration']?.toString() || '';
+        const rpmStr = row['Video product RPM']?.toString() || '0';
+        videoProductRpm = Math.round(parseFloat(rpmStr.replace(/[^0-9]/g, '')) || 0);
       }
 
       // STRICT SKU ROUTING
@@ -315,6 +334,12 @@ export default function OrganicImport() {
         content_type: contentType,
         order_id: orderId || null,
         order_status: orderStatus || null,
+        commission_rate: commissionRate || null,
+        attribution_type: attributionType || null,
+        video_views: videoViews,
+        video_likes: videoLikes,
+        duration_str: durationStr || null,
+        video_product_rpm: videoProductRpm,
         raw_data: row
       });
     }
@@ -395,8 +420,29 @@ export default function OrganicImport() {
     for (let i = 0; i < total; i += chunkSize) {
       const chunk = uniquePayload.slice(i, i + chunkSize);
       
-      const { error } = await supabase.from('sales').upsert(chunk as any, { onConflict: 'order_id' });
+      const salesChunk = chunk.map(c => {
+        const { video_views, video_likes, duration_str, video_product_rpm, ...salesData } = c;
+        return salesData;
+      });
+
+      const videoChunk = chunk
+        .filter(c => c.content_type === 'Video' && c.content_uid && c.video_views > 0)
+        .map(c => ({
+          content_uid: c.content_uid,
+          creator_username: c.creator_username,
+          post_time: c.tanggal,
+          video_views: c.video_views,
+          video_likes: c.video_likes,
+          duration_str: c.duration_str,
+          video_product_rpm: c.video_product_rpm
+        }));
       
+      const { error } = await supabase.from('sales').upsert(salesChunk as any, { onConflict: 'order_id' });
+      
+      if (videoChunk.length > 0) {
+        await supabase.from('organic_videos').upsert(videoChunk as any, { onConflict: 'content_uid' });
+      }
+
       if (error) {
         errors.push(`Gagal batch baris ${i}: ${error.message}`);
       } else {

@@ -261,7 +261,7 @@ export default function CreatorProfilePage() {
   const [snapOpen, setSnapOpen] = useState(false);
   const [expandedCampaigns, setExpandedCampaigns] = useState<Record<number, boolean>>({});
   
-  const [activeHistoryTab, setActiveHistoryTab] = useState<'campaign' | 'live'>('campaign');
+  const [activeHistoryTab, setActiveHistoryTab] = useState<'campaign' | 'live' | 'video' | 'sales'>('campaign');
   const [expandedLiveSessions, setExpandedLiveSessions] = useState<Record<string, boolean>>({});
 
   const toggleLiveSession = (roomId: string) => {
@@ -939,6 +939,18 @@ export default function CreatorProfilePage() {
               >
                 Data Live Organik
               </button>
+              <button 
+                onClick={() => setActiveHistoryTab('video')}
+                className={`py-[16px] px-[24px] font-bold text-[16px] border-b-2 transition-colors ${activeHistoryTab === 'video' ? 'border-purple-600 text-purple-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+              >
+                Data Video Organik
+              </button>
+              <button 
+                onClick={() => setActiveHistoryTab('sales')}
+                className={`py-[16px] px-[24px] font-bold text-[16px] border-b-2 transition-colors ${activeHistoryTab === 'sales' ? 'border-green-600 text-green-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+              >
+                Data Pesanan (Sales)
+              </button>
             </div>
             
             {activeHistoryTab === 'campaign' && (
@@ -1176,7 +1188,9 @@ export default function CreatorProfilePage() {
                           <th className="py-[12px] px-[16px] text-center font-semibold text-text-soft">Durasi</th>
                           <th className="py-[12px] px-[16px] text-right font-semibold text-text-soft">Views</th>
                           <th className="py-[12px] px-[16px] text-right font-semibold text-text-soft">Likes</th>
-                          <th className="py-[12px] px-[16px] text-right font-semibold text-text-soft">Produk Terjual</th>
+                          <th className="py-[12px] px-[16px] text-right font-semibold text-text-soft">CVR</th>
+                          <th className="py-[12px] px-[16px] text-right font-semibold text-text-soft">RPM</th>
+                          <th className="py-[12px] px-[16px] text-right font-semibold text-text-soft">Terjual</th>
                           <th className="py-[12px] px-[16px] text-right font-semibold text-text-soft">Total GMV</th>
                         </tr>
                       </thead>
@@ -1199,6 +1213,12 @@ export default function CreatorProfilePage() {
                                 <td className="py-[12px] px-[16px] text-sm text-center text-slate-500">{session.duration_str || '-'}</td>
                                 <td className="py-[12px] px-[16px] text-sm text-right font-medium">{session.live_views?.toLocaleString('id-ID') || 0}</td>
                                 <td className="py-[12px] px-[16px] text-sm text-right font-medium">{session.live_likes?.toLocaleString('id-ID') || 0}</td>
+                                <td className="py-[12px] px-[16px] text-sm text-right font-medium text-orange-600">
+                                  {session.live_views > 0 ? ((totalItemsSold / session.live_views) * 100).toFixed(2) + '%' : '-'}
+                                </td>
+                                <td className="py-[12px] px-[16px] text-sm text-right font-medium text-blue-600">
+                                  {session.live_product_rpm ? `Rp ${session.live_product_rpm.toLocaleString('id-ID')}` : '-'}
+                                </td>
                                 <td className="py-[12px] px-[16px] text-sm text-right font-medium">{totalItemsSold}</td>
                                 <td className="py-[12px] px-[16px] text-sm text-right font-medium text-green-600">
                                   Rp {totalGmv.toLocaleString('id-ID')}
@@ -1219,6 +1239,7 @@ export default function CreatorProfilePage() {
                                                 <th className="py-2 text-center">Terjual</th>
                                                 <th className="py-2 text-right">GMV</th>
                                                 <th className="py-2 text-right">Est. Komisi</th>
+                                                <th className="py-2 text-right">Actual Komisi</th>
                                               </tr>
                                             </thead>
                                             <tbody>
@@ -1229,6 +1250,7 @@ export default function CreatorProfilePage() {
                                                   <td className="py-2 text-center font-medium">{p.items_sold || 0}</td>
                                                   <td className="py-2 text-right text-green-600 font-medium">Rp {(p.gmv || 0).toLocaleString('id-ID')}</td>
                                                   <td className="py-2 text-right font-medium">Rp {(p.commission || 0).toLocaleString('id-ID')}</td>
+                                                  <td className="py-2 text-right font-medium text-amber-600">{p.actual_commission ? `Rp ${p.actual_commission.toLocaleString('id-ID')}` : '-'}</td>
                                                 </tr>
                                               ))}
                                             </tbody>
@@ -1249,6 +1271,109 @@ export default function CreatorProfilePage() {
                   </div>
                 ) : (
                   <p className="text-sm text-slate-400 text-center py-6">Belum ada data Live Organik.</p>
+                )}
+              </div>
+            )}
+            
+            {activeHistoryTab === 'video' && (
+              <div>
+                {(localData?.organicVideos && localData.organicVideos.length > 0) ? (
+                  <div className="tbl-wrap">
+                    <table className="w-full">
+                      <thead className="border-b border-line bg-purple-50/50">
+                        <tr className="border-b border-line">
+                          <th className="py-[12px] px-[16px] text-left font-semibold text-text-soft">Waktu Post</th>
+                          <th className="py-[12px] px-[16px] text-left font-semibold text-text-soft">Video ID</th>
+                          <th className="py-[12px] px-[16px] text-center font-semibold text-text-soft">Durasi</th>
+                          <th className="py-[12px] px-[16px] text-right font-semibold text-text-soft">Views</th>
+                          <th className="py-[12px] px-[16px] text-right font-semibold text-text-soft">Likes</th>
+                          <th className="py-[12px] px-[16px] text-right font-semibold text-text-soft">CVR</th>
+                          <th className="py-[12px] px-[16px] text-right font-semibold text-text-soft">RPM</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {localData.organicVideos.map((video: any) => {
+                          const videoSales = localData.sales?.filter((s: any) => s.content_uid === video.content_uid) || [];
+                          const totalItemsSold = videoSales.reduce((sum: number, s: any) => sum + (s.quantity || 0), 0);
+                          
+                          return (
+                            <tr key={video.id} className="border-b border-line hover:bg-slate-50">
+                              <td className="py-[12px] px-[16px] text-sm">{video.post_time ? new Date(video.post_time).toLocaleString('id-ID') : '-'}</td>
+                              <td className="py-[12px] px-[16px] text-sm font-medium text-slate-700">
+                                <a href={`https://www.tiktok.com/@${video.creator_username}/video/${video.content_uid}`} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                                  {video.content_uid}
+                                </a>
+                              </td>
+                              <td className="py-[12px] px-[16px] text-sm text-center text-slate-500">{video.duration_str || '-'}</td>
+                              <td className="py-[12px] px-[16px] text-sm text-right font-medium">{video.video_views?.toLocaleString('id-ID') || 0}</td>
+                              <td className="py-[12px] px-[16px] text-sm text-right font-medium">{video.video_likes?.toLocaleString('id-ID') || 0}</td>
+                              <td className="py-[12px] px-[16px] text-sm text-right font-medium text-orange-600">
+                                {video.video_views > 0 ? ((totalItemsSold / video.video_views) * 100).toFixed(2) + '%' : '-'}
+                              </td>
+                              <td className="py-[12px] px-[16px] text-sm text-right font-medium text-blue-600">
+                                {video.video_product_rpm ? `Rp ${video.video_product_rpm.toLocaleString('id-ID')}` : '-'}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-400 text-center py-6">Belum ada data Video Organik.</p>
+                )}
+              </div>
+            )}
+
+            {activeHistoryTab === 'sales' && (
+              <div>
+                {(localData?.sales && localData.sales.length > 0) ? (
+                  <div className="tbl-wrap">
+                    <table className="w-full">
+                      <thead className="border-b border-line bg-green-50/50">
+                        <tr className="border-b border-line">
+                          <th className="py-[12px] px-[16px] text-left font-semibold text-text-soft">Tanggal Pesanan</th>
+                          <th className="py-[12px] px-[16px] text-left font-semibold text-text-soft">Order ID</th>
+                          <th className="py-[12px] px-[16px] text-left font-semibold text-text-soft">Produk</th>
+                          <th className="py-[12px] px-[16px] text-left font-semibold text-text-soft">Attribution</th>
+                          <th className="py-[12px] px-[16px] text-center font-semibold text-text-soft">Comm. Rate</th>
+                          <th className="py-[12px] px-[16px] text-center font-semibold text-text-soft">Qty</th>
+                          <th className="py-[12px] px-[16px] text-right font-semibold text-text-soft">Status</th>
+                          <th className="py-[12px] px-[16px] text-right font-semibold text-text-soft">Total GMV</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {localData.sales.sort((a: any, b: any) => new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime()).map((sale: any) => (
+                          <tr key={sale.id} className="border-b border-line hover:bg-slate-50">
+                            <td className="py-[12px] px-[16px] text-sm">{sale.tanggal ? new Date(sale.tanggal).toLocaleString('id-ID') : '-'}</td>
+                            <td className="py-[12px] px-[16px] text-sm font-medium">{sale.order_id?.split('_')[0] || '-'}</td>
+                            <td className="py-[12px] px-[16px] text-sm max-w-[200px] truncate" title={sale.raw_data?.['Product Name'] || ''}>
+                              {sale.raw_data?.['Product Name'] || sale.product_id}
+                            </td>
+                            <td className="py-[12px] px-[16px] text-sm">
+                              <span className="badge b-neutral capitalize">{sale.attribution_type || sale.content_type || 'Unknown'}</span>
+                            </td>
+                            <td className="py-[12px] px-[16px] text-sm text-center font-medium text-purple-600">
+                              {sale.commission_rate || '-'}
+                            </td>
+                            <td className="py-[12px] px-[16px] text-sm text-center font-medium">{sale.quantity || 1}</td>
+                            <td className="py-[12px] px-[16px] text-sm text-right">
+                              {sale.is_refund ? (
+                                <span className="badge bg-red-100 text-red-600 border-none">Refund</span>
+                              ) : (
+                                <span className="badge bg-emerald-100 text-emerald-600 border-none">{sale.order_status || 'Completed'}</span>
+                              )}
+                            </td>
+                            <td className="py-[12px] px-[16px] text-sm text-right font-medium text-green-600">
+                              Rp {sale.gmv?.toLocaleString('id-ID')}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-400 text-center py-6">Belum ada data Penjualan (Sales).</p>
                 )}
               </div>
             )}

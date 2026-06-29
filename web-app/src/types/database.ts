@@ -274,6 +274,7 @@ export type LiveSession = {
   duration_str: string | null;
   live_views: number;
   live_likes: number;
+  live_product_rpm: number;
   created_at: string;
 };
 
@@ -290,6 +291,7 @@ export type LiveSessionProduct = {
   orders: number;
   items_sold: number;
   commission: number;
+  actual_commission: number;
   created_at: string;
 };
 
@@ -332,6 +334,7 @@ export interface DatabaseSchema {
   live_sessions: LiveSession[];
   live_session_products: LiveSessionProduct[];
   sales: Sales[];
+  organic_videos: OrganicVideo[];
   ads_performance: AdsPerformance[];
   ad_name_mapping: AdNameMapping[];
 }
@@ -360,7 +363,21 @@ export type Sales = {
   content_type: string | null;
   order_id: string | null;
   order_status: string | null;
+  commission_rate: string | null;
+  attribution_type: string | null;
   raw_data: any | null;
+  created_at: string;
+};
+
+export type OrganicVideo = {
+  id: number;
+  content_uid: string;
+  creator_username: string;
+  post_time: string | null;
+  video_views: number;
+  video_likes: number;
+  duration_str: string | null;
+  video_product_rpm: number;
   created_at: string;
 };
 

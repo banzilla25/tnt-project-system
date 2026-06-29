@@ -77,6 +77,7 @@ export function LiveSyncModal() {
             duration_str: row['Duration'] || null,
             live_views: parseInt(row['LIVE views']) || 0,
             live_likes: parseInt(row['LIVE likes']) || 0,
+            live_product_rpm: parseRp(row['LIVE product RPM']),
           });
         }
 
@@ -94,6 +95,7 @@ export function LiveSyncModal() {
             orders: parseInt(row['LIVE orders']) || 0,
             items_sold: parseInt(row['Items sold']) || 0,
             commission: parseRp(row['Estimated affiliate partner commission '] || row['Estimated affiliate partner commission']),
+            actual_commission: parseRp(row['Actual affiliate partner commission']),
           });
         }
       }
