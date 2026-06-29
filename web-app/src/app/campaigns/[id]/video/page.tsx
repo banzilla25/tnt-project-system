@@ -481,7 +481,7 @@ export default function CampaignVideoPage() {
                    <select className="select w-full max-w-[200px]" value={filterSku} onChange={e => setFilterSku(e.target.value)}>
                       <option value="all">Semua Produk Campaign</option>
                       {skus.filter(s => s.campaign_id === campaignId).map(sku => (
-                         <option key={sku.id} value={sku.product_id}>{sku.name || sku.product_id}</option>
+                         <option key={sku.id} value={sku.product_id}>{sku.nama_produk || sku.product_id}</option>
                       ))}
                    </select>
                 </div>
@@ -720,7 +720,7 @@ export default function CampaignVideoPage() {
                                       >
                                         <option value="">Pilih Produk...</option>
                                         {skus.filter(s => s.campaign_id === campaignId).map(s => (
-                                          <option key={s.id} value={s.id}>{s.name || s.product_id}</option>
+                                          <option key={s.id} value={s.id}>{s.nama_produk || s.product_id}</option>
                                         ))}
                                       </select>
                                     </td>
@@ -745,7 +745,7 @@ export default function CampaignVideoPage() {
                                       >
                                         <option value="">Pilih Produk...</option>
                                         {skus.filter(s => s.campaign_id === campaignId).map(s => (
-                                          <option key={s.id} value={s.id}>{s.name || s.product_id}</option>
+                                          <option key={s.id} value={s.id}>{s.nama_produk || s.product_id}</option>
                                         ))}
                                       </select>
                                     </td>
