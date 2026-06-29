@@ -109,7 +109,23 @@ export const parseCampaignSyncFile = async (file: File, mapping: CampaignColumnM
     const notes_manager = mapping.notes_manager ? (row[mapping.notes_manager] || '').toString().trim() || null : null;
     const notes_pic = mapping.notes_pic ? (row[mapping.notes_pic] || '').toString().trim() || null : null;
     const sample_progress = mapping.sample_progress ? (row[mapping.sample_progress] || '').toString().trim() || null : null;
-    const content_type = mapping.content_type ? (row[mapping.content_type] || '').toString().trim() || null : null;
+    let content_type = mapping.content_type ? (row[mapping.content_type] || '').toString().trim() || null : null;
+    if (content_type) {
+      const ctLower = content_type.toLowerCase();
+      const hasVideo = ctLower.includes('video') || ctLower.includes('vt');
+      const hasLive = ctLower.includes('live');
+      if (hasVideo && hasLive) {
+        content_type = 'Video & Live';
+      } else if (hasLive) {
+        content_type = 'Live';
+      } else if (hasVideo) {
+        content_type = 'Video';
+      } else {
+        // Fallback to title case if it's something unexpected
+        content_type = content_type.charAt(0).toUpperCase() + content_type.slice(1).toLowerCase();
+      }
+    }
+
     const qty_vt = mapping.qty_vt ? parseInt(row[mapping.qty_vt]) || 1 : undefined;
     const qty_live = mapping.qty_live ? parseInt(row[mapping.qty_live]) || 0 : undefined;
 
