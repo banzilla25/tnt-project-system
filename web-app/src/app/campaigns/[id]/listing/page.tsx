@@ -208,6 +208,13 @@ function CampaignListingContent() {
 
   // Counts State
   const [counts, setCounts] = useState({ approved: 0, pending: 0, alternate: 0, not_approved: 0, all: 0 });
+  const [tierCounts, setTierCounts] = useState<Record<string, Record<string, number>>>({
+    all: { Nano: 0, Micro: 0, Macro: 0, Mega: 0 },
+    approved: { Nano: 0, Micro: 0, Macro: 0, Mega: 0 },
+    pending: { Nano: 0, Micro: 0, Macro: 0, Mega: 0 },
+    alternate: { Nano: 0, Micro: 0, Macro: 0, Mega: 0 },
+    not_approved: { Nano: 0, Micro: 0, Macro: 0, Mega: 0 },
+  });
   const [dailyRecap, setDailyRecap] = useState<any[]>([]);
   const [rawRecapData, setRawRecapData] = useState<any[]>([]);
   const [recapFilterPic, setRecapFilterPic] = useState<string>('');
@@ -409,8 +416,8 @@ function CampaignListingContent() {
 
     setCounts({ approved, pending, alternate, not_approved, all });
 
-    // Fetch Daily Recap Data
-    const { data: recapData } = await supabase.from('campaign_creators').select('id, approval, approved_at, created_at, added_by').eq('campaign_id', campaignId);
+    // Fetch Daily Recap Data and Tier Breakdown Data
+    const { data: recapData } = await supabase.from('campaign_creators').select('id, approval, approved_at, created_at, added_by, tier').eq('campaign_id', campaignId);
     if (recapData) {
       setRawRecapData(recapData);
     }
@@ -441,6 +448,28 @@ function CampaignListingContent() {
     setDailyRecap(recapArr);
     // Start window at the very end
     setRecapStartIndex(Math.max(0, recapArr.length - 4));
+
+    // Calculate tier breakdowns for all statuses
+    const tCounts: Record<string, Record<string, number>> = {
+      all: { Nano: 0, Micro: 0, Macro: 0, Mega: 0 },
+      approved: { Nano: 0, Micro: 0, Macro: 0, Mega: 0 },
+      pending: { Nano: 0, Micro: 0, Macro: 0, Mega: 0 },
+      alternate: { Nano: 0, Micro: 0, Macro: 0, Mega: 0 },
+      not_approved: { Nano: 0, Micro: 0, Macro: 0, Mega: 0 },
+    };
+
+    rawRecapData.forEach(r => {
+      const t = r.tier;
+      if (t && ['Nano', 'Micro', 'Macro', 'Mega'].includes(t)) {
+        tCounts.all[t]++;
+        if (r.approval === 'approved') tCounts.approved[t]++;
+        else if (r.approval === 'alternate') tCounts.alternate[t]++;
+        else if (r.approval === 'not_approved') tCounts.not_approved[t]++;
+        else if (r.approval === 'pending') tCounts.pending[t]++;
+      }
+    });
+    setTierCounts(tCounts);
+
   }, [rawRecapData, recapFilterPic]);
 
   useEffect(() => {
@@ -888,6 +917,40 @@ function CampaignListingContent() {
       </td>
     );
   };
+  type StatusFilterType = 'pending' | 'approved' | 'alternate' | 'not_approved' | 'all';
+
+  const handleCapsuleClick = (status: StatusFilterType, tier: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (statusFilter === status && filterTier === tier) {
+      setStatusFilter('all');
+      setFilterTier('');
+    } else {
+      setStatusFilter(status);
+      setFilterTier(tier);
+    }
+  };
+
+  const renderTierCapsules = (statusKey: StatusFilterType, baseColorClass: string, activeColorClass: string) => {
+    const tCounts = tierCounts[statusKey] || { Nano: 0, Micro: 0, Macro: 0, Mega: 0 };
+    const tiers = ['Nano', 'Micro', 'Macro', 'Mega'];
+    return (
+      <div className="flex flex-wrap gap-1 mt-2">
+        {tiers.map(t => {
+          const isActive = statusFilter === statusKey && filterTier === t;
+          const count = tCounts[t] || 0;
+          return (
+            <div 
+              key={t}
+              onClick={(e) => handleCapsuleClick(statusKey, t, e)}
+              className={`text-[10px] px-2 py-0.5 rounded-full cursor-pointer border transition-colors ${isActive ? activeColorClass : `bg-white ${baseColorClass} hover:bg-slate-100`}`}
+            >
+              <span className="font-semibold">{t}</span> {count}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-[32px]">
@@ -985,6 +1048,21 @@ function CampaignListingContent() {
               <option key={p.id} value={p.id}>{p.nama}</option>
             ))}
           </select>
+          {(statusFilter !== 'all' || filterTier || filterLevel || filterNiche || filterAddedBy || filterActionBy) && (
+            <button 
+              onClick={() => {
+                setStatusFilter('all');
+                setFilterTier('');
+                setFilterLevel('');
+                setFilterNiche('');
+                setFilterAddedBy('');
+                setFilterActionBy('');
+              }} 
+              className="btn btn-outline text-red-500 border-red-200 hover:bg-red-50 flex-1 md:flex-none"
+            >
+              Reset Filter
+            </button>
+          )}
         </div>
       </div>
 
@@ -992,22 +1070,27 @@ function CampaignListingContent() {
         <div className={`metric cursor-pointer ${statusFilter === 'all' ? 'ring-2 ring-p300' : ''}`} onClick={() => setStatusFilter('all')}>
           <div className="mlbl">Total Creator</div>
           <div className="mval">{counts.all}</div>
+          {renderTierCapsules('all', 'text-slate-500 border-slate-200', 'bg-slate-800 text-white border-slate-800')}
         </div>
         <div className={`metric cursor-pointer ${statusFilter === 'approved' ? 'ring-2 ring-green-500 bg-green-50/50' : ''}`} onClick={() => setStatusFilter('approved')}>
           <div className="mlbl text-green-700">Approved</div>
           <div className="mval text-green-700">{counts.approved}</div>
+          {renderTierCapsules('approved', 'text-green-600 border-green-200', 'bg-green-700 text-white border-green-700')}
         </div>
         <div className={`metric cursor-pointer ${statusFilter === 'pending' ? 'ring-2 ring-orange-400 bg-orange-50/50' : ''}`} onClick={() => setStatusFilter('pending')}>
           <div className="mlbl text-orange-600">Pending</div>
           <div className="mval text-orange-600">{counts.pending}</div>
+          {renderTierCapsules('pending', 'text-orange-600 border-orange-200', 'bg-orange-600 text-white border-orange-600')}
         </div>
         <div className={`metric cursor-pointer ${statusFilter === 'alternate' ? 'ring-2 ring-purple-400 bg-purple-50/50' : ''}`} onClick={() => setStatusFilter('alternate')}>
           <div className="mlbl text-purple-600">Alternate</div>
           <div className="mval text-purple-600">{counts.alternate}</div>
+          {renderTierCapsules('alternate', 'text-purple-600 border-purple-200', 'bg-purple-600 text-white border-purple-600')}
         </div>
         <div className={`metric cursor-pointer ${statusFilter === 'not_approved' ? 'ring-2 ring-red-400 bg-red-50/50' : ''}`} onClick={() => setStatusFilter('not_approved')}>
           <div className="mlbl text-red-600">Not Approved</div>
           <div className="mval text-red-600">{counts.not_approved}</div>
+          {renderTierCapsules('not_approved', 'text-red-600 border-red-200', 'bg-red-600 text-white border-red-600')}
         </div>
       </div>
 
@@ -1462,6 +1545,7 @@ function CampaignListingContent() {
           <thead>
             <tr>
               <th className="w-10"></th>
+              <th className="w-12 text-center text-text-soft">No.</th>
               <th>
                 <button onClick={() => toggleSort('username')} className="flex items-center text-left font-semibold hover:text-p300 transition-colors">
                   Creator <SortIcon col="username" />
@@ -1511,12 +1595,12 @@ function CampaignListingContent() {
                 : listingData;
               return displayData.length === 0 && !isLoading ? (
               <tr>
-                <td colSpan={isClientApprovalRequired ? 12 : 11} className="text-center py-[32px] text-text-soft">
+                <td colSpan={isClientApprovalRequired ? 13 : 12} className="text-center py-[32px] text-text-soft">
                   Belum ada creator di campaign ini.
                 </td>
               </tr>
             ) : (
-              displayData.map((cc) => {
+              displayData.map((cc, index) => {
                 const creator = cc.creators;
                 if (!creator) return null;
                 const hasPending = pendingChanges.has(cc.id);
@@ -1547,6 +1631,9 @@ function CampaignListingContent() {
                         <button onClick={() => toggleExpand(cc.id)} className="p-[4px] hover:bg-slate-200 rounded">
                           {isExpanded ? <ChevronDown className="w-4 h-4 text-text-soft" /> : <ChevronRight className="w-4 h-4 text-text-soft" />}
                         </button>
+                      </td>
+                      <td className="text-center font-medium text-[13px] text-text-soft">
+                        {index + 1}
                       </td>
                       <td>
                         <div className="flex items-center gap-[8px]">
@@ -1760,6 +1847,7 @@ function CampaignListingContent() {
                     {/* Expandable Video Row */}
                     {isExpanded && (
                       <tr className="bg-slate-50 hover:bg-slate-50">
+                        <td></td>
                         <td></td>
                         <td colSpan={isClientApprovalRequired ? 9 : 8} className="p-0 border-b-0">
                           <div className="py-[16px] pr-[16px]">
