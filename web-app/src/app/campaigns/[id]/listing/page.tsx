@@ -38,6 +38,7 @@ function CampaignListingContent() {
     videos,
     skus,
     niches,
+    vw_campaign_summary,
     updateCampaignCreator, 
     deleteCampaignCreator 
   } = useDatabaseStore();
@@ -204,6 +205,7 @@ function CampaignListingContent() {
   const [filterNiche, setFilterNiche] = useState<string>('');
   const [filterAddedBy, setFilterAddedBy] = useState<string>('');
   const [filterActionBy, setFilterActionBy] = useState<string>('');
+  const [filterUnattributed, setFilterUnattributed] = useState(false);
   const [staffProfiles, setStaffProfiles] = useState<{id: string, nama: string}[]>([]);
 
   useEffect(() => {
@@ -609,6 +611,17 @@ function CampaignListingContent() {
       
       if (filterPendingWithVideo) {
         query = query.eq('approval', 'pending');
+      } else if (filterUnattributed) {
+        query = query.eq('approval', 'pending');
+        const salesUsernames = vw_campaign_summary
+          .filter(c => c.campaign_id === campaignId && c.gmv_organic > 0)
+          .map(c => c.creator_username.toLowerCase());
+        
+        if (salesUsernames.length > 0) {
+          query = query.in('creators.username', salesUsernames);
+        } else {
+          query = query.eq('id', -1);
+        }
       } else if (statusFilter !== 'all') {
         query = query.eq('approval', statusFilter);
       }
@@ -703,12 +716,13 @@ function CampaignListingContent() {
     } finally {
       setIsLoading(false);
     }
-  }, [campaignId, filterType, statusFilter, debouncedSearch, sortConfig, filterTier, filterLevel, filterNiche, filterAddedBy, filterActionBy, filterPendingWithVideo]);
+    fetchListing(page);
+  }, [campaignId, filterType, statusFilter, debouncedSearch, sortConfig, filterTier, filterLevel, filterNiche, filterAddedBy, filterActionBy, filterPendingWithVideo, filterUnattributed]);
 
   useEffect(() => {
     setPage(0);
     fetchListing(0, true);
-  }, [debouncedSearch, filterType, statusFilter, sortConfig, fetchListing, filterTier, filterLevel, filterNiche, filterAddedBy, filterActionBy, filterPendingWithVideo]);
+  }, [debouncedSearch, filterType, statusFilter, sortConfig, fetchListing, filterTier, filterLevel, filterNiche, filterAddedBy, filterActionBy, filterPendingWithVideo, filterUnattributed]);
 
   const handleLoadMore = () => {
     const next = page + 1;
@@ -1186,7 +1200,22 @@ function CampaignListingContent() {
             />
             <span className="font-medium whitespace-nowrap">Pending ber-Video (Sisa)</span>
           </label>
-          {(statusFilter !== 'all' || filterTier || filterLevel || filterNiche || filterAddedBy || filterActionBy || filterPendingWithVideo) && (
+          <label className="flex items-center gap-2 text-sm text-slate-700 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors">
+            <input 
+              type="checkbox" 
+              checked={filterUnattributed}
+              onChange={(e) => {
+                setFilterUnattributed(e.target.checked);
+                if (e.target.checked) {
+                  setStatusFilter('pending');
+                  setFilterPendingWithVideo(false);
+                }
+              }}
+              className="rounded border-slate-300 text-p300 focus:ring-p300"
+            />
+            <span className="font-medium whitespace-nowrap">Unattributed (Pending + GMV)</span>
+          </label>
+          {(statusFilter !== 'all' || filterTier || filterLevel || filterNiche || filterAddedBy || filterActionBy || filterPendingWithVideo || filterUnattributed) && (
             <button 
               onClick={() => {
                 setStatusFilter('all');
@@ -1196,6 +1225,7 @@ function CampaignListingContent() {
                 setFilterAddedBy('');
                 setFilterActionBy('');
                 setFilterPendingWithVideo(false);
+                setFilterUnattributed(false);
               }} 
               className="btn btn-outline text-red-500 border-red-200 hover:bg-red-50 flex-1 md:flex-none"
             >
