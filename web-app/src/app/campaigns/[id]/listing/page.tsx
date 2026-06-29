@@ -12,6 +12,7 @@ import { exportToCSV } from "@/utils/exportCsv";
 import { createClient } from "@/utils/supabase/client";
 import { useAuth } from "@/providers/AuthProvider";
 import { useRouter } from "next/navigation";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/Dialog";
 import { MultiSelect } from "@/components/MultiSelect";
 
 const supabase = createClient();
@@ -172,6 +173,27 @@ function CampaignListingContent() {
   const [editStatusBayar, setEditStatusBayar] = useState<any>('belum');
   const [editNotesManager, setEditNotesManager] = useState('');
   const [editNotesPic, setEditNotesPic] = useState('');
+
+  // Niche Editing
+  const [nicheModalOpen, setNicheModalOpen] = useState(false);
+  const [nicheEditCreatorId, setNicheEditCreatorId] = useState<number | null>(null);
+  const [nicheEditForm, setNicheEditForm] = useState<number[]>([]);
+  const [isSavingNiche, setIsSavingNiche] = useState(false);
+
+  const handleSaveNiche = async () => {
+    if (!nicheEditCreatorId) return;
+    setIsSavingNiche(true);
+    try {
+      await useDatabaseStore.getState().updateCreatorNiches(nicheEditCreatorId, nicheEditForm);
+      await fetchListing(page, false);
+      setNicheModalOpen(false);
+    } catch (err) {
+      console.error(err);
+      alert("Gagal update niche");
+    } finally {
+      setIsSavingNiche(false);
+    }
+  };
 
   const [filterType, setFilterType] = useState<'all' | 'regular' | 'auto_detect'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'alternate' | 'not_approved'>('all');
@@ -1772,11 +1794,29 @@ function CampaignListingContent() {
                       <td className="text-center text-[13px] font-medium text-text">
                         {snapshot?.level || '-'}
                       </td>
-                      <td className="text-[12px] text-text-soft">
-                        <div className="flex flex-wrap gap-[4px] max-w-[150px]">
-                           {creator.creator_niches?.map((cn: any, idx: number) => (
-                             cn.niches?.nama ? <span key={idx} className="bg-slate-100 text-slate-600 px-[6px] py-[2px] rounded text-[10px]">{cn.niches.nama}</span> : null
-                           ))}
+                      <td>
+                        <div className="flex items-center gap-1 max-w-[200px]">
+                          <div className="flex flex-wrap gap-1">
+                            {creator.creator_niches?.map((cn: any, idx: number) => (
+                              cn.niches?.nama ? <span key={idx} className="bg-slate-100 text-slate-600 px-[6px] py-[2px] rounded text-[10px] whitespace-nowrap">{cn.niches.nama}</span> : null
+                            ))}
+                            {(!creator.creator_niches || creator.creator_niches.length === 0) && (
+                              <span className="text-slate-400 text-[10px] italic">Kosong</span>
+                            )}
+                          </div>
+                          {hasAccess && (
+                            <button 
+                              onClick={() => {
+                                setNicheEditCreatorId(creator.id);
+                                setNicheEditForm(creator.creator_niches?.map((cn: any) => cn.niche_id) || []);
+                                setNicheModalOpen(true);
+                              }}
+                              className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-blue-600 transition-colors shrink-0"
+                              title="Edit Niche"
+                            >
+                              <Edit2 className="w-3 h-3" />
+                            </button>
+                          )}
                         </div>
                       </td>
                       <td>
@@ -2249,6 +2289,42 @@ function CampaignListingContent() {
           </div>
         </div>
       )}
+      {/* Modal Edit Niche */}
+      <Dialog open={nicheModalOpen} onOpenChange={setNicheModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Update Niche Kreator</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-slate-500">
+              Perubahan niche ini akan mengubah profil kreator secara global di semua campaign.
+            </p>
+            <div className="grid grid-cols-2 gap-2 max-h-60 overflow-y-auto p-1 border rounded-lg bg-slate-50">
+              {niches.map(niche => (
+                <label key={niche.id} className="flex items-center gap-2 text-sm p-2 border rounded cursor-pointer hover:bg-white transition-colors bg-transparent">
+                  <input 
+                    type="checkbox" 
+                    checked={nicheEditForm.includes(niche.id)}
+                    onChange={(e) => {
+                      if(e.target.checked) setNicheEditForm([...nicheEditForm, niche.id]);
+                      else setNicheEditForm(nicheEditForm.filter(id => id !== niche.id));
+                    }}
+                    className="rounded text-blue-600 focus:ring-blue-500"
+                  />
+                  {niche.nama}
+                </label>
+              ))}
+            </div>
+            <button 
+              className="btn btn-primary w-full" 
+              onClick={handleSaveNiche}
+              disabled={isSavingNiche}
+            >
+              {isSavingNiche ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Simpan Niche Global'}
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
