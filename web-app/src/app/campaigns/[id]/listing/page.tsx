@@ -521,8 +521,19 @@ function CampaignListingContent() {
     };
 
     rawRecapData.forEach(r => {
-      const snapshotTier = r.creators?.creator_snapshots?.[0]?.tier;
-      const t = snapshotTier || r.tier;
+      let snapshotTier = null;
+      if (r.creators?.creator_snapshots) {
+        // Find the first valid tier (could be reversed if latest is last, but since we just need any valid one)
+        const validSnap = [...r.creators.creator_snapshots].reverse().find(s => s.tier);
+        if (validSnap) snapshotTier = validSnap.tier;
+      }
+      let t = snapshotTier || r.tier;
+      
+      if (t) {
+        t = t.toLowerCase();
+        t = t.charAt(0).toUpperCase() + t.slice(1);
+      }
+
       if (t && ['Nano', 'Micro', 'Macro', 'Mega'].includes(t)) {
         tCounts.all[t]++;
         if (r.approval === 'approved') tCounts.approved[t]++;
@@ -574,7 +585,7 @@ function CampaignListingContent() {
       // Multi-dimensional filters
       // Multi-dimensional filters
       if (filterTier) {
-        query = query.eq('creators.creator_snapshots.tier', filterTier);
+        query = query.ilike('creators.creator_snapshots.tier', filterTier);
       }
       if (filterLevel) query = query.eq('creators.creator_snapshots.level', filterLevel);
       if (filterNiche) query = query.eq('creators.creator_niches.niche_id', filterNiche);
