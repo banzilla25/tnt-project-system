@@ -23,14 +23,21 @@ export function CampaignSyncModal({ campaignId: initialCampaignId, onComplete }:
   
   const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
   const [mapping, setMapping] = useState<CampaignColumnMapping>({
+    tier: '',
     username: '',
-    approval: '',
-    notes_manager: '',
-    notes_pic: '',
-    sample_progress: '',
-    content_type: '',
+    followers: '',
+    no_whatsapp: '',
+    ratecard: '',
     qty_vt: '',
-    qty_live: ''
+    qty_live: '',
+    content_type: '',
+    level: '',
+    audience_age: '',
+    gmv_30d: '',
+    approval: '',
+    sample_progress: '',
+    notes_manager: '',
+    notes_pic: ''
   });
 
   const [preview, setPreview] = useState<ParsedCampaignCreatorRow[]>([]);

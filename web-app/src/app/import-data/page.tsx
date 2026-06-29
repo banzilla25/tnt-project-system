@@ -14,7 +14,7 @@ import { downloadAddressSyncTemplate } from '@/utils/importAddressSync';
 import { downloadBudgetSyncTemplate } from '@/utils/importBudgetSync';
 
 export default function ImportDataPage() {
-  const [activeTab, setActiveTab] = useState<'creator' | 'listing' | 'alamat' | 'budget' | 'organik'>('creator');
+  const [activeTab, setActiveTab] = useState<'creator' | 'listing' | 'alamat' | 'budget' | 'organik' | 'live'>('creator');
 
   return (
     <div className="space-y-6">

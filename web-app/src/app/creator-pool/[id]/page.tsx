@@ -47,7 +47,6 @@ export default function CreatorProfilePage() {
     sales: any[];
     ads: any[];
     addressBook: any[];
-    addressBook: any[];
     auditLogs: any[];
     liveSessions: any[];
     liveProducts: any[];
@@ -1159,6 +1158,8 @@ export default function CreatorProfilePage() {
                     )})}
                   </tbody>
                 </table></div>
+              ) : (
+                <p className="text-sm text-slate-400 text-center py-6">Belum ada history campaign.</p>
               )}
             </div>
             )}

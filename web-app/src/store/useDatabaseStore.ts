@@ -94,6 +94,8 @@ export const useDatabaseStore = create<DatabaseState>((set, get) => ({
   ads_performance: [],
   ad_name_mapping: [],
   profiles: [],
+  live_sessions: [],
+  live_session_products: [],
   isLoading: false,
   error: null,
 
