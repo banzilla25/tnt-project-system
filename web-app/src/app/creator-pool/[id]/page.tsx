@@ -11,7 +11,7 @@ import { formatAbbreviated } from "@/utils/formatters";
 import { ArrowLeft, UserPlus, Phone, CreditCard, Activity, ArrowUpDown, ChevronDown, ChevronRight, Edit, Save, Plus, X, Trash2, Check, Video, TrendingUp, DollarSign, Calendar, Users, Briefcase, ExternalLink, ArrowRight, TrendingDown } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useState, ReactNode, useEffect, useRef, useCallback } from "react";
+import { useState, ReactNode, useEffect, useRef, useCallback, useMemo } from "react";
 import React from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/Dialog";
 import { Edit2 } from "lucide-react";
@@ -28,6 +28,7 @@ export default function CreatorProfilePage() {
   const { 
     niches, 
     campaigns,
+    skus,
     addCreatorSnapshot,
     updateCreatorContact,
     updateCreator,
@@ -257,6 +258,89 @@ export default function CreatorProfilePage() {
     
     return sortOrder === 'asc' ? comparison : -comparison;
   });
+
+  const { groupedSales, groupedLive, groupedVideos } = useMemo(() => {
+    const gSales: Record<string, any[]> = { 'lainnya': [] };
+    const gLive: Record<string, any[]> = { 'lainnya': [] };
+    const gVideos: Record<string, any[]> = { 'lainnya': [] };
+
+    const skuMap: Record<string, number> = {};
+    skus?.forEach(s => {
+      if (s.product_id) skuMap[s.product_id] = s.campaign_id;
+    });
+
+    trackRecords.forEach(tr => {
+      const cid = tr.campaign_id.toString();
+      gSales[cid] = [];
+      gLive[cid] = [];
+      gVideos[cid] = [];
+    });
+
+    localData?.sales?.forEach(sale => {
+      const pId = sale.product_id || sale.raw_data?.['Product ID'];
+      const mappedCid = (pId && skuMap[pId]) ? skuMap[pId].toString() : null;
+      if (mappedCid && gSales[mappedCid] !== undefined) {
+        gSales[mappedCid].push(sale);
+      } else {
+        gSales['lainnya'].push(sale);
+      }
+    });
+
+    localData?.liveSessions?.forEach(session => {
+      const products = localData?.liveProducts?.filter(p => p.livestream_room_id === session.livestream_room_id) || [];
+      const campaignIds = new Set<string>();
+      products.forEach(p => {
+        const pId = p.product_id;
+        if (pId && skuMap[pId]) campaignIds.add(skuMap[pId].toString());
+      });
+
+      if (campaignIds.size === 0) {
+        gLive['lainnya'].push(session);
+      } else {
+        campaignIds.forEach(cid => {
+          if (gLive[cid] !== undefined) gLive[cid].push(session);
+          else gLive['lainnya'].push(session); 
+        });
+      }
+    });
+
+    localData?.organicVideos?.forEach(video => {
+      const videoSales = localData?.sales?.filter((s: any) => s.content_uid === video.content_uid) || [];
+      const campaignIds = new Set<string>();
+
+      videoSales.forEach(s => {
+        const pId = s.product_id || s.raw_data?.['Product ID'];
+        if (pId && skuMap[pId]) campaignIds.add(skuMap[pId].toString());
+      });
+
+      const manualVid = localData?.videos?.find((v: any) => v.content_uid === video.content_uid);
+      if (manualVid) {
+        const cc = localData?.ccs?.find((c: any) => c.id === manualVid.campaign_creator_id);
+        if (cc) campaignIds.add(cc.campaign_id.toString());
+      }
+
+      if (campaignIds.size === 0) {
+        gVideos['lainnya'].push(video);
+      } else {
+        campaignIds.forEach(cid => {
+          if (gVideos[cid] !== undefined) gVideos[cid].push(video);
+          else gVideos['lainnya'].push(video); 
+        });
+      }
+    });
+
+    return { groupedSales: gSales, groupedLive: gLive, groupedVideos: gVideos };
+  }, [localData, trackRecords, skus]);
+
+  const campaignTabsList = [
+    ...trackRecords.map(tr => ({ id: tr.campaign_id.toString(), name: tr.campaign_name })),
+    { id: 'lainnya', name: 'Lainnya / Tidak Masuk Campaign' }
+  ];
+
+  const [expandedCampaignTabs, setExpandedCampaignTabs] = useState<Record<string, boolean>>({});
+  const toggleCampaignTab = (cid: string) => {
+    setExpandedCampaignTabs(prev => ({ ...prev, [cid]: !prev[cid] }));
+  };
 
   const [snapForm, setSnapForm] = useState({ audience_age: '', level: '', gmv_30d: '', followers: '', tier: '', ratecard: '' });
   const [snapOpen, setSnapOpen] = useState(false);
@@ -1178,202 +1262,300 @@ export default function CreatorProfilePage() {
             )}
 
             {activeHistoryTab === 'live' && (
-              <div>
-                {(localData?.liveSessions && localData.liveSessions.length > 0) ? (
-                  <div className="tbl-wrap">
-                    <table className="w-full">
-                      <thead className="border-b border-line bg-pink-50/50">
-                        <tr className="border-b border-line">
-                          <th className="py-[12px] px-[16px] text-left font-semibold text-text-soft">Waktu Mulai</th>
-                          <th className="py-[12px] px-[16px] text-left font-semibold text-text-soft">Judul Live</th>
-                          <th className="py-[12px] px-[16px] text-center font-semibold text-text-soft">Durasi</th>
-                          <th className="py-[12px] px-[16px] text-right font-semibold text-text-soft">Views</th>
-                          <th className="py-[12px] px-[16px] text-right font-semibold text-text-soft">Likes</th>
-                          <th className="py-[12px] px-[16px] text-right font-semibold text-text-soft">CVR</th>
-                          <th className="py-[12px] px-[16px] text-right font-semibold text-text-soft">RPM</th>
-                          <th className="py-[12px] px-[16px] text-right font-semibold text-text-soft">Terjual</th>
-                          <th className="py-[12px] px-[16px] text-right font-semibold text-text-soft">Total GMV</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {localData.liveSessions.map((session: any) => {
-                          const isExpanded = expandedLiveSessions[session.livestream_room_id];
-                          const products = localData.liveProducts?.filter((p: any) => p.livestream_room_id === session.livestream_room_id) || [];
-                          const totalItemsSold = products.reduce((sum: number, p: any) => sum + (p.items_sold || 0), 0);
-                          const totalGmv = products.reduce((sum: number, p: any) => sum + (p.gmv || 0), 0);
+              <div className="space-y-4">
+                {campaignTabsList.map(tab => {
+                  const sessions = groupedLive[tab.id] || [];
+                  if (sessions.length === 0) return null;
+                  const isExpandedTab = expandedCampaignTabs[`live_${tab.id}`];
 
-                          return (
-                            <React.Fragment key={session.livestream_room_id}>
-                              <tr className="border-b border-line hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => toggleLiveSession(session.livestream_room_id)}>
-                                <td className="py-[12px] px-[16px] text-sm">
-                                  {session.start_time ? new Date(session.start_time).toLocaleString('id-ID') : '-'}
-                                </td>
-                                <td className="py-[12px] px-[16px] text-sm max-w-[200px] truncate" title={session.livestream_name || ''}>
-                                  {session.livestream_name || 'Tidak ada judul'}
-                                </td>
-                                <td className="py-[12px] px-[16px] text-sm text-center text-slate-500">{session.duration_str || '-'}</td>
-                                <td className="py-[12px] px-[16px] text-sm text-right font-medium">{session.live_views?.toLocaleString('id-ID') || 0}</td>
-                                <td className="py-[12px] px-[16px] text-sm text-right font-medium">{session.live_likes?.toLocaleString('id-ID') || 0}</td>
-                                <td className="py-[12px] px-[16px] text-sm text-right font-medium text-orange-600">
-                                  {session.live_views > 0 ? ((totalItemsSold / session.live_views) * 100).toFixed(2) + '%' : '-'}
-                                </td>
-                                <td className="py-[12px] px-[16px] text-sm text-right font-medium text-blue-600">
-                                  {session.live_product_rpm ? `Rp ${session.live_product_rpm.toLocaleString('id-ID')}` : '-'}
-                                </td>
-                                <td className="py-[12px] px-[16px] text-sm text-right font-medium">{totalItemsSold}</td>
-                                <td className="py-[12px] px-[16px] text-sm text-right font-medium text-green-600">
-                                  Rp {totalGmv.toLocaleString('id-ID')}
-                                </td>
+                  let totalGmvTab = 0;
+                  sessions.forEach((session: any) => {
+                    const products = localData?.liveProducts?.filter((p: any) => p.livestream_room_id === session.livestream_room_id) || [];
+                    products.forEach(p => {
+                      if (tab.id === 'lainnya') {
+                        if (!p.product_id || !skus?.find(s => s.product_id === p.product_id)) totalGmvTab += p.gmv || 0;
+                      } else {
+                        if (p.product_id && skus?.find(s => s.product_id === p.product_id)?.campaign_id.toString() === tab.id) {
+                          totalGmvTab += p.gmv || 0;
+                        }
+                      }
+                    });
+                  });
+
+                  return (
+                    <div key={tab.id} className="border border-line rounded-lg overflow-hidden">
+                      <div 
+                        className="bg-pink-50 p-4 flex justify-between items-center cursor-pointer hover:bg-pink-100 transition-colors"
+                        onClick={() => toggleCampaignTab(`live_${tab.id}`)}
+                      >
+                        <h4 className="font-bold text-slate-700">{tab.name}</h4>
+                        <div className="flex items-center gap-4 text-sm font-medium">
+                          <span className="text-pink-600">Total GMV: Rp {totalGmvTab.toLocaleString('id-ID')}</span>
+                          <span className="text-slate-500">{sessions.length} Sesi Live</span>
+                          {isExpandedTab ? <ChevronDown className="w-5 h-5 text-slate-500" /> : <ChevronRight className="w-5 h-5 text-slate-500" />}
+                        </div>
+                      </div>
+                      {isExpandedTab && (
+                        <div className="tbl-wrap">
+                          <table className="w-full">
+                            <thead className="border-b border-line bg-slate-50/50">
+                              <tr>
+                                <th className="py-[12px] px-[16px] text-left font-semibold text-text-soft">Waktu Mulai</th>
+                                <th className="py-[12px] px-[16px] text-left font-semibold text-text-soft">Judul Live</th>
+                                <th className="py-[12px] px-[16px] text-center font-semibold text-text-soft">Durasi</th>
+                                <th className="py-[12px] px-[16px] text-right font-semibold text-text-soft">Views</th>
+                                <th className="py-[12px] px-[16px] text-right font-semibold text-text-soft">Likes</th>
+                                <th className="py-[12px] px-[16px] text-right font-semibold text-text-soft">CVR</th>
+                                <th className="py-[12px] px-[16px] text-right font-semibold text-text-soft">RPM</th>
+                                <th className="py-[12px] px-[16px] text-right font-semibold text-text-soft">Terjual</th>
+                                <th className="py-[12px] px-[16px] text-right font-semibold text-text-soft">Total GMV</th>
                               </tr>
-                              {isExpanded && (
-                                <tr className="bg-slate-50 border-b border-line">
-                                  <td colSpan={7} className="p-4">
-                                    <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm">
-                                      <h4 className="font-semibold text-sm mb-3">Rincian Produk Terjual</h4>
-                                      {products.length > 0 ? (
-                                        <div className="overflow-x-auto">
-                                          <table className="w-full text-xs">
-                                            <thead className="border-b border-slate-200 text-slate-500">
-                                              <tr>
-                                                <th className="py-2 text-left">Nama Produk</th>
-                                                <th className="py-2 text-left">Toko</th>
-                                                <th className="py-2 text-center">Terjual</th>
-                                                <th className="py-2 text-right">GMV</th>
-                                                <th className="py-2 text-right">Est. Komisi</th>
-                                                <th className="py-2 text-right">Actual Komisi</th>
-                                              </tr>
-                                            </thead>
-                                            <tbody>
-                                              {products.map((p: any, idx: number) => (
-                                                <tr key={idx} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
-                                                  <td className="py-2 pr-2 max-w-[300px] truncate" title={p.product_name || ''}>{p.product_name || 'Unknown Product'}</td>
-                                                  <td className="py-2 text-slate-600">{p.shop_name || '-'}</td>
-                                                  <td className="py-2 text-center font-medium">{p.items_sold || 0}</td>
-                                                  <td className="py-2 text-right text-green-600 font-medium">Rp {(p.gmv || 0).toLocaleString('id-ID')}</td>
-                                                  <td className="py-2 text-right font-medium">Rp {(p.commission || 0).toLocaleString('id-ID')}</td>
-                                                  <td className="py-2 text-right font-medium text-amber-600">{p.actual_commission ? `Rp ${p.actual_commission.toLocaleString('id-ID')}` : '-'}</td>
-                                                </tr>
-                                              ))}
-                                            </tbody>
-                                          </table>
-                                        </div>
-                                      ) : (
-                                        <p className="text-xs text-slate-500">Tidak ada data produk yang terjual di sesi ini.</p>
-                                      )}
-                                    </div>
-                                  </td>
-                                </tr>
-                              )}
-                            </React.Fragment>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
+                            </thead>
+                            <tbody>
+                              {sessions.map((session: any) => {
+                                const isExpanded = expandedLiveSessions[session.livestream_room_id];
+                                let products = localData?.liveProducts?.filter((p: any) => p.livestream_room_id === session.livestream_room_id) || [];
+                                if (tab.id !== 'lainnya') {
+                                  products = products.filter(p => p.product_id && skus?.find(s => s.product_id === p.product_id)?.campaign_id.toString() === tab.id);
+                                } else {
+                                  products = products.filter(p => !p.product_id || !skus?.find(s => s.product_id === p.product_id));
+                                }
+                                
+                                const totalItemsSold = products.reduce((sum: number, p: any) => sum + (p.items_sold || 0), 0);
+                                const totalGmv = products.reduce((sum: number, p: any) => sum + (p.gmv || 0), 0);
+
+                                return (
+                                  <React.Fragment key={session.livestream_room_id}>
+                                    <tr className="border-b border-line hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => toggleLiveSession(session.livestream_room_id)}>
+                                      <td className="py-[12px] px-[16px] text-sm">
+                                        {session.start_time ? new Date(session.start_time).toLocaleString('id-ID') : '-'}
+                                      </td>
+                                      <td className="py-[12px] px-[16px] text-sm max-w-[200px] truncate" title={session.livestream_name || ''}>
+                                        {session.livestream_name || 'Tidak ada judul'}
+                                      </td>
+                                      <td className="py-[12px] px-[16px] text-sm text-center text-slate-500">{session.duration_str || '-'}</td>
+                                      <td className="py-[12px] px-[16px] text-sm text-right font-medium">{session.live_views?.toLocaleString('id-ID') || 0}</td>
+                                      <td className="py-[12px] px-[16px] text-sm text-right font-medium">{session.live_likes?.toLocaleString('id-ID') || 0}</td>
+                                      <td className="py-[12px] px-[16px] text-sm text-right font-medium text-orange-600">
+                                        {session.live_views > 0 ? ((totalItemsSold / session.live_views) * 100).toFixed(2) + '%' : '-'}
+                                      </td>
+                                      <td className="py-[12px] px-[16px] text-sm text-right font-medium text-blue-600">
+                                        {session.live_product_rpm ? `Rp ${session.live_product_rpm.toLocaleString('id-ID')}` : '-'}
+                                      </td>
+                                      <td className="py-[12px] px-[16px] text-sm text-right font-medium">{totalItemsSold}</td>
+                                      <td className="py-[12px] px-[16px] text-sm text-right font-medium text-green-600">
+                                        Rp {totalGmv.toLocaleString('id-ID')}
+                                      </td>
+                                    </tr>
+                                    {isExpanded && (
+                                      <tr className="bg-slate-50 border-b border-line">
+                                        <td colSpan={9} className="p-4">
+                                          <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm">
+                                            <h4 className="font-semibold text-sm mb-3">Rincian Produk Terjual</h4>
+                                            {products.length > 0 ? (
+                                              <div className="overflow-x-auto">
+                                                <table className="w-full text-xs">
+                                                  <thead className="border-b border-slate-200 text-slate-500">
+                                                    <tr>
+                                                      <th className="py-2 text-left">Nama Produk</th>
+                                                      <th className="py-2 text-left">Toko</th>
+                                                      <th className="py-2 text-center">Terjual</th>
+                                                      <th className="py-2 text-right">GMV</th>
+                                                      <th className="py-2 text-right">Est. Komisi</th>
+                                                      <th className="py-2 text-right">Actual Komisi</th>
+                                                    </tr>
+                                                  </thead>
+                                                  <tbody>
+                                                    {products.map((p: any, idx: number) => (
+                                                      <tr key={idx} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
+                                                        <td className="py-2 pr-2 max-w-[300px] truncate" title={p.product_name || ''}>{p.product_name || 'Unknown Product'}</td>
+                                                        <td className="py-2 text-slate-600">{p.shop_name || '-'}</td>
+                                                        <td className="py-2 text-center font-medium">{p.items_sold || 0}</td>
+                                                        <td className="py-2 text-right text-green-600 font-medium">Rp {(p.gmv || 0).toLocaleString('id-ID')}</td>
+                                                        <td className="py-2 text-right font-medium">Rp {(p.commission || 0).toLocaleString('id-ID')}</td>
+                                                        <td className="py-2 text-right font-medium text-amber-600">{p.actual_commission ? `Rp ${p.actual_commission.toLocaleString('id-ID')}` : '-'}</td>
+                                                      </tr>
+                                                    ))}
+                                                  </tbody>
+                                                </table>
+                                              </div>
+                                            ) : (
+                                              <p className="text-xs text-slate-500">Tidak ada data produk dari campaign ini yang terjual di sesi ini.</p>
+                                            )}
+                                          </div>
+                                        </td>
+                                      </tr>
+                                    )}
+                                  </React.Fragment>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+                {(!localData?.liveSessions || localData.liveSessions.length === 0) && (
                   <p className="text-sm text-slate-400 text-center py-6">Belum ada data Live Organik.</p>
                 )}
               </div>
             )}
             
             {activeHistoryTab === 'video' && (
-              <div>
-                {(localData?.organicVideos && localData.organicVideos.length > 0) ? (
-                  <div className="tbl-wrap">
-                    <table className="w-full">
-                      <thead className="border-b border-line bg-purple-50/50">
-                        <tr className="border-b border-line">
-                          <th className="py-[12px] px-[16px] text-left font-semibold text-text-soft">Waktu Post</th>
-                          <th className="py-[12px] px-[16px] text-left font-semibold text-text-soft">Video ID</th>
-                          <th className="py-[12px] px-[16px] text-center font-semibold text-text-soft">Durasi</th>
-                          <th className="py-[12px] px-[16px] text-right font-semibold text-text-soft">Views</th>
-                          <th className="py-[12px] px-[16px] text-right font-semibold text-text-soft">Likes</th>
-                          <th className="py-[12px] px-[16px] text-right font-semibold text-text-soft">CVR</th>
-                          <th className="py-[12px] px-[16px] text-right font-semibold text-text-soft">RPM</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {localData.organicVideos.map((video: any) => {
-                          const videoSales = localData.sales?.filter((s: any) => s.content_uid === video.content_uid) || [];
-                          const totalItemsSold = videoSales.reduce((sum: number, s: any) => sum + (s.quantity || 0), 0);
-                          
-                          return (
-                            <tr key={video.id} className="border-b border-line hover:bg-slate-50">
-                              <td className="py-[12px] px-[16px] text-sm">{video.post_time ? new Date(video.post_time).toLocaleString('id-ID') : '-'}</td>
-                              <td className="py-[12px] px-[16px] text-sm font-medium text-slate-700">
-                                <a href={`https://www.tiktok.com/@${video.creator_username}/video/${video.content_uid}`} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                                  {video.content_uid}
-                                </a>
-                              </td>
-                              <td className="py-[12px] px-[16px] text-sm text-center text-slate-500">{video.duration_str || '-'}</td>
-                              <td className="py-[12px] px-[16px] text-sm text-right font-medium">{video.video_views?.toLocaleString('id-ID') || 0}</td>
-                              <td className="py-[12px] px-[16px] text-sm text-right font-medium">{video.video_likes?.toLocaleString('id-ID') || 0}</td>
-                              <td className="py-[12px] px-[16px] text-sm text-right font-medium text-orange-600">
-                                {video.video_views > 0 ? ((totalItemsSold / video.video_views) * 100).toFixed(2) + '%' : '-'}
-                              </td>
-                              <td className="py-[12px] px-[16px] text-sm text-right font-medium text-blue-600">
-                                {video.video_product_rpm ? `Rp ${video.video_product_rpm.toLocaleString('id-ID')}` : '-'}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
+              <div className="space-y-4">
+                {campaignTabsList.map(tab => {
+                  const videos = groupedVideos[tab.id] || [];
+                  if (videos.length === 0) return null;
+                  const isExpandedTab = expandedCampaignTabs[`video_${tab.id}`];
+
+                  return (
+                    <div key={tab.id} className="border border-line rounded-lg overflow-hidden">
+                      <div 
+                        className="bg-purple-50 p-4 flex justify-between items-center cursor-pointer hover:bg-purple-100 transition-colors"
+                        onClick={() => toggleCampaignTab(`video_${tab.id}`)}
+                      >
+                        <h4 className="font-bold text-slate-700">{tab.name}</h4>
+                        <div className="flex items-center gap-4 text-sm font-medium">
+                          <span className="text-slate-500">{videos.length} Video</span>
+                          {isExpandedTab ? <ChevronDown className="w-5 h-5 text-slate-500" /> : <ChevronRight className="w-5 h-5 text-slate-500" />}
+                        </div>
+                      </div>
+                      {isExpandedTab && (
+                        <div className="tbl-wrap">
+                          <table className="w-full">
+                            <thead className="border-b border-line bg-slate-50/50">
+                              <tr>
+                                <th className="py-[12px] px-[16px] text-left font-semibold text-text-soft">Waktu Post</th>
+                                <th className="py-[12px] px-[16px] text-left font-semibold text-text-soft">Video ID</th>
+                                <th className="py-[12px] px-[16px] text-center font-semibold text-text-soft">Durasi</th>
+                                <th className="py-[12px] px-[16px] text-right font-semibold text-text-soft">Views</th>
+                                <th className="py-[12px] px-[16px] text-right font-semibold text-text-soft">Likes</th>
+                                <th className="py-[12px] px-[16px] text-right font-semibold text-text-soft">CVR</th>
+                                <th className="py-[12px] px-[16px] text-right font-semibold text-text-soft">RPM</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {videos.map((video: any) => {
+                                let videoSales = localData?.sales?.filter((s: any) => s.content_uid === video.content_uid) || [];
+                                if (tab.id !== 'lainnya') {
+                                  videoSales = videoSales.filter(s => {
+                                    const pId = s.product_id || s.raw_data?.['Product ID'];
+                                    return pId && skus?.find(sk => sk.product_id === pId)?.campaign_id.toString() === tab.id;
+                                  });
+                                } else {
+                                  videoSales = videoSales.filter(s => {
+                                    const pId = s.product_id || s.raw_data?.['Product ID'];
+                                    return !pId || !skus?.find(sk => sk.product_id === pId);
+                                  });
+                                }
+                                const totalItemsSold = videoSales.reduce((sum: number, s: any) => sum + (s.quantity || 0), 0);
+                                
+                                return (
+                                  <tr key={video.id} className="border-b border-line hover:bg-slate-50">
+                                    <td className="py-[12px] px-[16px] text-sm">{video.post_time ? new Date(video.post_time).toLocaleString('id-ID') : '-'}</td>
+                                    <td className="py-[12px] px-[16px] text-sm font-medium text-slate-700">
+                                      <a href={`https://www.tiktok.com/@${video.creator_username}/video/${video.content_uid}`} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                                        {video.content_uid}
+                                      </a>
+                                    </td>
+                                    <td className="py-[12px] px-[16px] text-sm text-center text-slate-500">{video.duration_str || '-'}</td>
+                                    <td className="py-[12px] px-[16px] text-sm text-right font-medium">{video.video_views?.toLocaleString('id-ID') || 0}</td>
+                                    <td className="py-[12px] px-[16px] text-sm text-right font-medium">{video.video_likes?.toLocaleString('id-ID') || 0}</td>
+                                    <td className="py-[12px] px-[16px] text-sm text-right font-medium text-orange-600">
+                                      {video.video_views > 0 ? ((totalItemsSold / video.video_views) * 100).toFixed(2) + '%' : '-'}
+                                    </td>
+                                    <td className="py-[12px] px-[16px] text-sm text-right font-medium text-blue-600">
+                                      {video.video_product_rpm ? `Rp ${video.video_product_rpm.toLocaleString('id-ID')}` : '-'}
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+                {(!localData?.organicVideos || localData.organicVideos.length === 0) && (
                   <p className="text-sm text-slate-400 text-center py-6">Belum ada data Video Organik.</p>
                 )}
               </div>
             )}
 
             {activeHistoryTab === 'sales' && (
-              <div>
-                {(localData?.sales && localData.sales.length > 0) ? (
-                  <div className="tbl-wrap">
-                    <table className="w-full">
-                      <thead className="border-b border-line bg-green-50/50">
-                        <tr className="border-b border-line">
-                          <th className="py-[12px] px-[16px] text-left font-semibold text-text-soft">Tanggal Pesanan</th>
-                          <th className="py-[12px] px-[16px] text-left font-semibold text-text-soft">Order ID</th>
-                          <th className="py-[12px] px-[16px] text-left font-semibold text-text-soft">Produk</th>
-                          <th className="py-[12px] px-[16px] text-left font-semibold text-text-soft">Attribution</th>
-                          <th className="py-[12px] px-[16px] text-center font-semibold text-text-soft">Comm. Rate</th>
-                          <th className="py-[12px] px-[16px] text-center font-semibold text-text-soft">Qty</th>
-                          <th className="py-[12px] px-[16px] text-right font-semibold text-text-soft">Status</th>
-                          <th className="py-[12px] px-[16px] text-right font-semibold text-text-soft">Total GMV</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {localData.sales.sort((a: any, b: any) => new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime()).map((sale: any) => (
-                          <tr key={sale.id} className="border-b border-line hover:bg-slate-50">
-                            <td className="py-[12px] px-[16px] text-sm">{sale.tanggal ? new Date(sale.tanggal).toLocaleString('id-ID') : '-'}</td>
-                            <td className="py-[12px] px-[16px] text-sm font-medium">{sale.order_id?.split('_')[0] || '-'}</td>
-                            <td className="py-[12px] px-[16px] text-sm max-w-[200px] truncate" title={sale.raw_data?.['Product Name'] || ''}>
-                              {sale.raw_data?.['Product Name'] || sale.product_id}
-                            </td>
-                            <td className="py-[12px] px-[16px] text-sm">
-                              <span className="badge b-neutral capitalize">{sale.attribution_type || sale.content_type || 'Unknown'}</span>
-                            </td>
-                            <td className="py-[12px] px-[16px] text-sm text-center font-medium text-purple-600">
-                              {sale.commission_rate || '-'}
-                            </td>
-                            <td className="py-[12px] px-[16px] text-sm text-center font-medium">{sale.quantity || 1}</td>
-                            <td className="py-[12px] px-[16px] text-sm text-right">
-                              {sale.is_refund ? (
-                                <span className="badge bg-red-100 text-red-600 border-none">Refund</span>
-                              ) : (
-                                <span className="badge bg-emerald-100 text-emerald-600 border-none">{sale.order_status || 'Completed'}</span>
-                              )}
-                            </td>
-                            <td className="py-[12px] px-[16px] text-sm text-right font-medium text-green-600">
-                              Rp {sale.gmv?.toLocaleString('id-ID')}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
+              <div className="space-y-4">
+                {campaignTabsList.map(tab => {
+                  const sales = groupedSales[tab.id] || [];
+                  if (sales.length === 0) return null;
+                  const isExpandedTab = expandedCampaignTabs[`sales_${tab.id}`];
+            
+                  const totalGmvTab = sales.reduce((sum: number, s: any) => sum + (s.gmv || 0), 0);
+            
+                  return (
+                    <div key={tab.id} className="border border-line rounded-lg overflow-hidden">
+                      <div 
+                        className="bg-green-50 p-4 flex justify-between items-center cursor-pointer hover:bg-green-100 transition-colors"
+                        onClick={() => toggleCampaignTab(`sales_${tab.id}`)}
+                      >
+                        <h4 className="font-bold text-slate-700">{tab.name}</h4>
+                        <div className="flex items-center gap-4 text-sm font-medium">
+                          <span className="text-green-600">Total GMV: Rp {totalGmvTab.toLocaleString('id-ID')}</span>
+                          <span className="text-slate-500">{sales.length} Pesanan</span>
+                          {isExpandedTab ? <ChevronDown className="w-5 h-5 text-slate-500" /> : <ChevronRight className="w-5 h-5 text-slate-500" />}
+                        </div>
+                      </div>
+                      {isExpandedTab && (
+                        <div className="tbl-wrap">
+                          <table className="w-full">
+                            <thead className="border-b border-line bg-slate-50/50">
+                              <tr>
+                                <th className="py-[12px] px-[16px] text-left font-semibold text-text-soft">Tanggal Pesanan</th>
+                                <th className="py-[12px] px-[16px] text-left font-semibold text-text-soft">Order ID</th>
+                                <th className="py-[12px] px-[16px] text-left font-semibold text-text-soft">Produk</th>
+                                <th className="py-[12px] px-[16px] text-left font-semibold text-text-soft">Attribution</th>
+                                <th className="py-[12px] px-[16px] text-center font-semibold text-text-soft">Comm. Rate</th>
+                                <th className="py-[12px] px-[16px] text-center font-semibold text-text-soft">Qty</th>
+                                <th className="py-[12px] px-[16px] text-right font-semibold text-text-soft">Status</th>
+                                <th className="py-[12px] px-[16px] text-right font-semibold text-text-soft">Total GMV</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {sales.sort((a: any, b: any) => new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime()).map((sale: any) => (
+                                <tr key={sale.id} className="border-b border-line hover:bg-slate-50">
+                                  <td className="py-[12px] px-[16px] text-sm">{sale.tanggal ? new Date(sale.tanggal).toLocaleString('id-ID') : '-'}</td>
+                                  <td className="py-[12px] px-[16px] text-sm font-medium">{sale.order_id?.split('_')[0] || '-'}</td>
+                                  <td className="py-[12px] px-[16px] text-sm max-w-[200px] truncate" title={sale.raw_data?.['Product Name'] || ''}>
+                                    {sale.raw_data?.['Product Name'] || sale.product_id}
+                                  </td>
+                                  <td className="py-[12px] px-[16px] text-sm">
+                                    <span className="badge b-neutral capitalize">{sale.attribution_type || sale.content_type || 'Unknown'}</span>
+                                  </td>
+                                  <td className="py-[12px] px-[16px] text-sm text-center font-medium text-purple-600">
+                                    {sale.commission_rate || '-'}
+                                  </td>
+                                  <td className="py-[12px] px-[16px] text-sm text-center font-medium">{sale.quantity || 1}</td>
+                                  <td className="py-[12px] px-[16px] text-sm text-right">
+                                    {sale.is_refund ? (
+                                      <span className="badge bg-red-100 text-red-600 border-none">Refund</span>
+                                    ) : (
+                                      <span className="badge bg-emerald-100 text-emerald-600 border-none">{sale.order_status || 'Completed'}</span>
+                                    )}
+                                  </td>
+                                  <td className="py-[12px] px-[16px] text-sm text-right font-medium text-green-600">
+                                    Rp {sale.gmv?.toLocaleString('id-ID')}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+                {(!localData?.sales || localData.sales.length === 0) && (
                   <p className="text-sm text-slate-400 text-center py-6">Belum ada data Penjualan (Sales).</p>
                 )}
               </div>
