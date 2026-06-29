@@ -471,7 +471,7 @@ function CampaignListingContent() {
         .select(`
           id, approval, approved_at, created_at, added_by, tier,
           creators (
-            creator_snapshots ( tier )
+            creator_snapshots ( tier, tanggal_update, id )
           )
         `)
         .eq('campaign_id', campaignId)
@@ -523,8 +523,14 @@ function CampaignListingContent() {
     rawRecapData.forEach(r => {
       let snapshotTier = null;
       if (r.creators?.creator_snapshots) {
-        // Find the first valid tier (could be reversed if latest is last, but since we just need any valid one)
-        const validSnap = [...r.creators.creator_snapshots].reverse().find(s => s.tier);
+        // Sort snapshots by tanggal_update DESC, then id DESC
+        const sortedSnaps = [...r.creators.creator_snapshots].sort((a: any, b: any) => {
+          const tDiff = new Date(b.tanggal_update || 0).getTime() - new Date(a.tanggal_update || 0).getTime();
+          if (tDiff !== 0) return tDiff;
+          return (b.id || 0) - (a.id || 0);
+        });
+        // Find the most recent snapshot with a valid tier
+        const validSnap = sortedSnaps.find((s: any) => s.tier);
         if (validSnap) snapshotTier = validSnap.tier;
       }
       let t = snapshotTier || r.tier;
