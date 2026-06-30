@@ -122,7 +122,8 @@ function CampaignListingContent() {
           gmv_30d: snap.gmv_30d,
           creator_id: cc.creator_id,
           tier: snap.tier,
-          audience_age: snap.audience_age
+          audience_age: snap.audience_age,
+          ratecard: snap.ratecard
         }
       };
       (existing as any)[field] = value;
@@ -198,7 +199,8 @@ function CampaignListingContent() {
             level: newLevel,
             gmv_30d: newGmv,
             tier: change.original.tier, // inherit
-            audience_age: change.original.audience_age // inherit
+            audience_age: change.original.audience_age, // inherit
+            ratecard: change.original.ratecard // inherit
           });
         }
       }
@@ -1893,10 +1895,11 @@ function CampaignListingContent() {
                       <td className="text-center">
                         {editingCellId === `${cc.id}-level` ? (
                           <input 
-                            type="text" 
+                            type="number" 
+                            min="1"
                             autoFocus
                             defaultValue={getPendingValue(cc.id, 'level', snapshot?.level || '')}
-                            onBlur={e => { setCellChange(cc.id, 'level', e.target.value, cc); setEditingCellId(null); }}
+                            onBlur={e => { setCellChange(cc.id, 'level', Number(e.target.value), cc); setEditingCellId(null); }}
                             onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
                             className="input w-16 !p-[4px] text-center text-[13px]"
                           />
