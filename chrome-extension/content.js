@@ -52,7 +52,7 @@ function scrapeData() {
   const level = lvlSpan ? lvlSpan.innerText.trim() : '';
 
   // 5. GMV / Revenue
-  const gmv = getStatValue('Revenue');
+  const gmv = getStatValue('Revenue') || getStatValue('GMV');
 
   // 6. Contact Info (From modal if open)
   const wa = getStatValue('Whatsapp:');
