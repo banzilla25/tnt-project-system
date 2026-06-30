@@ -192,13 +192,22 @@ function CampaignListingContent() {
           const newLevel = change.level !== undefined ? change.level : change.original.level;
           const newGmv = change.gmv_30d !== undefined ? change.gmv_30d : change.original.gmv_30d;
           
+          let newTier = change.original.tier;
+          if (change.followers !== undefined) {
+             const f = Number(newFollowers);
+             if (f < 10000) newTier = 'Nano';
+             else if (f < 100000) newTier = 'Micro';
+             else if (f < 1000000) newTier = 'Macro';
+             else newTier = 'Mega';
+          }
+          
           await useDatabaseStore.getState().addCreatorSnapshot({
             creator_id: change.original.creator_id,
             tanggal_update: new Date().toISOString(),
             followers: newFollowers,
             level: newLevel,
             gmv_30d: newGmv,
-            tier: change.original.tier, // inherit
+            tier: newTier, // inherit or recalculated
             audience_age: change.original.audience_age, // inherit
             ratecard: change.original.ratecard // inherit
           });
@@ -1890,7 +1899,17 @@ function CampaignListingContent() {
                         )}
                       </td>
                       <td className="text-right text-[13px] font-medium text-text">
-                        {snapshot?.tier || '-'}
+                        {(() => {
+                          const f = getPendingValue(cc.id, 'followers', snapshot?.followers);
+                          if (f !== undefined && f !== null) {
+                            const numF = Number(f);
+                            if (numF < 10000) return 'Nano';
+                            if (numF < 100000) return 'Micro';
+                            if (numF < 1000000) return 'Macro';
+                            return 'Mega';
+                          }
+                          return snapshot?.tier || '-';
+                        })()}
                       </td>
                       <td className="text-center">
                         {editingCellId === `${cc.id}-level` ? (
@@ -1944,7 +1963,7 @@ function CampaignListingContent() {
                         </div>
                       </td>
                       <td className="capitalize text-[13px] font-medium">
-                        {getJenisKerjasama(cc.price)}
+                        {getJenisKerjasama(getPendingValue(cc.id, 'price', cc.price) as number)}
                       </td>
                       <td>
                         {editingCellId === `${cc.id}-price` ? (
