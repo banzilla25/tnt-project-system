@@ -18,6 +18,23 @@ import { MultiSelect } from "@/components/MultiSelect";
 const supabase = createClient();
 const PAGE_SIZE = 50;
 
+const extractLatestSnapshot = (creator: any) => {
+  const snaps = creator?.creator_snapshots || [];
+  const sortedSnaps = [...snaps].sort((a:any, b:any) => {
+    const tDiff = new Date(b.tanggal_update || 0).getTime() - new Date(a.tanggal_update || 0).getTime();
+    if (tDiff !== 0) return tDiff;
+    return b.id - a.id;
+  });
+  return sortedSnaps.reduce((acc: any, curr: any) => ({
+    followers: acc.followers ?? curr.followers,
+    tier: acc.tier ?? curr.tier,
+    audience_age: acc.audience_age ?? curr.audience_age,
+    level: acc.level ?? curr.level,
+    ratecard: acc.ratecard ?? curr.ratecard,
+    gmv_30d: acc.gmv_30d ?? curr.gmv_30d,
+  }), { followers: null, tier: null, audience_age: null, level: null, ratecard: null, gmv_30d: null } as any);
+};
+
 export default function CampaignListingPage() {
   return (
     <ErrorBoundary>
@@ -90,6 +107,7 @@ function CampaignListingContent() {
   const setCellChange = (ccId: number, field: string, value: any, cc: any) => {
     setPendingChanges(prev => {
       const next = new Map(prev);
+      const snap = extractLatestSnapshot(cc.creators);
       const existing = next.get(ccId) || {
         original: {
           price: cc.price,
@@ -98,14 +116,20 @@ function CampaignListingContent() {
           approval: cc.approval,
           client_approval: cc.client_approval || 'not_required',
           assigned_sku_ids: cc.assigned_sku_ids || [],
-          content_type: cc.content_type || null
+          content_type: cc.content_type || null,
+          followers: snap.followers,
+          level: snap.level,
+          gmv_30d: snap.gmv_30d,
+          creator_id: cc.creator_id,
+          tier: snap.tier,
+          audience_age: snap.audience_age
         }
       };
       (existing as any)[field] = value;
 
       // Check if all changed fields match original
       const orig = existing.original;
-      const fields = ['price', 'qty_vt', 'qty_live', 'approval', 'client_approval', 'assigned_sku_ids', 'content_type'] as const;
+      const fields = ['price', 'qty_vt', 'qty_live', 'approval', 'client_approval', 'assigned_sku_ids', 'content_type', 'followers', 'level', 'gmv_30d'] as const;
       let hasRealChange = false;
       for (const f of fields) {
         const changedVal = (existing as any)[f];
@@ -155,7 +179,30 @@ function CampaignListingContent() {
       if (isClientApprovalRequired && change.client_approval !== undefined) {
         updates.client_approval = change.client_approval;
       }
-      await updateCampaignCreator(ccId, updates, profile?.nama || 'System');
+
+      if (Object.keys(updates).length > 0) {
+        await updateCampaignCreator(ccId, updates, profile?.nama || 'System');
+      }
+
+      // Handle creator snapshot updates
+      if (change.followers !== undefined || change.level !== undefined || change.gmv_30d !== undefined) {
+        if (change.original.creator_id) {
+          const newFollowers = change.followers !== undefined ? change.followers : change.original.followers;
+          const newLevel = change.level !== undefined ? change.level : change.original.level;
+          const newGmv = change.gmv_30d !== undefined ? change.gmv_30d : change.original.gmv_30d;
+          
+          await useDatabaseStore.getState().addCreatorSnapshot({
+            creator_id: change.original.creator_id,
+            tanggal_update: new Date().toISOString(),
+            followers: newFollowers,
+            level: newLevel,
+            gmv_30d: newGmv,
+            tier: change.original.tier, // inherit
+            audience_age: change.original.audience_age // inherit
+          });
+        }
+      }
+
       done++;
       setBatchSaveProgress(Math.round((done / entries.length) * 100));
     }
@@ -1822,14 +1869,43 @@ function CampaignListingContent() {
                           <img src="/logo-tiktok-landscape-button.svg" alt="TikTok" className="h-[26px]" />
                         </a>
                       </td>
-                      <td className="text-right text-[13px] font-medium text-text">
-                        {formatAbbreviated(snapshot?.followers, false)}
+                      <td className="text-right">
+                        {editingCellId === `${cc.id}-followers` ? (
+                          <input 
+                            type="number" 
+                            min="0"
+                            autoFocus
+                            defaultValue={getPendingValue(cc.id, 'followers', snapshot?.followers || 0)}
+                            onBlur={e => { setCellChange(cc.id, 'followers', Number(e.target.value), cc); setEditingCellId(null); }}
+                            onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                            className="input w-20 !p-[4px] text-right text-[13px]"
+                          />
+                        ) : (
+                          <span 
+                            className={`text-[13px] font-medium cursor-pointer hover:bg-blue-50 px-1 py-0.5 rounded ${hasPending && pendingChanges.get(cc.id)?.followers !== undefined ? 'text-amber-700' : 'text-text'}`}
+                            onClick={() => hasAccess && setEditingCellId(`${cc.id}-followers`)}
+                          >{formatAbbreviated(getPendingValue(cc.id, 'followers', snapshot?.followers || 0) as number, false)}</span>
+                        )}
                       </td>
                       <td className="text-right text-[13px] font-medium text-text">
                         {snapshot?.tier || '-'}
                       </td>
-                      <td className="text-center text-[13px] font-medium text-text">
-                        {snapshot?.level || '-'}
+                      <td className="text-center">
+                        {editingCellId === `${cc.id}-level` ? (
+                          <input 
+                            type="text" 
+                            autoFocus
+                            defaultValue={getPendingValue(cc.id, 'level', snapshot?.level || '')}
+                            onBlur={e => { setCellChange(cc.id, 'level', e.target.value, cc); setEditingCellId(null); }}
+                            onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                            className="input w-16 !p-[4px] text-center text-[13px]"
+                          />
+                        ) : (
+                          <span 
+                            className={`text-[13px] font-medium cursor-pointer hover:bg-blue-50 px-1 py-0.5 rounded ${hasPending && pendingChanges.get(cc.id)?.level !== undefined ? 'text-amber-700' : 'text-text'}`}
+                            onClick={() => hasAccess && setEditingCellId(`${cc.id}-level`)}
+                          >{(getPendingValue(cc.id, 'level', snapshot?.level || '') as string) || '-'}</span>
+                        )}
                       </td>
                       <td>
                         <div className="flex items-center gap-1 max-w-[200px]">
@@ -2037,8 +2113,25 @@ function CampaignListingContent() {
                           )}
                         </td>
                       )}
-                      <td className="text-right text-[13px] font-semibold text-text">
-                        {gmvCreator > 0 ? formatAbbreviated(gmvCreator, true) : '-'}
+                      <td className="text-right">
+                        {editingCellId === `${cc.id}-gmv_30d` ? (
+                          <input 
+                            type="number" 
+                            min="0"
+                            autoFocus
+                            defaultValue={getPendingValue(cc.id, 'gmv_30d', snapshot?.gmv_30d || 0)}
+                            onBlur={e => { setCellChange(cc.id, 'gmv_30d', Number(e.target.value), cc); setEditingCellId(null); }}
+                            onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                            className="input w-24 !p-[4px] text-right text-[13px]"
+                          />
+                        ) : (
+                          <span 
+                            className={`text-[13px] font-semibold cursor-pointer hover:bg-blue-50 px-1 py-0.5 rounded ${hasPending && pendingChanges.get(cc.id)?.gmv_30d !== undefined ? 'text-amber-700' : 'text-text'}`}
+                            onClick={() => hasAccess && setEditingCellId(`${cc.id}-gmv_30d`)}
+                          >
+                            {(getPendingValue(cc.id, 'gmv_30d', snapshot?.gmv_30d || 0) as number) > 0 ? formatAbbreviated(getPendingValue(cc.id, 'gmv_30d', snapshot?.gmv_30d || 0) as number, true) : '-'}
+                          </span>
+                        )}
                       </td>
                       <td className="text-right">
                         {hasAccess ? (
