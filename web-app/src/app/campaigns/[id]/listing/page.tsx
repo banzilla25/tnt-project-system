@@ -2222,15 +2222,22 @@ function CampaignListingContent() {
                               <option value="rejected">Rejected</option>
                             </select>
                           ) : (
-                            <span 
-                              className={`badge cursor-pointer hover:opacity-80 ${
-                                (getPendingValue(cc.id, 'client_approval', cc.client_approval) as string) === 'approved' ? 'b-success' : 
-                                (getPendingValue(cc.id, 'client_approval', cc.client_approval) as string) === 'rejected' ? 'b-destructive' : 'b-neutral'
-                              } ${hasPending && pendingChanges.get(cc.id)?.client_approval !== undefined ? 'ring-1 ring-amber-300' : ''}`}
-                              onClick={() => hasAccess && setEditingCellId(`${cc.id}-client_approval`)}
-                            >
-                              {(getPendingValue(cc.id, 'client_approval', cc.client_approval) as string) === 'not_required' ? 'Pending' : (getPendingValue(cc.id, 'client_approval', cc.client_approval) as string)}
-                            </span>
+                            <div className="flex flex-col items-center">
+                              <span 
+                                className={`badge cursor-pointer hover:opacity-80 ${
+                                  (getPendingValue(cc.id, 'client_approval', cc.client_approval) as string) === 'approved' ? 'b-success' : 
+                                  (getPendingValue(cc.id, 'client_approval', cc.client_approval) as string) === 'rejected' ? 'b-destructive' : 'b-neutral'
+                                } ${hasPending && pendingChanges.get(cc.id)?.client_approval !== undefined ? 'ring-1 ring-amber-300' : ''}`}
+                                onClick={() => hasAccess && setEditingCellId(`${cc.id}-client_approval`)}
+                              >
+                                {(getPendingValue(cc.id, 'client_approval', cc.client_approval) as string) === 'not_required' ? 'Pending' : (getPendingValue(cc.id, 'client_approval', cc.client_approval) as string)}
+                              </span>
+                              {hasPending && pendingChanges.get(cc.id)?.client_approval !== undefined && (
+                                <div className="text-[10px] text-amber-600 mt-1 flex items-center justify-center gap-1 font-medium">
+                                  <Loader2 className="w-3 h-3 animate-spin" /> {isBatchSaving ? 'Menyimpan...' : 'Menunggu save...'}
+                                </div>
+                              )}
+                            </div>
                           )}
                         </td>
                       )}
