@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/Table";
 import { useDatabaseStore } from "@/store/useDatabaseStore";
 import { createClient } from "@/utils/supabase/client";
-import { Edit2, Check, X, Search, FileSpreadsheet, Loader2, Trash2, Lock, Download, DollarSign, TrendingUp, AlertCircle, BarChart3, ChevronUp, ChevronDown, Eye, Activity, UploadCloud } from "lucide-react";
+import { Edit2, Check, X, Search, FileSpreadsheet, Loader2, Trash2, Lock, Download, DollarSign, TrendingUp, AlertCircle, BarChart3, ChevronUp, ChevronDown, Eye, Activity, UploadCloud, Calendar } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/providers/AuthProvider";
 import { exportToExcel } from "@/utils/exportToExcel";
