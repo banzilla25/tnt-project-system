@@ -15,7 +15,13 @@ const supabase = createClient();
 
 export default function ImportAdsPage() {
   const router = useRouter();
-  const { campaigns, creators } = useDatabaseStore();
+  const { campaigns, creators, fetchData } = useDatabaseStore();
+  
+  useEffect(() => {
+    if (campaigns.length === 0) {
+      fetchData();
+    }
+  }, [campaigns.length, fetchData]);
   
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [file, setFile] = useState<File | null>(null);
