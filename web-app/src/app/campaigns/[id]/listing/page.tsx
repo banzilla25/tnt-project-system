@@ -1881,6 +1881,12 @@ function CampaignListingContent() {
               
               displayData = Array.from(new Map(displayData.map(c => [c.creators?.username?.toLowerCase() || c.id, c])).values());
 
+              // Pre-calculate snapshots to prevent severe O(N log N) performance degradation during sorting
+              displayData = displayData.map((c: any) => {
+                 c._cachedSnapshot = c._cachedSnapshot || extractLatestSnapshot(c.creators);
+                 return c;
+              });
+
               // Frontend Sorting for 100% accuracy on all columns
               if (sortConfig.key !== 'id') {
                 displayData.sort((a: any, b: any) => {
@@ -1903,20 +1909,14 @@ function CampaignListingContent() {
                     valA = a.approval || '';
                     valB = b.approval || '';
                   } else if (sortConfig.key === 'followers') {
-                    const snapA = extractLatestSnapshot(a.creators);
-                    const snapB = extractLatestSnapshot(b.creators);
-                    valA = Number(snapA?.followers) || 0;
-                    valB = Number(snapB?.followers) || 0;
+                    valA = Number(a._cachedSnapshot?.followers) || 0;
+                    valB = Number(b._cachedSnapshot?.followers) || 0;
                   } else if (sortConfig.key === 'tier') {
-                    const snapA = extractLatestSnapshot(a.creators);
-                    const snapB = extractLatestSnapshot(b.creators);
-                    valA = snapA?.tier || a.tier || '';
-                    valB = snapB?.tier || b.tier || '';
+                    valA = a._cachedSnapshot?.tier || a.tier || '';
+                    valB = b._cachedSnapshot?.tier || b.tier || '';
                   } else if (sortConfig.key === 'level') {
-                    const snapA = extractLatestSnapshot(a.creators);
-                    const snapB = extractLatestSnapshot(b.creators);
-                    valA = Number(snapA?.level) || 0;
-                    valB = Number(snapB?.level) || 0;
+                    valA = Number(a._cachedSnapshot?.level) || 0;
+                    valB = Number(b._cachedSnapshot?.level) || 0;
                   }
 
                   if (valA < valB) return sortConfig.dir === 'asc' ? -1 : 1;
@@ -1932,24 +1932,11 @@ function CampaignListingContent() {
                 </td>
               </tr>
             ) : (
-              displayData.map((cc, index) => {
+              displayData.map((cc: any, index) => {
                 const creator = cc.creators;
                 if (!creator) return null;
                 const hasPending = pendingChanges.has(cc.id);
-                const snaps = creator.creator_snapshots || [];
-                const sortedSnaps = snaps.sort((a:any, b:any) => {
-                  const tDiff = new Date(b.tanggal_update || 0).getTime() - new Date(a.tanggal_update || 0).getTime();
-                  if (tDiff !== 0) return tDiff;
-                  return b.id - a.id;
-                });
-                const snapshot = sortedSnaps.reduce((acc: any, curr: any) => ({
-                  followers: acc.followers ?? curr.followers,
-                  tier: acc.tier ?? curr.tier,
-                  audience_age: acc.audience_age ?? curr.audience_age,
-                  level: acc.level ?? curr.level,
-                  ratecard: acc.ratecard ?? curr.ratecard,
-                  gmv_30d: acc.gmv_30d ?? curr.gmv_30d,
-                }), { followers: null, tier: null, audience_age: null, level: null, ratecard: null, gmv_30d: null } as any);
+                const snapshot = cc._cachedSnapshot;
                 const type = getCreatorType(snapshot?.audience_age || null);
                 const gmvCreator = snapshot?.gmv_30d || 0;
                 const isExpanded = expandedRows[cc.id];
