@@ -249,7 +249,7 @@ export default function ImportAdsPage() {
                   type="file" 
                   ref={fileInputRef} 
                   className="hidden" 
-                  accept=".csv"
+                  accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
                   onChange={(e) => {
                     if (e.target.files && e.target.files.length > 0) {
                       handleFileSelected(e.target.files[0]);
@@ -259,8 +259,8 @@ export default function ImportAdsPage() {
                 <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-sm">
                   <UploadCloud className="w-8 h-8" />
                 </div>
-                <h3 className="text-lg font-bold text-slate-800 mb-1">Klik atau Drag file CSV ke sini</h3>
-                <p className="text-sm text-slate-500">Mendukung file .csv dari TikTok Ads Manager</p>
+                <h3 className="text-lg font-bold text-slate-800 mb-1">Klik atau Drag file Excel/CSV ke sini</h3>
+                <p className="text-sm text-slate-500">Mendukung file .xlsx dan .csv dari TikTok Ads Manager</p>
                 
                 {isProcessing && (
                   <div className="mt-6 flex items-center gap-2 text-blue-600 bg-blue-50 px-4 py-2 rounded-full border border-blue-100">
