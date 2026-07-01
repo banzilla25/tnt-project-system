@@ -776,6 +776,22 @@ function CampaignListingContent() {
         }
       }
 
+      // Deduplicate finalData by username to hide duplicates from the table UI
+      const uniqueMap = new Map();
+      for (const row of finalData) {
+         const uname = row.creators?.username?.toLowerCase() || `unknown_${row.id}`;
+         if (!uniqueMap.has(uname)) {
+            uniqueMap.set(uname, row);
+         } else {
+            // Keep the approved one if there's a conflict
+            const existing = uniqueMap.get(uname);
+            if (existing.approval !== 'approved' && row.approval === 'approved') {
+               uniqueMap.set(uname, row);
+            }
+         }
+      }
+      finalData = Array.from(uniqueMap.values());
+
       if (isReset) {
         setListingData(finalData);
       } else {
