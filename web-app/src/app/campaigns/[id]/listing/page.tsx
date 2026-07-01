@@ -507,7 +507,8 @@ function CampaignListingContent() {
 
     const groupings: Record<string, any[]> = {};
     for (const row of allData) {
-      const key = `${row.campaign_id}_${row.creator_id}`;
+      const uname = row.creators?.username?.toLowerCase() || `unknown_${row.id}`;
+      const key = `${row.campaign_id}_${uname}`;
       if (!groupings[key]) groupings[key] = [];
       groupings[key].push(row);
     }
@@ -711,6 +712,7 @@ function CampaignListingContent() {
         'username': 'creator_id', // We'll sort by ID as proxy for username server-side
         'price': 'price',
         'qty_vt': 'qty_vt',
+        'qty_live': 'qty_live',
         'approval': 'approval'
       };
       const dbCol = sortMap[sortConfig.key] || 'id';
