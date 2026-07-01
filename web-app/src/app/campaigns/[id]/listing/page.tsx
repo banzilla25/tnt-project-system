@@ -649,7 +649,10 @@ function CampaignListingContent() {
     fetchCounts();
   }, [fetchCounts]);
 
+  const fetchIdRef = useRef(0);
+
   const fetchListing = useCallback(async (pageNum: number, isReset = false) => {
+    const currentFetchId = ++fetchIdRef.current;
     setIsLoading(true);
     try {
       let selectQuery = `
@@ -727,6 +730,7 @@ function CampaignListingContent() {
       query = query.order(dbCol, { ascending: sortConfig.dir === 'asc' }).range(from, to);
 
       const { data, error } = await query;
+      if (currentFetchId !== fetchIdRef.current) return; // Ignore stale fetch result
       if (error) throw error;
 
       let finalData = data || [];
@@ -800,9 +804,13 @@ function CampaignListingContent() {
 
       setHasMore((data || []).length === PAGE_SIZE);
     } catch (e) {
-      console.error(e);
+      if (currentFetchId === fetchIdRef.current) {
+         console.error(e);
+      }
     } finally {
-      setIsLoading(false);
+      if (currentFetchId === fetchIdRef.current) {
+         setIsLoading(false);
+      }
     }
   }, [campaignId, filterType, statusFilter, debouncedSearch, sortConfig, filterTier, filterLevel, filterNiche, filterAddedBy, filterActionBy, filterPendingWithVideo, filterUnattributed]);
 
@@ -1028,14 +1036,27 @@ function CampaignListingContent() {
         payment_updated_at: null
       }));
 
-      // 4. Check if they are already in the campaign to avoid duplication
+      // 4. Check if their USERNAME is already in the campaign to absolutely avoid duplication
       const { data: existingCcData } = await supabase.from('campaign_creators')
-        .select('creator_id')
-        .eq('campaign_id', campaignId)
-        .in('creator_id', allCreators.map(c => c.id));
+        .select(`
+          creator_id,
+          creators ( username )
+        `)
+        .eq('campaign_id', campaignId);
       
-      const existingCcSet = new Set((existingCcData || []).map(cc => cc.creator_id));
-      const newCampaignPayloads = campaignPayloads.filter(p => !existingCcSet.has(p.creator_id));
+      const existingUsernames = new Set(
+        (existingCcData || [])
+          .map((cc: any) => cc.creators?.username?.toLowerCase())
+          .filter(Boolean)
+      );
+
+      // Create a map to quickly look up usernames for the payloads
+      const payloadUsernames = new Map(allCreators.map(c => [c.id, c.username?.toLowerCase()]));
+
+      const newCampaignPayloads = campaignPayloads.filter(p => {
+        const uname = payloadUsernames.get(p.creator_id);
+        return uname ? !existingUsernames.has(uname) : true;
+      });
 
       if (newCampaignPayloads.length > 0) {
         const { error: ccErr } = await supabase.from('campaign_creators').insert(newCampaignPayloads);
