@@ -201,11 +201,12 @@ function CampaignListingContent() {
       }
 
       // Handle creator snapshot updates
-      if (change.followers !== undefined || change.level !== undefined || change.gmv_30d !== undefined) {
+      if (change.followers !== undefined || change.level !== undefined || change.gmv_30d !== undefined || change.price !== undefined) {
         if (change.original.creator_id) {
           const newFollowers = change.followers !== undefined ? change.followers : change.original.followers;
           const newLevel = change.level !== undefined ? change.level : change.original.level;
           const newGmv = change.gmv_30d !== undefined ? change.gmv_30d : change.original.gmv_30d;
+          const newRatecard = change.price !== undefined ? change.price : change.original.ratecard;
           
           let newTier = change.original.tier;
           if (change.followers !== undefined) {
@@ -224,7 +225,8 @@ function CampaignListingContent() {
             gmv_30d: newGmv,
             tier: newTier, // inherit or recalculated
             audience_age: change.original.audience_age, // inherit
-            ratecard: change.original.ratecard // inherit
+            ratecard: newRatecard, // updated if price changed
+            updated_by: profile?.nama || null
           });
         }
       }
