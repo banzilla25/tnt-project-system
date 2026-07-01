@@ -98,6 +98,21 @@ function CampaignListingContent() {
     return () => window.removeEventListener('beforeunload', handler);
   }, [pendingChanges.size]);
 
+  // Auto-save debouncer (Google Sheets style)
+  const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  useEffect(() => {
+    if (pendingChanges.size > 0 && !isBatchSaving) {
+      if (autoSaveTimeoutRef.current) clearTimeout(autoSaveTimeoutRef.current);
+      autoSaveTimeoutRef.current = setTimeout(() => {
+        batchSaveAll();
+      }, 2000); // 2 seconds debounce
+    }
+    return () => {
+      if (autoSaveTimeoutRef.current) clearTimeout(autoSaveTimeoutRef.current);
+    };
+  }, [pendingChanges, isBatchSaving]);
+
   const getPendingValue = (ccId: number, field: keyof PendingChange, originalValue: any) => {
     const change = pendingChanges.get(ccId);
     if (change && change[field] !== undefined) return change[field];
@@ -1772,43 +1787,21 @@ function CampaignListingContent() {
         </div>
       )}
 
-      {/* Batch Save Banner */}
-      {pendingChanges.size > 0 && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4 flex items-center justify-between gap-4 animate-in slide-in-from-top-2">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center">
-              <AlertCircle className="w-5 h-5 text-amber-600" />
-            </div>
-            <div>
-              <p className="font-semibold text-amber-900">Ada {pendingChanges.size} data yang belum disimpan</p>
-              <p className="text-[12px] text-amber-700">Pastikan simpan terlebih dahulu sebelum meninggalkan halaman.</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowUnsavedFirst(prev => !prev)}
-              className={`btn btn-outline text-sm ${showUnsavedFirst ? 'bg-amber-100 border-amber-400 text-amber-800' : ''}`}
-            >
-              <Filter className="w-4 h-4" />
-              {showUnsavedFirst ? 'Tampil Normal' : 'Filter Belum Disimpan'}
-            </button>
-            <button
-              onClick={() => { setPendingChanges(new Map()); setShowUnsavedFirst(false); }}
-              className="btn btn-outline text-sm text-red-600 border-red-200 hover:bg-red-50"
-            >
-              <X className="w-4 h-4" /> Batalkan Semua
-            </button>
-            <button
-              onClick={batchSaveAll}
-              disabled={isBatchSaving}
-              className="btn btn-primary text-sm"
-            >
-              {isBatchSaving ? (
-                <><Loader2 className="w-4 h-4 animate-spin" /> Menyimpan {batchSaveProgress}%</>
-              ) : (
-                <><Save className="w-4 h-4" /> Simpan {pendingChanges.size} Perubahan</>
-              )}
-            </button>
+      {/* Auto-Save Toast Banner */}
+      {(pendingChanges.size > 0 || isBatchSaving) && (
+        <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[100] pointer-events-none animate-in slide-in-from-bottom-5 fade-in duration-300">
+          <div className="bg-slate-900/90 backdrop-blur-sm text-white px-5 py-3 rounded-full shadow-2xl flex items-center gap-3 border border-slate-700/50">
+            {isBatchSaving ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin text-slate-300" />
+                <span className="text-sm font-medium tracking-wide">Menyimpan ke database... {batchSaveProgress}%</span>
+              </>
+            ) : (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin text-amber-400" />
+                <span className="text-sm font-medium tracking-wide text-amber-100">Menunggu {pendingChanges.size} perubahan (Autosave dalam 2d)...</span>
+              </>
+            )}
           </div>
         </div>
       )}
