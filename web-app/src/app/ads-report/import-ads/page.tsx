@@ -484,7 +484,10 @@ export default function ImportAdsPage() {
                     revenue: "Gross Revenue / GMV (Wajib)",
                     purchases: "Purchases (Wajib)",
                     impressions: "Impressions (Wajib)",
-                    clicks: "Clicks (Wajib)"
+                    clicks: "Clicks (Wajib)",
+                    product_page_views: "Product Page Views",
+                    checkouts_initiated: "Checkouts Initiated",
+                    items_purchased: "Items Purchased"
                   };
                   
                   return (
