@@ -31,6 +31,7 @@ export default function ImportAdsPage() {
   // Custom states for Ads Import
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [selectedCampaign, setSelectedCampaign] = useState<string>('');
+  const [selectedKurs, setSelectedKurs] = useState<number>(16000);
   const [mapping, setMapping] = useState<ColumnMapping>({
     ad_id: '',
     ad_name: '',
@@ -171,6 +172,7 @@ export default function ImportAdsPage() {
             purchases: row.purchases,
             impressions: row.impressions,
             clicks: row.clicks,
+            kurs: selectedKurs,
             ...(selectedCampaign ? { campaign_id: Number(selectedCampaign) } : {}),
             // creator_id is not overwritten here if not intentionally changed, but if we have a new manual mapping we could update it. 
             // Since step 3 has a predictor, let's update creator_id too if predictedCreatorId is set.
@@ -190,7 +192,7 @@ export default function ImportAdsPage() {
             impressions: row.impressions,
             clicks: row.clicks,
             creator_id: predictedCreatorId || null,
-            kurs: 16000 // default
+            kurs: selectedKurs
           });
           if (error) throw error;
         }
@@ -244,9 +246,9 @@ export default function ImportAdsPage() {
           {step === 1 && (
             <div className="flex flex-col items-center justify-center max-w-2xl mx-auto py-12">
               
-              <div className="w-full mb-8 grid grid-cols-2 gap-4">
+              <div className="w-full mb-8 grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">Pilih Tanggal Data Iklan</label>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">Pilih Tanggal</label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                       <Calendar className="h-5 w-5 text-slate-400" />
@@ -267,16 +269,31 @@ export default function ImportAdsPage() {
                     value={selectedCampaign}
                     onChange={(e) => setSelectedCampaign(e.target.value)}
                   >
-                    <option value="">-- Wajib Pilih Campaign --</option>
+                    <option value="">-- Wajib Pilih --</option>
                     {campaigns.map(c => (
                       <option key={c.id} value={c.id}>{c.name}</option>
                     ))}
                   </select>
                 </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">Kurs (IDR/USD)</label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <span className="text-slate-400 font-medium">Rp</span>
+                    </div>
+                    <input 
+                      type="number" 
+                      className="block w-full pl-10 p-3 border border-slate-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-slate-50"
+                      value={selectedKurs}
+                      onChange={(e) => setSelectedKurs(Number(e.target.value))}
+                    />
+                  </div>
+                </div>
               </div>
 
               <div className="text-center w-full mb-6">
-                <p className="text-xs text-slate-500">Karena CSV TikTok Ads seringkali tidak menyertakan kolom tanggal spesifik atau campaign untuk tiap baris, Anda dapat mengatur tanggal & campaign secara global untuk batch unggahan ini.</p>
+                <p className="text-xs text-slate-500">Atur tanggal, campaign, dan nilai kurs secara global untuk batch unggahan ini.</p>
               </div>
 
               <div 
