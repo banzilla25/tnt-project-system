@@ -24,6 +24,7 @@ export default function ImportAdsPage() {
   
   // Custom states for Ads Import
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [selectedCampaign, setSelectedCampaign] = useState<string>('');
   const [mapping, setMapping] = useState<ColumnMapping>({
     ad_id: '',
     ad_name: '',
@@ -164,7 +165,10 @@ export default function ImportAdsPage() {
             purchases: row.purchases,
             impressions: row.impressions,
             clicks: row.clicks,
-            // don't overwrite creator_id or campaign_id if they are already set in DB
+            ...(selectedCampaign ? { campaign_id: Number(selectedCampaign) } : {}),
+            // creator_id is not overwritten here if not intentionally changed, but if we have a new manual mapping we could update it. 
+            // Since step 3 has a predictor, let's update creator_id too if predictedCreatorId is set.
+            ...(predictedCreatorId ? { creator_id: predictedCreatorId } : {})
           }).eq('id', existing.id);
         } else {
           // Insert
@@ -172,6 +176,7 @@ export default function ImportAdsPage() {
             ad_id: row.ad_id,
             ad_name: row.ad_name,
             tanggal: selectedDate,
+            campaign_id: selectedCampaign ? Number(selectedCampaign) : null,
             cost_usd: row.cost,
             gross_revenue_usd: row.revenue,
             purchases: row.purchases,
@@ -231,20 +236,39 @@ export default function ImportAdsPage() {
           {step === 1 && (
             <div className="flex flex-col items-center justify-center max-w-2xl mx-auto py-12">
               
-              <div className="w-full mb-8">
-                <label className="block text-sm font-semibold text-slate-700 mb-2">Pilih Tanggal Data Iklan</label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Calendar className="h-5 w-5 text-slate-400" />
+              <div className="w-full mb-8 grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">Pilih Tanggal Data Iklan</label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Calendar className="h-5 w-5 text-slate-400" />
+                    </div>
+                    <input 
+                      type="date" 
+                      className="block w-full pl-10 p-3 border border-slate-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-slate-50"
+                      value={selectedDate}
+                      onChange={(e) => setSelectedDate(e.target.value)}
+                    />
                   </div>
-                  <input 
-                    type="date" 
-                    className="block w-full pl-10 p-3 border border-slate-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-slate-50"
-                    value={selectedDate}
-                    onChange={(e) => setSelectedDate(e.target.value)}
-                  />
                 </div>
-                <p className="text-xs text-slate-500 mt-2">Karena CSV TikTok Ads seringkali tidak menyertakan kolom tanggal spesifik untuk tiap baris, Anda harus mengatur tanggal untuk batch unggahan ini.</p>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">Pilih Campaign (Opsional)</label>
+                  <select
+                    className="block w-full p-3 border border-slate-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-slate-50"
+                    value={selectedCampaign}
+                    onChange={(e) => setSelectedCampaign(e.target.value)}
+                  >
+                    <option value="">-- Tidak Dipilih (Bisa diset nanti) --</option>
+                    {campaigns.map(c => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="text-center w-full mb-6">
+                <p className="text-xs text-slate-500">Karena CSV TikTok Ads seringkali tidak menyertakan kolom tanggal spesifik atau campaign untuk tiap baris, Anda dapat mengatur tanggal & campaign secara global untuk batch unggahan ini.</p>
               </div>
 
               <div 
