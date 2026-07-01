@@ -271,7 +271,7 @@ export default function ImportAdsPage() {
                   >
                     <option value="">-- Wajib Pilih --</option>
                     {campaigns.map(c => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
+                      <option key={c.id} value={c.id}>{c.nama}</option>
                     ))}
                   </select>
                 </div>
