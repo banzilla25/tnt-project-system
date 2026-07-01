@@ -208,12 +208,34 @@ export default function ImportAdsPage() {
         });
       }
 
+      // Sort creators by length descending to match longer usernames first (avoids partial matches)
+      const sortedCreators = [...creators].sort((a, b) => (b.username?.length || 0) - (a.username?.length || 0));
+
       enrichedData.forEach(row => {
+        // 1. Try exact history match
         if (adNameToCreatorId[row.ad_name]) {
           newAutoMap[row.ad_id] = adNameToCreatorId[row.ad_name];
-        } else {
-          newAutoMap[row.ad_id] = null;
+          return;
         }
+        
+        // 2. Try heuristic match against creator usernames
+        let foundCreatorId: number | null = null;
+        const normalizedAdName = (row.ad_name || '').toLowerCase();
+        
+        for (const creator of sortedCreators) {
+          if (!creator.username) continue;
+          const username = creator.username.toLowerCase();
+          // Match if username is bounded by start/end or separators (_, -, space)
+          const escapedUsername = username.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const regex = new RegExp(`(?:^|[_-]|\\s)${escapedUsername}(?:[_-]|\\s|$)`);
+          
+          if (regex.test(normalizedAdName)) {
+            foundCreatorId = creator.id;
+            break;
+          }
+        }
+        
+        newAutoMap[row.ad_id] = foundCreatorId;
       });
       
       setAutoMappedCreators(newAutoMap);
