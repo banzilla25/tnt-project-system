@@ -74,7 +74,7 @@ export const parseAdsSyncFile = async (file: File, mapping: ColumnMapping): Prom
     jsonData.forEach((row, index) => {
       const rowNum = index + 2; 
       
-      const rawAdId = String(row[mapping.ad_id] || '')?.trim();
+      let rawAdId = String(row[mapping.ad_id] || '')?.trim();
       const rawAdName = String(row[mapping.ad_name] || '')?.trim();
 
       // Auto-ignore summary row from TikTok Ads
@@ -82,16 +82,21 @@ export const parseAdsSyncFile = async (file: File, mapping: ColumnMapping): Prom
         return; 
       }
 
+      if (!rawAdName) {
+        errors.push(`Baris ${rowNum}: Ad Name wajib diisi.`);
+        return;
+      }
+
+      // If ad_id is missing, generate a pseudo ID based on Ad Name to prevent duplicates on re-upload
+      if (!rawAdId) {
+        rawAdId = `auto-${rawAdName.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()}`;
+      }
+
       const rawCost = String(row[mapping.cost] || '')?.trim();
       const rawRevenue = String(row[mapping.revenue] || '')?.trim();
       const rawPurchases = String(row[mapping.purchases] || '')?.trim();
       const rawImpressions = String(row[mapping.impressions] || '')?.trim();
       const rawClicks = String(row[mapping.clicks] || '')?.trim();
-
-      if (!rawAdId || !rawAdName) {
-        errors.push(`Baris ${rowNum}: Ad ID atau Ad Name kosong.`);
-        return;
-      }
 
       const parseNumber = (val: string | undefined): number => {
         if (!val) return 0;
