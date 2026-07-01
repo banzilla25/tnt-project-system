@@ -234,6 +234,25 @@ function CampaignListingContent() {
       done++;
       setBatchSaveProgress(Math.round((done / entries.length) * 100));
     }
+    
+    // Optimistic UI update to prevent flashing old data while fetchListing is running
+    setListingData(prev => prev.map(cc => {
+      const change = pendingChanges.get(cc.id);
+      if (change) {
+        return {
+          ...cc,
+          price: change.price !== undefined ? change.price : cc.price,
+          qty_vt: change.qty_vt !== undefined ? change.qty_vt : cc.qty_vt,
+          qty_live: change.qty_live !== undefined ? change.qty_live : cc.qty_live,
+          approval: change.approval !== undefined ? change.approval : cc.approval,
+          client_approval: change.client_approval !== undefined ? change.client_approval : cc.client_approval,
+          assigned_sku_ids: change.assigned_sku_ids !== undefined ? change.assigned_sku_ids : cc.assigned_sku_ids,
+          content_type: change.content_type !== undefined ? change.content_type : cc.content_type,
+        };
+      }
+      return cc;
+    }));
+
     setPendingChanges(new Map());
     setIsBatchSaving(false);
     setShowUnsavedFirst(false);
