@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/Table";
 import { useDatabaseStore } from "@/store/useDatabaseStore";
 import { createClient } from "@/utils/supabase/client";
-import { Edit2, Check, X, Search, FileSpreadsheet, Loader2, Trash2, Lock, Download, DollarSign, TrendingUp, AlertCircle, BarChart3, ChevronUp, ChevronDown } from "lucide-react";
+import { Edit2, Check, X, Search, FileSpreadsheet, Loader2, Trash2, Lock, Download, DollarSign, TrendingUp, AlertCircle, BarChart3, ChevronUp, ChevronDown, Eye, Activity } from "lucide-react";
 import { useAuth } from "@/providers/AuthProvider";
 import { exportToExcel } from "@/utils/exportToExcel";
 import { Button } from "@/components/ui/Button";
@@ -105,7 +105,6 @@ export default function AdsReportPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const [selectedCampaignId, setSelectedCampaignId] = useState<number | null>(null);
-  const [editingId, setEditingId] = useState<number | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   
   const { profile } = useAuth();
@@ -136,62 +135,113 @@ export default function AdsReportPage() {
     fetchAds();
   }, [supabase]);
   
-  // Edit States
-  const [editCampaignId, setEditCampaignId] = useState<number | ''>('');
-  const [editCreatorId, setEditCreatorId] = useState<number | ''>('');
-  const [editKurs, setEditKurs] = useState<string>('');
-  const [editAdId, setEditAdId] = useState<string>('');
-  const [isSaving, setIsSaving] = useState(false);
+  // Inline Auto-Save States
+  type PendingAdChange = { campaign_id?: number | null; creator_id?: number | null; kurs?: number; ad_id?: string; original: any };
+  const [pendingChanges, setPendingChanges] = useState<Map<number, PendingAdChange>>(new Map());
+  const [isBatchSaving, setIsBatchSaving] = useState(false);
+  const [batchSaveProgress, setBatchSaveProgress] = useState(0);
+  const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const startEdit = (ad: any) => {
-    setEditingId(ad.id);
-    setEditCampaignId(ad.campaign_id || '');
-    setEditCreatorId(ad.creator_id || '');
-    setEditKurs(ad.kurs?.toString() || '16000');
-    setEditAdId(ad.ad_id || '');
+  // beforeunload protection
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (pendingChanges.size > 0) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [pendingChanges.size]);
+
+  const batchSaveAll = async () => {
+    if (pendingChanges.size === 0 || isBatchSaving) return;
+    setIsBatchSaving(true);
+    setBatchSaveProgress(0);
+    
+    let processed = 0;
+    const total = pendingChanges.size;
+    const currentAds = [...adsPerformance];
+    
+    for (const [adId, change] of pendingChanges.entries()) {
+      const updates: any = {};
+      if (change.campaign_id !== undefined) updates.campaign_id = change.campaign_id;
+      if (change.creator_id !== undefined) updates.creator_id = change.creator_id;
+      if (change.kurs !== undefined) updates.kurs = change.kurs;
+      if (change.ad_id !== undefined) updates.ad_id = change.ad_id;
+      
+      let newUsername = change.original.creators?.username;
+      if (updates.creator_id !== undefined && updates.creator_id !== change.original.creator_id) {
+        if (updates.creator_id === null) {
+          newUsername = null;
+        } else {
+          const { data: creatorData } = await supabase.from('creators').select('username').eq('id', updates.creator_id).single();
+          if (creatorData) newUsername = creatorData.username;
+        }
+      }
+      
+      if (Object.keys(updates).length > 0) {
+        const { error } = await supabase.from('ads_performance').update(updates).eq('id', adId);
+        if (!error) {
+           const adIndex = currentAds.findIndex(a => a.id === adId);
+           if (adIndex !== -1) {
+             currentAds[adIndex] = { 
+               ...currentAds[adIndex], 
+               ...updates, 
+               creators: newUsername !== undefined ? (newUsername ? { username: newUsername } : null) : currentAds[adIndex].creators 
+             };
+           }
+        }
+      }
+      
+      processed++;
+      setBatchSaveProgress(Math.round((processed / total) * 100));
+    }
+    
+    setAdsPerformance(currentAds);
+    setPendingChanges(new Map());
+    setIsBatchSaving(false);
   };
 
-  const cancelEdit = () => {
-    setEditingId(null);
-    setEditCampaignId('');
-    setEditCreatorId('');
-    setEditKurs('');
-    setEditAdId('');
+  useEffect(() => {
+    if (pendingChanges.size > 0 && !isBatchSaving) {
+      if (autoSaveTimeoutRef.current) clearTimeout(autoSaveTimeoutRef.current);
+      autoSaveTimeoutRef.current = setTimeout(() => {
+        batchSaveAll();
+      }, 2000);
+    }
+    return () => {
+      if (autoSaveTimeoutRef.current) clearTimeout(autoSaveTimeoutRef.current);
+    };
+  }, [pendingChanges, isBatchSaving]);
+
+  const setCellChange = (adId: number, field: keyof PendingAdChange, value: any, originalAd: any) => {
+    setPendingChanges(prev => {
+      const newMap = new Map(prev);
+      const existing = newMap.get(adId) || { original: originalAd };
+      
+      let isDifferent = false;
+      if (field === 'campaign_id') isDifferent = value !== originalAd.campaign_id;
+      else if (field === 'creator_id') isDifferent = value !== originalAd.creator_id;
+      else if (field === 'kurs') isDifferent = value !== originalAd.kurs;
+      else if (field === 'ad_id') isDifferent = value !== originalAd.ad_id;
+      
+      if (isDifferent) {
+        existing[field] = value;
+        newMap.set(adId, existing);
+      } else {
+        delete existing[field];
+        if (Object.keys(existing).length <= 1) newMap.delete(adId);
+        else newMap.set(adId, existing);
+      }
+      return newMap;
+    });
   };
 
-  const saveEdit = async (id: number) => {
-    setIsSaving(true);
-    const numKurs = Number(editKurs);
-    const cId = editCampaignId === '' ? null : Number(editCampaignId);
-    const crId = editCreatorId === '' ? null : Number(editCreatorId);
-
-    let newUsername = null;
-    if (crId) {
-      const { data: creatorData } = await supabase.from('creators').select('username').eq('id', crId).single();
-      if (creatorData) newUsername = creatorData.username;
-    }
-
-    const { error } = await supabase.from('ads_performance').update({
-      campaign_id: cId,
-      creator_id: crId,
-      kurs: numKurs,
-      ad_id: editAdId.trim() || null
-    }).eq('id', id);
-
-    if (!error) {
-      setAdsPerformance(prev => prev.map(ad => ad.id === id ? { 
-        ...ad, 
-        campaign_id: cId, 
-        creator_id: crId, 
-        kurs: numKurs,
-        ad_id: editAdId.trim() || null,
-        creators: newUsername ? { username: newUsername } : null
-      } : ad));
-      cancelEdit();
-    } else {
-      alert("Gagal menyimpan: " + error.message);
-    }
-    setIsSaving(false);
+  const getPendingValue = (adId: number, field: keyof PendingAdChange, originalValue: any) => {
+    const change = pendingChanges.get(adId);
+    if (change && change[field] !== undefined) return change[field];
+    return originalValue;
   };
 
   const deleteAd = async (id: number) => {
@@ -254,13 +304,14 @@ export default function AdsReportPage() {
 
   // 3. Campaign Breakdown Calculation (from searchFilteredAds)
   const campaignBreakdown = useMemo(() => {
-    const summary: Record<number, { name: string, spend: number, gmv: number, unmapped: number }> = {};
+    const summary: Record<number, { name: string, spend: number, gmv: number, views: number, unmapped: number }> = {};
     let globalUnmappedCampaigns = 0;
 
     searchFilteredAds.forEach(ad => {
       const kurs = ad.kurs || 16000;
       const spendIDR = (ad.cost_usd || 0) * kurs;
       const gmvIDR = (ad.gross_revenue_usd || 0) * kurs;
+      const views = ad.video_views || 0;
       
       const cId = ad.campaign_id;
       if (!cId) {
@@ -273,12 +324,14 @@ export default function AdsReportPage() {
           name: campaigns.find(c => c.id === cId)?.nama || 'Unknown', 
           spend: 0, 
           gmv: 0, 
+          views: 0,
           unmapped: 0 
         };
       }
       
       summary[cId].spend += spendIDR;
       summary[cId].gmv += gmvIDR;
+      summary[cId].views += views;
       if (!ad.creator_id) summary[cId].unmapped++;
     });
 
@@ -292,17 +345,20 @@ export default function AdsReportPage() {
   const globalSummary = useMemo(() => {
     let totalSpend = 0;
     let totalGmv = 0;
+    let totalViews = 0;
     let totalUnmapped = 0;
 
     tableFilteredAds.forEach(ad => {
       const kurs = ad.kurs || 16000;
       totalSpend += (ad.cost_usd || 0) * kurs;
       totalGmv += (ad.gross_revenue_usd || 0) * kurs;
+      totalViews += (ad.video_views || 0);
       if (!ad.campaign_id || !ad.creator_id) totalUnmapped++;
     });
 
     const roas = totalSpend > 0 ? totalGmv / totalSpend : 0;
-    return { totalSpend, totalGmv, totalUnmapped, roas };
+    const cpv = totalViews > 0 ? totalSpend / totalViews : 0;
+    return { totalSpend, totalGmv, totalViews, totalUnmapped, roas, cpv };
   }, [tableFilteredAds]);
 
   // const creatorOptions = creators.map(c => ({ id: c.id, label: `@${c.username}` }));
@@ -369,59 +425,102 @@ export default function AdsReportPage() {
       ) : (
       <>
         {/* Global Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="border-slate-200 shadow-sm">
-            <CardContent className="p-6 flex items-center justify-between">
+        {globalSummary.totalUnmapped > 0 && (
+          <div className="bg-gradient-to-r from-amber-500 to-orange-500 rounded-2xl p-4 text-white shadow-lg flex items-center justify-between mb-4 animate-in fade-in slide-in-from-top-2">
+            <div className="flex items-center gap-3">
+              <div className="bg-white/20 p-2 rounded-full">
+                <AlertCircle className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h3 className="font-bold text-lg">Perhatian: {globalSummary.totalUnmapped} Iklan Belum Di-Map!</h3>
+                <p className="text-amber-50 text-sm">Ada {globalSummary.totalUnmapped} data ads yang belum terhubung ke Campaign atau Kreator. Segera lengkapi agar ROAS akurat.</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+          <Card className="border-0 shadow-xl bg-white/60 backdrop-blur-xl relative overflow-hidden group hover:shadow-2xl transition-all duration-300">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/10 rounded-full blur-3xl -mr-10 -mt-10 transition-all group-hover:bg-red-500/20"></div>
+            <CardContent className="p-5 relative z-10">
+              <div className="flex justify-between items-start mb-2">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-red-500 to-rose-600 flex items-center justify-center text-white shadow-lg shadow-red-500/30">
+                  <DollarSign className="w-5 h-5" />
+                </div>
+              </div>
               <div>
                 <p className="text-sm font-medium text-slate-500 mb-1">Total Spend (IDR)</p>
-                <h3 className="text-2xl font-bold text-slate-800">
+                <h3 className="text-2xl font-bold text-slate-800 tracking-tight">
                   Rp {globalSummary.totalSpend.toLocaleString('id-ID', { maximumFractionDigits: 0 })}
                 </h3>
-              </div>
-              <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center text-red-500">
-                <DollarSign className="w-6 h-6" />
               </div>
             </CardContent>
           </Card>
           
-          <Card className="border-slate-200 shadow-sm">
-            <CardContent className="p-6 flex items-center justify-between">
+          <Card className="border-0 shadow-xl bg-white/60 backdrop-blur-xl relative overflow-hidden group hover:shadow-2xl transition-all duration-300">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-3xl -mr-10 -mt-10 transition-all group-hover:bg-emerald-500/20"></div>
+            <CardContent className="p-5 relative z-10">
+              <div className="flex justify-between items-start mb-2">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white shadow-lg shadow-emerald-500/30">
+                  <TrendingUp className="w-5 h-5" />
+                </div>
+              </div>
               <div>
                 <p className="text-sm font-medium text-slate-500 mb-1">Total GMV (IDR)</p>
-                <h3 className="text-2xl font-bold text-emerald-600">
+                <h3 className="text-2xl font-bold text-emerald-600 tracking-tight">
                   Rp {globalSummary.totalGmv.toLocaleString('id-ID', { maximumFractionDigits: 0 })}
                 </h3>
               </div>
-              <div className="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-500">
-                <TrendingUp className="w-6 h-6" />
-              </div>
             </CardContent>
           </Card>
 
-          <Card className="border-slate-200 shadow-sm">
-            <CardContent className="p-6 flex items-center justify-between">
+          <Card className="border-0 shadow-xl bg-white/60 backdrop-blur-xl relative overflow-hidden group hover:shadow-2xl transition-all duration-300">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl -mr-10 -mt-10 transition-all group-hover:bg-blue-500/20"></div>
+            <CardContent className="p-5 relative z-10">
+              <div className="flex justify-between items-start mb-2">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-blue-500/30">
+                  <BarChart3 className="w-5 h-5" />
+                </div>
+              </div>
               <div>
                 <p className="text-sm font-medium text-slate-500 mb-1">ROAS Keseluruhan</p>
-                <h3 className={`text-2xl font-bold ${globalSummary.roas >= 2 ? 'text-emerald-600' : globalSummary.roas >= 1 ? 'text-amber-500' : 'text-red-500'}`}>
+                <h3 className={`text-2xl font-bold tracking-tight ${globalSummary.roas >= 2 ? 'text-emerald-600' : globalSummary.roas >= 1 ? 'text-amber-500' : 'text-red-500'}`}>
                   {globalSummary.roas.toFixed(2)}x
                 </h3>
               </div>
-              <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center text-blue-500">
-                <BarChart3 className="w-6 h-6" />
+            </CardContent>
+          </Card>
+
+          <Card className="border-0 shadow-xl bg-white/60 backdrop-blur-xl relative overflow-hidden group hover:shadow-2xl transition-all duration-300">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/10 rounded-full blur-3xl -mr-10 -mt-10 transition-all group-hover:bg-purple-500/20"></div>
+            <CardContent className="p-5 relative z-10">
+              <div className="flex justify-between items-start mb-2">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-fuchsia-600 flex items-center justify-center text-white shadow-lg shadow-purple-500/30">
+                  <Eye className="w-5 h-5" />
+                </div>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-slate-500 mb-1">Total Views</p>
+                <h3 className="text-2xl font-bold text-purple-700 tracking-tight">
+                  {globalSummary.totalViews.toLocaleString('id-ID')}
+                </h3>
               </div>
             </CardContent>
           </Card>
 
-          <Card className={`border-slate-200 shadow-sm ${globalSummary.totalUnmapped > 0 ? 'bg-amber-50 border-amber-200' : ''}`}>
-            <CardContent className="p-6 flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-slate-500 mb-1">Status Mapping</p>
-                <h3 className={`text-2xl font-bold ${globalSummary.totalUnmapped > 0 ? 'text-amber-600' : 'text-slate-800'}`}>
-                  {globalSummary.totalUnmapped > 0 ? `${globalSummary.totalUnmapped} Unmapped` : 'Aman (100%)'}
-                </h3>
+          <Card className="border-0 shadow-xl bg-white/60 backdrop-blur-xl relative overflow-hidden group hover:shadow-2xl transition-all duration-300">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/10 rounded-full blur-3xl -mr-10 -mt-10 transition-all group-hover:bg-orange-500/20"></div>
+            <CardContent className="p-5 relative z-10">
+              <div className="flex justify-between items-start mb-2">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center text-white shadow-lg shadow-orange-500/30">
+                  <Activity className="w-5 h-5" />
+                </div>
               </div>
-              <div className={`w-12 h-12 rounded-full flex items-center justify-center ${globalSummary.totalUnmapped > 0 ? 'bg-amber-100 text-amber-600' : 'bg-slate-100 text-slate-500'}`}>
-                {globalSummary.totalUnmapped > 0 ? <AlertCircle className="w-6 h-6" /> : <Check className="w-6 h-6" />}
+              <div>
+                <p className="text-sm font-medium text-slate-500 mb-1">Cost Per View (IDR)</p>
+                <h3 className="text-2xl font-bold text-orange-600 tracking-tight">
+                  Rp {globalSummary.cpv.toLocaleString('id-ID', { maximumFractionDigits: 1 })}
+                </h3>
               </div>
             </CardContent>
           </Card>
@@ -449,37 +548,74 @@ export default function AdsReportPage() {
                   <div 
                     key={camp.id}
                     onClick={() => setSelectedCampaignId(isActive ? null : camp.id)}
-                    className={`flex-shrink-0 w-64 p-4 rounded-xl border transition-all cursor-pointer snap-start ${
+                    className={`flex-shrink-0 w-[280px] p-5 rounded-2xl transition-all cursor-pointer snap-start relative overflow-hidden group ${
                       isActive 
-                        ? 'border-blue-500 bg-blue-50/50 shadow-md ring-1 ring-blue-500 ring-offset-1' 
-                        : 'border-slate-200 bg-white hover:border-blue-300 hover:shadow-md'
+                        ? 'bg-blue-600 shadow-xl shadow-blue-500/30 text-white' 
+                        : 'bg-white/80 backdrop-blur-md border border-slate-200/60 hover:shadow-xl hover:shadow-slate-200/50 text-slate-800'
                     }`}
                   >
-                    <div className="flex justify-between items-start mb-2">
-                      <h4 className={`font-bold truncate pr-2 ${isActive ? 'text-blue-700' : 'text-slate-800'}`} title={camp.name}>{camp.name}</h4>
+                    {isActive && <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -mr-10 -mt-10"></div>}
+                    <div className="flex justify-between items-start mb-3 relative z-10">
+                      <h4 className={`font-bold truncate pr-2 text-lg ${isActive ? 'text-white' : 'text-slate-800'}`} title={camp.name}>{camp.name}</h4>
                       {camp.unmapped > 0 && (
-                        <span className="bg-amber-100 text-amber-700 text-[10px] px-1.5 py-0.5 rounded font-medium flex items-center gap-1" title={`${camp.unmapped} iklan belum di-map`}>
+                        <span className={`text-[10px] px-2 py-1 rounded-full font-bold flex items-center gap-1 shadow-sm ${isActive ? 'bg-red-500 text-white' : 'bg-red-100 text-red-700'}`} title={`${camp.unmapped} iklan belum di-map`}>
                           <AlertCircle className="w-3 h-3" /> {camp.unmapped}
                         </span>
                       )}
                     </div>
-                    <div className="flex justify-between text-xs mb-1">
-                      <span className="text-slate-500">Spend:</span>
-                      <span className="font-semibold text-red-600">Rp {(camp.spend / 1000000).toFixed(1)}M</span>
+                    
+                    <div className="space-y-2 mb-3 relative z-10">
+                      <div className="flex justify-between text-xs">
+                        <span className={isActive ? 'text-blue-100' : 'text-slate-500'}>Spend:</span>
+                        <span className={`font-bold ${isActive ? 'text-white' : 'text-slate-700'}`}>Rp {(camp.spend / 1000000).toFixed(1)}M</span>
+                      </div>
+                      <div className="flex justify-between text-xs">
+                        <span className={isActive ? 'text-blue-100' : 'text-slate-500'}>GMV:</span>
+                        <span className={`font-bold ${isActive ? 'text-emerald-300' : 'text-emerald-600'}`}>Rp {(camp.gmv / 1000000).toFixed(1)}M</span>
+                      </div>
                     </div>
-                    <div className="flex justify-between text-xs mb-1">
-                      <span className="text-slate-500">GMV:</span>
-                      <span className="font-semibold text-emerald-600">Rp {(camp.gmv / 1000000).toFixed(1)}M</span>
+
+                    <div className="w-full h-1.5 bg-slate-200/50 rounded-full mb-3 overflow-hidden flex relative z-10">
+                      <div className="h-full bg-red-400" style={{ width: `${Math.min((camp.spend / (camp.gmv || 1)) * 100, 100)}%` }}></div>
+                      <div className="h-full bg-emerald-400 flex-1"></div>
                     </div>
-                    <div className="flex justify-between text-xs pt-1 border-t border-slate-100 mt-2">
-                      <span className="text-slate-500">ROAS:</span>
-                      <span className={`font-bold ${roas >= 2 ? 'text-emerald-600' : roas >= 1 ? 'text-amber-500' : 'text-red-500'}`}>
-                        {roas.toFixed(2)}x
-                      </span>
+
+                    <div className={`flex justify-between items-center text-xs pt-3 border-t ${isActive ? 'border-white/20' : 'border-slate-100'} mt-2 relative z-10`}>
+                      <div className="flex flex-col">
+                        <span className={isActive ? 'text-blue-100 text-[10px]' : 'text-slate-400 text-[10px]'}>ROAS</span>
+                        <span className={`font-black text-sm ${isActive ? 'text-white' : (roas >= 2 ? 'text-emerald-600' : roas >= 1 ? 'text-amber-500' : 'text-red-500')}`}>
+                          {roas.toFixed(2)}x
+                        </span>
+                      </div>
+                      <div className="flex flex-col text-right">
+                        <span className={isActive ? 'text-blue-100 text-[10px]' : 'text-slate-400 text-[10px]'}>CPV</span>
+                        <span className={`font-bold text-sm ${isActive ? 'text-white' : 'text-slate-700'}`}>
+                          Rp {camp.views > 0 ? (camp.spend / camp.views).toFixed(0) : '0'}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 );
               })}
+            </div>
+          </div>
+        )}
+
+        {/* Auto-Save Toast Banner */}
+        {(pendingChanges.size > 0 || isBatchSaving) && (
+          <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[100] pointer-events-none animate-in slide-in-from-bottom-5 fade-in duration-300">
+            <div className="bg-slate-900/90 backdrop-blur-sm text-white px-5 py-3 rounded-full shadow-2xl flex items-center gap-3 border border-slate-700/50">
+              {isBatchSaving ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin text-slate-300" />
+                  <span className="text-sm font-medium tracking-wide">Menyimpan pemetaan... {batchSaveProgress}%</span>
+                </>
+              ) : (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin text-amber-400" />
+                  <span className="text-sm font-medium tracking-wide text-amber-100">Menunggu {pendingChanges.size} perubahan (Autosave dalam 2d)...</span>
+                </>
+              )}
             </div>
           </div>
         )}
@@ -528,90 +664,80 @@ export default function AdsReportPage() {
               </TableHeader>
               <TableBody>
                 {tableFilteredAds.slice(0, displayLimit).map((ad) => {
-                  const isEditing = editingId === ad.id;
+                  const pendingCampaignId = getPendingValue(ad.id, 'campaign_id', ad.campaign_id);
+                  const pendingCreatorId = getPendingValue(ad.id, 'creator_id', ad.creator_id);
+                  const pendingKurs = getPendingValue(ad.id, 'kurs', ad.kurs);
+                  const pendingAdId = getPendingValue(ad.id, 'ad_id', ad.ad_id);
+                  const hasPending = pendingChanges.has(ad.id);
+                  
                   const creatorUsername = ad.creators?.username;
-                  const campaign = campaigns.find(c => c.id === ad.campaign_id);
+                  const originalCampaign = campaigns.find(c => c.id === ad.campaign_id);
 
                   return (
-                    <TableRow key={ad.id} className="hover:bg-slate-50/50">
+                    <TableRow key={ad.id} className={`hover:bg-slate-50/50 transition-colors ${hasPending ? 'bg-amber-50/30' : ''}`}>
                       <TableCell className="text-xs text-slate-500">{ad.tanggal ? new Date(ad.tanggal).toLocaleDateString('id-ID') : '-'}</TableCell>
+                      
                       <TableCell className="font-medium text-xs">
-                        {isEditing ? (
-                          <input
-                            type="text"
-                            placeholder="Ad ID"
-                            className="w-full p-1 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-indigo-500"
-                            value={editAdId}
-                            onChange={(e) => setEditAdId(e.target.value)}
-                          />
-                        ) : (
-                          <div className={`font-mono truncate ${ad.ad_id ? 'text-slate-500' : 'text-red-500 font-bold'}`} title={ad.ad_id || 'KOSONG'}>
-                            {ad.ad_id || 'ID KOSONG'}
-                          </div>
-                        )}
+                        <input
+                          type="text"
+                          placeholder="Ad ID"
+                          className={`w-full p-1.5 border rounded text-xs focus:ring-1 focus:ring-indigo-500 bg-transparent ${!pendingAdId ? 'border-red-300 outline-red-300' : 'border-transparent hover:border-slate-300'}`}
+                          value={pendingAdId || ''}
+                          onChange={(e) => setCellChange(ad.id, 'ad_id', e.target.value, ad)}
+                        />
                       </TableCell>
+                      
                       <TableCell className="text-xs font-medium text-slate-700">
                         <div className="max-w-[200px] truncate" title={ad.ad_name}>{ad.ad_name}</div>
                       </TableCell>
                       
                       {/* Campaign Column */}
                       <TableCell>
-                        {isEditing ? (
-                          <select
-                            className="w-full p-1.5 border border-slate-300 rounded text-xs focus:outline-none focus:border-indigo-500"
-                            value={editCampaignId}
-                            onChange={(e) => {
-                              setEditCampaignId(e.target.value ? Number(e.target.value) : '');
-                              setEditCreatorId('');
-                            }}
-                          >
-                            <option value="">Pilih Campaign</option>
-                            {campaigns.filter(c => c.status === 'aktif').map(c => (
-                              <option key={c.id} value={c.id}>{c.nama}</option>
-                            ))}
-                          </select>
-                        ) : (
-                          <span className={`text-xs ${campaign ? 'text-indigo-600 font-medium' : 'text-red-500 font-bold'}`}>
-                            {campaign ? campaign.nama : 'BELUM DI-MAP'}
-                          </span>
-                        )}
+                        <select
+                          className={`w-full p-1.5 border rounded text-xs focus:outline-none focus:border-indigo-500 bg-transparent ${!pendingCampaignId ? 'border-red-300 text-red-600 font-semibold' : 'border-transparent hover:border-slate-300 text-indigo-700 font-medium'}`}
+                          value={pendingCampaignId || ''}
+                          onChange={(e) => {
+                            const val = e.target.value ? Number(e.target.value) : null;
+                            setCellChange(ad.id, 'campaign_id', val, ad);
+                            if (val !== ad.campaign_id) {
+                               setCellChange(ad.id, 'creator_id', null, ad); // reset creator if campaign changes
+                            }
+                          }}
+                        >
+                          <option value="">PILIH CAMPAIGN</option>
+                          {campaigns.filter(c => c.status === 'aktif' || c.id === ad.campaign_id).map(c => (
+                            <option key={c.id} value={c.id}>{c.nama}</option>
+                          ))}
+                        </select>
                       </TableCell>
 
                       {/* Creator Column */}
                       <TableCell>
-                        {isEditing ? (
-                          editCampaignId ? (
+                        {pendingCampaignId ? (
+                          <div className={!pendingCreatorId ? 'ring-1 ring-red-300 rounded' : ''}>
                             <SearchableSelect 
-                              value={editCreatorId} 
-                              onChange={setEditCreatorId} 
+                              value={pendingCreatorId || ''} 
+                              onChange={(val) => setCellChange(ad.id, 'creator_id', val === '' ? null : val, ad)} 
                               placeholder="Ketik username..." 
                               initialLabel={creatorUsername ? `@${creatorUsername}` : ''}
                             />
-                          ) : (
-                            <span className="text-[10px] text-slate-400">Pilih campaign dulu</span>
-                          )
+                          </div>
                         ) : (
-                          <span className={`text-xs ${creatorUsername ? 'text-slate-700' : 'text-red-500 font-bold'}`}>
-                            {creatorUsername ? `@${creatorUsername}` : 'BELUM DI-MAP'}
-                          </span>
+                          <span className="text-[10px] text-slate-400">Pilih campaign dulu</span>
                         )}
                       </TableCell>
 
                       {/* Kurs Column */}
                       <TableCell>
-                        {isEditing ? (
-                          <div className="flex items-center gap-1">
-                            <span className="text-xs text-slate-500">Rp</span>
-                            <input
-                              type="number"
-                              className="w-full p-1 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-indigo-500"
-                              value={editKurs}
-                              onChange={(e) => setEditKurs(e.target.value)}
-                            />
-                          </div>
-                        ) : (
-                          <div className="text-xs text-slate-500 text-center">Rp {(ad.kurs || 16000).toLocaleString('id-ID')}</div>
-                        )}
+                        <div className="flex items-center gap-1 group">
+                          <span className="text-xs text-slate-400 group-hover:text-slate-600">Rp</span>
+                          <input
+                            type="number"
+                            className="w-full p-1 border border-transparent hover:border-slate-300 rounded text-xs text-center focus:ring-1 focus:ring-indigo-500 bg-transparent"
+                            value={pendingKurs || ''}
+                            onChange={(e) => setCellChange(ad.id, 'kurs', Number(e.target.value), ad)}
+                          />
+                        </div>
                       </TableCell>
 
                       <TableCell className="text-right font-medium text-xs text-slate-700">
@@ -623,33 +749,11 @@ export default function AdsReportPage() {
                       
                       {/* Action Column */}
                       <TableCell className="text-center">
-                        {isEditing ? (
-                          <div className="flex items-center justify-center gap-1">
-                            <Button size="sm" variant="outline" className="h-7 px-2 text-green-600 border-green-200 hover:bg-green-50" onClick={() => saveEdit(ad.id)} disabled={isSaving}>
-                              {isSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
-                            </Button>
-                            <Button size="sm" variant="outline" className="h-7 px-2 text-red-500 border-red-200 hover:bg-red-50" onClick={cancelEdit} disabled={isSaving}>
-                              <X className="w-3 h-3" />
-                            </Button>
-                          </div>
-                        ) : (
-                          <div className="flex items-center justify-center gap-1">
-                            {isManager ? (
-                              <>
-                                <button onClick={() => startEdit(ad)} className="p-1 text-slate-400 hover:text-blue-600 transition-colors" title="Edit">
-                                  <Edit2 className="w-4 h-4" />
-                                </button>
-                                <button onClick={() => deleteAd(ad.id)} className="p-1 text-slate-400 hover:text-red-600 transition-colors" disabled={deletingId === ad.id} title="Hapus">
-                                  {deletingId === ad.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                                </button>
-                              </>
-                            ) : (
-                              <span title="Hanya Manager">
-                                <Lock className="w-4 h-4 text-slate-300" />
-                              </span>
-                            )}
-                          </div>
-                        )}
+                        <div className="flex items-center justify-center gap-1">
+                          <button onClick={() => deleteAd(ad.id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors" disabled={deletingId === ad.id} title="Hapus Permanen">
+                            {deletingId === ad.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                          </button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   );
