@@ -357,7 +357,7 @@ export default function ImportAdsPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-4xl bg-slate-50 p-6 rounded-xl border border-slate-200">
                 {Object.entries(mapping).map(([key, value]) => {
                   const labels: Record<string, string> = {
-                    ad_id: "Ad ID (Wajib)",
+                    ad_id: "Ad ID (Opsional)",
                     ad_name: "Ad Name (Wajib)",
                     cost: "Cost / Spend (Wajib)",
                     revenue: "Gross Revenue / GMV (Wajib)",
@@ -386,7 +386,7 @@ export default function ImportAdsPage() {
 
               <div className="mt-8 flex justify-end gap-3">
                 <Button variant="outline" onClick={() => setStep(1)}>Batal</Button>
-                <Button onClick={processMapping} className="bg-blue-600 hover:bg-blue-700 text-white gap-2" disabled={isProcessing || !mapping.ad_id || !mapping.ad_name}>
+                <Button onClick={processMapping} className="bg-blue-600 hover:bg-blue-700 text-white gap-2" disabled={isProcessing || !mapping.ad_name}>
                   {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
                   Lanjutkan ke Preview
                 </Button>
