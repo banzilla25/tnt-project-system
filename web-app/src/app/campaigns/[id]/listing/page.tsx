@@ -16,7 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { MultiSelect } from "@/components/MultiSelect";
 
 const supabase = createClient();
-const PAGE_SIZE = 50;
+const PAGE_SIZE = 1000;
 
 const extractLatestSnapshot = (creator: any) => {
   const snaps = creator?.creator_snapshots || [];
@@ -717,17 +717,9 @@ function CampaignListingContent() {
       // Pagination
       const from = pageNum * PAGE_SIZE;
       const to = from + PAGE_SIZE - 1;
-      // Sorting - map UI key to actual DB column
-      const sortMap: Record<string, string> = {
-        'id': 'id',
-        'username': 'creator_id', // We'll sort by ID as proxy for username server-side
-        'price': 'price',
-        'qty_vt': 'qty_vt',
-        'qty_live': 'qty_live',
-        'approval': 'approval'
-      };
-      const dbCol = sortMap[sortConfig.key] || 'id';
-      query = query.order(dbCol, { ascending: sortConfig.dir === 'asc' }).range(from, to);
+      
+      // Always sort backend by ID desc to get newest first, then sort accurately on frontend
+      query = query.order('id', { ascending: false }).range(from, to);
 
       const { data, error } = await query;
       if (currentFetchId !== fetchIdRef.current) return; // Ignore stale fetch result
@@ -1832,9 +1824,21 @@ function CampaignListingContent() {
                   Creator <SortIcon col="username" />
                 </button>
               </th>
-              <th className="text-right">Followers</th>
-              <th className="text-right">Tier</th>
-              <th className="text-center">Level</th>
+              <th className="text-right">
+                <button onClick={() => toggleSort('followers')} className="flex items-center justify-end font-semibold hover:text-p300 transition-colors w-full">
+                  Followers <SortIcon col="followers" />
+                </button>
+              </th>
+              <th className="text-right">
+                <button onClick={() => toggleSort('tier')} className="flex items-center justify-end font-semibold hover:text-p300 transition-colors w-full">
+                  Tier <SortIcon col="tier" />
+                </button>
+              </th>
+              <th className="text-center">
+                <button onClick={() => toggleSort('level')} className="flex items-center justify-center font-semibold hover:text-p300 transition-colors w-full">
+                  Level <SortIcon col="level" />
+                </button>
+              </th>
               <th>Niche</th>
               <th>Tanggal & PIC</th>
               <th>Kerjasama</th>
@@ -1873,9 +1877,53 @@ function CampaignListingContent() {
                     const bHas = pendingChanges.has(b.id) ? 0 : 1;
                     return aHas - bHas;
                   })
-                : listingData;
+                : [...listingData];
               
               displayData = Array.from(new Map(displayData.map(c => [c.creators?.username?.toLowerCase() || c.id, c])).values());
+
+              // Frontend Sorting for 100% accuracy on all columns
+              if (sortConfig.key !== 'id') {
+                displayData.sort((a: any, b: any) => {
+                  let valA: any = 0;
+                  let valB: any = 0;
+                  
+                  if (sortConfig.key === 'username') {
+                    valA = a.creators?.username?.toLowerCase() || '';
+                    valB = b.creators?.username?.toLowerCase() || '';
+                  } else if (sortConfig.key === 'price') {
+                    valA = Number(a.price) || 0;
+                    valB = Number(b.price) || 0;
+                  } else if (sortConfig.key === 'qty_vt') {
+                    valA = Number(a.qty_vt) || 0;
+                    valB = Number(b.qty_vt) || 0;
+                  } else if (sortConfig.key === 'qty_live') {
+                    valA = Number(a.qty_live) || 0;
+                    valB = Number(b.qty_live) || 0;
+                  } else if (sortConfig.key === 'approval') {
+                    valA = a.approval || '';
+                    valB = b.approval || '';
+                  } else if (sortConfig.key === 'followers') {
+                    const snapA = extractLatestSnapshot(a.creators);
+                    const snapB = extractLatestSnapshot(b.creators);
+                    valA = Number(snapA?.followers) || 0;
+                    valB = Number(snapB?.followers) || 0;
+                  } else if (sortConfig.key === 'tier') {
+                    const snapA = extractLatestSnapshot(a.creators);
+                    const snapB = extractLatestSnapshot(b.creators);
+                    valA = snapA?.tier || a.tier || '';
+                    valB = snapB?.tier || b.tier || '';
+                  } else if (sortConfig.key === 'level') {
+                    const snapA = extractLatestSnapshot(a.creators);
+                    const snapB = extractLatestSnapshot(b.creators);
+                    valA = Number(snapA?.level) || 0;
+                    valB = Number(snapB?.level) || 0;
+                  }
+
+                  if (valA < valB) return sortConfig.dir === 'asc' ? -1 : 1;
+                  if (valA > valB) return sortConfig.dir === 'asc' ? 1 : -1;
+                  return 0;
+                });
+              }
 
               return displayData.length === 0 && !isLoading ? (
               <tr>
