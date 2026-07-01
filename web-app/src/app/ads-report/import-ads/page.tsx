@@ -337,6 +337,7 @@ export default function ImportAdsPage() {
         setCommitProgress(Math.round((processed / total) * 100));
       }
       
+      await fetchData(); // Refresh global data (including vw_campaign_summary) so dashboard updates
       setStep(4);
     } catch (err: any) {
       alert("Gagal menyimpan data: " + err.message);
