@@ -217,7 +217,14 @@ export default function CreatorProfilePage() {
     .map((cc: any) => {
       const campaign = campaigns.find(c => c.id === cc.campaign_id);
       
-      const campaignSales = localData?.sales?.filter((s: any) => s.campaign_id === cc.campaign_id) || [];
+      const campaignSales = localData?.sales?.filter((s: any) => {
+        if (s.campaign_id !== cc.campaign_id) return false;
+        if (!campaign) return true;
+        const dateStr = s.tanggal ? s.tanggal.substring(0, 10) : '';
+        if (campaign.start_date && dateStr < campaign.start_date) return false;
+        if (campaign.end_date && dateStr > campaign.end_date) return false;
+        return true;
+      }) || [];
       const gmv = campaignSales.reduce((sum: number, s: any) => sum + (s.gmv || 0), 0);
 
       const manualVideos = localData?.videos?.filter((v: any) => v.campaign_creator_id === cc.id) || [];
@@ -280,6 +287,10 @@ export default function CreatorProfilePage() {
       const pId = sale.product_id || sale.raw_data?.['Product ID'];
       const mappedCid = (pId && skuMap[pId]) ? skuMap[pId].toString() : null;
       if (mappedCid && gSales[mappedCid] !== undefined) {
+        const campaign = campaigns.find(c => c.id.toString() === mappedCid);
+        const dateStr = sale.tanggal ? sale.tanggal.substring(0, 10) : '';
+        if (campaign?.start_date && dateStr < campaign.start_date) return;
+        if (campaign?.end_date && dateStr > campaign.end_date) return;
         gSales[mappedCid].push(sale);
       } else {
         gSales['lainnya'].push(sale);

@@ -54,13 +54,17 @@ function CampaignPerformaContent() {
       const isAwareness = campaign?.tipe_campaign === 'awareness' || campaign?.tipe_campaign === 'gmv_awareness';
 
       // 1. Fetch Summaries
+      let salesVtQuery = supabase.from('sales').select('creator_username, content_uid, tanggal').eq('campaign_id', campaignId).not('content_uid', 'is', null);
+      if (campaign?.start_date) salesVtQuery = salesVtQuery.gte('tanggal', campaign.start_date);
+      if (campaign?.end_date) salesVtQuery = salesVtQuery.lte('tanggal', campaign.end_date);
+
       const queries = [
         supabase.from('campaign_sales_summary').select('*').eq('campaign_id', campaignId),
         supabase.from('campaign_total_sales').select('*').eq('campaign_id', campaignId).maybeSingle(),
         supabase.from('ads_performance').select('*, creators(username)').eq('campaign_id', campaignId),
         supabase.from('campaign_awareness_summary').select('*').eq('campaign_id', campaignId),
         supabase.from('campaign_total_awareness').select('*').eq('campaign_id', campaignId).maybeSingle(),
-        supabase.from('sales').select('creator_username, content_uid').eq('campaign_id', campaignId).not('content_uid', 'is', null),
+        salesVtQuery,
         supabase.from('videos').select('vt_code').eq('campaign_id', campaignId)
       ];
 

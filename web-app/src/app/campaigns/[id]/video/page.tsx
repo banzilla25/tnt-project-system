@@ -113,18 +113,28 @@ export default function CampaignVideoPage() {
       let localOrganicVideos: any[] = []; // <-- Fetch organic videos
 
       if (creatorUsernames.length > 0) {
-        const { data: sData } = await supabaseClient
+        let sQuery = supabaseClient
           .from('sales')
-          .select('id, campaign_id, creator_username, content_uid, gmv, quantity, raw_data, product_id')
+          .select('id, campaign_id, creator_username, content_uid, gmv, quantity, raw_data, product_id, tanggal')
           .eq('campaign_id', campaignId)
           .in('creator_username', creatorUsernames);
+
+        if (campaign?.start_date) sQuery = sQuery.gte('tanggal', campaign.start_date);
+        if (campaign?.end_date) sQuery = sQuery.lte('tanggal', campaign.end_date);
+
+        const { data: sData } = await sQuery;
         if (sData) localSalesData = sData;
 
         // Fetch organic videos
-        const { data: oData } = await supabaseClient
+        let oQuery = supabaseClient
           .from('organic_videos')
           .select('*')
           .in('creator_username', creatorUsernames);
+          
+        if (campaign?.start_date) oQuery = oQuery.gte('post_time', campaign.start_date);
+        if (campaign?.end_date) oQuery = oQuery.lte('post_time', campaign.end_date);
+
+        const { data: oData } = await oQuery;
         if (oData) localOrganicVideos = oData;
       }
 
