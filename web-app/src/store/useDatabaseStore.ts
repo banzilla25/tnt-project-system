@@ -131,7 +131,7 @@ export const useDatabaseStore = create<DatabaseState>((set, get) => ({
       
       const [
         brandsRes, campaignsRes, nichesRes, creatorNichesRes, creatorNotesRes,
-        skusRes, vwCampaignSummaryRes, adNameMappingRes, profilesRes
+        skusRes, vwCampaignSummaryRes, adNameMappingRes, profilesRes, totalSalesRes, allAdsPerfRes
       ] = await Promise.all([
         supabase.from('brands').select('*'),
         supabase.from('campaigns').select('*'),
@@ -141,8 +141,23 @@ export const useDatabaseStore = create<DatabaseState>((set, get) => ({
         supabase.from('skus').select('*'),
         supabase.from('vw_campaign_summary').select('*'), // Usually < 1000
         supabase.from('ad_name_mapping').select('*'),
-        supabase.from('profiles').select('*')
+        supabase.from('profiles').select('*'),
+        supabase.from('campaign_total_sales').select('campaign_id, total_organic_gmv'),
+        fetchAll('ads_performance', 'campaign_id')
       ]);
+
+      const allAdsPerf = allAdsPerfRes || [];
+      const totalSales = totalSalesRes.data || [];
+      
+      const fixedCampaignSummary = (vwCampaignSummaryRes.data || []).map(c => {
+        const organic = totalSales.find(s => s.campaign_id === c.campaign_id)?.total_organic_gmv || 0;
+        const campaignAds = allAdsPerf.filter(a => a.campaign_id === c.campaign_id);
+        const adsGmv = campaignAds.reduce((sum, a) => sum + (a.gross_revenue_usd * a.kurs), 0);
+        return {
+          ...c,
+          total_gmv_achievement: organic + adsGmv
+        };
+      });
 
       set({
         brands: brandsRes.data || [],
@@ -157,7 +172,7 @@ export const useDatabaseStore = create<DatabaseState>((set, get) => ({
         videos: [],
         audit_logs: [],
         skus: skusRes.data || [],
-        vw_campaign_summary: vwCampaignSummaryRes.data || [],
+        vw_campaign_summary: fixedCampaignSummary,
         profiles: profilesRes.data || [],
         daily_performance: [],
         payout_requests: [],
