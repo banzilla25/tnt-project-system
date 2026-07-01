@@ -21,6 +21,20 @@ export interface ParsedAdsRow {
   _original: any;
 }
 
+export interface EnrichedAdsRow extends ParsedAdsRow {
+  prev_cost: number;
+  prev_revenue: number;
+  prev_purchases: number;
+  prev_impressions: number;
+  prev_clicks: number;
+  
+  delta_cost: number;
+  delta_revenue: number;
+  delta_purchases: number;
+  delta_impressions: number;
+  delta_clicks: number;
+}
+
 export const downloadAdsSyncTemplate = () => {
   const headers = [
     'Ad ID',
@@ -116,7 +130,24 @@ export const parseAdsSyncFile = async (file: File, mapping: ColumnMapping): Prom
       });
     });
 
-    return { validData, errors };
+    // Aggregate identical ad_ids to prevent data loss (e.g. identical Ad Names when Ad ID is missing)
+    const aggregatedData = Array.from(
+      validData.reduce((acc, row) => {
+        if (acc.has(row.ad_id)) {
+          const existing = acc.get(row.ad_id)!;
+          existing.cost += row.cost;
+          existing.revenue += row.revenue;
+          existing.purchases += row.purchases;
+          existing.impressions += row.impressions;
+          existing.clicks += row.clicks;
+        } else {
+          acc.set(row.ad_id, { ...row });
+        }
+        return acc;
+      }, new Map<string, ParsedAdsRow>()).values()
+    );
+
+    return { validData: aggregatedData, errors };
   } catch (error: any) {
     throw new Error("Gagal memproses file: " + error.message);
   }

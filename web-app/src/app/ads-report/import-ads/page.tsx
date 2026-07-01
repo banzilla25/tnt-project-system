@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/Card";
 import { UploadCloud, CheckCircle2, ArrowRight, ArrowLeft, Loader2, AlertCircle, FileSpreadsheet, Calendar } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
-import { downloadAdsSyncTemplate, parseFileHeaders, parseAdsSyncFile, ColumnMapping, ParsedAdsRow } from "@/utils/importAdsSync";
+import { downloadAdsSyncTemplate, parseFileHeaders, parseAdsSyncFile, ColumnMapping, EnrichedAdsRow } from "@/utils/importAdsSync";
 import { useDatabaseStore } from "@/store/useDatabaseStore";
 import { useRouter } from "next/navigation";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/Table";
@@ -42,7 +42,7 @@ export default function ImportAdsPage() {
     clicks: ''
   });
   
-  const [preview, setPreview] = useState<ParsedAdsRow[]>([]);
+  const [preview, setPreview] = useState<EnrichedAdsRow[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
   
   // Smart prediction state
@@ -98,27 +98,73 @@ export default function ImportAdsPage() {
     
     try {
       const res = await parseAdsSyncFile(file, mapping);
-      setPreview(res.validData);
+      const { validData } = res;
       setErrors(res.errors);
       
-      // Try to predict smart mapping based on historical data
-      const { data: historicalData } = await supabase.from('ads_performance').select('ad_id, creator_id').not('creator_id', 'is', null);
+      const adNames = Array.from(new Set(validData.map(r => r.ad_name)));
+
+      // 1. Fetch Historical Lifetime Data for delta calculation
+      // We sum up the historical metrics where tanggal < selectedDate for each ad_name
+      const { data: historyData, error: historyError } = await supabase
+        .from('ads_performance')
+        .select('ad_name, cost_usd, gross_revenue_usd, purchases, impressions, clicks')
+        .in('ad_name', adNames)
+        .lt('tanggal', selectedDate);
+
+      if (historyError) throw historyError;
+
+      const historyMap: Record<string, { cost: number; revenue: number; purchases: number; impressions: number; clicks: number }> = {};
+      if (historyData) {
+        historyData.forEach(row => {
+          if (!historyMap[row.ad_name]) {
+            historyMap[row.ad_name] = { cost: 0, revenue: 0, purchases: 0, impressions: 0, clicks: 0 };
+          }
+          historyMap[row.ad_name].cost += Number(row.cost_usd || 0);
+          historyMap[row.ad_name].revenue += Number(row.gross_revenue_usd || 0);
+          historyMap[row.ad_name].purchases += Number(row.purchases || 0);
+          historyMap[row.ad_name].impressions += Number(row.impressions || 0);
+          historyMap[row.ad_name].clicks += Number(row.clicks || 0);
+        });
+      }
+
+      const enrichedData: EnrichedAdsRow[] = validData.map(row => {
+        const hist = historyMap[row.ad_name] || { cost: 0, revenue: 0, purchases: 0, impressions: 0, clicks: 0 };
+        return {
+          ...row,
+          prev_cost: hist.cost,
+          prev_revenue: hist.revenue,
+          prev_purchases: hist.purchases,
+          prev_impressions: hist.impressions,
+          prev_clicks: hist.clicks,
+          // Calculate delta (Incremental)
+          delta_cost: Math.max(0, row.cost - hist.cost),
+          delta_revenue: Math.max(0, row.revenue - hist.revenue),
+          delta_purchases: Math.max(0, row.purchases - hist.purchases),
+          delta_impressions: Math.max(0, row.impressions - hist.impressions),
+          delta_clicks: Math.max(0, row.clicks - hist.clicks),
+        };
+      });
+
+      setPreview(enrichedData);
+      
+      // 2. Try to predict smart mapping based on historical data using ad_name
+      const { data: creatorHistoryData } = await supabase.from('ads_performance').select('ad_name, creator_id').not('creator_id', 'is', null);
       
       const newAutoMap: Record<string, number | null> = {};
       
-      // Map historical ad_id to creator_id
-      const adIdToCreatorId: Record<string, number> = {};
-      if (historicalData) {
-        historicalData.forEach(row => {
-          if (row.creator_id) {
-            adIdToCreatorId[row.ad_id] = row.creator_id;
+      // Map historical ad_name to creator_id
+      const adNameToCreatorId: Record<string, number> = {};
+      if (creatorHistoryData) {
+        creatorHistoryData.forEach(row => {
+          if (row.creator_id && row.ad_name) {
+            adNameToCreatorId[row.ad_name] = row.creator_id;
           }
         });
       }
 
-      res.validData.forEach(row => {
-        if (adIdToCreatorId[row.ad_id]) {
-          newAutoMap[row.ad_id] = adIdToCreatorId[row.ad_id];
+      enrichedData.forEach(row => {
+        if (adNameToCreatorId[row.ad_name]) {
+          newAutoMap[row.ad_id] = adNameToCreatorId[row.ad_name];
         } else {
           newAutoMap[row.ad_id] = null;
         }
@@ -167,11 +213,11 @@ export default function ImportAdsPage() {
           // Update
           const { error } = await supabase.from('ads_performance').update({
             ad_name: row.ad_name,
-            cost_usd: row.cost,
-            gross_revenue_usd: row.revenue,
-            purchases: row.purchases,
-            impressions: row.impressions,
-            clicks: row.clicks,
+            cost_usd: row.delta_cost,
+            gross_revenue_usd: row.delta_revenue,
+            purchases: row.delta_purchases,
+            impressions: row.delta_impressions,
+            clicks: row.delta_clicks,
             kurs: selectedKurs,
             ...(selectedCampaign ? { campaign_id: Number(selectedCampaign) } : {}),
             // creator_id is not overwritten here if not intentionally changed, but if we have a new manual mapping we could update it. 
@@ -186,11 +232,11 @@ export default function ImportAdsPage() {
             ad_name: row.ad_name,
             tanggal: selectedDate,
             campaign_id: selectedCampaign ? Number(selectedCampaign) : null,
-            cost_usd: row.cost,
-            gross_revenue_usd: row.revenue,
-            purchases: row.purchases,
-            impressions: row.impressions,
-            clicks: row.clicks,
+            cost_usd: row.delta_cost,
+            gross_revenue_usd: row.delta_revenue,
+            purchases: row.delta_purchases,
+            impressions: row.delta_impressions,
+            clicks: row.delta_clicks,
             creator_id: predictedCreatorId || null,
             kurs: selectedKurs
           });
@@ -431,11 +477,11 @@ export default function ImportAdsPage() {
                       <TableRow>
                         <TableHead className="w-[120px]">Ad ID</TableHead>
                         <TableHead className="w-[200px]">Ad Name</TableHead>
-                        <TableHead className="text-right">Cost (USD)</TableHead>
-                        <TableHead className="text-right">Revenue (USD)</TableHead>
-                        <TableHead className="text-right">Purchases</TableHead>
-                        <TableHead className="text-right">Views / Impr</TableHead>
-                        <TableHead className="text-right">Clicks</TableHead>
+                        <TableHead className="text-right">Cost (Delta)</TableHead>
+                        <TableHead className="text-right">Revenue (Delta)</TableHead>
+                        <TableHead className="text-right">Purchases (Delta)</TableHead>
+                        <TableHead className="text-right">Impr (Delta)</TableHead>
+                        <TableHead className="text-right">Clicks (Delta)</TableHead>
                         <TableHead className="bg-blue-50 text-blue-800 w-[150px] border-l border-blue-100">Predicted Creator</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -444,15 +490,30 @@ export default function ImportAdsPage() {
                         const predictedCreatorId = autoMappedCreators[row.ad_id];
                         const creatorUsername = predictedCreatorId ? creators.find(c => c.id === predictedCreatorId)?.username : null;
                         
+                        const renderDeltaCell = (delta: number, cur: number, prev: number, isCurrency: boolean = false) => {
+                          const prefix = isCurrency ? '$' : '';
+                          const formatVal = (v: number) => isCurrency ? v.toFixed(2) : v.toLocaleString();
+                          const color = delta < 0 ? 'text-red-500' : delta > 0 ? 'text-emerald-600' : 'text-slate-500';
+                          const sign = delta > 0 ? '+' : '';
+                          return (
+                            <div className="flex flex-col items-end">
+                              <div className={`font-bold text-sm ${color}`}>{sign}{prefix}{formatVal(delta)}</div>
+                              <div className="text-[10px] text-slate-400 mt-0.5 whitespace-nowrap" title={`Current: ${prefix}${formatVal(cur)} | Previous: ${prefix}${formatVal(prev)}`}>
+                                {prefix}{formatVal(cur)} <span className="text-slate-300">({prefix}{formatVal(prev)})</span>
+                              </div>
+                            </div>
+                          );
+                        };
+
                         return (
                           <TableRow key={i} className="hover:bg-slate-50">
-                            <TableCell className="font-mono text-xs text-slate-500">{row.ad_id}</TableCell>
+                            <TableCell className="font-mono text-[10px] text-slate-500 truncate max-w-[100px]">{row.ad_id}</TableCell>
                             <TableCell className="text-xs font-semibold max-w-[200px] truncate" title={row.ad_name}>{row.ad_name}</TableCell>
-                            <TableCell className="text-xs text-right font-medium">${row.cost.toFixed(2)}</TableCell>
-                            <TableCell className="text-xs text-right font-medium text-emerald-600">${row.revenue.toFixed(2)}</TableCell>
-                            <TableCell className="text-xs text-right">{row.purchases}</TableCell>
-                            <TableCell className="text-xs text-right text-purple-600">{row.impressions.toLocaleString()}</TableCell>
-                            <TableCell className="text-xs text-right">{row.clicks.toLocaleString()}</TableCell>
+                            <TableCell className="text-right">{renderDeltaCell(row.delta_cost, row.cost, row.prev_cost, true)}</TableCell>
+                            <TableCell className="text-right">{renderDeltaCell(row.delta_revenue, row.revenue, row.prev_revenue, true)}</TableCell>
+                            <TableCell className="text-right">{renderDeltaCell(row.delta_purchases, row.purchases, row.prev_purchases, false)}</TableCell>
+                            <TableCell className="text-right">{renderDeltaCell(row.delta_impressions, row.impressions, row.prev_impressions, false)}</TableCell>
+                            <TableCell className="text-right">{renderDeltaCell(row.delta_clicks, row.clicks, row.prev_clicks, false)}</TableCell>
                             <TableCell className="border-l border-blue-50 bg-blue-50/30 text-xs font-medium min-w-[200px]">
                               <SearchableSelect 
                                 value={predictedCreatorId || ''} 
