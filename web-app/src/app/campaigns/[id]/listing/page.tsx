@@ -527,26 +527,7 @@ function CampaignListingContent() {
   }, [checkDuplicates]);
 
   const fetchCounts = useCallback(async () => {
-    // Supabase has a default limit of 1000 rows for data fetching.
-    // To get the true counts for large campaigns, we use head: true and count: 'exact'
-    const getCount = async (status?: string) => {
-      let query = supabase.from('campaign_creators').select('id', { count: 'exact', head: true }).eq('campaign_id', campaignId);
-      if (status) query = query.eq('approval', status);
-      const { count } = await query;
-      return count || 0;
-    };
-
-    const [all, approved, pending, alternate, not_approved] = await Promise.all([
-      getCount(),
-      getCount('approved'),
-      getCount('pending'),
-      getCount('alternate'),
-      getCount('not_approved')
-    ]);
-
-    setCounts({ approved, pending, alternate, not_approved, all });
-
-    // Fetch Daily Recap Data and Tier Breakdown Data using pagination to get true counts
+    // Fetch all data for accurate, deduplicated counting
     let allRecapData: any[] = [];
     let start = 0;
     const pageSize = 1000;
@@ -554,8 +535,9 @@ function CampaignListingContent() {
       const { data } = await supabase
         .from('campaign_creators')
         .select(`
-          id, approval, approved_at, created_at, added_by, tier,
+          id, approval, approved_at, created_at, added_by, tier, creator_id,
           creators (
+            username,
             creator_snapshots ( tier, tanggal_update, id )
           )
         `)
@@ -567,7 +549,33 @@ function CampaignListingContent() {
       if (data.length < pageSize) break;
       start += pageSize;
     }
-    setRawRecapData(allRecapData);
+
+    // Deduplicate by username (or fallback to id)
+    const uniqueMap = new Map();
+    for (const row of allRecapData) {
+       const uname = row.creators?.username?.toLowerCase() || `unknown_${row.creator_id || row.id}`;
+       if (!uniqueMap.has(uname)) {
+          uniqueMap.set(uname, row);
+       } else {
+          // If duplicate exists, prefer 'approved' over others
+          const existing = uniqueMap.get(uname);
+          if (existing.approval !== 'approved' && row.approval === 'approved') {
+              uniqueMap.set(uname, row);
+          }
+       }
+    }
+    const deduplicatedData = Array.from(uniqueMap.values());
+
+    let approved = 0, pending = 0, alternate = 0, not_approved = 0;
+    for (const row of deduplicatedData) {
+       if (row.approval === 'approved') approved++;
+       else if (row.approval === 'pending') pending++;
+       else if (row.approval === 'alternate') alternate++;
+       else if (row.approval === 'not_approved') not_approved++;
+    }
+
+    setCounts({ approved, pending, alternate, not_approved, all: deduplicatedData.length });
+    setRawRecapData(deduplicatedData);
   }, [campaignId]);
 
   useEffect(() => {
