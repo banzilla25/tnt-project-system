@@ -31,7 +31,29 @@ export default function ImportAdsPage() {
   // Custom states for Ads Import
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [selectedCampaign, setSelectedCampaign] = useState<string>('');
+  const [selectedCampaignAdsName, setSelectedCampaignAdsName] = useState<string>('');
+  const [campaignAdsList, setCampaignAdsList] = useState<string[]>([]);
   const [selectedKurs, setSelectedKurs] = useState<number>(16000);
+
+  useEffect(() => {
+    const fetchCampaignAds = async () => {
+      if (!selectedCampaign) {
+        setCampaignAdsList([]);
+        return;
+      }
+      const { data } = await supabase
+        .from('ads_performance')
+        .select('campaign_ads_name')
+        .eq('campaign_id', selectedCampaign)
+        .not('campaign_ads_name', 'is', null);
+      
+      if (data) {
+        const unique = Array.from(new Set(data.map(d => d.campaign_ads_name as string)));
+        setCampaignAdsList(unique);
+      }
+    };
+    fetchCampaignAds();
+  }, [selectedCampaign]);
   const [mapping, setMapping] = useState<ColumnMapping>({
     ad_id: '',
     ad_name: '',
@@ -39,7 +61,10 @@ export default function ImportAdsPage() {
     revenue: '',
     purchases: '',
     impressions: '',
-    clicks: ''
+    clicks: '',
+    product_page_views: '',
+    checkouts_initiated: '',
+    items_purchased: ''
   });
   
   const [preview, setPreview] = useState<EnrichedAdsRow[]>([]);
@@ -81,6 +106,9 @@ export default function ImportAdsPage() {
         if (lh === 'purchases (shop)' || lh === 'purchases') guessMapping.purchases = h;
         if (lh === 'impressions') guessMapping.impressions = h;
         if (lh === 'clicks (destination)' || lh === 'clicks') guessMapping.clicks = h;
+        if (lh === 'product page views (shop)' || lh === 'product page views') guessMapping.product_page_views = h;
+        if (lh === 'checkouts initiated (shop)' || lh === 'checkouts initiated') guessMapping.checkouts_initiated = h;
+        if (lh === 'items purchased (shop)' || lh === 'items purchased') guessMapping.items_purchased = h;
       });
       
       setMapping(guessMapping);
@@ -104,31 +132,43 @@ export default function ImportAdsPage() {
       const adNames = Array.from(new Set(validData.map(r => r.ad_name)));
 
       // 1. Fetch Historical Lifetime Data for delta calculation
-      // We sum up the historical metrics where tanggal < selectedDate for each ad_name
-      const { data: historyData, error: historyError } = await supabase
+      // We sum up the historical metrics where tanggal < selectedDate for each ad_name + campaign_id + campaign_ads_name
+      let query = supabase
         .from('ads_performance')
-        .select('ad_name, cost_usd, gross_revenue_usd, purchases, impressions, clicks')
+        .select('ad_name, cost_usd, gross_revenue_usd, purchases, impressions, clicks, product_page_views, checkouts_initiated, items_purchased')
         .in('ad_name', adNames)
+        .eq('campaign_id', selectedCampaign)
         .lt('tanggal', selectedDate);
+        
+      if (selectedCampaignAdsName) {
+        query = query.eq('campaign_ads_name', selectedCampaignAdsName);
+      } else {
+        query = query.is('campaign_ads_name', null);
+      }
+      
+      const { data: historyData, error: historyError } = await query;
 
       if (historyError) throw historyError;
 
-      const historyMap: Record<string, { cost: number; revenue: number; purchases: number; impressions: number; clicks: number }> = {};
+      const historyMap: Record<string, { cost: number; revenue: number; purchases: number; impressions: number; clicks: number; product_page_views: number; checkouts_initiated: number; items_purchased: number }> = {};
       if (historyData) {
         historyData.forEach(row => {
           if (!historyMap[row.ad_name]) {
-            historyMap[row.ad_name] = { cost: 0, revenue: 0, purchases: 0, impressions: 0, clicks: 0 };
+            historyMap[row.ad_name] = { cost: 0, revenue: 0, purchases: 0, impressions: 0, clicks: 0, product_page_views: 0, checkouts_initiated: 0, items_purchased: 0 };
           }
           historyMap[row.ad_name].cost += Number(row.cost_usd || 0);
           historyMap[row.ad_name].revenue += Number(row.gross_revenue_usd || 0);
           historyMap[row.ad_name].purchases += Number(row.purchases || 0);
           historyMap[row.ad_name].impressions += Number(row.impressions || 0);
           historyMap[row.ad_name].clicks += Number(row.clicks || 0);
+          historyMap[row.ad_name].product_page_views += Number(row.product_page_views || 0);
+          historyMap[row.ad_name].checkouts_initiated += Number(row.checkouts_initiated || 0);
+          historyMap[row.ad_name].items_purchased += Number(row.items_purchased || 0);
         });
       }
 
       const enrichedData: EnrichedAdsRow[] = validData.map(row => {
-        const hist = historyMap[row.ad_name] || { cost: 0, revenue: 0, purchases: 0, impressions: 0, clicks: 0 };
+        const hist = historyMap[row.ad_name] || { cost: 0, revenue: 0, purchases: 0, impressions: 0, clicks: 0, product_page_views: 0, checkouts_initiated: 0, items_purchased: 0 };
         return {
           ...row,
           prev_cost: hist.cost,
@@ -136,12 +176,18 @@ export default function ImportAdsPage() {
           prev_purchases: hist.purchases,
           prev_impressions: hist.impressions,
           prev_clicks: hist.clicks,
+          prev_product_page_views: hist.product_page_views,
+          prev_checkouts_initiated: hist.checkouts_initiated,
+          prev_items_purchased: hist.items_purchased,
           // Calculate delta (Incremental)
           delta_cost: Math.max(0, row.cost - hist.cost),
           delta_revenue: Math.max(0, row.revenue - hist.revenue),
           delta_purchases: Math.max(0, row.purchases - hist.purchases),
           delta_impressions: Math.max(0, row.impressions - hist.impressions),
           delta_clicks: Math.max(0, row.clicks - hist.clicks),
+          delta_product_page_views: Math.max(0, row.product_page_views - hist.product_page_views),
+          delta_checkouts_initiated: Math.max(0, row.checkouts_initiated - hist.checkouts_initiated),
+          delta_items_purchased: Math.max(0, row.items_purchased - hist.items_purchased),
         };
       });
 
@@ -218,8 +264,12 @@ export default function ImportAdsPage() {
             purchases: row.delta_purchases,
             impressions: row.delta_impressions,
             clicks: row.delta_clicks,
+            product_page_views: row.delta_product_page_views,
+            checkouts_initiated: row.delta_checkouts_initiated,
+            items_purchased: row.delta_items_purchased,
             kurs: selectedKurs,
             ...(selectedCampaign ? { campaign_id: Number(selectedCampaign) } : {}),
+            campaign_ads_name: selectedCampaignAdsName || null,
             // creator_id is not overwritten here if not intentionally changed, but if we have a new manual mapping we could update it. 
             // Since step 3 has a predictor, let's update creator_id too if predictedCreatorId is set.
             ...(predictedCreatorId ? { creator_id: predictedCreatorId } : {})
@@ -232,11 +282,15 @@ export default function ImportAdsPage() {
             ad_name: row.ad_name,
             tanggal: selectedDate,
             campaign_id: selectedCampaign ? Number(selectedCampaign) : null,
+            campaign_ads_name: selectedCampaignAdsName || null,
             cost_usd: row.delta_cost,
             gross_revenue_usd: row.delta_revenue,
             purchases: row.delta_purchases,
             impressions: row.delta_impressions,
             clicks: row.delta_clicks,
+            product_page_views: row.delta_product_page_views,
+            checkouts_initiated: row.delta_checkouts_initiated,
+            items_purchased: row.delta_items_purchased,
             creator_id: predictedCreatorId || null,
             kurs: selectedKurs
           });
@@ -292,7 +346,7 @@ export default function ImportAdsPage() {
           {step === 1 && (
             <div className="flex flex-col items-center justify-center max-w-2xl mx-auto py-12">
               
-              <div className="w-full mb-8 grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="w-full mb-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-2">Pilih Tanggal</label>
                   <div className="relative">
@@ -301,7 +355,7 @@ export default function ImportAdsPage() {
                     </div>
                     <input 
                       type="date" 
-                      className="block w-full pl-10 p-3 border border-slate-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-slate-50"
+                      className="block w-full pl-10 p-3 border border-slate-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-slate-50 text-sm"
                       value={selectedDate}
                       onChange={(e) => setSelectedDate(e.target.value)}
                     />
@@ -309,9 +363,9 @@ export default function ImportAdsPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">Pilih Campaign <span className="text-red-500">*</span></label>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">Campaign di Sistem <span className="text-red-500">*</span></label>
                   <select
-                    className="block w-full p-3 border border-slate-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-slate-50"
+                    className="block w-full p-3 border border-slate-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-slate-50 text-sm"
                     value={selectedCampaign}
                     onChange={(e) => setSelectedCampaign(e.target.value)}
                   >
@@ -323,14 +377,31 @@ export default function ImportAdsPage() {
                 </div>
 
                 <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">Campaign Ads <span className="text-red-500">*</span></label>
+                  <input 
+                    type="text"
+                    list="campaign-ads-list"
+                    className="block w-full p-3 border border-slate-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-slate-50 text-sm"
+                    placeholder="Pilih atau ketik baru..."
+                    value={selectedCampaignAdsName}
+                    onChange={(e) => setSelectedCampaignAdsName(e.target.value)}
+                  />
+                  <datalist id="campaign-ads-list">
+                    {campaignAdsList.map(name => (
+                      <option key={name} value={name} />
+                    ))}
+                  </datalist>
+                </div>
+
+                <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-2">Kurs (IDR/USD)</label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <span className="text-slate-400 font-medium">Rp</span>
+                      <span className="text-slate-400 font-medium text-sm">Rp</span>
                     </div>
                     <input 
                       type="number" 
-                      className="block w-full pl-10 p-3 border border-slate-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-slate-50"
+                      className="block w-full pl-10 p-3 border border-slate-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-slate-50 text-sm"
                       value={selectedKurs}
                       onChange={(e) => setSelectedKurs(Number(e.target.value))}
                     />
@@ -348,7 +419,11 @@ export default function ImportAdsPage() {
                 onDrop={handleFileDrop}
                 onClick={() => {
                   if (!selectedCampaign) {
-                    alert("Silakan pilih Campaign terlebih dahulu!");
+                    alert("Silakan pilih Campaign di Sistem terlebih dahulu!");
+                    return;
+                  }
+                  if (!selectedCampaignAdsName.trim()) {
+                    alert("Silakan isi atau pilih Campaign Ads terlebih dahulu!");
                     return;
                   }
                   fileInputRef.current?.click();
@@ -482,6 +557,9 @@ export default function ImportAdsPage() {
                         <TableHead className="text-right">Purchases (Delta)</TableHead>
                         <TableHead className="text-right">Impr (Delta)</TableHead>
                         <TableHead className="text-right">Clicks (Delta)</TableHead>
+                        <TableHead className="text-right">PP Views (Delta)</TableHead>
+                        <TableHead className="text-right">Checkouts (Delta)</TableHead>
+                        <TableHead className="text-right">Items (Delta)</TableHead>
                         <TableHead className="bg-blue-50 text-blue-800 w-[150px] border-l border-blue-100">Predicted Creator</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -514,6 +592,9 @@ export default function ImportAdsPage() {
                             <TableCell className="text-right">{renderDeltaCell(row.delta_purchases, row.purchases, row.prev_purchases, false)}</TableCell>
                             <TableCell className="text-right">{renderDeltaCell(row.delta_impressions, row.impressions, row.prev_impressions, false)}</TableCell>
                             <TableCell className="text-right">{renderDeltaCell(row.delta_clicks, row.clicks, row.prev_clicks, false)}</TableCell>
+                            <TableCell className="text-right">{renderDeltaCell(row.delta_product_page_views, row.product_page_views, row.prev_product_page_views, false)}</TableCell>
+                            <TableCell className="text-right">{renderDeltaCell(row.delta_checkouts_initiated, row.checkouts_initiated, row.prev_checkouts_initiated, false)}</TableCell>
+                            <TableCell className="text-right">{renderDeltaCell(row.delta_items_purchased, row.items_purchased, row.prev_items_purchased, false)}</TableCell>
                             <TableCell className="border-l border-blue-50 bg-blue-50/30 text-xs font-medium min-w-[200px]">
                               <SearchableSelect 
                                 value={predictedCreatorId || ''} 

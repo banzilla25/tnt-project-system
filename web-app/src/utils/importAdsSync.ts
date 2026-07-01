@@ -8,6 +8,9 @@ export interface ColumnMapping {
   purchases: string;
   impressions: string;
   clicks: string;
+  product_page_views: string;
+  checkouts_initiated: string;
+  items_purchased: string;
 }
 
 export interface ParsedAdsRow {
@@ -18,6 +21,9 @@ export interface ParsedAdsRow {
   purchases: number;
   impressions: number;
   clicks: number;
+  product_page_views: number;
+  checkouts_initiated: number;
+  items_purchased: number;
   _original: any;
 }
 
@@ -27,12 +33,18 @@ export interface EnrichedAdsRow extends ParsedAdsRow {
   prev_purchases: number;
   prev_impressions: number;
   prev_clicks: number;
+  prev_product_page_views: number;
+  prev_checkouts_initiated: number;
+  prev_items_purchased: number;
   
   delta_cost: number;
   delta_revenue: number;
   delta_purchases: number;
   delta_impressions: number;
   delta_clicks: number;
+  delta_product_page_views: number;
+  delta_checkouts_initiated: number;
+  delta_items_purchased: number;
 }
 
 export const downloadAdsSyncTemplate = () => {
@@ -43,7 +55,10 @@ export const downloadAdsSyncTemplate = () => {
     'Gross revenue (Shop)',
     'Purchases (Shop)',
     'Impressions',
-    'Clicks (destination)'
+    'Clicks (destination)',
+    'Product page views (Shop)',
+    'Checkouts initiated (Shop)',
+    'Items purchased (Shop)'
   ];
 
   const blob = new Blob([headers.join(',')], { type: 'text/csv;charset=utf-8;' });
@@ -111,6 +126,9 @@ export const parseAdsSyncFile = async (file: File, mapping: ColumnMapping): Prom
       const rawPurchases = String(row[mapping.purchases] || '')?.trim();
       const rawImpressions = String(row[mapping.impressions] || '')?.trim();
       const rawClicks = String(row[mapping.clicks] || '')?.trim();
+      const rawProductPageViews = String(row[mapping.product_page_views] || '')?.trim();
+      const rawCheckoutsInitiated = String(row[mapping.checkouts_initiated] || '')?.trim();
+      const rawItemsPurchased = String(row[mapping.items_purchased] || '')?.trim();
 
       const parseNumber = (val: string | undefined): number => {
         if (!val) return 0;
@@ -118,14 +136,26 @@ export const parseAdsSyncFile = async (file: File, mapping: ColumnMapping): Prom
         return parseFloat(clean) || 0;
       };
 
+      const parsedCost = parseNumber(rawCost);
+      const parsedRevenue = parseNumber(rawRevenue);
+      const parsedPurchases = parseNumber(rawPurchases);
+      const parsedImpressions = parseNumber(rawImpressions);
+      const parsedClicks = parseNumber(rawClicks);
+      const parsedProductPageViews = parseNumber(rawProductPageViews);
+      const parsedCheckoutsInitiated = parseNumber(rawCheckoutsInitiated);
+      const parsedItemsPurchased = parseNumber(rawItemsPurchased);
+
       validData.push({
         ad_id: rawAdId,
         ad_name: rawAdName,
-        cost: parseNumber(rawCost),
-        revenue: parseNumber(rawRevenue),
-        purchases: parseNumber(rawPurchases),
-        impressions: parseNumber(rawImpressions),
-        clicks: parseNumber(rawClicks),
+        cost: parsedCost,
+        revenue: parsedRevenue,
+        purchases: parsedPurchases,
+        impressions: parsedImpressions,
+        clicks: parsedClicks,
+        product_page_views: parsedProductPageViews,
+        checkouts_initiated: parsedCheckoutsInitiated,
+        items_purchased: parsedItemsPurchased,
         _original: row
       });
     });
@@ -140,6 +170,9 @@ export const parseAdsSyncFile = async (file: File, mapping: ColumnMapping): Prom
           existing.purchases += row.purchases;
           existing.impressions += row.impressions;
           existing.clicks += row.clicks;
+          existing.product_page_views += row.product_page_views;
+          existing.checkouts_initiated += row.checkouts_initiated;
+          existing.items_purchased += row.items_purchased;
         } else {
           acc.set(row.ad_id, { ...row });
         }

@@ -22,6 +22,10 @@ export default function AdsReportPage() {
   const [selectedCampaignId, setSelectedCampaignId] = useState<number | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   
+  // Date Filter States
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
+  
   const { profile } = useAuth();
   const isManager = profile?.role === 'manager';
 
@@ -29,7 +33,7 @@ export default function AdsReportPage() {
 
   // Pagination & Sorting States
   const [displayLimit, setDisplayLimit] = useState(100);
-  type SortColumn = 'tanggal' | 'ad_id' | 'ad_name' | 'campaign_id' | 'creator_id' | 'kurs' | 'cost_usd' | 'gross_revenue_usd';
+  type SortColumn = 'tanggal' | 'ad_id' | 'ad_name' | 'campaign_ads_name' | 'campaign_id' | 'creator_id' | 'kurs' | 'cost_usd' | 'gross_revenue_usd' | 'impressions' | 'clicks' | 'product_page_views' | 'checkouts_initiated' | 'purchases' | 'items_purchased';
   const [sortConfig, setSortConfig] = useState<{ key: SortColumn; direction: 'asc' | 'desc' } | null>({ key: 'tanggal', direction: 'desc' });
 
   const handleSort = (key: SortColumn) => {
@@ -43,15 +47,24 @@ export default function AdsReportPage() {
   useEffect(() => {
     const fetchAds = async () => {
       setIsLoading(true);
-      const { data } = await supabase.from('ads_performance').select('*, creators(username)').order('tanggal', { ascending: false }).limit(2000);
+      let query = supabase.from('ads_performance').select('*, creators(username)').order('tanggal', { ascending: false }).limit(2000);
+      
+      if (startDate) {
+        query = query.gte('tanggal', startDate);
+      }
+      if (endDate) {
+        query = query.lte('tanggal', endDate);
+      }
+      
+      const { data } = await query;
       if (data) setAdsPerformance(data);
       setIsLoading(false);
     };
     fetchAds();
-  }, [supabase]);
+  }, [supabase, startDate, endDate]);
   
   // Inline Auto-Save States
-  type PendingAdChange = { campaign_id?: number | null; creator_id?: number | null; kurs?: number; ad_id?: string; original: any };
+  type PendingAdChange = { campaign_id?: number | null; campaign_ads_name?: string | null; creator_id?: number | null; kurs?: number; ad_id?: string; original: any };
   const [pendingChanges, setPendingChanges] = useState<Map<number, PendingAdChange>>(new Map());
   const [isBatchSaving, setIsBatchSaving] = useState(false);
   const [batchSaveProgress, setBatchSaveProgress] = useState(0);
@@ -81,6 +94,7 @@ export default function AdsReportPage() {
     for (const [adId, change] of pendingChanges.entries()) {
       const updates: any = {};
       if (change.campaign_id !== undefined) updates.campaign_id = change.campaign_id;
+      if (change.campaign_ads_name !== undefined) updates.campaign_ads_name = change.campaign_ads_name;
       if (change.creator_id !== undefined) updates.creator_id = change.creator_id;
       if (change.kurs !== undefined) updates.kurs = change.kurs;
       if (change.ad_id !== undefined) updates.ad_id = change.ad_id;
@@ -137,6 +151,7 @@ export default function AdsReportPage() {
       
       let isDifferent = false;
       if (field === 'campaign_id') isDifferent = value !== originalAd.campaign_id;
+      else if (field === 'campaign_ads_name') isDifferent = value !== originalAd.campaign_ads_name;
       else if (field === 'creator_id') isDifferent = value !== originalAd.creator_id;
       else if (field === 'kurs') isDifferent = value !== originalAd.kurs;
       else if (field === 'ad_id') isDifferent = value !== originalAd.ad_id;
@@ -540,7 +555,37 @@ export default function AdsReportPage() {
           </div>
         )}
 
-        <Card className="border-slate-200 shadow-sm mt-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mt-6 mb-2">
+          <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
+            <Calendar className="w-4 h-4 text-indigo-600" /> Filter Tanggal Laporan:
+          </div>
+          <div className="flex items-center gap-2">
+            <input 
+              type="date" 
+              className="p-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-indigo-500"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+            />
+            <span className="text-slate-500 text-sm">s/d</span>
+            <input 
+              type="date" 
+              className="p-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-indigo-500"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+            />
+            {(startDate || endDate) && (
+              <button 
+                onClick={() => { setStartDate(''); setEndDate(''); }}
+                className="p-2 text-red-500 hover:bg-red-50 rounded"
+                title="Reset Filter"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        <Card className="border-slate-200 shadow-sm">
         <CardHeader className="pb-3 border-b border-slate-100 flex flex-row items-center justify-between">
           <CardTitle className="flex items-center justify-between w-full text-lg">
             <div className="flex items-center gap-2">
@@ -551,8 +596,8 @@ export default function AdsReportPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="max-h-[70vh] overflow-y-auto">
-            <Table>
+          <div className="max-h-[70vh] overflow-auto">
+            <Table className="whitespace-nowrap">
               <TableHeader className="bg-slate-50 sticky top-0 z-10 shadow-sm select-none">
                 <TableRow>
                   <TableHead className="w-[100px] cursor-pointer hover:bg-slate-200 transition-colors" onClick={() => handleSort('tanggal')}>
@@ -562,24 +607,53 @@ export default function AdsReportPage() {
                     <div className="flex items-center gap-1">Ad ID {sortConfig?.key === 'ad_id' && (sortConfig.direction === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}</div>
                   </TableHead>
                   <TableHead className="max-w-[200px] cursor-pointer hover:bg-slate-200 transition-colors" onClick={() => handleSort('ad_name')}>
-                    <div className="flex items-center gap-1">Ad Name (Dari Vendor) {sortConfig?.key === 'ad_name' && (sortConfig.direction === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}</div>
+                    <div className="flex items-center gap-1">Ad Name {sortConfig?.key === 'ad_name' && (sortConfig.direction === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}</div>
                   </TableHead>
-                  <TableHead className="w-[180px] cursor-pointer hover:bg-slate-200 transition-colors" onClick={() => handleSort('campaign_id')}>
-                    <div className="flex items-center gap-1">Campaign Tujuan {sortConfig?.key === 'campaign_id' && (sortConfig.direction === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}</div>
+                  <TableHead className="w-[150px] cursor-pointer hover:bg-slate-200 transition-colors" onClick={() => handleSort('campaign_id')}>
+                    <div className="flex items-center gap-1">Campaign Sistem {sortConfig?.key === 'campaign_id' && (sortConfig.direction === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}</div>
                   </TableHead>
-                  <TableHead className="w-[180px] cursor-pointer hover:bg-slate-200 transition-colors" onClick={() => handleSort('creator_id')}>
-                    <div className="flex items-center gap-1">Kreator Ter-map {sortConfig?.key === 'creator_id' && (sortConfig.direction === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}</div>
+                  <TableHead className="w-[150px] cursor-pointer hover:bg-slate-200 transition-colors" onClick={() => handleSort('campaign_ads_name')}>
+                    <div className="flex items-center gap-1">Campaign Ads {sortConfig?.key === 'campaign_ads_name' && (sortConfig.direction === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}</div>
                   </TableHead>
-                  <TableHead className="w-[120px] text-center cursor-pointer hover:bg-slate-200 transition-colors" onClick={() => handleSort('kurs')}>
-                    <div className="flex items-center justify-center gap-1">Kurs IDR {sortConfig?.key === 'kurs' && (sortConfig.direction === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}</div>
+                  <TableHead className="w-[150px] cursor-pointer hover:bg-slate-200 transition-colors" onClick={() => handleSort('creator_id')}>
+                    <div className="flex items-center gap-1">Kreator {sortConfig?.key === 'creator_id' && (sortConfig.direction === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}</div>
+                  </TableHead>
+                  <TableHead className="w-[100px] text-center cursor-pointer hover:bg-slate-200 transition-colors" onClick={() => handleSort('kurs')}>
+                    <div className="flex items-center justify-center gap-1">Kurs {sortConfig?.key === 'kurs' && (sortConfig.direction === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}</div>
                   </TableHead>
                   <TableHead className="text-right cursor-pointer hover:bg-slate-200 transition-colors" onClick={() => handleSort('cost_usd')}>
                     <div className="flex items-center justify-end gap-1">Cost (USD) {sortConfig?.key === 'cost_usd' && (sortConfig.direction === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}</div>
                   </TableHead>
-                  <TableHead className="text-right cursor-pointer hover:bg-slate-200 transition-colors" onClick={() => handleSort('gross_revenue_usd')}>
-                    <div className="flex items-center justify-end gap-1">Rev (USD) {sortConfig?.key === 'gross_revenue_usd' && (sortConfig.direction === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}</div>
+                  <TableHead className="text-right cursor-pointer hover:bg-slate-200 transition-colors" onClick={() => handleSort('impressions')}>
+                    <div className="flex items-center justify-end gap-1">Impressions {sortConfig?.key === 'impressions' && (sortConfig.direction === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}</div>
                   </TableHead>
-                  <TableHead className="w-[80px] text-center">Aksi</TableHead>
+                  <TableHead className="text-right cursor-pointer hover:bg-slate-200 transition-colors" onClick={() => handleSort('clicks')}>
+                    <div className="flex items-center justify-end gap-1">Clicks {sortConfig?.key === 'clicks' && (sortConfig.direction === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}</div>
+                  </TableHead>
+                  <TableHead className="text-right cursor-pointer hover:bg-slate-200 transition-colors" onClick={() => handleSort('product_page_views')}>
+                    <div className="flex items-center justify-end gap-1">PP Views {sortConfig?.key === 'product_page_views' && (sortConfig.direction === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}</div>
+                  </TableHead>
+                  <TableHead className="text-right">PP View Rate</TableHead>
+                  <TableHead className="text-right cursor-pointer hover:bg-slate-200 transition-colors" onClick={() => handleSort('checkouts_initiated')}>
+                    <div className="flex items-center justify-end gap-1">Checkouts {sortConfig?.key === 'checkouts_initiated' && (sortConfig.direction === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}</div>
+                  </TableHead>
+                  <TableHead className="text-right cursor-pointer hover:bg-slate-200 transition-colors" onClick={() => handleSort('purchases')}>
+                    <div className="flex items-center justify-end gap-1">Purchases {sortConfig?.key === 'purchases' && (sortConfig.direction === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}</div>
+                  </TableHead>
+                  <TableHead className="text-right cursor-pointer hover:bg-slate-200 transition-colors" onClick={() => handleSort('items_purchased')}>
+                    <div className="flex items-center justify-end gap-1">Items {sortConfig?.key === 'items_purchased' && (sortConfig.direction === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}</div>
+                  </TableHead>
+                  <TableHead className="text-right cursor-pointer hover:bg-slate-200 transition-colors" onClick={() => handleSort('gross_revenue_usd')}>
+                    <div className="flex items-center justify-end gap-1">Gross Rev (USD) {sortConfig?.key === 'gross_revenue_usd' && (sortConfig.direction === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}</div>
+                  </TableHead>
+                  <TableHead className="text-right">ROAS</TableHead>
+                  <TableHead className="text-right">CPM</TableHead>
+                  <TableHead className="text-right">CPC</TableHead>
+                  <TableHead className="text-right">Cost/Purchase</TableHead>
+                  <TableHead className="text-right">CTR</TableHead>
+                  <TableHead className="text-right">Purchase Rate</TableHead>
+                  <TableHead className="text-right">AOV</TableHead>
+                  <TableHead className="w-[80px] text-center sticky right-0 bg-slate-50 z-20">Aksi</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -588,10 +662,29 @@ export default function AdsReportPage() {
                   const pendingCreatorId = getPendingValue(ad.id, 'creator_id', ad.creator_id);
                   const pendingKurs = getPendingValue(ad.id, 'kurs', ad.kurs);
                   const pendingAdId = getPendingValue(ad.id, 'ad_id', ad.ad_id);
+                  const pendingCampaignAdsName = getPendingValue(ad.id, 'campaign_ads_name', ad.campaign_ads_name);
                   const hasPending = pendingChanges.has(ad.id);
                   
                   const creatorUsername = ad.creators?.username;
                   const originalCampaign = campaigns.find(c => c.id === ad.campaign_id);
+
+                  const cost = ad.cost_usd || 0;
+                  const impr = ad.impressions || 0;
+                  const clicks = ad.clicks || 0;
+                  const ppv = ad.product_page_views || 0;
+                  const checkouts = ad.checkouts_initiated || 0;
+                  const purchases = ad.purchases || 0;
+                  const items = ad.items_purchased || 0;
+                  const rev = ad.gross_revenue_usd || 0;
+
+                  const ppvRate = clicks > 0 ? (ppv / clicks) * 100 : 0;
+                  const roas = cost > 0 ? (rev / cost) : 0;
+                  const cpm = impr > 0 ? (cost / impr) * 1000 : 0;
+                  const cpc = clicks > 0 ? (cost / clicks) : 0;
+                  const cpp = purchases > 0 ? (cost / purchases) : 0;
+                  const ctr = impr > 0 ? (clicks / impr) * 100 : 0;
+                  const purchaseRate = clicks > 0 ? (purchases / clicks) * 100 : 0;
+                  const aov = purchases > 0 ? (rev / purchases) : 0;
 
                   return (
                     <TableRow key={ad.id} className={`hover:bg-slate-50/50 transition-colors ${hasPending ? 'bg-amber-50/30' : ''}`}>
@@ -631,6 +724,17 @@ export default function AdsReportPage() {
                         </select>
                       </TableCell>
 
+                      {/* Campaign Ads Column */}
+                      <TableCell className="text-xs font-medium text-slate-700">
+                        <input
+                          type="text"
+                          placeholder="Campaign Ads"
+                          className="w-full p-1.5 border rounded text-xs focus:ring-1 focus:ring-indigo-500 bg-transparent border-transparent hover:border-slate-300"
+                          value={pendingCampaignAdsName || ''}
+                          onChange={(e) => setCellChange(ad.id, 'campaign_ads_name', e.target.value, ad)}
+                        />
+                      </TableCell>
+
                       {/* Creator Column */}
                       <TableCell>
                         {pendingCampaignId ? (
@@ -661,14 +765,56 @@ export default function AdsReportPage() {
                       </TableCell>
 
                       <TableCell className="text-right font-medium text-xs text-slate-700">
-                        ${(ad.cost_usd || 0).toFixed(2)}
+                        ${cost.toFixed(2)}
+                      </TableCell>
+                      <TableCell className="text-right font-medium text-xs text-slate-700">
+                        {impr.toLocaleString('id-ID')}
+                      </TableCell>
+                      <TableCell className="text-right font-medium text-xs text-slate-700">
+                        {clicks.toLocaleString('id-ID')}
+                      </TableCell>
+                      <TableCell className="text-right font-medium text-xs text-slate-700">
+                        {ppv.toLocaleString('id-ID')}
+                      </TableCell>
+                      <TableCell className="text-right font-medium text-xs text-slate-700">
+                        {ppvRate.toFixed(2)}%
+                      </TableCell>
+                      <TableCell className="text-right font-medium text-xs text-slate-700">
+                        {checkouts.toLocaleString('id-ID')}
+                      </TableCell>
+                      <TableCell className="text-right font-medium text-xs text-slate-700">
+                        {purchases.toLocaleString('id-ID')}
+                      </TableCell>
+                      <TableCell className="text-right font-medium text-xs text-slate-700">
+                        {items.toLocaleString('id-ID')}
                       </TableCell>
                       <TableCell className="text-right font-medium text-xs text-green-600">
-                        ${(ad.gross_revenue_usd || 0).toFixed(2)}
+                        ${rev.toFixed(2)}
+                      </TableCell>
+                      <TableCell className="text-right font-medium text-xs text-slate-700">
+                        {roas.toFixed(2)}
+                      </TableCell>
+                      <TableCell className="text-right font-medium text-xs text-slate-700">
+                        ${cpm.toFixed(2)}
+                      </TableCell>
+                      <TableCell className="text-right font-medium text-xs text-slate-700">
+                        ${cpc.toFixed(2)}
+                      </TableCell>
+                      <TableCell className="text-right font-medium text-xs text-slate-700">
+                        ${cpp.toFixed(2)}
+                      </TableCell>
+                      <TableCell className="text-right font-medium text-xs text-slate-700">
+                        {ctr.toFixed(2)}%
+                      </TableCell>
+                      <TableCell className="text-right font-medium text-xs text-slate-700">
+                        {purchaseRate.toFixed(2)}%
+                      </TableCell>
+                      <TableCell className="text-right font-medium text-xs text-slate-700">
+                        ${aov.toFixed(2)}
                       </TableCell>
                       
                       {/* Action Column */}
-                      <TableCell className="text-center">
+                      <TableCell className="text-center sticky right-0 bg-slate-50 z-10 border-l border-slate-100 shadow-[-5px_0_10px_-5px_rgba(0,0,0,0.05)]">
                         <div className="flex items-center justify-center gap-1">
                           <button onClick={() => deleteAd(ad.id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors" disabled={deletingId === ad.id} title="Hapus Permanen">
                             {deletingId === ad.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
