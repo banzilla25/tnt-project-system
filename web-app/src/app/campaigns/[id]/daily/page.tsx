@@ -94,11 +94,18 @@ export default function CampaignDailyPerformancePage() {
       const grouped: Record<string, { gmv: number; creators: Set<string>; videos: Set<string> }> = {};
       const monthlyGrouped: Record<string, { gmv: number; creators: Set<string>; videos: Set<string> }> = {};
 
+      const campaignStartStr = campaign?.start_date || '';
+      const campaignEndStr = campaign?.end_date || '';
+
       if (allSales.length > 0) {
         allSales.forEach(sale => {
           if (!sale.tanggal) return;
           // Extract YYYY-MM-DD
           const dateStr = sale.tanggal.substring(0, 10);
+          
+          if (campaignStartStr && dateStr < campaignStartStr) return;
+          if (campaignEndStr && dateStr > campaignEndStr) return;
+
           if (!grouped[dateStr]) grouped[dateStr] = { gmv: 0, creators: new Set(), videos: new Set() };
           grouped[dateStr].gmv += (sale.gmv || 0);
           if (sale.creator_username) grouped[dateStr].creators.add(sale.creator_username);
@@ -123,6 +130,10 @@ export default function CampaignDailyPerformancePage() {
             if (!v.created_at || !v.link_video) return; 
             
             const dateStr = v.created_at.substring(0, 10);
+            
+            if (campaignStartStr && dateStr < campaignStartStr) return;
+            if (campaignEndStr && dateStr > campaignEndStr) return;
+            
             if (!grouped[dateStr]) grouped[dateStr] = { gmv: 0, creators: new Set(), videos: new Set() };
             grouped[dateStr].creators.add(username);
             grouped[dateStr].videos.add(v.id.toString());
