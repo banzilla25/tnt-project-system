@@ -158,7 +158,7 @@ export default function ImportAdsPage() {
           
         if (existing) {
           // Update
-          await supabase.from('ads_performance').update({
+          const { error } = await supabase.from('ads_performance').update({
             ad_name: row.ad_name,
             cost_usd: row.cost,
             gross_revenue_usd: row.revenue,
@@ -170,9 +170,10 @@ export default function ImportAdsPage() {
             // Since step 3 has a predictor, let's update creator_id too if predictedCreatorId is set.
             ...(predictedCreatorId ? { creator_id: predictedCreatorId } : {})
           }).eq('id', existing.id);
+          if (error) throw error;
         } else {
           // Insert
-          await supabase.from('ads_performance').insert({
+          const { error } = await supabase.from('ads_performance').insert({
             ad_id: row.ad_id,
             ad_name: row.ad_name,
             tanggal: selectedDate,
@@ -185,6 +186,7 @@ export default function ImportAdsPage() {
             creator_id: predictedCreatorId || null,
             kurs: 16000 // default
           });
+          if (error) throw error;
         }
         
         processed++;
@@ -253,13 +255,13 @@ export default function ImportAdsPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">Pilih Campaign (Opsional)</label>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">Pilih Campaign <span className="text-red-500">*</span></label>
                   <select
                     className="block w-full p-3 border border-slate-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-slate-50"
                     value={selectedCampaign}
                     onChange={(e) => setSelectedCampaign(e.target.value)}
                   >
-                    <option value="">-- Tidak Dipilih (Bisa diset nanti) --</option>
+                    <option value="">-- Wajib Pilih Campaign --</option>
                     {campaigns.map(c => (
                       <option key={c.id} value={c.id}>{c.name}</option>
                     ))}
@@ -275,7 +277,13 @@ export default function ImportAdsPage() {
                 className="w-full border-2 border-dashed border-slate-300 bg-slate-50 rounded-2xl p-12 flex flex-col items-center justify-center cursor-pointer hover:border-blue-400 hover:bg-blue-50/50 transition-all group"
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={handleFileDrop}
-                onClick={() => fileInputRef.current?.click()}
+                onClick={() => {
+                  if (!selectedCampaign) {
+                    alert("Silakan pilih Campaign terlebih dahulu!");
+                    return;
+                  }
+                  fileInputRef.current?.click();
+                }}
               >
                 <input 
                   type="file" 
