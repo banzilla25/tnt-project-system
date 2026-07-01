@@ -9,6 +9,7 @@ import { useDatabaseStore } from "@/store/useDatabaseStore";
 import { useRouter } from "next/navigation";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/Table";
 import { Button } from "@/components/ui/Button";
+import { SearchableSelect } from "@/components/SearchableSelect";
 
 const supabase = createClient();
 
@@ -122,6 +123,13 @@ export default function ImportAdsPage() {
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  const updatePredictedCreator = (adId: string, creatorId: number | '') => {
+    setAutoMappedCreators(prev => ({
+      ...prev,
+      [adId]: creatorId === '' ? null : creatorId
+    }));
   };
 
   const commitData = async () => {
@@ -390,12 +398,14 @@ export default function ImportAdsPage() {
                             <TableCell className="text-xs text-right">{row.purchases}</TableCell>
                             <TableCell className="text-xs text-right text-purple-600">{row.impressions.toLocaleString()}</TableCell>
                             <TableCell className="text-xs text-right">{row.clicks.toLocaleString()}</TableCell>
-                            <TableCell className="border-l border-blue-50 bg-blue-50/30 text-xs font-medium">
-                              {creatorUsername ? (
-                                <span className="text-blue-700 bg-blue-100 px-2 py-1 rounded">@{creatorUsername}</span>
-                              ) : (
-                                <span className="text-slate-400 italic">Belum ter-map</span>
-                              )}
+                            <TableCell className="border-l border-blue-50 bg-blue-50/30 text-xs font-medium min-w-[200px]">
+                              <SearchableSelect 
+                                value={predictedCreatorId || ''} 
+                                initialLabel={creatorUsername ? `@${creatorUsername}` : ''} 
+                                onChange={(val) => updatePredictedCreator(row.ad_id, val)} 
+                                placeholder="Ketik nama kreator..." 
+                                className="w-full p-1 border border-slate-300 rounded text-xs focus:outline-none focus:border-blue-500 bg-white"
+                              />
                             </TableCell>
                           </TableRow>
                         );

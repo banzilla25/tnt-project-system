@@ -76,6 +76,12 @@ export const parseAdsSyncFile = async (file: File, mapping: ColumnMapping): Prom
       
       const rawAdId = String(row[mapping.ad_id] || '')?.trim();
       const rawAdName = String(row[mapping.ad_name] || '')?.trim();
+
+      // Auto-ignore summary row from TikTok Ads
+      if (rawAdId === '-' || rawAdName.toLowerCase().startsWith('total of')) {
+        return; 
+      }
+
       const rawCost = String(row[mapping.cost] || '')?.trim();
       const rawRevenue = String(row[mapping.revenue] || '')?.trim();
       const rawPurchases = String(row[mapping.purchases] || '')?.trim();
