@@ -71,7 +71,7 @@ export default function ImportAdsPage() {
   const [errors, setErrors] = useState<string[]>([]);
   
   // Smart prediction state
-  const [autoMappedCreators, setAutoMappedCreators] = useState<Record<string, number | null>>({}); // ad_id -> creator_id
+  const [autoMappedCreators, setAutoMappedCreators] = useState<Record<string, { id: number, username: string } | null>>({}); // ad_id -> creator_id
 
   const [isCommitting, setIsCommitting] = useState(false);
   const [commitProgress, setCommitProgress] = useState(0);
@@ -196,20 +196,27 @@ export default function ImportAdsPage() {
       // 2. Try to predict smart mapping based on historical data using ad_name
       const { data: creatorHistoryData } = await supabase.from('ads_performance').select('ad_name, creator_id').not('creator_id', 'is', null);
       
-      const newAutoMap: Record<string, number | null> = {};
+      const newAutoMap: Record<string, { id: number, username: string } | null> = {};
       
       // Map historical ad_name to creator_id
-      const adNameToCreatorId: Record<string, number> = {};
-      if (creatorHistoryData) {
+      const adNameToCreatorId: Record<string, { id: number, username: string }> = {};
+      
+      // Fetch all creators explicitly for heuristic matching (global store is empty for performance)
+      const { data: allCreators } = await supabase.from('creators').select('id, username');
+      
+      if (creatorHistoryData && allCreators) {
         creatorHistoryData.forEach(row => {
           if (row.creator_id && row.ad_name) {
-            adNameToCreatorId[row.ad_name] = row.creator_id;
+            const matchedCreator = allCreators.find(c => c.id === row.creator_id);
+            if (matchedCreator) {
+              adNameToCreatorId[row.ad_name] = { id: row.creator_id, username: matchedCreator.username };
+            }
           }
         });
       }
 
       // Sort creators by length descending to match longer usernames first (avoids partial matches)
-      const sortedCreators = [...creators].sort((a, b) => (b.username?.length || 0) - (a.username?.length || 0));
+      const sortedCreators = [...(allCreators || [])].sort((a, b) => (b.username?.length || 0) - (a.username?.length || 0));
 
       enrichedData.forEach(row => {
         // 1. Try exact history match
@@ -219,7 +226,7 @@ export default function ImportAdsPage() {
         }
         
         // 2. Try heuristic match against creator usernames
-        let foundCreatorId: number | null = null;
+        let foundCreator: { id: number, username: string } | null = null;
         const normalizedAdName = (row.ad_name || '').toLowerCase();
         
         for (const creator of sortedCreators) {
@@ -230,12 +237,12 @@ export default function ImportAdsPage() {
           const regex = new RegExp(`(?:^|[_-]|\\s)${escapedUsername}(?:[_-]|\\s|$)`);
           
           if (regex.test(normalizedAdName)) {
-            foundCreatorId = creator.id;
+            foundCreator = { id: creator.id, username: creator.username };
             break;
           }
         }
         
-        newAutoMap[row.ad_id] = foundCreatorId;
+        newAutoMap[row.ad_id] = foundCreator;
       });
       
       setAutoMappedCreators(newAutoMap);
@@ -248,10 +255,16 @@ export default function ImportAdsPage() {
   };
 
   const updatePredictedCreator = (adId: string, creatorId: number | '') => {
-    setAutoMappedCreators(prev => ({
-      ...prev,
-      [adId]: creatorId === '' ? null : creatorId
-    }));
+    setAutoMappedCreators(prev => {
+      if (creatorId === '') {
+        return { ...prev, [adId]: null };
+      }
+      // Keep existing username if id matches, otherwise we just lose the label until they save, which is fine for manual select
+      return {
+        ...prev,
+        [adId]: { id: creatorId, username: prev[adId]?.id === creatorId ? prev[adId]!.username : '' }
+      };
+    });
   };
 
   const commitData = async () => {
@@ -268,7 +281,8 @@ export default function ImportAdsPage() {
         // Since we don't have a strict unique constraint on ad_id + tanggal, we will check manually or insert.
         // Usually, users want to update if it exists for the same date.
         
-        const predictedCreatorId = autoMappedCreators[row.ad_id];
+        const predictedCreator = autoMappedCreators[row.ad_id];
+        const creatorId = predictedCreator ? predictedCreator.id : null;
         
         // Find if exists
         const { data: existing } = await supabase.from('ads_performance')
@@ -294,7 +308,7 @@ export default function ImportAdsPage() {
             campaign_ads_name: selectedCampaignAdsName || null,
             // creator_id is not overwritten here if not intentionally changed, but if we have a new manual mapping we could update it. 
             // Since step 3 has a predictor, let's update creator_id too if predictedCreatorId is set.
-            ...(predictedCreatorId ? { creator_id: predictedCreatorId } : {})
+            ...(creatorId ? { creator_id: creatorId } : {})
           }).eq('id', existing.id);
           if (error) throw error;
         } else {
@@ -313,7 +327,7 @@ export default function ImportAdsPage() {
             product_page_views: row.delta_product_page_views,
             checkouts_initiated: row.delta_checkouts_initiated,
             items_purchased: row.delta_items_purchased,
-            creator_id: predictedCreatorId || null,
+            creator_id: creatorId || null,
             kurs: selectedKurs
           });
           if (error) throw error;
@@ -590,8 +604,9 @@ export default function ImportAdsPage() {
                     </TableHeader>
                     <TableBody>
                       {preview.map((row, i) => {
-                        const predictedCreatorId = autoMappedCreators[row.ad_id];
-                        const creatorUsername = predictedCreatorId ? creators.find(c => c.id === predictedCreatorId)?.username : null;
+                        const predictedCreator = autoMappedCreators[row.ad_id];
+                        const predictedCreatorId = predictedCreator?.id || null;
+                        const creatorUsername = predictedCreator?.username || null; 
                         
                         const renderDeltaCell = (delta: number, cur: number, prev: number, isCurrency: boolean = false) => {
                           const prefix = isCurrency ? '$' : '';
