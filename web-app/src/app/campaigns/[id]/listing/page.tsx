@@ -1116,7 +1116,7 @@ function CampaignListingContent() {
 
 
   const handleExport = () => {
-    const exportData = listingData.map((cc) => {
+    const exportData = Array.from(new Map(listingData.map(c => [c.creators?.username?.toLowerCase() || c.id, c])).values()).map((cc: any) => {
       const creator = cc.creators || {};
       const snapshot = creator.creator_snapshots?.[0] || {};
       return {
@@ -1867,13 +1867,16 @@ function CampaignListingContent() {
           </thead>
           <tbody>
             {(() => {
-              const displayData = showUnsavedFirst
+              let displayData = showUnsavedFirst
                 ? [...listingData].sort((a, b) => {
                     const aHas = pendingChanges.has(a.id) ? 0 : 1;
                     const bHas = pendingChanges.has(b.id) ? 0 : 1;
                     return aHas - bHas;
                   })
                 : listingData;
+              
+              displayData = Array.from(new Map(displayData.map(c => [c.creators?.username?.toLowerCase() || c.id, c])).values());
+
               return displayData.length === 0 && !isLoading ? (
               <tr>
                 <td colSpan={isClientApprovalRequired ? 13 : 12} className="text-center py-[32px] text-text-soft">
