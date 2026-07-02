@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/Table";
 import { useDatabaseStore } from "@/store/useDatabaseStore";
 import { createClient } from "@/utils/supabase/client";
-import { Edit2, Check, X, Search, FileSpreadsheet, Loader2, Trash2, Lock, Download, DollarSign, TrendingUp, AlertCircle, BarChart3, ChevronUp, ChevronDown, Eye, Activity, UploadCloud, Calendar } from "lucide-react";
+import { Edit2, Check, X, Search, FileSpreadsheet, Loader2, Trash2, Lock, Download, DollarSign, TrendingUp, AlertCircle, BarChart3, ChevronUp, ChevronDown, ChevronRight, Eye, Activity, UploadCloud, Calendar } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/providers/AuthProvider";
 import { exportToExcel } from "@/utils/exportToExcel";
@@ -302,7 +302,11 @@ export default function AdsReportPage() {
       rows: any[];
     }> = {};
 
-    const sortedAds = [...tableFilteredAds].sort((a, b) => new Date(a.tanggal).getTime() - new Date(b.tanggal).getTime());
+    const sortedAds = [...tableFilteredAds].sort((a, b) => {
+      const dA = a.tanggal || '';
+      const dB = b.tanggal || '';
+      return dA.localeCompare(dB);
+    });
 
     sortedAds.forEach(ad => {
       const key = ad.ad_id || ad.ad_name || `unknown-${ad.id}`;
