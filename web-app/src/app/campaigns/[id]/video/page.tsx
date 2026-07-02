@@ -589,12 +589,10 @@ export default function CampaignVideoPage() {
                           <p className="text-[10px] text-slate-500 font-medium">TOTAL VT</p>
                           <p className="font-bold text-slate-700">{localVideos.filter(v => v.campaign_creator_id === cc.id && v.link_video).length}</p>
                         </div>
-                        {!isAwareness && (
-                          <div className="text-center px-2 lg:px-4 border-l border-slate-200">
-                            <p className="text-[10px] text-emerald-600 font-medium">TOTAL GMV</p>
-                            <p className="font-bold text-emerald-700">Rp {m?.totalGmv?.toLocaleString('id-ID') || 0}</p>
-                          </div>
-                        )}
+                        <div className="text-center px-2 lg:px-4 border-l border-slate-200">
+                          <p className="text-[10px] text-emerald-600 font-medium">TOTAL GMV</p>
+                          <p className="font-bold text-emerald-700">Rp {m?.totalGmv?.toLocaleString('id-ID') || 0}</p>
+                        </div>
                         <div className="text-center px-2 lg:px-4 border-l border-slate-200">
                           <p className="text-[10px] text-slate-500 font-medium">TOTAL VIEWS</p>
                           <p className="font-bold text-slate-700">{m?.totalViews?.toLocaleString('id-ID') || 0}</p>
