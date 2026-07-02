@@ -694,17 +694,21 @@ export default function CampaignVideoPage() {
                                       </p>
                                     )}
                                     {hasContentUid && (
-                                      <div className="mt-2 grid grid-cols-3 gap-2 bg-slate-50 border border-slate-200 p-2 rounded-md text-xs">
+                                      <div className="mt-2 grid grid-cols-4 gap-1 bg-slate-50 border border-slate-200 p-2 rounded-md text-xs">
                                          <div className="text-center">
-                                            <div className="text-slate-400">Views</div>
+                                            <div className="text-slate-400 text-[10px]">Views</div>
                                             <div className="font-semibold text-slate-700">{vidViews.toLocaleString('id-ID')}</div>
                                          </div>
-                                         <div className="text-center border-l border-r border-slate-200">
-                                            <div className="text-slate-400">Likes</div>
+                                         <div className="text-center border-l border-slate-200">
+                                            <div className="text-slate-400 text-[10px]">Likes</div>
                                             <div className="font-semibold text-slate-700">{vidLikes.toLocaleString('id-ID')}</div>
                                          </div>
-                                         <div className="text-center">
-                                            <div className="text-slate-400">RPM</div>
+                                         <div className="text-center border-l border-slate-200">
+                                            <div className="text-slate-400 text-[10px]">GMV</div>
+                                            <div className="font-semibold text-emerald-600">Rp {vidGmv.toLocaleString('id-ID')}</div>
+                                         </div>
+                                         <div className="text-center border-l border-slate-200" title="GMV Per Mille (Per 1000 Views)">
+                                            <div className="text-slate-400 text-[10px]">GPM</div>
                                             <div className="font-semibold text-indigo-600">Rp {Math.round(rpm).toLocaleString('id-ID')}</div>
                                          </div>
                                       </div>
