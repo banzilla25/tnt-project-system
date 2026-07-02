@@ -38,20 +38,18 @@ export default function ImportAdsPage() {
 
   useEffect(() => {
     const fetchCampaignAds = async () => {
-      let query = supabase
+      if (!selectedCampaign) {
+        setCampaignAdsList([]);
+        return;
+      }
+      const { data } = await supabase
         .from('ads_performance')
         .select('campaign_ads_name')
-        .not('campaign_ads_name', 'is', null)
-        .neq('campaign_ads_name', '');
-        
-      if (selectedCampaign) {
-        query = query.eq('campaign_id', selectedCampaign);
-      }
-      
-      const { data } = await query;
+        .eq('campaign_id', selectedCampaign)
+        .not('campaign_ads_name', 'is', null);
       
       if (data) {
-        const unique = Array.from(new Set(data.map(d => d.campaign_ads_name as string).filter(Boolean)));
+        const unique = Array.from(new Set(data.map(d => d.campaign_ads_name as string)));
         setCampaignAdsList(unique);
       }
     };
