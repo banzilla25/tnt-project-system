@@ -53,35 +53,55 @@ function CampaignPerformaContent() {
     try {
       const isAwareness = campaign?.tipe_campaign === 'awareness' || campaign?.tipe_campaign === 'gmv_awareness';
 
-      // 1. Fetch Summaries
+      // Helper to fetch all rows paginated
+      const fetchAll = async (baseQuery: any) => {
+        let all: any[] = [];
+        let from = 0;
+        while (true) {
+          const { data, error } = await baseQuery.range(from, from + 999);
+          if (error || !data || data.length === 0) break;
+          all = all.concat(data);
+          if (data.length < 1000) break;
+          from += 1000;
+        }
+        return all;
+      };
+
+      // 1. Fetch Summaries (Paginated for large tables)
       let salesVtQuery = supabase.from('sales').select('creator_username, content_uid, tanggal').eq('campaign_id', campaignId).not('content_uid', 'is', null);
       if (campaign?.start_date) salesVtQuery = salesVtQuery.gte('tanggal', campaign.start_date);
       if (campaign?.end_date) salesVtQuery = salesVtQuery.lte('tanggal', campaign.end_date);
 
-      const queries = [
-        supabase.from('sales').select('creator_username, gmv, quantity, product_id, is_refund, tanggal').eq('campaign_id', campaignId).eq('is_refund', false),
+      const [
+        allSales,
+        totalSalesRes,
+        allAds,
+        awarenessSumRes,
+        totalAwarenessRes,
+        allSalesVt,
+        allVideos
+      ] = await Promise.all([
+        fetchAll(supabase.from('sales').select('creator_username, gmv, quantity, product_id, is_refund, tanggal').eq('campaign_id', campaignId).eq('is_refund', false)),
         supabase.from('campaign_total_sales').select('*').eq('campaign_id', campaignId).maybeSingle(),
-        supabase.from('ads_performance').select('*, creators(username)').eq('campaign_id', campaignId),
-        supabase.from('campaign_awareness_summary').select('*').eq('campaign_id', campaignId),
+        fetchAll(supabase.from('ads_performance').select('*, creators(username)').eq('campaign_id', campaignId)),
+        supabase.from('campaign_awareness_summary').select('*').eq('campaign_id', campaignId), // Usually < 1000 rows (aggregated)
         supabase.from('campaign_total_awareness').select('*').eq('campaign_id', campaignId).maybeSingle(),
-        salesVtQuery,
-        supabase.from('videos').select('vt_code').eq('campaign_id', campaignId)
-      ];
+        fetchAll(salesVtQuery),
+        fetchAll(supabase.from('videos').select('vt_code').eq('campaign_id', campaignId))
+      ]);
 
-      const results = await Promise.all(queries);
+      setSalesSummary(allSales);
+      if (totalSalesRes.data) setTotalSales(totalSalesRes.data);
+      setAdsPerf(allAds);
+      if (awarenessSumRes.data) setAwarenessSummary(awarenessSumRes.data);
+      if (totalAwarenessRes.data) setTotalAwareness(totalAwarenessRes.data);
+      setSalesDataForVt(allSalesVt);
+      setManualVideos(allVideos);
 
-      if (results[0].data) setSalesSummary(results[0].data);
-      if (results[1].data) setTotalSales(results[1].data);
-      if (results[2].data) setAdsPerf(results[2].data);
-      if (results[3].data) setAwarenessSummary(results[3].data);
-      if (results[4].data) setTotalAwareness(results[4].data);
-      if (results[5].data) setSalesDataForVt(results[5].data);
-      if (results[6].data) setManualVideos(results[6].data);
-
-      // 2. Fetch Approved Creators (Paginated to handle >1000)
+      // 2. Fetch Approved Creators (Paginated to handle >500 limits on joins)
       let allApproved: any[] = [];
       let from = 0;
-      let to = 999;
+      let to = 499; // Reduced from 999 to avoid PostgREST silent truncation on inner joins
       let hasMore = true;
 
       while (hasMore) {
@@ -104,11 +124,11 @@ function CampaignPerformaContent() {
 
         if (ccData && ccData.length > 0) {
           allApproved = [...allApproved, ...ccData];
-          if (ccData.length < 1000) {
+          if (ccData.length < 500) {
             hasMore = false;
           } else {
-            from += 1000;
-            to += 1000;
+            from += 500;
+            to += 500;
           }
         } else {
           hasMore = false;
