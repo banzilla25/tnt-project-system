@@ -138,7 +138,7 @@ export async function getPortalData(campaignId: number) {
   while (true) {
     const { data: pageSv } = await supabase
       .from('sales')
-      .select('content_uid, gmv, creator_username')
+      .select('content_uid, gmv, creator_username, content_type')
       .eq('campaign_id', campaignId)
       .not('content_uid', 'is', null)
       .range(svStart, svStart + 999);
@@ -199,7 +199,8 @@ export async function getPortalData(campaignId: number) {
       gmv_ads: perf?.gmv_ads || 0,
       video_views: perf?.video_views || 0,
       video_likes: perf?.video_likes || 0,
-      total_vt: perf?.tracked_videos || 0
+      total_vt: perf?.tracked_videos_only || 0,
+      total_livestreams: perf?.tracked_livestreams || 0
     };
   }) || [];
 
@@ -297,15 +298,17 @@ export async function getPortalData(campaignId: number) {
           // check if exists
           const exists = creatorVideos.some(v => v.content_uid === vid || v.vt_code === vid);
           if (!exists) {
+             const isLive = s.content_type === 'Livestream';
              creatorVideos.push({
                 id: `auto_${vid}`,
                 content_uid: vid,
-                link_video: `https://www.tiktok.com/@${username}/video/${vid}`,
+                link_video: isLive ? '' : `https://www.tiktok.com/@${username}/video/${vid}`,
                 creator_username: username,
                 gmv: videoGmvMap.get(vid) || 0,
                 views: videoViewsMap.get(vid) || 0,
                 likes: videoLikesMap.get(vid) || 0,
-                isAuto: true
+                isAuto: true,
+                isLive: isLive
              });
           }
        }

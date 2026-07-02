@@ -68,7 +68,7 @@ function CampaignPerformaContent() {
       };
 
       // 1. Fetch RPC and View
-      let salesVtQuery = supabase.from('sales').select('creator_username, content_uid, tanggal').eq('campaign_id', campaignId).not('content_uid', 'is', null);
+      let salesVtQuery = supabase.from('sales').select('creator_username, content_uid, tanggal, content_type').eq('campaign_id', campaignId).not('content_uid', 'is', null);
       if (campaign?.start_date) salesVtQuery = salesVtQuery.gte('tanggal', campaign.start_date);
       if (campaign?.end_date) salesVtQuery = salesVtQuery.lte('tanggal', campaign.end_date);
 
@@ -225,9 +225,9 @@ function CampaignPerformaContent() {
       const roas = costAds > 0 ? (gmvAds / costAds).toFixed(2) : '-';
       
       const dbVideos = cc.videos || [];
-      const dbVideosSet = new Set(dbVideos.map((v: any) => v.content_uid));
       const autoSalesVideos = autoSalesMap.get(username) || [];
       const uniqueVideoIds = new Set<string>();
+      const uniqueLiveIds = new Set<string>();
       
       // Add db videos to set
       dbVideos.forEach((v: any) => {
@@ -237,17 +237,24 @@ function CampaignPerformaContent() {
 
       // Parse sales videos
       autoSalesVideos.forEach((s: any) => {
-         if (s.content_uid && s.content_uid.startsWith('video_')) {
-           const parts = s.content_uid.split('_');
+         let vid = s.content_uid;
+         if (vid && vid.startsWith('video_')) {
+           const parts = vid.split('_');
            if (parts.length >= 2) {
-             uniqueVideoIds.add(parts[1]); // the video ID
+             vid = parts[1];
            }
-         } else if (s.content_uid) {
-           uniqueVideoIds.add(s.content_uid);
+         }
+         if (vid) {
+           if (s.content_type === 'Livestream') {
+             uniqueLiveIds.add(vid);
+           } else {
+             uniqueVideoIds.add(vid);
+           }
          }
       });
       
       const totalVt = Math.max(trackedVideos, uniqueVideoIds.size);
+      const totalLive = uniqueLiveIds.size;
 
       return {
         ccId: cc.id,
@@ -264,12 +271,13 @@ function CampaignPerformaContent() {
         totalGmv,
         costAds,
         roas,
-        totalVt
+        totalVt,
+        totalLive
       };
     });
   }, [localCreators, salesSummary, awarenessSummary, adsPerf, salesDataForVt]);
 
-  const [sortField, setSortField] = useState<'username' | 'gmvOrganic' | 'gmvAds' | 'totalGmv' | 'totalVt' | 'videoViews'>('totalGmv');
+  const [sortField, setSortField] = useState<'username' | 'gmvOrganic' | 'gmvAds' | 'totalGmv' | 'totalVt' | 'totalLive' | 'videoViews'>('totalGmv');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 50;
@@ -278,7 +286,7 @@ function CampaignPerformaContent() {
     setCurrentPage(1);
   }, [searchQuery, sortField, sortOrder]);
 
-  const handleSort = (field: 'username' | 'gmvOrganic' | 'gmvAds' | 'totalGmv' | 'totalVt' | 'videoViews') => {
+  const handleSort = (field: 'username' | 'gmvOrganic' | 'gmvAds' | 'totalGmv' | 'totalVt' | 'totalLive' | 'videoViews') => {
     if (sortField === field) {
       setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
     } else {
@@ -296,6 +304,7 @@ function CampaignPerformaContent() {
     else if (sortField === 'gmvAds') comparison = a.gmvAds - b.gmvAds;
     else if (sortField === 'totalGmv') comparison = a.totalGmv - b.totalGmv;
     else if (sortField === 'totalVt') comparison = a.totalVt - b.totalVt;
+    else if (sortField === 'totalLive') comparison = a.totalLive - b.totalLive;
     else if (sortField === 'videoViews') comparison = a.videoViews - b.videoViews;
 
     return sortOrder === 'asc' ? comparison : -comparison;
@@ -317,6 +326,9 @@ function CampaignPerformaContent() {
   const totalCampaignViews = Number(totalSales?.totalViews || 0);
   const totalCampaignLikes = Number(totalSales?.totalLikes || 0);
   const totalCampaignVideos = Number(totalSales?.totalVideos || 0);
+  const totalCampaignLivestreams = Number(totalSales?.totalLivestreams || 0);
+  const creatorsWithVideo = Number(totalSales?.creatorsWithVideo || 0);
+  const creatorsWithLive = Number(totalSales?.creatorsWithLive || 0);
   
   const targetVideo = campaign.target_video || 0;
   const percentCapaiVideo = targetVideo > 0 ? Math.round((totalCampaignVideos / targetVideo) * 100) : 0;
@@ -382,15 +394,16 @@ function CampaignPerformaContent() {
             <div className="p-[24px]">
               <div className="flex justify-between items-start">
                 <div>
-                  <p className="text-[13px] font-medium text-text-soft">Pencapaian Target Creator</p>
-                  <h3 className="text-[24px] font-bold mt-[8px] text-text">{creatorStats.length} <span className="text-[13px] text-text-soft font-normal">kreator</span></h3>
+                  <p className="text-[13px] font-medium text-text-soft">Kreator Aktif</p>
+                  <h3 className="text-[24px] font-bold mt-[8px] text-text">{creatorsWithVideo} <span className="text-[13px] text-text-soft font-normal">w/ video</span></h3>
+                  <p className="text-[11px] font-semibold text-text-soft mt-[4px]">{creatorsWithLive} <span className="font-normal">w/ livestream</span></p>
                 </div>
                 <div className="p-[8px] bg-orange-50 rounded-[8px] text-orange-600"><Users className="w-5 h-5" /></div>
               </div>
               {targetCreator > 0 && (
                 <div className="mt-[16px] pt-[16px] border-t border-line">
                   <div className="flex justify-between text-[11px] text-text-soft mb-[4px] font-medium">
-                    <span>Target: {targetCreator}</span>
+                    <span>Target Total Kreator: {targetCreator}</span>
                     <span>{percentCapaiCreator}%</span>
                   </div>
                   <div className="w-full bg-slate-100 rounded-full h-[6px] flex overflow-hidden">
@@ -405,15 +418,16 @@ function CampaignPerformaContent() {
             <div className="p-[24px]">
               <div className="flex justify-between items-start">
                 <div>
-                  <p className="text-[13px] font-medium text-text-soft">Pencapaian Target Video</p>
+                  <p className="text-[13px] font-medium text-text-soft">Konten Terlaksana</p>
                   <h3 className="text-[24px] font-bold mt-[8px] text-text">{totalCampaignVideos} <span className="text-[13px] text-text-soft font-normal">video</span></h3>
+                  <p className="text-[11px] font-semibold text-text-soft mt-[4px]">{totalCampaignLivestreams} <span className="font-normal">livestream</span></p>
                 </div>
                 <div className="p-[8px] bg-rose-50 rounded-[8px] text-rose-600"><PlaySquare className="w-5 h-5" /></div>
               </div>
               {targetVideo > 0 && (
                 <div className="mt-[16px] pt-[16px] border-t border-line">
                   <div className="flex justify-between text-[11px] text-text-soft mb-[4px] font-medium">
-                    <span>Target: {targetVideo}</span>
+                    <span>Target: {targetVideo} Video</span>
                     <span>{percentCapaiVideo}%</span>
                   </div>
                   <div className="w-full bg-slate-100 rounded-full h-[6px] flex overflow-hidden">
@@ -634,6 +648,7 @@ function CampaignPerformaContent() {
                 )}
                 
                 <th className="py-[16px] text-center cursor-pointer hover:bg-slate-50 transition-colors select-none" onClick={() => handleSort('totalVt')}>Total VT <ArrowUpDown className="w-3 h-3 inline ml-[4px]"/></th>
+                <th className="py-[16px] text-center cursor-pointer hover:bg-slate-50 transition-colors select-none" onClick={() => handleSort('totalLive')}>Total Live <ArrowUpDown className="w-3 h-3 inline ml-[4px]"/></th>
                 
                 {!isAwareness && (
                   <th className="py-[16px] text-center cursor-pointer hover:bg-slate-50 transition-colors select-none">Item Sold</th>
@@ -648,11 +663,11 @@ function CampaignPerformaContent() {
             <tbody>
               {loading && filteredCreatorStats.length === 0 ? (
                 <tr>
-                  <td colSpan={isAwareness ? 7 : 6} className="text-center py-[32px] text-text-soft">Memuat data performa...</td>
+                  <td colSpan={isAwareness ? 8 : 7} className="text-center py-[32px] text-text-soft">Memuat data performa...</td>
                 </tr>
               ) : filteredCreatorStats.length === 0 ? (
                 <tr>
-                  <td colSpan={isAwareness ? 7 : 6} className="text-center py-[32px] text-text-soft">Belum ada data kreator yang di-approve atau cocok dengan pencarian.</td>
+                  <td colSpan={isAwareness ? 8 : 7} className="text-center py-[32px] text-text-soft">Belum ada data kreator yang di-approve atau cocok dengan pencarian.</td>
                 </tr>
               ) : (
                 paginatedStats.map((c) => (
@@ -671,6 +686,9 @@ function CampaignPerformaContent() {
                     
                     <td className="text-center text-text font-medium">
                       {c.totalVt}
+                    </td>
+                    <td className="text-center text-rose-500 font-medium">
+                      {c.totalLive}
                     </td>
                     
                     {!isAwareness && (

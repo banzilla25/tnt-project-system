@@ -103,6 +103,9 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
   const displayTotalGmv = rpcPerformance?.totalAllGmv || 0;
   const displayTotalViews = rpcPerformance?.totalViews || 0;
   const displayTotalVideo = rpcPerformance?.totalVideos || 0;
+  const displayTotalLivestream = rpcPerformance?.totalLivestreams || 0;
+  const displayCreatorVideo = rpcPerformance?.creatorsWithVideo || 0;
+  const displayCreatorLive = rpcPerformance?.creatorsWithLive || 0;
   const displayTotalCreator = rpcPerformance?.approvedCreators || 0;
 
   const validCreatorUsernames = new Set(approvalList?.map((cc: any) => cc.creators?.username) || []);
@@ -182,9 +185,9 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
   filteredPerforma = genericSort(filteredPerforma, performaSort, (c) => {
     if (performaSort.key === 'username') return c.creators?.username;
     if (performaSort.key === 'total_vt') {
-       const userVideos = (videos || []).find((v: any) => v.creator_username === c.creators?.username);
-       return userVideos?.total_videos || 0;
+       return c.total_vt || 0;
     }
+    if (performaSort.key === 'total_live') return c.total_livestreams || 0;
     if (performaSort.key === 'items_sold') return c.items_sold || 0;
     if (performaSort.key === 'gmv_organic') return c.gmv_organic || 0;
     if (performaSort.key === 'gmv_ads') return c.gmv_ads || 0;
@@ -374,19 +377,20 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                   </div>
                 </div>
 
-                {/* Total Videos Card */}
+                {/* Konten Terlaksana Card */}
                 <div className="bg-white border border-slate-200 rounded-xl p-[24px] shadow-sm">
                   <div className="flex justify-between items-start">
                     <div>
-                      <p className="text-[13px] font-medium text-slate-500">Total Video</p>
+                      <p className="text-[13px] font-medium text-slate-500">Konten Terlaksana</p>
                       <h3 className="text-[24px] font-bold mt-[8px] text-slate-800">{displayTotalVideo} <span className="text-[13px] text-slate-500 font-normal">video</span></h3>
+                      <p className="text-[11px] font-semibold text-slate-500 mt-[4px]">{displayTotalLivestream} <span className="font-normal">livestream</span></p>
                     </div>
                     <div className="p-[8px] bg-purple-50 text-purple-600 rounded-[8px]"><Video className="w-5 h-5" /></div>
                   </div>
                   {summary.target_video && (
                     <div className="mt-[16px] pt-[16px] border-t border-slate-100">
                       <div className="flex justify-between text-[11px] text-slate-500 mb-[4px] font-medium">
-                        <span>Target: {summary.target_video}</span>
+                        <span>Target: {summary.target_video} Video</span>
                         <span>{percentVideo}%</span>
                       </div>
                       <div className="w-full bg-slate-100 rounded-full h-[6px] flex overflow-hidden">
@@ -396,19 +400,20 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                   )}
                 </div>
 
-                {/* Target Creator Card */}
+                {/* Kreator Aktif Card */}
                 <div className="bg-white border border-slate-200 rounded-xl p-[24px] shadow-sm">
                   <div className="flex justify-between items-start">
                     <div>
-                      <p className="text-[13px] font-medium text-slate-500">Target Creator</p>
-                      <h3 className="text-[24px] font-bold mt-[8px] text-slate-800">{displayTotalCreator} <span className="text-[13px] text-slate-500 font-normal">kreator</span></h3>
+                      <p className="text-[13px] font-medium text-slate-500">Kreator Aktif</p>
+                      <h3 className="text-[24px] font-bold mt-[8px] text-slate-800">{displayCreatorVideo} <span className="text-[13px] text-slate-500 font-normal">w/ video</span></h3>
+                      <p className="text-[11px] font-semibold text-slate-500 mt-[4px]">{displayCreatorLive} <span className="font-normal">w/ livestream</span></p>
                     </div>
                     <div className="p-[8px] bg-orange-50 text-orange-600 rounded-[8px]"><Users className="w-5 h-5" /></div>
                   </div>
                   {summary.target_creator && (
                     <div className="mt-[16px] pt-[16px] border-t border-slate-100">
                       <div className="flex justify-between text-[11px] text-slate-500 mb-[4px] font-medium">
-                        <span>Target: {summary.target_creator}</span>
+                        <span>Target Total Kreator: {summary.target_creator}</span>
                         <span>{Math.round((displayTotalCreator / summary.target_creator) * 100)}%</span>
                       </div>
                       <div className="w-full bg-slate-100 rounded-full h-[6px] flex overflow-hidden">
@@ -442,6 +447,7 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                       <TableRow className="hover:bg-transparent">
                         <SortableHeader label="Creator" sortKey="username" currentSort={performaSort} onSort={(k) => handleSort('performa', k)} />
                         <SortableHeader label="Total VT" sortKey="total_vt" currentSort={performaSort} onSort={(k) => handleSort('performa', k)} className="text-center" />
+                        <SortableHeader label="Total Live" sortKey="total_live" currentSort={performaSort} onSort={(k) => handleSort('performa', k)} className="text-center" />
                         <SortableHeader label="Item Sold" sortKey="items_sold" currentSort={performaSort} onSort={(k) => handleSort('performa', k)} className="text-center" />
                         <SortableHeader label="Total GMV" sortKey="total_gmv" currentSort={performaSort} onSort={(k) => handleSort('performa', k)} className="text-right" />
                       </TableRow>
@@ -454,8 +460,8 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                       ) : (
                         paginatedPerforma.map((c: any) => {
                           const username = c.creators?.username || 'Unknown';
-                          const userVideos = (videos || []).find((v: any) => v.creator_username === username);
-                          const totalVt = userVideos?.total_videos || 0;
+                          const totalVt = c.total_vt || 0;
+                          const totalLive = c.total_livestreams || 0;
                           const itemsSold = c.items_sold || 0;
                           const gmvOrganic = c.gmv_organic || 0;
                           const gmvAds = c.gmv_ads || 0;
@@ -468,6 +474,9 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                               </TableCell>
                               <TableCell className="text-center font-medium">
                                 {totalVt}
+                              </TableCell>
+                              <TableCell className="text-center font-medium text-rose-500">
+                                {totalLive}
                               </TableCell>
                               <TableCell className="text-center font-bold">
                                 {itemsSold} pcs
