@@ -1022,13 +1022,13 @@ export default function CampaignVideoPage() {
                         <div className="text-[12px] text-slate-500 mt-0.5">{v.vidLikes.toLocaleString('id-ID')} <span className="text-[10px]">likes</span></div>
                       </td>
                       <td className="p-4 align-top">
-                        {hasAccess && (
+                         {hasAccess && (
                            <button 
                              onClick={() => saveVideos(v.ccId)}
                              className="btn btn-primary text-xs w-full py-2 h-auto min-h-0 font-semibold shadow-sm"
-                             disabled={isSaving === v.ccId}
+                             disabled={saving[v.ccId]}
                            >
-                             {isSaving === v.ccId ? 'Menyimpan...' : 'Simpan'}
+                             {saving[v.ccId] ? 'Menyimpan...' : 'Simpan'}
                            </button>
                         )}
                       </td>
