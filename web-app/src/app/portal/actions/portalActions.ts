@@ -94,7 +94,7 @@ export async function getPortalData(campaignId: number) {
   // Fetch creators for Client Approval (hanya yang sudah disetujui internal TNT)
   let ccData: any[] = [];
   let start = 0;
-  const pageSize = 1000;
+  const pageSize = 500; // Reduce page size to avoid PostgREST join row explosion limit
   
   while (true) {
     const { data, error } = await supabase
@@ -121,28 +121,59 @@ export async function getPortalData(campaignId: number) {
     start += pageSize;
   }
 
-  // Fetch raw sales for accurate GMV calculation with strict SKU and Date filtering (Persis seperti internal app)
-  let salesQuery = supabase
-    .from('sales')
-    .select('creator_username, gmv, quantity, product_id, is_refund, tanggal')
-    .eq('campaign_id', campaignId)
-    .eq('is_refund', false);
+  // Fetch raw sales for accurate GMV calculation with strict SKU and Date filtering (Paginated)
+  let rawSales: any[] = [];
+  let salesStart = 0;
+  while (true) {
+    let salesQuery = supabase
+      .from('sales')
+      .select('creator_username, gmv, quantity, product_id, is_refund, tanggal')
+      .eq('campaign_id', campaignId)
+      .eq('is_refund', false)
+      .range(salesStart, salesStart + 999);
+      
+    if (campaign?.start_date) salesQuery = salesQuery.gte('tanggal', campaign.start_date);
+    if (campaign?.end_date) salesQuery = salesQuery.lte('tanggal', campaign.end_date);
     
-  if (campaign?.start_date) salesQuery = salesQuery.gte('tanggal', campaign.start_date);
-  if (campaign?.end_date) salesQuery = salesQuery.lte('tanggal', campaign.end_date);
-  
-  const { data: rawSales } = await salesQuery;
+    const { data: pageSales } = await salesQuery;
+    if (!pageSales || pageSales.length === 0) break;
+    rawSales = rawSales.concat(pageSales);
+    if (pageSales.length < 1000) break;
+    salesStart += 1000;
+  }
 
-  const { data: adsPerf } = await supabase
-    .from('ads_performance')
-    .select('creator_id, gross_revenue_usd, kurs')
-    .eq('campaign_id', campaignId);
+  // Fetch ads performance (Paginated)
+  let adsPerf: any[] = [];
+  let adsStart = 0;
+  while (true) {
+    const { data: pageAds } = await supabase
+      .from('ads_performance')
+      .select('creator_id, gross_revenue_usd, kurs')
+      .eq('campaign_id', campaignId)
+      .range(adsStart, adsStart + 999);
+      
+    if (!pageAds || pageAds.length === 0) break;
+    adsPerf = adsPerf.concat(pageAds);
+    if (pageAds.length < 1000) break;
+    adsStart += 1000;
+  }
 
-  const { data: salesForVideos } = await supabase
-    .from('sales')
-    .select('content_uid, gmv, creator_username, raw_data')
-    .eq('campaign_id', campaignId)
-    .not('content_uid', 'is', null);
+  // Fetch sales for videos (Paginated)
+  let salesForVideos: any[] = [];
+  let svStart = 0;
+  while (true) {
+    const { data: pageSv } = await supabase
+      .from('sales')
+      .select('content_uid, gmv, creator_username, raw_data')
+      .eq('campaign_id', campaignId)
+      .not('content_uid', 'is', null)
+      .range(svStart, svStart + 999);
+      
+    if (!pageSv || pageSv.length === 0) break;
+    salesForVideos = salesForVideos.concat(pageSv);
+    if (pageSv.length < 1000) break;
+    svStart += 1000;
+  }
 
   const videoGmvMap = new Map();
   const videoViewsMap = new Map();
@@ -339,10 +370,16 @@ export async function getPortalData(campaignId: number) {
     }
   });
 
+  // Also attach campaign's target_creator to summary if missing, so progress bar shows up
+  const finalSummary = summary || {};
+  if (campaign && !finalSummary.target_creator) {
+     finalSummary.target_creator = campaign.target_creator;
+  }
+
   return { 
     authenticated: true, 
     campaign, 
-    summary: summary || {}, 
+    summary: finalSummary, 
     totalSales: totalSales || null,
     totalAwareness: totalAwareness || null,
     dailyPerf: dailyPerf || [], 
