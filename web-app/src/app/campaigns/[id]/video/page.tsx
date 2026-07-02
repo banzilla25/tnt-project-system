@@ -1024,7 +1024,7 @@ export default function CampaignVideoPage() {
                       <td className="p-4 align-top">
                          {hasAccess && (
                            <button 
-                             onClick={() => saveVideos(v.ccId)}
+                             onClick={() => handleSaveVT(v.ccId)}
                              className="btn btn-primary text-xs w-full py-2 h-auto min-h-0 font-semibold shadow-sm"
                              disabled={saving[v.ccId]}
                            >
