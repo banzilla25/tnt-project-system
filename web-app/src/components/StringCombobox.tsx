@@ -38,7 +38,7 @@ export function StringCombobox({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [search, value, onChange]);
 
-  const filteredOptions = options.filter(opt => opt.toLowerCase().includes(search.toLowerCase()) && opt !== search);
+  const filteredOptions = options.filter(opt => opt.toLowerCase().includes(search.toLowerCase()) && opt.toLowerCase() !== search.toLowerCase());
 
   return (
     <div className="relative w-full" ref={wrapperRef}>
@@ -65,16 +65,29 @@ export function StringCombobox({
       </div>
       {open && (
         <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
-          {filteredOptions.length === 0 ? (
+          {search && (
+            <div
+              className="p-3 text-sm bg-blue-50/50 hover:bg-blue-100 text-blue-700 cursor-pointer transition-colors border-b border-slate-100 italic font-medium"
+              onClick={() => {
+                setSearch(search);
+                onChange(search);
+                setOpen(false);
+              }}
+            >
+              "{search}" <span className="text-xs text-blue-500 font-normal">(Pilih sebagai nama baru)</span>
+            </div>
+          )}
+
+          {filteredOptions.length === 0 && !search ? (
             <div className="p-3 text-xs text-slate-500 text-center italic">
-              {search ? `"${search}" (Pilih sebagai nama baru)` : "Ketik untuk opsi baru..."}
+              Ketik untuk opsi baru...
             </div>
           ) : (
             <>
               {filteredOptions.map((opt, i) => (
                 <div
                   key={i}
-                  className="p-3 text-sm hover:bg-blue-50 hover:text-blue-600 cursor-pointer transition-colors border-b border-slate-50 last:border-0"
+                  className="p-3 text-sm hover:bg-slate-50 hover:text-slate-800 cursor-pointer transition-colors border-b border-slate-50 last:border-0"
                   onClick={() => {
                     setSearch(opt);
                     onChange(opt);
