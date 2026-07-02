@@ -48,8 +48,24 @@ export function SearchableSelect({
         .limit(20);
         
       if (data) {
-        // Sort locally by length so exact/shortest match floats to the top
-        const sorted = data.map(d => ({ id: d.id, label: `@${d.username}` })).sort((a, b) => a.label.length - b.label.length).slice(0, 5);
+        // Sort locally: 1. Starts with search, 2. Contains search exactly, 3. Length
+        const sorted = data.map(d => ({ id: d.id, label: `@${d.username}` })).sort((a, b) => {
+          const aLower = a.label.toLowerCase();
+          const bLower = b.label.toLowerCase();
+          const searchLower = trimmed.toLowerCase();
+          
+          const aStarts = aLower.startsWith('@' + searchLower);
+          const bStarts = bLower.startsWith('@' + searchLower);
+          if (aStarts && !bStarts) return -1;
+          if (!aStarts && bStarts) return 1;
+          
+          const aExact = aLower.includes(searchLower);
+          const bExact = bLower.includes(searchLower);
+          if (aExact && !bExact) return -1;
+          if (!aExact && bExact) return 1;
+          
+          return a.label.length - b.label.length;
+        });
         setOptions(sorted);
       }
     };
