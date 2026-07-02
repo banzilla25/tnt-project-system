@@ -6,6 +6,7 @@ import { useDraftLocalStorage } from "@/hooks/useDraftLocalStorage";
 // Replaced standard UI imports
 import { createClient } from "@/utils/supabase/client";
 import { useParams } from "next/navigation";
+import Link from "next/link";
 import { AlertCircle, Link as LinkIcon, Save, Edit2, Loader2, ChevronDown, ChevronRight, Plus, PlayCircle, X } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/Dialog";
 import { useAuth } from "@/providers/AuthProvider";
@@ -516,6 +517,7 @@ export default function CampaignVideoPage() {
           ...v,
           creatorUsername: creator.username,
           creatorTier: cc.tier,
+          creatorId: creator.id,
           ccId: cc.id,
           vidGmv,
           vidViews,
@@ -719,8 +721,10 @@ export default function CampaignVideoPage() {
                       <div className={`p-2 rounded-full ${isExpanded ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-200 text-slate-500'}`}>
                         {isExpanded ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
                       </div>
-                      <div>
-                        <h3 className="font-bold text-[16px]">@{creator.username}</h3>
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <Link href={`/creator-pool/${creator.id}`} className="font-bold text-[16px] hover:text-indigo-600 hover:underline transition-colors">
+                          @{creator.username}
+                        </Link>
                       </div>
                       
                       {/* Summary Metrics */}
@@ -959,7 +963,11 @@ export default function CampaignVideoPage() {
                   return (
                     <tr key={v.id} className="border-b border-slate-100 hover:bg-slate-50/50">
                       <td className="p-4 align-top">
-                        <div className="font-bold text-sm">@{v.creatorUsername}</div>
+                        <div>
+                          <Link href={`/creator-pool/${v.creatorId}`} className="font-bold text-sm hover:text-indigo-600 hover:underline transition-colors">
+                            @{v.creatorUsername}
+                          </Link>
+                        </div>
                         <div className="text-[11px] font-semibold text-slate-500 bg-slate-100 w-fit px-2 py-0.5 rounded mt-1">{v.creatorTier || 'Tier -'}</div>
                       </td>
                       <td className="p-4 align-top">
