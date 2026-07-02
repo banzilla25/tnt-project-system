@@ -66,11 +66,12 @@ export default function CampaignVideoPage() {
   const [sortBy, setSortBy] = useState('none');
   const [expandedGroups, setExpandedGroups] = useState<Set<number>>(new Set());
   const [clientPage, setClientPage] = useState(1);
+  const [viewMode, setViewMode] = useState<'creator' | 'video'>('creator');
   const CLIENT_PAGE_SIZE = 50;
 
   useEffect(() => {
     setClientPage(1);
-  }, [filterSow, filterSales, filterSku, sortBy, debouncedSearch]);
+  }, [filterSow, filterSales, filterSku, sortBy, debouncedSearch, viewMode]);
   
   const toggleGroup = (id: number) => {
     setExpandedGroups(prev => {
@@ -474,6 +475,101 @@ export default function CampaignVideoPage() {
   const visibleData = finalListingData.slice(0, clientPage * CLIENT_PAGE_SIZE);
   const hasMoreClient = finalListingData.length > visibleData.length;
 
+  const processedVideosData = React.useMemo(() => {
+    let allVids: any[] = [];
+    
+    localVideos.forEach(v => {
+       const cc = listingData.find(c => c.id === v.campaign_creator_id);
+       if (!cc || !cc.creators) return;
+       
+       const creator = cc.creators;
+       const ccSales = cc._localSales || [];
+       const ccOrganic = cc._localOrganicVideos || [];
+       
+       const hasContentUid = v.content_uid && v.content_uid !== '';
+       const dynamicContentUid = hasContentUid ? v.content_uid : null;
+       
+       let vidGmv = 0;
+       let vidViews = 0;
+       let vidLikes = 0;
+       
+       if (dynamicContentUid) {
+          ccSales.forEach((s: any) => {
+             if (s.content_uid === dynamicContentUid || s.content_uid === `video_${dynamicContentUid}`) {
+                vidGmv += (s.gmv || 0);
+             }
+          });
+          ccOrganic.forEach((o: any) => {
+             if (o.video_id === dynamicContentUid) {
+                vidViews += (o.views || 0);
+                vidLikes += (o.likes || 0);
+             }
+          });
+       }
+       
+       const rpm = vidViews > 0 ? (vidGmv / vidViews) * 1000 : 0;
+       
+       // Filter out empty "Tambah Baris" that haven't been filled if in "Semua Video" mode
+       if (!v.link_video && !v.content_uid && v.concept === '') return;
+
+       allVids.push({
+          ...v,
+          creatorUsername: creator.username,
+          creatorTier: cc.tier,
+          ccId: cc.id,
+          vidGmv,
+          vidViews,
+          vidLikes,
+          rpm,
+          hasContentUid,
+          dynamicContentUid
+       });
+    });
+
+    if (filterSow !== 'all') {
+       allVids = allVids.filter(v => {
+          const m = metricsMap.get(v.ccId);
+          if (!m) return false;
+          if (filterSow === 'done') return m.uploadedVtCount >= m.targetVt && m.targetVt > 0;
+          if (filterSow === 'pending') return m.uploadedVtCount < m.targetVt;
+          return true;
+       });
+    }
+
+    if (filterSales !== 'all') {
+       allVids = allVids.filter(v => {
+          if (filterSales === 'pecah') return v.vidGmv > 0;
+          if (filterSales === 'nol') return v.vidGmv === 0;
+          return true;
+       });
+    }
+
+    if (filterSku !== 'all') {
+       allVids = allVids.filter(v => v.sku_id === filterSku);
+    }
+
+    if (sortBy !== 'none') {
+       allVids.sort((a, b) => {
+          switch(sortBy) {
+             case 'gmv_desc': return b.vidGmv - a.vidGmv;
+             case 'gmv_asc': return a.vidGmv - b.vidGmv;
+             case 'vt_desc': 
+             case 'views_desc': return b.vidViews - a.vidViews;
+             case 'vt_asc':
+             case 'views_asc': return a.vidViews - b.vidViews;
+             case 'likes_desc': return b.vidLikes - a.vidLikes;
+             case 'likes_asc': return a.vidLikes - b.vidLikes;
+             default: return 0;
+          }
+       });
+    }
+
+    return allVids;
+  }, [localVideos, listingData, metricsMap, filterSow, filterSales, filterSku, sortBy]);
+
+  const visibleVideosData = processedVideosData.slice(0, clientPage * CLIENT_PAGE_SIZE);
+  const hasMoreVideosClient = processedVideosData.length > visibleVideosData.length;
+
   return (
     <>
       <div className="space-y-[24px]">
@@ -502,6 +598,21 @@ export default function CampaignVideoPage() {
         </div>
         <div>
           <div className="flex flex-col gap-4 bg-slate-50 p-4 border border-line rounded-lg">
+             <div className="flex bg-white rounded-md border border-slate-200 overflow-hidden w-fit">
+                <button 
+                  onClick={() => setViewMode('creator')}
+                  className={`px-4 py-2 text-sm font-semibold transition-colors ${viewMode === 'creator' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-50'}`}
+                >
+                  Tampilan: Per Kreator
+                </button>
+                <div className="w-[1px] bg-slate-200"></div>
+                <button 
+                  onClick={() => setViewMode('video')}
+                  className={`px-4 py-2 text-sm font-semibold transition-colors ${viewMode === 'video' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-50'}`}
+                >
+                  Tampilan: Semua Video
+                </button>
+             </div>
              <div className="flex flex-wrap gap-4 items-end">
                 <div className="space-y-2 flex-1 min-w-[200px]">
                    <label className="text-xs font-semibold text-text-soft">Pencarian Kreator</label>
@@ -572,7 +683,7 @@ export default function CampaignVideoPage() {
           <div className="text-center py-[48px] text-text-soft">
             Belum ada creator yang berstatus "Approved" di campaign ini.
           </div>
-        ) : (
+        ) : viewMode === 'creator' ? (
           <div className="space-y-[48px] pb-[24px]">
             {visibleData.map(cc => {
               const creator = cc.creators;
@@ -669,17 +780,8 @@ export default function CampaignVideoPage() {
                             <th className="w-16 text-center">Urutan</th>
                             <th className={isAwareness ? "w-1/3" : "w-1/4"}>{isAwareness ? "Konsep / Ide SOW" : "Konsep / Ide"}</th>
                             <th className={isAwareness ? "w-1/3" : "w-1/4"}>Link Video TikTok</th>
-                            {isAwareness ? (
-                              <>
-                                <th>Performa Views</th>
-                                <th>Produk</th>
-                              </>
-                            ) : (
-                              <>
-                                <th>Performa GMV</th>
-                                <th>Produk</th>
-                              </>
-                            )}
+                            <th>Performa</th>
+                            <th>Produk</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -795,56 +897,28 @@ export default function CampaignVideoPage() {
                                     )}
                                   </div>
                                 </td>
-                                {isAwareness ? (
-                                  <>
-                                    <td>
-                                      <div className="flex items-center gap-2">
-                                        <div className="flex-1">
-                                          <div className="text-[12px] text-text-soft">Views</div>
-                                          <div className="font-semibold">{vidViews.toLocaleString('id-ID')}</div>
-                                        </div>
-                                      </div>
-                                    </td>
-                                    <td>
-                                      <select 
-                                        className="select w-full"
-                                        value={v.sku_id || ''}
-                                        onChange={(e) => handleVideoChange(cc.id, v.urutan, 'sku_id', e.target.value)}
-                                        disabled={!hasAccess}
-                                      >
-                                        <option value="">Pilih Produk...</option>
-                                        {skus.filter(s => s.campaign_id === campaignId).map(s => (
-                                          <option key={s.id} value={s.id}>{s.nama_produk || s.product_id}</option>
-                                        ))}
-                                      </select>
-                                    </td>
-                                  </>
-                                ) : (
-                                  <>
-                                    <td>
-                                      <div className="font-semibold text-[15px] text-green-600">
-                                        {hasContentUid ? (
-                                          `Rp ${vidGmv.toLocaleString('id-ID')}`
-                                        ) : (
-                                          <span className="text-text-soft text-[13px] font-normal">Simpan video dulu</span>
-                                        )}
-                                      </div>
-                                    </td>
-                                    <td>
-                                      <select 
-                                        className="select w-full"
-                                        value={v.sku_id || ''}
-                                        onChange={(e) => handleVideoChange(cc.id, v.urutan, 'sku_id', e.target.value)}
-                                        disabled={!hasAccess}
-                                      >
-                                        <option value="">Pilih Produk...</option>
-                                        {skus.filter(s => s.campaign_id === campaignId).map(s => (
-                                          <option key={s.id} value={s.id}>{s.nama_produk || s.product_id}</option>
-                                        ))}
-                                      </select>
-                                    </td>
-                                  </>
-                                )}
+                                <td>
+                                  <div className="font-semibold text-[15px] text-emerald-600">
+                                    {hasContentUid ? (
+                                      `Rp ${vidGmv.toLocaleString('id-ID')}`
+                                    ) : (
+                                      <span className="text-text-soft text-[13px] font-normal">Belum ada GMV</span>
+                                    )}
+                                  </div>
+                                </td>
+                                <td>
+                                  <select 
+                                    className="select w-full"
+                                    value={v.sku_id || ''}
+                                    onChange={(e) => handleVideoChange(cc.id, v.urutan, 'sku_id', e.target.value)}
+                                    disabled={!hasAccess}
+                                  >
+                                    <option value="">Pilih Produk...</option>
+                                    {skus.filter(s => s.campaign_id === campaignId).map(s => (
+                                      <option key={s.id} value={s.id}>{s.nama_produk || s.product_id}</option>
+                                    ))}
+                                  </select>
+                                </td>
                               </tr>
                             );
                           })}
@@ -858,6 +932,113 @@ export default function CampaignVideoPage() {
             })}
             
             {hasMoreClient && (
+              <div className="flex justify-center mt-[24px]">
+                <button onClick={() => setClientPage(p => p + 1)} className="btn btn-outline">
+                  <ChevronDown className="ico" />
+                  Tampilkan Lebih Banyak
+                </button>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="overflow-x-auto pb-[24px]">
+            <table className="w-full text-left border-collapse min-w-[800px]">
+              <thead>
+                <tr>
+                  <th className="p-4 border-b border-slate-200 bg-slate-50 text-xs font-semibold text-slate-500">Kreator</th>
+                  <th className="p-4 border-b border-slate-200 bg-slate-50 text-xs font-semibold text-slate-500 w-[300px]">Link Video TikTok</th>
+                  <th className="p-4 border-b border-slate-200 bg-slate-50 text-xs font-semibold text-slate-500">Produk</th>
+                  <th className="p-4 border-b border-slate-200 bg-slate-50 text-xs font-semibold text-slate-500">GMV & GPM</th>
+                  <th className="p-4 border-b border-slate-200 bg-slate-50 text-xs font-semibold text-slate-500">Views & Likes</th>
+                  <th className="p-4 border-b border-slate-200 bg-slate-50 text-xs font-semibold text-slate-500">Aksi</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visibleVideosData.map(v => {
+                  const warningShortLink = v.link_video?.includes('vt.tiktok.com');
+                  return (
+                    <tr key={`${v.ccId}_${v.urutan}`} className="border-b border-slate-100 hover:bg-slate-50/50">
+                      <td className="p-4 align-top">
+                        <div className="font-bold text-sm">@{v.creatorUsername}</div>
+                        <div className="text-[11px] font-semibold text-slate-500 bg-slate-100 w-fit px-2 py-0.5 rounded mt-1">{v.creatorTier || 'Tier -'}</div>
+                      </td>
+                      <td className="p-4 align-top">
+                        <div className="flex flex-col gap-2">
+                           <div className="flex gap-2">
+                              <button 
+                                className="btn-icon bg-slate-100 shrink-0 hover:bg-slate-200 transition-colors" 
+                                title="Putar Video"
+                                onClick={() => {
+                                  if(v.link_video) {
+                                    setPreviewUrl(v.link_video);
+                                    setPreviewOpen(true);
+                                  }
+                                }}
+                              >
+                                <PlayCircle className="w-5 h-5 text-indigo-600" />
+                              </button>
+                              <div className="relative flex-grow">
+                                <LinkIcon className="w-4 h-4 absolute left-[10px] top-[10px] text-text-soft" />
+                                <input 
+                                  type="text"
+                                  className={`input !pl-[34px] w-full text-[13px] ${warningShortLink ? 'border-amber-400 bg-amber-50' : ''}`}
+                                  placeholder="https://www.tiktok.com/@..."
+                                  value={v.link_video || ''}
+                                  onChange={(e) => handleVideoChange(v.ccId, v.urutan, 'link_video', e.target.value)}
+                                  disabled={!hasAccess}
+                                />
+                              </div>
+                           </div>
+                           {warningShortLink && (
+                              <p className="text-[11px] text-amber-600 flex items-start gap-[4px]">
+                                <AlertCircle className="w-3 h-3 shrink-0 mt-[2px]" />
+                                Sistem tidak bisa melacak GMV dari link pendek (vt.tiktok.com).
+                              </p>
+                           )}
+                           {v.hasContentUid && (
+                              <p className="text-[10px] text-emerald-600 font-medium">✓ Content ID: {v.dynamicContentUid}</p>
+                           )}
+                        </div>
+                      </td>
+                      <td className="p-4 align-top">
+                        <select 
+                          className="select w-full text-[13px]"
+                          value={v.sku_id || ''}
+                          onChange={(e) => handleVideoChange(v.ccId, v.urutan, 'sku_id', e.target.value)}
+                          disabled={!hasAccess}
+                        >
+                          <option value="">Pilih Produk...</option>
+                          {skus.filter(s => s.campaign_id === campaignId).map(s => (
+                            <option key={s.id} value={s.id}>{s.nama_produk || s.product_id}</option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="p-4 align-top">
+                        <div className="font-bold text-emerald-700 text-[15px]">Rp {v.vidGmv.toLocaleString('id-ID')}</div>
+                        {v.rpm > 0 && <div className="text-[11px] font-semibold text-indigo-600 mt-1 bg-indigo-50 px-2 py-0.5 rounded w-fit border border-indigo-100">GPM: Rp {Math.round(v.rpm).toLocaleString('id-ID')}</div>}
+                      </td>
+                      <td className="p-4 align-top">
+                        <div className="font-semibold text-slate-700 text-sm">{v.vidViews.toLocaleString('id-ID')} <span className="text-[11px] font-normal text-slate-500">views</span></div>
+                        <div className="text-[12px] text-slate-500 mt-0.5">{v.vidLikes.toLocaleString('id-ID')} <span className="text-[10px]">likes</span></div>
+                      </td>
+                      <td className="p-4 align-top">
+                        {hasAccess && (
+                           <button 
+                             onClick={() => saveVideos(v.ccId)}
+                             className="btn btn-primary text-xs w-full py-2 h-auto min-h-0 font-semibold shadow-sm"
+                             disabled={isSaving === v.ccId}
+                           >
+                             {isSaving === v.ccId ? 'Menyimpan...' : 'Simpan'}
+                           </button>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+            
+            {hasMoreVideosClient && (
               <div className="flex justify-center mt-[24px]">
                 <button onClick={() => setClientPage(p => p + 1)} className="btn btn-outline">
                   <ChevronDown className="ico" />
