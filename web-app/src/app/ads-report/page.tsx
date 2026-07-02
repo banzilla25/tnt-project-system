@@ -38,7 +38,7 @@ export default function AdsReportPage() {
   const [sortConfig, setSortConfig] = useState<{ key: SortColumn; direction: 'asc' | 'desc' } | null>({ key: 'tanggal', direction: 'desc' });
 
   // New States for Accordion View
-  const [viewMode, setViewMode] = useState<'flat' | 'grouped'>('flat');
+  const [viewMode, setViewMode] = useState<'flat' | 'grouped'>('grouped');
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
   const handleSort = (key: SortColumn) => {
