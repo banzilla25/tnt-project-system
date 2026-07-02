@@ -102,6 +102,7 @@ export async function getPortalData(campaignId: number) {
       .select(`
         id, 
         creator_id,
+        approval,
         client_approval, 
         notes_pic, 
         tier,
