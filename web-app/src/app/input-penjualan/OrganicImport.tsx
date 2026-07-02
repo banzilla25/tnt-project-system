@@ -157,9 +157,10 @@ export default function OrganicImport() {
   const generatePreview = (data: any[]) => {
     const isSalesFormat = data.some((row: any) => row['Order ID']);
     const isAwarenessFormat = data.some((row: any) => row['Video ID'] && row['Affiliate video GMV']);
+    const isLiveFormat = data.some((row: any) => row['Livestream room ID'] && row['Affiliate LIVE GMV']);
 
-    if (!isSalesFormat && !isAwarenessFormat) {
-      alert("Format file tidak dikenali. Pastikan ini adalah Laporan Pesanan (Sales) atau Laporan Video (Awareness) dari TikTok.");
+    if (!isSalesFormat && !isAwarenessFormat && !isLiveFormat) {
+      alert("Format file tidak dikenali. Pastikan ini adalah Laporan Pesanan (Sales), Laporan Video, atau Laporan Livestream dari TikTok.");
       setLoading(false);
       return;
     }
@@ -179,6 +180,8 @@ export default function OrganicImport() {
     let validRows = data;
     if (isAwarenessFormat) {
       validRows = data.filter((row: any) => row['Date'] !== 'Summary' && row['Video ID'] && row['Video ID'] !== '-');
+    } else if (isLiveFormat) {
+      validRows = data.filter((row: any) => row['Date'] !== 'Summary' && row['Livestream room ID'] && row['Livestream room ID'] !== '-');
     } else {
       validRows = data.filter((row: any) => row['Order ID']);
     }
@@ -268,10 +271,30 @@ export default function OrganicImport() {
         orderStatus = row['Order settlement status'] || row['Order Status'] || '';
         commissionRate = row['Standard affiliate partner commission rate']?.toString() || '';
         attributionType = row['Attribution type']?.toString() || '';
+      } else if (isLiveFormat) {
+        // Live Format
+        rawProductId = row['Product ID']?.toString() || '';
+        productName = row['Product name']?.toString() || row['Product Name']?.toString() || skuNameMapping[rawProductId] || 'Unknown Product';
+        const gmvStr = row['Affiliate LIVE GMV']?.toString() || '0';
+        gmv = Math.round(parseFloat(gmvStr.replace(/[^0-9]/g, '')) || 0); 
+        quantity = parseInt(row['Items sold'] || row['LIVE orders'] || 0);
+        price = quantity > 0 ? Math.round(gmv / quantity) : 0;
+        const rawUsername = row['Creator name'] || '';
+        creatorUsername = rawUsername.replace('@', '').toLowerCase();
+        contentUid = row['Livestream room ID']?.toString() || '';
+        tanggal = parseTikTokDate(row['Date']?.toString() || row['LIVE time info']?.toString() || '');
+        contentType = 'Livestream';
+        orderId = `live_${contentUid}_${rawProductId}_${creatorUsername}`; 
+        orderStatus = 'Completed'; 
+        videoViews = parseInt(row['LIVE views'] || 0);
+        videoLikes = parseInt(row['LIVE likes'] || 0);
+        durationStr = row['Duration']?.toString() || '';
+        const rpmStr = row['LIVE product RPM']?.toString() || '0';
+        videoProductRpm = Math.round(parseFloat(rpmStr.replace(/[^0-9]/g, '')) || 0);
       } else {
         // Awareness Format
         rawProductId = row['Product ID']?.toString() || '';
-        productName = row['Product Name']?.toString() || skuNameMapping[rawProductId] || 'Unknown Product';
+        productName = row['Product name']?.toString() || row['Product Name']?.toString() || skuNameMapping[rawProductId] || 'Unknown Product';
         const gmvStr = row['Affiliate video GMV']?.toString() || '0';
         gmv = Math.round(parseFloat(gmvStr.replace(/[^0-9]/g, '')) || 0); 
         quantity = parseInt(row['Items sold'] || row['Video orders'] || 0);
@@ -281,7 +304,7 @@ export default function OrganicImport() {
         contentUid = row['Video ID']?.toString() || '';
         tanggal = parseTikTokDate(row['Post time']?.toString() || '');
         contentType = 'Video';
-        orderId = `video_${contentUid}_${rawProductId}`; 
+        orderId = `video_${contentUid}_${rawProductId}_${creatorUsername}`; 
         orderStatus = 'Completed'; 
         videoViews = parseInt(row['Video views'] || 0);
         videoLikes = parseInt(row['Video likes'] || 0);
