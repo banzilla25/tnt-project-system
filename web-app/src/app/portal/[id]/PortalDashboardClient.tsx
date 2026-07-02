@@ -377,11 +377,11 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                   </div>
                 </div>
 
-                {/* Konten Terlaksana Card */}
+                {/* Target Video Card */}
                 <div className="bg-white border border-slate-200 rounded-xl p-[24px] shadow-sm">
                   <div className="flex justify-between items-start">
                     <div>
-                      <p className="text-[13px] font-medium text-slate-500">Konten Terlaksana</p>
+                      <p className="text-[13px] font-medium text-slate-500">Target Video</p>
                       <h3 className="text-[24px] font-bold mt-[8px] text-slate-800">{displayTotalVideo} <span className="text-[13px] text-slate-500 font-normal">video</span></h3>
                       <p className="text-[11px] font-semibold text-slate-500 mt-[4px]">{displayTotalLivestream} <span className="font-normal">livestream</span></p>
                     </div>
@@ -400,13 +400,16 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                   )}
                 </div>
 
-                {/* Kreator Aktif Card */}
+                {/* Target Creator Card */}
                 <div className="bg-white border border-slate-200 rounded-xl p-[24px] shadow-sm">
                   <div className="flex justify-between items-start">
                     <div>
-                      <p className="text-[13px] font-medium text-slate-500">Kreator Aktif</p>
-                      <h3 className="text-[24px] font-bold mt-[8px] text-slate-800">{displayCreatorVideo} <span className="text-[13px] text-slate-500 font-normal">w/ video</span></h3>
-                      <p className="text-[11px] font-semibold text-slate-500 mt-[4px]">{displayCreatorLive} <span className="font-normal">w/ livestream</span></p>
+                      <p className="text-[13px] font-medium text-slate-500">Target Creator</p>
+                      <h3 className="text-[24px] font-bold mt-[8px] text-slate-800">{displayTotalCreator} <span className="text-[13px] text-slate-500 font-normal">kreator</span></h3>
+                      <div className="flex gap-[12px] mt-[4px]">
+                        <p className="text-[11px] font-semibold text-slate-500">{displayCreatorVideo} <span className="font-normal">w/ video</span></p>
+                        <p className="text-[11px] font-semibold text-slate-500">{displayCreatorLive} <span className="font-normal">w/ livestream</span></p>
+                      </div>
                     </div>
                     <div className="p-[8px] bg-orange-50 text-orange-600 rounded-[8px]"><Users className="w-5 h-5" /></div>
                   </div>

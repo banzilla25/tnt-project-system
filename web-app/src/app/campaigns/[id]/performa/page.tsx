@@ -394,9 +394,12 @@ function CampaignPerformaContent() {
             <div className="p-[24px]">
               <div className="flex justify-between items-start">
                 <div>
-                  <p className="text-[13px] font-medium text-text-soft">Kreator Aktif</p>
-                  <h3 className="text-[24px] font-bold mt-[8px] text-text">{creatorsWithVideo} <span className="text-[13px] text-text-soft font-normal">w/ video</span></h3>
-                  <p className="text-[11px] font-semibold text-text-soft mt-[4px]">{creatorsWithLive} <span className="font-normal">w/ livestream</span></p>
+                  <p className="text-[13px] font-medium text-text-soft">Pencapaian Target Creator</p>
+                  <h3 className="text-[24px] font-bold mt-[8px] text-text">{creatorStats.length} <span className="text-[13px] text-text-soft font-normal">kreator</span></h3>
+                  <div className="flex gap-[12px] mt-[4px]">
+                    <p className="text-[11px] font-semibold text-text-soft">{creatorsWithVideo} <span className="font-normal">w/ video</span></p>
+                    <p className="text-[11px] font-semibold text-text-soft">{creatorsWithLive} <span className="font-normal">w/ livestream</span></p>
+                  </div>
                 </div>
                 <div className="p-[8px] bg-orange-50 rounded-[8px] text-orange-600"><Users className="w-5 h-5" /></div>
               </div>
@@ -418,7 +421,7 @@ function CampaignPerformaContent() {
             <div className="p-[24px]">
               <div className="flex justify-between items-start">
                 <div>
-                  <p className="text-[13px] font-medium text-text-soft">Konten Terlaksana</p>
+                  <p className="text-[13px] font-medium text-text-soft">Pencapaian Target Video</p>
                   <h3 className="text-[24px] font-bold mt-[8px] text-text">{totalCampaignVideos} <span className="text-[13px] text-text-soft font-normal">video</span></h3>
                   <p className="text-[11px] font-semibold text-text-soft mt-[4px]">{totalCampaignLivestreams} <span className="font-normal">livestream</span></p>
                 </div>
