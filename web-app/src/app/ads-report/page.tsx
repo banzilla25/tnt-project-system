@@ -37,6 +37,10 @@ export default function AdsReportPage() {
   type SortColumn = 'tanggal' | 'ad_id' | 'ad_name' | 'campaign_ads_name' | 'campaign_id' | 'creator_id' | 'kurs' | 'cost_usd' | 'gross_revenue_usd' | 'impressions' | 'clicks' | 'product_page_views' | 'checkouts_initiated' | 'purchases' | 'items_purchased';
   const [sortConfig, setSortConfig] = useState<{ key: SortColumn; direction: 'asc' | 'desc' } | null>({ key: 'tanggal', direction: 'desc' });
 
+  // New States for Accordion View
+  const [viewMode, setViewMode] = useState<'flat' | 'grouped'>('flat');
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+
   const handleSort = (key: SortColumn) => {
     let direction: 'asc' | 'desc' = 'asc';
     if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
@@ -278,6 +282,67 @@ export default function AdsReportPage() {
     return { list, globalUnmappedCampaigns };
   }, [searchFilteredAds, campaigns]);
 
+  const groupedAds = useMemo(() => {
+    const groups: Record<string, {
+      key: string;
+      ad_id: string;
+      ad_name: string;
+      campaign_id: number | null;
+      campaign_ads_name: string | null;
+      creator_id: number | null;
+      kurs: number;
+      cost_usd: number;
+      impressions: number;
+      clicks: number;
+      product_page_views: number;
+      checkouts_initiated: number;
+      purchases: number;
+      items_purchased: number;
+      gross_revenue_usd: number;
+      rows: any[];
+    }> = {};
+
+    const sortedAds = [...tableFilteredAds].sort((a, b) => new Date(a.tanggal).getTime() - new Date(b.tanggal).getTime());
+
+    sortedAds.forEach(ad => {
+      const key = ad.ad_id || ad.ad_name || `unknown-${ad.id}`;
+      if (!groups[key]) {
+        groups[key] = {
+          key,
+          ad_id: ad.ad_id,
+          ad_name: ad.ad_name,
+          campaign_id: ad.campaign_id,
+          campaign_ads_name: ad.campaign_ads_name,
+          creator_id: ad.creator_id,
+          kurs: ad.kurs,
+          cost_usd: 0, impressions: 0, clicks: 0, product_page_views: 0, checkouts_initiated: 0, purchases: 0, items_purchased: 0, gross_revenue_usd: 0,
+          rows: []
+        };
+      }
+      
+      groups[key].cost_usd += Number(ad.cost_usd || 0);
+      groups[key].impressions += Number(ad.impressions || 0);
+      groups[key].clicks += Number(ad.clicks || 0);
+      groups[key].product_page_views += Number(ad.product_page_views || 0);
+      groups[key].checkouts_initiated += Number(ad.checkouts_initiated || 0);
+      groups[key].purchases += Number(ad.purchases || 0);
+      groups[key].items_purchased += Number(ad.items_purchased || 0);
+      groups[key].gross_revenue_usd += Number(ad.gross_revenue_usd || 0);
+      
+      // Update metadata to latest (chronological)
+      groups[key].ad_id = ad.ad_id;
+      groups[key].ad_name = ad.ad_name;
+      groups[key].campaign_id = ad.campaign_id;
+      groups[key].campaign_ads_name = ad.campaign_ads_name;
+      groups[key].creator_id = ad.creator_id;
+      groups[key].kurs = ad.kurs;
+
+      groups[key].rows.push(ad);
+    });
+
+    return Object.values(groups).sort((a, b) => b.cost_usd - a.cost_usd);
+  }, [tableFilteredAds]);
+
   const globalCampaignAdsOptions = useMemo(() => {
     return Array.from(new Set(adsPerformance.map(ad => ad.campaign_ads_name).filter(Boolean))) as string[];
   }, [adsPerformance]);
@@ -318,6 +383,222 @@ export default function AdsReportPage() {
       "GMV (VSA)": ad.vsa_gmv
     }));
     exportToExcel(dataToExport, "Laporan_Ads_Export");
+  };
+
+  const renderTableRow = (ad: any, isChild: boolean = false, isParent: boolean = false, parentKey: string = '', groupStats: any = null, isExpanded: boolean = false) => {
+    const pendingCampaignId = getPendingValue(ad.id, 'campaign_id', ad.campaign_id);
+    const pendingCreatorId = getPendingValue(ad.id, 'creator_id', ad.creator_id);
+    const pendingKurs = getPendingValue(ad.id, 'kurs', ad.kurs);
+    const pendingAdId = getPendingValue(ad.id, 'ad_id', ad.ad_id);
+    const pendingCampaignAdsName = getPendingValue(ad.id, 'campaign_ads_name', ad.campaign_ads_name);
+    const hasPending = pendingChanges.has(ad.id);
+    
+    const creatorUsername = ad.creators?.username;
+    
+    // Use groupStats for parent row, else use individual ad stats
+    const cost = isParent && groupStats ? groupStats.cost_usd : (ad.cost_usd || 0);
+    const impr = isParent && groupStats ? groupStats.impressions : (ad.impressions || 0);
+    const clicks = isParent && groupStats ? groupStats.clicks : (ad.clicks || 0);
+    const ppv = isParent && groupStats ? groupStats.product_page_views : (ad.product_page_views || 0);
+    const checkouts = isParent && groupStats ? groupStats.checkouts_initiated : (ad.checkouts_initiated || 0);
+    const purchases = isParent && groupStats ? groupStats.purchases : (ad.purchases || 0);
+    const items = isParent && groupStats ? groupStats.items_purchased : (ad.items_purchased || 0);
+    const rev = isParent && groupStats ? groupStats.gross_revenue_usd : (ad.gross_revenue_usd || 0);
+
+    const ppvRate = clicks > 0 ? (ppv / clicks) * 100 : 0;
+    const roas = cost > 0 ? (rev / cost) : 0;
+    const cpm = impr > 0 ? (cost / impr) * 1000 : 0;
+    const cpc = clicks > 0 ? (cost / clicks) : 0;
+    const cpp = purchases > 0 ? (cost / purchases) : 0;
+    const ctr = impr > 0 ? (clicks / impr) * 100 : 0;
+    const purchaseRate = clicks > 0 ? (purchases / clicks) * 100 : 0;
+    const aov = purchases > 0 ? (rev / purchases) : 0;
+
+    return (
+      <TableRow 
+        key={isParent ? `parent-${parentKey}` : ad.id} 
+        className={`transition-colors ${isParent ? 'bg-indigo-50/50 hover:bg-indigo-50 border-b-2 border-indigo-100 cursor-pointer' : isChild ? 'bg-slate-50/50 pl-4 border-l-4 border-l-indigo-300' : 'hover:bg-slate-50/50'} ${hasPending && !isParent ? 'bg-amber-50/30' : ''}`}
+        onClick={() => {
+          if (isParent) {
+            setExpandedGroups(prev => {
+              const next = new Set(prev);
+              if (next.has(parentKey)) next.delete(parentKey);
+              else next.add(parentKey);
+              return next;
+            });
+          }
+        }}
+      >
+        <TableCell className="text-xs text-slate-500">
+          <div className="flex items-center gap-2">
+            {isParent && (
+              <div className="text-indigo-500">
+                {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+              </div>
+            )}
+            {isParent ? (
+              <span className="font-semibold text-indigo-700">{groupStats.rows.length} Data</span>
+            ) : (
+              ad.tanggal ? new Date(ad.tanggal).toLocaleDateString('id-ID') : '-'
+            )}
+          </div>
+        </TableCell>
+        
+        <TableCell className="font-medium text-xs">
+          {isParent ? (
+            <span className="font-bold">{ad.ad_id}</span>
+          ) : (
+            <input
+              type="text"
+              placeholder="Ad ID"
+              className={`w-full p-1.5 border rounded text-xs focus:ring-1 focus:ring-indigo-500 bg-transparent ${!pendingAdId ? 'border-red-300 outline-red-300' : 'border-transparent hover:border-slate-300'}`}
+              value={pendingAdId || ''}
+              onChange={(e) => setCellChange(ad.id, 'ad_id', e.target.value, ad)}
+            />
+          )}
+        </TableCell>
+        
+        <TableCell className="text-xs font-medium text-slate-700">
+          <div className="max-w-[200px] truncate" title={ad.ad_name}>{ad.ad_name}</div>
+        </TableCell>
+        
+        {/* Campaign Column */}
+        <TableCell>
+          {isParent ? (
+            <span className="text-slate-600">{campaigns.find(c => c.id === ad.campaign_id)?.nama || '-'}</span>
+          ) : (
+            <select
+              className={`w-full p-1.5 border rounded text-xs focus:outline-none focus:border-indigo-500 bg-transparent ${!pendingCampaignId ? 'border-red-300 text-red-600 font-semibold' : 'border-transparent hover:border-slate-300 text-indigo-700 font-medium'}`}
+              value={pendingCampaignId || ''}
+              onChange={(e) => {
+                const val = e.target.value ? Number(e.target.value) : null;
+                setCellChange(ad.id, 'campaign_id', val, ad);
+                if (val !== ad.campaign_id) {
+                    setCellChange(ad.id, 'creator_id', null, ad);
+                }
+              }}
+            >
+              <option value="">PILIH CAMPAIGN</option>
+              {campaigns.filter(c => c.status === 'aktif' || c.id === ad.campaign_id).map(c => (
+                <option key={c.id} value={c.id}>{c.nama}</option>
+              ))}
+            </select>
+          )}
+        </TableCell>
+
+        {/* Campaign Ads Column */}
+        <TableCell className="text-xs font-medium text-slate-700 min-w-[200px]">
+          {isParent ? (
+            <span>{ad.campaign_ads_name || '-'}</span>
+          ) : (
+            <StringCombobox
+              value={pendingCampaignAdsName || ''}
+              onChange={(val) => setCellChange(ad.id, 'campaign_ads_name', val, ad)}
+              options={globalCampaignAdsOptions}
+              placeholder="Campaign Ads"
+              className="w-full p-1.5 border rounded text-xs focus:ring-1 focus:ring-indigo-500 bg-transparent border-transparent hover:border-slate-300"
+            />
+          )}
+        </TableCell>
+
+        {/* Creator Column */}
+        <TableCell>
+          {isParent ? (
+            <span className="text-slate-600">{creatorUsername ? `@${creatorUsername}` : '-'}</span>
+          ) : (
+            pendingCampaignId ? (
+              <div className={!pendingCreatorId ? 'ring-1 ring-red-300 rounded' : ''}>
+                <SearchableSelect 
+                  value={pendingCreatorId || ''} 
+                  onChange={(val) => setCellChange(ad.id, 'creator_id', val === '' ? null : val, ad)} 
+                  placeholder="Ketik username..." 
+                  initialLabel={creatorUsername ? `@${creatorUsername}` : ''}
+                />
+              </div>
+            ) : (
+              <span className="text-[10px] text-slate-400">Pilih campaign dulu</span>
+            )
+          )}
+        </TableCell>
+
+        {/* Kurs Column */}
+        <TableCell>
+          {isParent ? (
+            <span className="text-xs text-slate-500">Rp{ad.kurs}</span>
+          ) : (
+            <div className="flex items-center gap-1 group">
+              <span className="text-xs text-slate-400 group-hover:text-slate-600">Rp</span>
+              <input
+                type="number"
+                className="w-full p-1 border border-transparent hover:border-slate-300 rounded text-xs text-center focus:ring-1 focus:ring-indigo-500 bg-transparent"
+                value={pendingKurs || ''}
+                onChange={(e) => setCellChange(ad.id, 'kurs', Number(e.target.value), ad)}
+              />
+            </div>
+          )}
+        </TableCell>
+
+        <TableCell className="text-right font-medium text-xs text-slate-700">
+          ${cost.toFixed(2)}
+        </TableCell>
+        <TableCell className="text-right font-medium text-xs text-slate-700">
+          {impr.toLocaleString('id-ID')}
+        </TableCell>
+        <TableCell className="text-right font-medium text-xs text-slate-700">
+          {clicks.toLocaleString('id-ID')}
+        </TableCell>
+        <TableCell className="text-right font-medium text-xs text-slate-700">
+          {ppv.toLocaleString('id-ID')}
+        </TableCell>
+        <TableCell className="text-right font-medium text-xs text-slate-700">
+          {ppvRate.toFixed(2)}%
+        </TableCell>
+        <TableCell className="text-right font-medium text-xs text-slate-700">
+          {checkouts.toLocaleString('id-ID')}
+        </TableCell>
+        <TableCell className="text-right font-medium text-xs text-slate-700">
+          {purchases.toLocaleString('id-ID')}
+        </TableCell>
+        <TableCell className="text-right font-medium text-xs text-slate-700">
+          {items.toLocaleString('id-ID')}
+        </TableCell>
+        <TableCell className="text-right font-medium text-xs text-green-600">
+          ${rev.toFixed(2)}
+        </TableCell>
+        <TableCell className="text-right font-medium text-xs text-slate-700">
+          {roas.toFixed(2)}
+        </TableCell>
+        <TableCell className="text-right font-medium text-xs text-slate-700">
+          ${cpm.toFixed(2)}
+        </TableCell>
+        <TableCell className="text-right font-medium text-xs text-slate-700">
+          ${cpc.toFixed(2)}
+        </TableCell>
+        <TableCell className="text-right font-medium text-xs text-slate-700">
+          ${cpp.toFixed(2)}
+        </TableCell>
+        <TableCell className="text-right font-medium text-xs text-slate-700">
+          {ctr.toFixed(2)}%
+        </TableCell>
+        <TableCell className="text-right font-medium text-xs text-slate-700">
+          {purchaseRate.toFixed(2)}%
+        </TableCell>
+        <TableCell className="text-right font-medium text-xs text-slate-700">
+          ${aov.toFixed(2)}
+        </TableCell>
+        
+        {/* Action Column */}
+        <TableCell className="text-center sticky right-0 bg-slate-50 z-10 border-l border-slate-100 shadow-[-5px_0_10px_-5px_rgba(0,0,0,0.05)]">
+          {!isParent && (
+            <div className="flex items-center justify-center gap-1">
+              <button onClick={(e) => { e.stopPropagation(); deleteAd(ad.id); }} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors" disabled={deletingId === ad.id} title="Hapus Permanen">
+                {deletingId === ad.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+              </button>
+            </div>
+          )}
+        </TableCell>
+      </TableRow>
+    );
   };
 
   if (!isManager) {
@@ -613,14 +894,26 @@ export default function AdsReportPage() {
         </div>
 
         <Card className="border-slate-200 shadow-sm">
-        <CardHeader className="pb-3 border-b border-slate-100 flex flex-row items-center justify-between">
-          <CardTitle className="flex items-center justify-between w-full text-lg">
-            <div className="flex items-center gap-2">
-              <FileSpreadsheet className="w-5 h-5 text-indigo-600" />
-              Database Iklan ({tableFilteredAds.length} baris)
-              {selectedCampaignId && <span className="ml-2 text-xs font-normal px-2 py-1 bg-blue-100 text-blue-700 rounded-full">Filtered</span>}
-            </div>
+        <CardHeader className="pb-3 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <FileSpreadsheet className="w-5 h-5 text-indigo-600" />
+            Laporan Detail Iklan
+            {selectedCampaignId && <span className="ml-2 text-xs font-normal px-2 py-1 bg-blue-100 text-blue-700 rounded-full">Filtered</span>}
           </CardTitle>
+          <div className="flex bg-slate-100 p-1 rounded-lg">
+            <button
+              onClick={() => { setViewMode('flat'); setDisplayLimit(100); }}
+              className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${viewMode === 'flat' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+            >
+              Database Ads
+            </button>
+            <button
+              onClick={() => { setViewMode('grouped'); setDisplayLimit(100); }}
+              className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${viewMode === 'grouped' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+            >
+              Performa Ads (Per ID)
+            </button>
+          </div>
         </CardHeader>
         <CardContent className="p-0">
           <div className="max-h-[70vh] overflow-auto">
@@ -684,171 +977,21 @@ export default function AdsReportPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {tableFilteredAds.slice(0, displayLimit).map((ad) => {
-                  const pendingCampaignId = getPendingValue(ad.id, 'campaign_id', ad.campaign_id);
-                  const pendingCreatorId = getPendingValue(ad.id, 'creator_id', ad.creator_id);
-                  const pendingKurs = getPendingValue(ad.id, 'kurs', ad.kurs);
-                  const pendingAdId = getPendingValue(ad.id, 'ad_id', ad.ad_id);
-                  const pendingCampaignAdsName = getPendingValue(ad.id, 'campaign_ads_name', ad.campaign_ads_name);
-                  const hasPending = pendingChanges.has(ad.id);
+                {viewMode === 'flat' && tableFilteredAds.slice(0, displayLimit).map((ad) => {
+                  return renderTableRow(ad);
+                })}
+
+                {viewMode === 'grouped' && groupedAds.slice(0, displayLimit).map((group) => {
+                  const isExpanded = expandedGroups.has(group.key);
+                  const latestRow = group.rows[group.rows.length - 1] || {};
                   
-                  const creatorUsername = ad.creators?.username;
-                  const originalCampaign = campaigns.find(c => c.id === ad.campaign_id);
-
-                  const cost = ad.cost_usd || 0;
-                  const impr = ad.impressions || 0;
-                  const clicks = ad.clicks || 0;
-                  const ppv = ad.product_page_views || 0;
-                  const checkouts = ad.checkouts_initiated || 0;
-                  const purchases = ad.purchases || 0;
-                  const items = ad.items_purchased || 0;
-                  const rev = ad.gross_revenue_usd || 0;
-
-                  const ppvRate = clicks > 0 ? (ppv / clicks) * 100 : 0;
-                  const roas = cost > 0 ? (rev / cost) : 0;
-                  const cpm = impr > 0 ? (cost / impr) * 1000 : 0;
-                  const cpc = clicks > 0 ? (cost / clicks) : 0;
-                  const cpp = purchases > 0 ? (cost / purchases) : 0;
-                  const ctr = impr > 0 ? (clicks / impr) * 100 : 0;
-                  const purchaseRate = clicks > 0 ? (purchases / clicks) * 100 : 0;
-                  const aov = purchases > 0 ? (rev / purchases) : 0;
-
                   return (
-                    <TableRow key={ad.id} className={`hover:bg-slate-50/50 transition-colors ${hasPending ? 'bg-amber-50/30' : ''}`}>
-                      <TableCell className="text-xs text-slate-500">{ad.tanggal ? new Date(ad.tanggal).toLocaleDateString('id-ID') : '-'}</TableCell>
-                      
-                      <TableCell className="font-medium text-xs">
-                        <input
-                          type="text"
-                          placeholder="Ad ID"
-                          className={`w-full p-1.5 border rounded text-xs focus:ring-1 focus:ring-indigo-500 bg-transparent ${!pendingAdId ? 'border-red-300 outline-red-300' : 'border-transparent hover:border-slate-300'}`}
-                          value={pendingAdId || ''}
-                          onChange={(e) => setCellChange(ad.id, 'ad_id', e.target.value, ad)}
-                        />
-                      </TableCell>
-                      
-                      <TableCell className="text-xs font-medium text-slate-700">
-                        <div className="max-w-[200px] truncate" title={ad.ad_name}>{ad.ad_name}</div>
-                      </TableCell>
-                      
-                      {/* Campaign Column */}
-                      <TableCell>
-                        <select
-                          className={`w-full p-1.5 border rounded text-xs focus:outline-none focus:border-indigo-500 bg-transparent ${!pendingCampaignId ? 'border-red-300 text-red-600 font-semibold' : 'border-transparent hover:border-slate-300 text-indigo-700 font-medium'}`}
-                          value={pendingCampaignId || ''}
-                          onChange={(e) => {
-                            const val = e.target.value ? Number(e.target.value) : null;
-                            setCellChange(ad.id, 'campaign_id', val, ad);
-                            if (val !== ad.campaign_id) {
-                               setCellChange(ad.id, 'creator_id', null, ad); // reset creator if campaign changes
-                            }
-                          }}
-                        >
-                          <option value="">PILIH CAMPAIGN</option>
-                          {campaigns.filter(c => c.status === 'aktif' || c.id === ad.campaign_id).map(c => (
-                            <option key={c.id} value={c.id}>{c.nama}</option>
-                          ))}
-                        </select>
-                      </TableCell>
-
-                      {/* Campaign Ads Column */}
-                      <TableCell className="text-xs font-medium text-slate-700 min-w-[200px]">
-                        <StringCombobox
-                          value={pendingCampaignAdsName || ''}
-                          onChange={(val) => setCellChange(ad.id, 'campaign_ads_name', val, ad)}
-                          options={globalCampaignAdsOptions}
-                          placeholder="Campaign Ads"
-                          className="w-full p-1.5 border rounded text-xs focus:ring-1 focus:ring-indigo-500 bg-transparent border-transparent hover:border-slate-300"
-                        />
-                      </TableCell>
-
-                      {/* Creator Column */}
-                      <TableCell>
-                        {pendingCampaignId ? (
-                          <div className={!pendingCreatorId ? 'ring-1 ring-red-300 rounded' : ''}>
-                            <SearchableSelect 
-                              value={pendingCreatorId || ''} 
-                              onChange={(val) => setCellChange(ad.id, 'creator_id', val === '' ? null : val, ad)} 
-                              placeholder="Ketik username..." 
-                              initialLabel={creatorUsername ? `@${creatorUsername}` : ''}
-                            />
-                          </div>
-                        ) : (
-                          <span className="text-[10px] text-slate-400">Pilih campaign dulu</span>
-                        )}
-                      </TableCell>
-
-                      {/* Kurs Column */}
-                      <TableCell>
-                        <div className="flex items-center gap-1 group">
-                          <span className="text-xs text-slate-400 group-hover:text-slate-600">Rp</span>
-                          <input
-                            type="number"
-                            className="w-full p-1 border border-transparent hover:border-slate-300 rounded text-xs text-center focus:ring-1 focus:ring-indigo-500 bg-transparent"
-                            value={pendingKurs || ''}
-                            onChange={(e) => setCellChange(ad.id, 'kurs', Number(e.target.value), ad)}
-                          />
-                        </div>
-                      </TableCell>
-
-                      <TableCell className="text-right font-medium text-xs text-slate-700">
-                        ${cost.toFixed(2)}
-                      </TableCell>
-                      <TableCell className="text-right font-medium text-xs text-slate-700">
-                        {impr.toLocaleString('id-ID')}
-                      </TableCell>
-                      <TableCell className="text-right font-medium text-xs text-slate-700">
-                        {clicks.toLocaleString('id-ID')}
-                      </TableCell>
-                      <TableCell className="text-right font-medium text-xs text-slate-700">
-                        {ppv.toLocaleString('id-ID')}
-                      </TableCell>
-                      <TableCell className="text-right font-medium text-xs text-slate-700">
-                        {ppvRate.toFixed(2)}%
-                      </TableCell>
-                      <TableCell className="text-right font-medium text-xs text-slate-700">
-                        {checkouts.toLocaleString('id-ID')}
-                      </TableCell>
-                      <TableCell className="text-right font-medium text-xs text-slate-700">
-                        {purchases.toLocaleString('id-ID')}
-                      </TableCell>
-                      <TableCell className="text-right font-medium text-xs text-slate-700">
-                        {items.toLocaleString('id-ID')}
-                      </TableCell>
-                      <TableCell className="text-right font-medium text-xs text-green-600">
-                        ${rev.toFixed(2)}
-                      </TableCell>
-                      <TableCell className="text-right font-medium text-xs text-slate-700">
-                        {roas.toFixed(2)}
-                      </TableCell>
-                      <TableCell className="text-right font-medium text-xs text-slate-700">
-                        ${cpm.toFixed(2)}
-                      </TableCell>
-                      <TableCell className="text-right font-medium text-xs text-slate-700">
-                        ${cpc.toFixed(2)}
-                      </TableCell>
-                      <TableCell className="text-right font-medium text-xs text-slate-700">
-                        ${cpp.toFixed(2)}
-                      </TableCell>
-                      <TableCell className="text-right font-medium text-xs text-slate-700">
-                        {ctr.toFixed(2)}%
-                      </TableCell>
-                      <TableCell className="text-right font-medium text-xs text-slate-700">
-                        {purchaseRate.toFixed(2)}%
-                      </TableCell>
-                      <TableCell className="text-right font-medium text-xs text-slate-700">
-                        ${aov.toFixed(2)}
-                      </TableCell>
-                      
-                      {/* Action Column */}
-                      <TableCell className="text-center sticky right-0 bg-slate-50 z-10 border-l border-slate-100 shadow-[-5px_0_10px_-5px_rgba(0,0,0,0.05)]">
-                        <div className="flex items-center justify-center gap-1">
-                          <button onClick={() => deleteAd(ad.id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors" disabled={deletingId === ad.id} title="Hapus Permanen">
-                            {deletingId === ad.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                          </button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
+                    <React.Fragment key={`group-${group.key}`}>
+                      {renderTableRow(latestRow, false, true, group.key, group, isExpanded)}
+                      {isExpanded && group.rows.map((childAd) => (
+                        renderTableRow(childAd, true)
+                      ))}
+                    </React.Fragment>
                   );
                 })}
               </TableBody>
