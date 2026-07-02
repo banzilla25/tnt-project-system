@@ -10,6 +10,7 @@ import { useRouter } from "next/navigation";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/Table";
 import { Button } from "@/components/ui/Button";
 import { SearchableSelect } from "@/components/SearchableSelect";
+import { StringCombobox } from "@/components/StringCombobox";
 
 const supabase = createClient();
 
@@ -486,19 +487,13 @@ export default function ImportAdsPage() {
 
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-2">Campaign Ads <span className="text-red-500">*</span></label>
-                  <input 
-                    type="text"
-                    list="campaign-ads-list"
-                    className="block w-full p-3 border border-slate-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-slate-50 text-sm"
-                    placeholder="Pilih atau ketik baru..."
+                  <StringCombobox
                     value={selectedCampaignAdsName}
-                    onChange={(e) => setSelectedCampaignAdsName(e.target.value)}
+                    onChange={setSelectedCampaignAdsName}
+                    options={campaignAdsList}
+                    placeholder="Pilih atau ketik baru..."
+                    className="block w-full p-3 border border-slate-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-slate-50 text-sm"
                   />
-                  <datalist id="campaign-ads-list">
-                    {campaignAdsList.map(name => (
-                      <option key={name} value={name} />
-                    ))}
-                  </datalist>
                 </div>
 
                 <div>

@@ -12,6 +12,7 @@ import { exportToExcel } from "@/utils/exportToExcel";
 import { Button } from "@/components/ui/Button";
 
 import { SearchableSelect } from "@/components/SearchableSelect";
+import { StringCombobox } from "@/components/StringCombobox";
 
 export default function AdsReportPage() {
   const { creators, campaigns } = useDatabaseStore();
@@ -270,6 +271,10 @@ export default function AdsReportPage() {
 
     return { list, globalUnmappedCampaigns };
   }, [searchFilteredAds, campaigns]);
+
+  const globalCampaignAdsOptions = useMemo(() => {
+    return Array.from(new Set(adsPerformance.map(ad => ad.campaign_ads_name).filter(Boolean))) as string[];
+  }, [adsPerformance]);
 
   // 4. Global Summary Calculation (from tableFilteredAds)
   const globalSummary = useMemo(() => {
@@ -725,13 +730,13 @@ export default function AdsReportPage() {
                       </TableCell>
 
                       {/* Campaign Ads Column */}
-                      <TableCell className="text-xs font-medium text-slate-700">
-                        <input
-                          type="text"
+                      <TableCell className="text-xs font-medium text-slate-700 min-w-[200px]">
+                        <StringCombobox
+                          value={pendingCampaignAdsName || ''}
+                          onChange={(val) => setCellChange(ad.id, 'campaign_ads_name', val, ad)}
+                          options={globalCampaignAdsOptions}
                           placeholder="Campaign Ads"
                           className="w-full p-1.5 border rounded text-xs focus:ring-1 focus:ring-indigo-500 bg-transparent border-transparent hover:border-slate-300"
-                          value={pendingCampaignAdsName || ''}
-                          onChange={(e) => setCellChange(ad.id, 'campaign_ads_name', e.target.value, ad)}
                         />
                       </TableCell>
 
