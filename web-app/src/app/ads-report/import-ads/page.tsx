@@ -73,8 +73,42 @@ export default function ImportAdsPage() {
   // Smart prediction state
   const [autoMappedCreators, setAutoMappedCreators] = useState<Record<string, { id: number, username: string } | null>>({}); // ad_id -> creator_id
 
+  const [historyMapState, setHistoryMapState] = useState<Record<string, { cost: number; revenue: number; purchases: number; impressions: number; clicks: number; product_page_views: number; checkouts_initiated: number; items_purchased: number }>>({});
+  const [historicalAdsList, setHistoricalAdsList] = useState<{ad_id: string, ad_name: string}[]>([]);
+
   const [isCommitting, setIsCommitting] = useState(false);
   const [commitProgress, setCommitProgress] = useState(0);
+
+  const handleLinkAdId = (rowIndex: number, selectedAdId: string) => {
+    setPreview(prev => {
+      const newPreview = [...prev];
+      const row = newPreview[rowIndex];
+      row.linked_ad_id = selectedAdId;
+      
+      const key = selectedAdId || row.ad_name;
+      const hist = historyMapState[key] || { cost: 0, revenue: 0, purchases: 0, impressions: 0, clicks: 0, product_page_views: 0, checkouts_initiated: 0, items_purchased: 0 };
+      
+      row.prev_cost = hist.cost;
+      row.prev_revenue = hist.revenue;
+      row.prev_purchases = hist.purchases;
+      row.prev_impressions = hist.impressions;
+      row.prev_clicks = hist.clicks;
+      row.prev_product_page_views = hist.product_page_views;
+      row.prev_checkouts_initiated = hist.checkouts_initiated;
+      row.prev_items_purchased = hist.items_purchased;
+      
+      row.delta_cost = Math.max(0, row.cost - hist.cost);
+      row.delta_revenue = Math.max(0, row.revenue - hist.revenue);
+      row.delta_purchases = Math.max(0, row.purchases - hist.purchases);
+      row.delta_impressions = Math.max(0, row.impressions - hist.impressions);
+      row.delta_clicks = Math.max(0, row.clicks - hist.clicks);
+      row.delta_product_page_views = Math.max(0, row.product_page_views - hist.product_page_views);
+      row.delta_checkouts_initiated = Math.max(0, row.checkouts_initiated - hist.checkouts_initiated);
+      row.delta_items_purchased = Math.max(0, row.items_purchased - hist.items_purchased);
+      
+      return newPreview;
+    });
+  };
 
   // Helper to trigger file input
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -167,6 +201,19 @@ export default function ImportAdsPage() {
           historyMap[key].items_purchased += Number(row.items_purchased || 0);
         });
       }
+      
+      setHistoryMapState(historyMap);
+      const uniqueAdsList: {ad_id: string, ad_name: string}[] = [];
+      const seenIds = new Set();
+      if (historyData) {
+        historyData.forEach(row => {
+          if (row.ad_id && !seenIds.has(row.ad_id)) {
+            seenIds.add(row.ad_id);
+            uniqueAdsList.push({ ad_id: row.ad_id, ad_name: row.ad_name || '-' });
+          }
+        });
+      }
+      setHistoricalAdsList(uniqueAdsList);
 
       const enrichedData: EnrichedAdsRow[] = validData.map(row => {
         const key1 = row.ad_id;
@@ -295,12 +342,25 @@ export default function ImportAdsPage() {
         const predictedCreator = autoMappedCreators[row.ad_id];
         const creatorId = predictedCreator ? predictedCreator.id : null;
         
-        // Find if exists
-        const { data: existing } = await supabase.from('ads_performance')
-          .select('id, campaign_id')
-          .eq('ad_id', row.ad_id)
-          .eq('tanggal', selectedDate)
-          .single();
+        const targetAdId = row.linked_ad_id || row.ad_id;
+        
+        let existing;
+        if (targetAdId) {
+          const { data } = await supabase.from('ads_performance')
+            .select('id, campaign_id')
+            .eq('ad_id', targetAdId)
+            .eq('tanggal', selectedDate)
+            .single();
+          existing = data;
+        } else {
+          const { data } = await supabase.from('ads_performance')
+            .select('id, campaign_id')
+            .eq('ad_name', row.ad_name)
+            .is('ad_id', null)
+            .eq('tanggal', selectedDate)
+            .single();
+          existing = data;
+        }
           
         if (existing) {
           // Update
@@ -325,7 +385,7 @@ export default function ImportAdsPage() {
         } else {
           // Insert
           const { error } = await supabase.from('ads_performance').insert({
-            ad_id: row.ad_id,
+            ad_id: targetAdId || null,
             ad_name: row.ad_name,
             tanggal: selectedDate,
             campaign_id: selectedCampaign ? Number(selectedCampaign) : null,
@@ -637,8 +697,23 @@ export default function ImportAdsPage() {
 
                         return (
                           <TableRow key={i} className="hover:bg-slate-50">
-                            <TableCell className="font-mono text-[10px] text-slate-500 truncate max-w-[100px]">{row.ad_id}</TableCell>
-                            <TableCell className="text-xs font-semibold max-w-[200px] truncate" title={row.ad_name}>{row.ad_name}</TableCell>
+                            <TableCell className="font-mono text-[10px] text-slate-500 truncate max-w-[150px]">
+                              {row.ad_id ? (
+                                row.ad_id
+                              ) : (
+                                <select 
+                                  className="w-full p-1 border border-slate-300 rounded text-xs focus:outline-none focus:border-blue-500 bg-white"
+                                  value={row.linked_ad_id || ''}
+                                  onChange={(e) => handleLinkAdId(i, e.target.value)}
+                                >
+                                  <option value="">-- Kosong / Biarkan --</option>
+                                  {historicalAdsList.map(opt => (
+                                    <option key={opt.ad_id} value={opt.ad_id}>[{opt.ad_id}] {opt.ad_name}</option>
+                                  ))}
+                                </select>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-xs font-semibold max-w-[150px] truncate" title={row.ad_name}>{row.ad_name}</TableCell>
                             <TableCell className="text-right">{renderDeltaCell(row.delta_cost, row.cost, row.prev_cost, true)}</TableCell>
                             <TableCell className="text-right">{renderDeltaCell(row.delta_revenue, row.revenue, row.prev_revenue, true)}</TableCell>
                             <TableCell className="text-right">{renderDeltaCell(row.delta_purchases, row.purchases, row.prev_purchases, false)}</TableCell>

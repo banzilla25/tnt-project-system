@@ -45,6 +45,8 @@ export interface EnrichedAdsRow extends ParsedAdsRow {
   delta_product_page_views: number;
   delta_checkouts_initiated: number;
   delta_items_purchased: number;
+  
+  linked_ad_id?: string;
 }
 
 export const downloadAdsSyncTemplate = () => {
