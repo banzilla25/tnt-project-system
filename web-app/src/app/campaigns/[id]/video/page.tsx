@@ -102,9 +102,7 @@ export default function CampaignVideoPage() {
         query = query.ilike('creators.username', `%${debouncedSearch}%`);
       }
 
-      const from = pageNum * PAGE_SIZE;
-      const to = from + PAGE_SIZE - 1;
-      query = query.order('id', { ascending: false }).range(from, to);
+      query = query.order('id', { ascending: false }).limit(1000);
 
       const { data, error } = await query;
       if (error) throw error;
@@ -116,7 +114,7 @@ export default function CampaignVideoPage() {
         // Handled below with _localSales
       }
 
-      setHasMore(results.length === PAGE_SIZE);
+      setHasMore(false); // Pagination disabled so client-side filters can work on the full dataset
 
       const creatorUsernames = results.map((cc: any) => cc.creators?.username).filter(Boolean);
       let localSalesData: any[] = [];
