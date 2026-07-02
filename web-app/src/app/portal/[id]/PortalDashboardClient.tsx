@@ -93,16 +93,26 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
 
   const { campaign, summary, dailyPerf, approvalList, samples, schedules, videos, skus, totalSales, totalAwareness } = data;
   
+  // Filter data untuk hanya mengambil yang Approved (jika campaign menggunakan sistem approval)
+  const validApprovalList = campaign?.require_client_approval 
+    ? approvalList.filter((cc: any) => cc.client_approval === 'approved')
+    : approvalList;
+
   // Calculate display values based on campaign type and modern tracking data
   const isAwareness = campaign?.tipe_campaign === 'awareness' || campaign?.tipe_campaign === 'gmv_awareness';
   
-  // Bugfix: Ambil perhitungan GMV Organik & Ads langsung dari list kreator yang datanya sudah real-time
-  const displayOrganic = approvalList.reduce((sum: number, c: any) => sum + (c.gmv_organic || 0), 0);
-  const displayAds = approvalList.reduce((sum: number, c: any) => sum + (c.gmv_ads || 0), 0);
+  // Ambil perhitungan GMV Organik & Ads langsung dari list kreator yang valid (approved)
+  const displayOrganic = validApprovalList.reduce((sum: number, c: any) => sum + (c.gmv_organic || 0), 0);
+  const displayAds = validApprovalList.reduce((sum: number, c: any) => sum + (c.gmv_ads || 0), 0);
   const displayTotalGmv = displayOrganic + displayAds;
   
-  const displayTotalVideo = (videos || []).reduce((sum: number, v: any) => sum + (v.total_videos || 0), 0) || (isAwareness ? (totalAwareness?.total_video || summary.achievement_video || 0) : (summary.achievement_video || 0));
-  const displayTotalViews = (videos || []).reduce((sum: number, v: any) => sum + (v.total_views || 0), 0);
+  const validCreatorUsernames = new Set(validApprovalList.map((cc: any) => cc.creators?.username));
+  const validVideos = campaign?.require_client_approval 
+    ? (videos || []).filter((v: any) => validCreatorUsernames.has(v.creator_username))
+    : (videos || []);
+
+  const displayTotalVideo = validVideos.reduce((sum: number, v: any) => sum + (v.total_videos || 0), 0) || (isAwareness ? (totalAwareness?.total_video || summary.achievement_video || 0) : (summary.achievement_video || 0));
+  const displayTotalViews = validVideos.reduce((sum: number, v: any) => sum + (v.total_views || 0), 0);
 
   const percentGmv = summary.target_gmv ? Math.round((displayTotalGmv / summary.target_gmv) * 100) : 0;
   const percentVideo = summary.target_video ? Math.round((displayTotalVideo / summary.target_video) * 100) : 0;
@@ -170,7 +180,7 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
   };
 
   // 1. Performa
-  let filteredPerforma = approvalList.filter((cc: any) => {
+  let filteredPerforma = validApprovalList.filter((cc: any) => {
     if (performaSearch && !cc.creators?.username?.toLowerCase().includes(performaSearch.toLowerCase())) return false;
     return true;
   });
@@ -238,7 +248,7 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
   const paginatedLive = filteredLive.slice(livePage * PAGE_SIZE, (livePage + 1) * PAGE_SIZE);
 
   // 5. Video
-  let filteredVideo = (videos || []).filter((v: any) => {
+  let filteredVideo = validVideos.filter((v: any) => {
     if (videoSearch && !v.creator_username?.toLowerCase().includes(videoSearch.toLowerCase())) return false;
     return true;
   });
@@ -393,7 +403,7 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                   <div className="flex justify-between items-start">
                     <div>
                       <p className="text-[13px] font-medium text-slate-500">Target Creator</p>
-                      <h3 className="text-[24px] font-bold mt-[8px] text-slate-800">{approvalList.length} <span className="text-[13px] text-slate-500 font-normal">kreator</span></h3>
+                      <h3 className="text-[24px] font-bold mt-[8px] text-slate-800">{validApprovalList.length} <span className="text-[13px] text-slate-500 font-normal">kreator</span></h3>
                     </div>
                     <div className="p-[8px] bg-orange-50 text-orange-600 rounded-[8px]"><Users className="w-5 h-5" /></div>
                   </div>
@@ -401,10 +411,10 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                     <div className="mt-[16px] pt-[16px] border-t border-slate-100">
                       <div className="flex justify-between text-[11px] text-slate-500 mb-[4px] font-medium">
                         <span>Target: {summary.target_creator}</span>
-                        <span>{Math.round((approvalList.length / summary.target_creator) * 100)}%</span>
+                        <span>{Math.round((validApprovalList.length / summary.target_creator) * 100)}%</span>
                       </div>
                       <div className="w-full bg-slate-100 rounded-full h-[6px] flex overflow-hidden">
-                        <div className="bg-orange-500 h-[6px] transition-all duration-1000" style={{ width: `${Math.min(Math.round((approvalList.length / summary.target_creator) * 100), 100)}%` }}></div>
+                        <div className="bg-orange-500 h-[6px] transition-all duration-1000" style={{ width: `${Math.min(Math.round((validApprovalList.length / summary.target_creator) * 100), 100)}%` }}></div>
                       </div>
                     </div>
                   )}
