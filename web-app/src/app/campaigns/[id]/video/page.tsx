@@ -354,7 +354,12 @@ export default function CampaignVideoPage() {
        let totalGmv = 0;
        
        ccSales.forEach((s: any) => {
-          totalGmv += (s.gmv || 0);
+          if (s.content_uid && s.product_id) {
+             const matchingSku = skus.find(sku => sku.product_id === s.product_id && sku.campaign_id === campaignId);
+             if (matchingSku) {
+                totalGmv += (s.gmv || 0);
+             }
+          }
        });
 
        const ccOrganic = cc._localOrganicVideos || [];
@@ -612,8 +617,11 @@ export default function CampaignVideoPage() {
                             if (hasContentUid) {
                                const ccSales = cc._localSales || [];
                                ccSales.forEach((s: any) => {
-                                  if (s.content_uid === dynamicContentUid || s.content_uid === `video_${dynamicContentUid}`) {
-                                     vidGmv += (s.gmv || 0);
+                                  if ((s.content_uid === dynamicContentUid || s.content_uid === `video_${dynamicContentUid}`) && s.product_id) {
+                                     const matchingSku = skus.find(sku => sku.product_id === s.product_id && sku.campaign_id === campaignId);
+                                     if (matchingSku) {
+                                        vidGmv += (s.gmv || 0);
+                                     }
                                   }
                                });
 
