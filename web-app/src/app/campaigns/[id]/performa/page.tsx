@@ -24,7 +24,7 @@ function CampaignPerformaContent() {
   const { id } = useParams();
   const campaignId = Number(id);
   
-  const { campaigns, campaign_creators, creators, videos } = useDatabaseStore();
+  const { campaigns, campaign_creators, creators, videos, skus } = useDatabaseStore();
   const campaign = campaigns.find(c => c.id === campaignId);
 
   const { canEditCampaign } = useAuth();
@@ -59,7 +59,7 @@ function CampaignPerformaContent() {
       if (campaign?.end_date) salesVtQuery = salesVtQuery.lte('tanggal', campaign.end_date);
 
       const queries = [
-        supabase.from('campaign_sales_summary').select('*').eq('campaign_id', campaignId),
+        supabase.from('sales').select('creator_username, gmv, quantity, product_id, is_refund, tanggal').eq('campaign_id', campaignId).eq('is_refund', false),
         supabase.from('campaign_total_sales').select('*').eq('campaign_id', campaignId).maybeSingle(),
         supabase.from('ads_performance').select('*, creators(username)').eq('campaign_id', campaignId),
         supabase.from('campaign_awareness_summary').select('*').eq('campaign_id', campaignId),
@@ -184,7 +184,27 @@ function CampaignPerformaContent() {
   // Aggregate per creator using local data (Optimized with useMemo & Maps)
   const creatorStats = React.useMemo(() => {
     const salesMap = new Map();
-    salesSummary.forEach(s => salesMap.set(s.creator_username, s));
+    // salesSummary here is actually the raw sales array
+    salesSummary.forEach((s: any) => {
+      // Apply date filter
+      if (campaign?.start_date && s.tanggal < campaign.start_date) return;
+      if (campaign?.end_date && s.tanggal > campaign.end_date) return;
+      
+      // Strict SKU filter
+      if (s.product_id) {
+         const matchingSku = skus.find(sku => sku.product_id === s.product_id && sku.campaign_id === campaignId);
+         if (!matchingSku) return; // Skip if product is not part of campaign SKUs
+      } else {
+         return; // Skip if no product ID (or we can decide to allow it, but strict is better)
+      }
+
+      if (!salesMap.has(s.creator_username)) {
+         salesMap.set(s.creator_username, { gmv_organic: 0, items_sold: 0 });
+      }
+      const existing = salesMap.get(s.creator_username);
+      existing.gmv_organic += (s.gmv || 0);
+      existing.items_sold += (s.quantity || 0);
+    });
 
     const awarenessMap = new Map();
     awarenessSummary.forEach(a => awarenessMap.set(a.creator_username, a));
@@ -302,10 +322,22 @@ function CampaignPerformaContent() {
   const paginatedStats = filteredCreatorStats.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   // Sales Metrics
-  const totalOrganic = totalSales?.total_organic_gmv || 0;
+  const totalOrganic = React.useMemo(() => {
+     return salesSummary.reduce((sum: number, s: any) => {
+        if (campaign?.start_date && s.tanggal < campaign.start_date) return sum;
+        if (campaign?.end_date && s.tanggal > campaign.end_date) return sum;
+        
+        if (s.product_id) {
+           const matchingSku = skus.find(sku => sku.product_id === s.product_id && sku.campaign_id === campaignId);
+           if (matchingSku) return sum + (s.gmv || 0);
+        }
+        return sum;
+     }, 0);
+  }, [salesSummary, campaign, skus, campaignId]);
+
   const totalAdsGmv = creatorStats.reduce((sum, c) => sum + c.gmvAds, 0);
   const totalAllGmv = totalOrganic + totalAdsGmv;
-  const percentCapai = campaign.target_gmv ? Math.round((totalAllGmv / campaign.target_gmv) * 100) : 0;
+  const percentCapai = campaign?.target_gmv ? Math.round((totalAllGmv / campaign.target_gmv) * 100) : 0;
   const trackedOrganic = creatorStats.reduce((sum, c) => sum + c.gmvOrganic, 0);
   const attributionGap = Math.max(0, totalOrganic - trackedOrganic);
   const gapPercentage = totalOrganic > 0 ? Math.round((attributionGap / totalOrganic) * 100) : 0;
