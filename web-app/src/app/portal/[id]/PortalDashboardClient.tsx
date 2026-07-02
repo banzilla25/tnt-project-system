@@ -174,14 +174,17 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
     });
   };
 
-  // 1. Performa
-  let filteredPerforma = approvalList.filter((cc: any) => {
+  // 1. Performa (Wajib match dengan Internal App: HANYA APPROVED CREATORS)
+  let filteredPerforma = approvedOnlyList.filter((cc: any) => {
     if (performaSearch && !cc.creators?.username?.toLowerCase().includes(performaSearch.toLowerCase())) return false;
     return true;
   });
   filteredPerforma = genericSort(filteredPerforma, performaSort, (c) => {
     if (performaSort.key === 'username') return c.creators?.username;
-    if (performaSort.key === 'total_vt') return c.videos?.length || 0;
+    if (performaSort.key === 'total_vt') {
+       const userVideos = (videos || []).find((v: any) => v.creator_username === c.creators?.username);
+       return userVideos?.total_videos || 0;
+    }
     if (performaSort.key === 'items_sold') return c.items_sold || 0;
     if (performaSort.key === 'gmv_organic') return c.gmv_organic || 0;
     if (performaSort.key === 'gmv_ads') return c.gmv_ads || 0;
@@ -451,7 +454,8 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                       ) : (
                         paginatedPerforma.map((c: any) => {
                           const username = c.creators?.username || 'Unknown';
-                          const totalVt = c.videos?.length || 0;
+                          const userVideos = (videos || []).find((v: any) => v.creator_username === username);
+                          const totalVt = userVideos?.total_videos || 0;
                           const itemsSold = c.items_sold || 0;
                           const gmvOrganic = c.gmv_organic || 0;
                           const gmvAds = c.gmv_ads || 0;

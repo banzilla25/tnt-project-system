@@ -121,11 +121,17 @@ export async function getPortalData(campaignId: number) {
     start += pageSize;
   }
 
-  // Fetch sales summary and ads performance for GMV calculation
-  const { data: salesSummary } = await supabase
-    .from('campaign_sales_summary')
-    .select('creator_username, gmv_organic, items_sold')
-    .eq('campaign_id', campaignId);
+  // Fetch raw sales for accurate GMV calculation with strict SKU and Date filtering (Persis seperti internal app)
+  let salesQuery = supabase
+    .from('sales')
+    .select('creator_username, gmv, quantity, product_id, is_refund, tanggal')
+    .eq('campaign_id', campaignId)
+    .eq('is_refund', false);
+    
+  if (campaign?.start_date) salesQuery = salesQuery.gte('tanggal', campaign.start_date);
+  if (campaign?.end_date) salesQuery = salesQuery.lte('tanggal', campaign.end_date);
+  
+  const { data: rawSales } = await salesQuery;
 
   const { data: adsPerf } = await supabase
     .from('ads_performance')
@@ -158,11 +164,30 @@ export async function getPortalData(campaignId: number) {
     }
   });
 
+  // Fetch SKUs for dropdown and filtering
+  const { data: skusData } = await supabase
+    .from('skus')
+    .select('id, product_id, nama_produk')
+    .eq('campaign_id', campaignId);
+
   const salesMap = new Map();
   const itemsMap = new Map();
-  salesSummary?.forEach(s => {
-    salesMap.set(s.creator_username, s.gmv_organic);
-    itemsMap.set(s.creator_username, s.items_sold);
+  
+  rawSales?.forEach(s => {
+    // Strict SKU filter sama seperti internal app
+    if (s.product_id) {
+       const matchingSku = skusData?.find((sku: any) => sku.product_id === s.product_id);
+       if (!matchingSku) return; // Skip if product is not part of campaign SKUs
+    } else {
+       return; // Strict require product ID
+    }
+
+    if (!salesMap.has(s.creator_username)) {
+      salesMap.set(s.creator_username, 0);
+      itemsMap.set(s.creator_username, 0);
+    }
+    salesMap.set(s.creator_username, salesMap.get(s.creator_username) + (s.gmv || 0));
+    itemsMap.set(s.creator_username, itemsMap.get(s.creator_username) + (s.quantity || 0));
   });
 
   const adsMap = new Map();
@@ -247,11 +272,7 @@ export async function getPortalData(campaignId: number) {
     };
   }) || [];
 
-  // Fetch SKUs for dropdown
-  const { data: skusData } = await supabase
-    .from('skus')
-    .select('id, product_id, nama_produk')
-    .eq('campaign_id', campaignId);
+  // Fetch SKUs for dropdown already done above
 
   // Extract videos and attach GMV (merging DB videos + organic auto-detected videos)
   const portalVideos: any[] = [];
