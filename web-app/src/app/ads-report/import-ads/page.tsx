@@ -132,11 +132,10 @@ export default function ImportAdsPage() {
       const adNames = Array.from(new Set(validData.map(r => r.ad_name)));
 
       // 1. Fetch Historical Lifetime Data for delta calculation
-      // We sum up the historical metrics where tanggal < selectedDate for each ad_name + campaign_id + campaign_ads_name
+      // We sum up the historical metrics where tanggal < selectedDate for each campaign_id + campaign_ads_name
       let query = supabase
         .from('ads_performance')
-        .select('ad_name, cost_usd, gross_revenue_usd, purchases, impressions, clicks, product_page_views, checkouts_initiated, items_purchased')
-        .in('ad_name', adNames)
+        .select('ad_id, ad_name, cost_usd, gross_revenue_usd, purchases, impressions, clicks, product_page_views, checkouts_initiated, items_purchased')
         .eq('campaign_id', selectedCampaign)
         .lt('tanggal', selectedDate);
         
@@ -153,22 +152,26 @@ export default function ImportAdsPage() {
       const historyMap: Record<string, { cost: number; revenue: number; purchases: number; impressions: number; clicks: number; product_page_views: number; checkouts_initiated: number; items_purchased: number }> = {};
       if (historyData) {
         historyData.forEach(row => {
-          if (!historyMap[row.ad_name]) {
-            historyMap[row.ad_name] = { cost: 0, revenue: 0, purchases: 0, impressions: 0, clicks: 0, product_page_views: 0, checkouts_initiated: 0, items_purchased: 0 };
+          const key = row.ad_id || row.ad_name;
+          if (!key) return;
+          if (!historyMap[key]) {
+            historyMap[key] = { cost: 0, revenue: 0, purchases: 0, impressions: 0, clicks: 0, product_page_views: 0, checkouts_initiated: 0, items_purchased: 0 };
           }
-          historyMap[row.ad_name].cost += Number(row.cost_usd || 0);
-          historyMap[row.ad_name].revenue += Number(row.gross_revenue_usd || 0);
-          historyMap[row.ad_name].purchases += Number(row.purchases || 0);
-          historyMap[row.ad_name].impressions += Number(row.impressions || 0);
-          historyMap[row.ad_name].clicks += Number(row.clicks || 0);
-          historyMap[row.ad_name].product_page_views += Number(row.product_page_views || 0);
-          historyMap[row.ad_name].checkouts_initiated += Number(row.checkouts_initiated || 0);
-          historyMap[row.ad_name].items_purchased += Number(row.items_purchased || 0);
+          historyMap[key].cost += Number(row.cost_usd || 0);
+          historyMap[key].revenue += Number(row.gross_revenue_usd || 0);
+          historyMap[key].purchases += Number(row.purchases || 0);
+          historyMap[key].impressions += Number(row.impressions || 0);
+          historyMap[key].clicks += Number(row.clicks || 0);
+          historyMap[key].product_page_views += Number(row.product_page_views || 0);
+          historyMap[key].checkouts_initiated += Number(row.checkouts_initiated || 0);
+          historyMap[key].items_purchased += Number(row.items_purchased || 0);
         });
       }
 
       const enrichedData: EnrichedAdsRow[] = validData.map(row => {
-        const hist = historyMap[row.ad_name] || { cost: 0, revenue: 0, purchases: 0, impressions: 0, clicks: 0, product_page_views: 0, checkouts_initiated: 0, items_purchased: 0 };
+        const key1 = row.ad_id;
+        const key2 = row.ad_name;
+        const hist = (key1 && historyMap[key1]) || (key2 && historyMap[key2]) || { cost: 0, revenue: 0, purchases: 0, impressions: 0, clicks: 0, product_page_views: 0, checkouts_initiated: 0, items_purchased: 0 };
         return {
           ...row,
           prev_cost: hist.cost,
@@ -193,12 +196,13 @@ export default function ImportAdsPage() {
 
       setPreview(enrichedData);
       
-      // 2. Try to predict smart mapping based on historical data using ad_name
-      const { data: creatorHistoryData } = await supabase.from('ads_performance').select('ad_name, creator_id').not('creator_id', 'is', null);
+      // 2. Try to predict smart mapping based on historical data using ad_id then ad_name
+      const { data: creatorHistoryData } = await supabase.from('ads_performance').select('ad_id, ad_name, creator_id').not('creator_id', 'is', null);
       
       const newAutoMap: Record<string, { id: number, username: string } | null> = {};
       
-      // Map historical ad_name to creator_id
+      // Map historical ad_id and ad_name to creator_id
+      const adIdToCreatorId: Record<string, { id: number, username: string }> = {};
       const adNameToCreatorId: Record<string, { id: number, username: string }> = {};
       
       // Fetch all creators explicitly for heuristic matching (global store is empty for performance)
@@ -206,10 +210,11 @@ export default function ImportAdsPage() {
       
       if (creatorHistoryData && allCreators) {
         creatorHistoryData.forEach(row => {
-          if (row.creator_id && row.ad_name) {
+          if (row.creator_id) {
             const matchedCreator = allCreators.find(c => c.id === row.creator_id);
             if (matchedCreator) {
-              adNameToCreatorId[row.ad_name] = { id: row.creator_id, username: matchedCreator.username };
+              if (row.ad_id) adIdToCreatorId[row.ad_id] = { id: row.creator_id, username: matchedCreator.username };
+              if (row.ad_name) adNameToCreatorId[row.ad_name] = { id: row.creator_id, username: matchedCreator.username };
             }
           }
         });
@@ -219,13 +224,19 @@ export default function ImportAdsPage() {
       const sortedCreators = [...(allCreators || [])].sort((a, b) => (b.username?.length || 0) - (a.username?.length || 0));
 
       enrichedData.forEach(row => {
-        // 1. Try exact history match
-        if (adNameToCreatorId[row.ad_name]) {
+        // 1. Try exact history match via Ad ID
+        if (row.ad_id && adIdToCreatorId[row.ad_id]) {
+          newAutoMap[row.ad_id] = adIdToCreatorId[row.ad_id];
+          return;
+        }
+        
+        // 2. Try exact history match via Ad Name
+        if (row.ad_name && adNameToCreatorId[row.ad_name]) {
           newAutoMap[row.ad_id] = adNameToCreatorId[row.ad_name];
           return;
         }
         
-        // 2. Try heuristic match against creator usernames
+        // 3. Try heuristic match against creator usernames
         let foundCreator: { id: number, username: string } | null = null;
         const normalizedAdName = (row.ad_name || '').toLowerCase();
         
