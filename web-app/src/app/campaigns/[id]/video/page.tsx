@@ -65,6 +65,12 @@ export default function CampaignVideoPage() {
   const [filterSku, setFilterSku] = useState('all');
   const [sortBy, setSortBy] = useState('none');
   const [expandedGroups, setExpandedGroups] = useState<Set<number>>(new Set());
+  const [clientPage, setClientPage] = useState(1);
+  const CLIENT_PAGE_SIZE = 50;
+
+  useEffect(() => {
+    setClientPage(1);
+  }, [filterSow, filterSales, filterSku, sortBy, debouncedSearch]);
   
   const toggleGroup = (id: number) => {
     setExpandedGroups(prev => {
@@ -102,48 +108,75 @@ export default function CampaignVideoPage() {
         query = query.ilike('creators.username', `%${debouncedSearch}%`);
       }
 
-      query = query.order('id', { ascending: false }).limit(1000);
+      // Remove the limit to prepare for looping
+      query = query.order('id', { ascending: false });
 
-      const { data, error } = await query;
-      if (error) throw error;
+      let allResults: any[] = [];
+      let currentFrom = 0;
+      let hasMoreDb = true;
 
-      const results = data || [];
-      if (isReset) {
-        // Handled below with _localSales
-      } else {
-        // Handled below with _localSales
+      while (hasMoreDb) {
+         // Create a fresh query for this page to avoid mutating the base query state improperly in some SDK versions
+         let pageQuery = supabaseClient
+            .from('campaign_creators')
+            .select('*, creators!inner(*), videos(*)')
+            .eq('campaign_id', campaignId)
+            .eq('approval', 'approved');
+            
+         if (campaign?.require_client_approval) {
+           pageQuery = pageQuery.eq('client_approval', 'approved');
+         }
+         if (debouncedSearch) {
+           pageQuery = pageQuery.ilike('creators.username', `%${debouncedSearch}%`);
+         }
+         
+         const { data, error } = await pageQuery.order('id', { ascending: false }).range(currentFrom, currentFrom + 999);
+         if (error) throw error;
+         
+         if (data && data.length > 0) {
+            allResults.push(...data);
+            currentFrom += 1000;
+         }
+         if (!data || data.length < 1000) {
+            hasMoreDb = false;
+         }
       }
 
-      setHasMore(false); // Pagination disabled so client-side filters can work on the full dataset
+      const results = allResults;
+      setHasMore(false); // We fetched everything, no server pagination
 
       const creatorUsernames = results.map((cc: any) => cc.creators?.username).filter(Boolean);
       let localSalesData: any[] = [];
-      let localOrganicVideos: any[] = []; // <-- Fetch organic videos
+      let localOrganicVideos: any[] = [];
 
-      if (creatorUsernames.length > 0) {
-        let sQuery = supabaseClient
-          .from('sales')
-          .select('id, campaign_id, creator_username, content_uid, gmv, quantity, raw_data, product_id, tanggal')
-          .eq('campaign_id', campaignId)
-          .in('creator_username', creatorUsernames);
+      const CHUNK_SIZE = 300;
+      for (let i = 0; i < creatorUsernames.length; i += CHUNK_SIZE) {
+        const chunk = creatorUsernames.slice(i, i + CHUNK_SIZE);
+        
+        if (chunk.length > 0) {
+          let sQuery = supabaseClient
+            .from('sales')
+            .select('id, campaign_id, creator_username, content_uid, gmv, quantity, raw_data, product_id, tanggal')
+            .eq('campaign_id', campaignId)
+            .in('creator_username', chunk);
 
-        if (campaign?.start_date) sQuery = sQuery.gte('tanggal', campaign.start_date);
-        if (campaign?.end_date) sQuery = sQuery.lte('tanggal', campaign.end_date);
+          if (campaign?.start_date) sQuery = sQuery.gte('tanggal', campaign.start_date);
+          if (campaign?.end_date) sQuery = sQuery.lte('tanggal', campaign.end_date);
 
-        const { data: sData } = await sQuery;
-        if (sData) localSalesData = sData;
+          const { data: sData } = await sQuery;
+          if (sData) localSalesData.push(...sData);
 
-        // Fetch organic videos
-        let oQuery = supabaseClient
-          .from('organic_videos')
-          .select('*')
-          .in('creator_username', creatorUsernames);
-          
-        if (campaign?.start_date) oQuery = oQuery.gte('post_time', campaign.start_date);
-        if (campaign?.end_date) oQuery = oQuery.lte('post_time', campaign.end_date);
+          let oQuery = supabaseClient
+            .from('organic_videos')
+            .select('*')
+            .in('creator_username', chunk);
+            
+          if (campaign?.start_date) oQuery = oQuery.gte('post_time', campaign.start_date);
+          if (campaign?.end_date) oQuery = oQuery.lte('post_time', campaign.end_date);
 
-        const { data: oData } = await oQuery;
-        if (oData) localOrganicVideos = oData;
+          const { data: oData } = await oQuery;
+          if (oData) localOrganicVideos.push(...oData);
+        }
       }
 
       const allVideosFromDb = results.flatMap((cc: any) => cc.videos || []);
@@ -438,6 +471,8 @@ export default function CampaignVideoPage() {
   }, [listingData, localVideos, skus, campaignId, filterSow, filterSales, filterSku, sortBy]);
 
   const { data: finalListingData, metricsMap } = processedListingData;
+  const visibleData = finalListingData.slice(0, clientPage * CLIENT_PAGE_SIZE);
+  const hasMoreClient = finalListingData.length > visibleData.length;
 
   return (
     <>
@@ -539,7 +574,7 @@ export default function CampaignVideoPage() {
           </div>
         ) : (
           <div className="space-y-[48px] pb-[24px]">
-            {finalListingData.map(cc => {
+            {visibleData.map(cc => {
               const creator = cc.creators;
               if (!creator) return null;
               
@@ -822,10 +857,10 @@ export default function CampaignVideoPage() {
               );
             })}
             
-            {hasMore && (
+            {hasMoreClient && (
               <div className="flex justify-center mt-[24px]">
-                <button onClick={handleLoadMore} className="btn btn-outline" disabled={isLoading}>
-                  {isLoading ? <Loader2 className="ico animate-spin" /> : <ChevronDown className="ico" />}
+                <button onClick={() => setClientPage(p => p + 1)} className="btn btn-outline">
+                  <ChevronDown className="ico" />
                   Tampilkan Lebih Banyak
                 </button>
               </div>
