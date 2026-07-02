@@ -256,13 +256,19 @@ export default function AdsReportPage() {
           spend: 0, 
           gmv: 0, 
           views: 0,
-          unmapped: 0 
+          unmapped: 0,
+          purchases: 0,
+          clicks: 0,
+          impressions: 0
         };
       }
       
       summary[cId].spend += spendIDR;
       summary[cId].gmv += gmvIDR;
       summary[cId].views += views;
+      summary[cId].purchases += Number(ad.purchases || 0);
+      summary[cId].clicks += Number(ad.clicks || 0);
+      summary[cId].impressions += Number(ad.impressions || 0);
       if (!ad.creator_id) summary[cId].unmapped++;
     });
 
@@ -504,7 +510,7 @@ export default function AdsReportPage() {
                       )}
                     </div>
                     
-                    <div className="space-y-2 mb-3 relative z-10">
+                    <div className="space-y-1 mb-3 relative z-10">
                       <div className="flex justify-between text-xs">
                         <span className={isActive ? 'text-blue-100' : 'text-slate-500'}>Spend:</span>
                         <span className={`font-bold ${isActive ? 'text-white' : 'text-slate-700'}`}>Rp {(camp.spend / 1000000).toFixed(1)}M</span>
@@ -513,6 +519,10 @@ export default function AdsReportPage() {
                         <span className={isActive ? 'text-blue-100' : 'text-slate-500'}>GMV:</span>
                         <span className={`font-bold ${isActive ? 'text-emerald-300' : 'text-emerald-600'}`}>Rp {(camp.gmv / 1000000).toFixed(1)}M</span>
                       </div>
+                      <div className="flex justify-between text-xs">
+                        <span className={isActive ? 'text-blue-100' : 'text-slate-500'}>Total Orders:</span>
+                        <span className={`font-bold ${isActive ? 'text-white' : 'text-slate-700'}`}>{camp.purchases.toLocaleString('id-ID')}</span>
+                      </div>
                     </div>
 
                     <div className="w-full h-1.5 bg-slate-200/50 rounded-full mb-3 overflow-hidden flex relative z-10">
@@ -520,17 +530,29 @@ export default function AdsReportPage() {
                       <div className="h-full bg-emerald-400 flex-1"></div>
                     </div>
 
-                    <div className={`flex justify-between items-center text-xs pt-3 border-t ${isActive ? 'border-white/20' : 'border-slate-100'} mt-2 relative z-10`}>
+                    <div className={`grid grid-cols-4 gap-2 text-xs pt-3 border-t ${isActive ? 'border-white/20' : 'border-slate-100'} mt-2 relative z-10`}>
                       <div className="flex flex-col">
                         <span className={isActive ? 'text-blue-100 text-[10px]' : 'text-slate-400 text-[10px]'}>ROAS</span>
                         <span className={`font-black text-sm ${isActive ? 'text-white' : (roas >= 2 ? 'text-emerald-600' : roas >= 1 ? 'text-amber-500' : 'text-red-500')}`}>
                           {roas.toFixed(2)}x
                         </span>
                       </div>
+                      <div className="flex flex-col text-center">
+                        <span className={isActive ? 'text-blue-100 text-[10px]' : 'text-slate-400 text-[10px]'}>CPA</span>
+                        <span className={`font-bold text-xs mt-0.5 ${isActive ? 'text-white' : 'text-slate-700'}`}>
+                          {camp.purchases > 0 ? `Rp${(camp.spend / camp.purchases / 1000).toFixed(0)}k` : '0'}
+                        </span>
+                      </div>
+                      <div className="flex flex-col text-center">
+                        <span className={isActive ? 'text-blue-100 text-[10px]' : 'text-slate-400 text-[10px]'}>CTR</span>
+                        <span className={`font-bold text-xs mt-0.5 ${isActive ? 'text-white' : 'text-slate-700'}`}>
+                          {camp.impressions > 0 ? ((camp.clicks / camp.impressions) * 100).toFixed(1) + '%' : '0%'}
+                        </span>
+                      </div>
                       <div className="flex flex-col text-right">
-                        <span className={isActive ? 'text-blue-100 text-[10px]' : 'text-slate-400 text-[10px]'}>CPV</span>
-                        <span className={`font-bold text-sm ${isActive ? 'text-white' : 'text-slate-700'}`}>
-                          Rp {camp.views > 0 ? (camp.spend / camp.views).toFixed(0) : '0'}
+                        <span className={isActive ? 'text-blue-100 text-[10px]' : 'text-slate-400 text-[10px]'}>CPC</span>
+                        <span className={`font-bold text-xs mt-0.5 ${isActive ? 'text-white' : 'text-slate-700'}`}>
+                          Rp{camp.clicks > 0 ? (camp.spend / camp.clicks).toFixed(0) : '0'}
                         </span>
                       </div>
                     </div>
