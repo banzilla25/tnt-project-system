@@ -957,7 +957,7 @@ export default function CampaignVideoPage() {
                 {visibleVideosData.map(v => {
                   const warningShortLink = v.link_video?.includes('vt.tiktok.com');
                   return (
-                    <tr key={`${v.ccId}_${v.urutan}`} className="border-b border-slate-100 hover:bg-slate-50/50">
+                    <tr key={v.id} className="border-b border-slate-100 hover:bg-slate-50/50">
                       <td className="p-4 align-top">
                         <div className="font-bold text-sm">@{v.creatorUsername}</div>
                         <div className="text-[11px] font-semibold text-slate-500 bg-slate-100 w-fit px-2 py-0.5 rounded mt-1">{v.creatorTier || 'Tier -'}</div>
