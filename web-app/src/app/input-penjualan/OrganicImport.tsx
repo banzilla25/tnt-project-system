@@ -449,7 +449,7 @@ export default function OrganicImport() {
       });
 
       const videoChunk = chunk
-        .filter(c => c.content_type === 'Video' && c.content_uid && c.video_views > 0)
+        .filter(c => (c.content_type === 'Video' || c.content_type === 'Livestream') && c.content_uid)
         .map(c => ({
           content_uid: c.content_uid,
           creator_username: c.creator_username,

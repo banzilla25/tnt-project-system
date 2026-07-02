@@ -20,6 +20,7 @@ export default function CampaignLayout({ children }: { children: React.ReactNode
   const tabs = [
     { name: 'Listing & Seleksi', href: `/campaigns/${campaignId}/listing`, disabled: false },
     { name: 'Video & VT', href: `/campaigns/${campaignId}/video`, disabled: false },
+    { name: 'Live Stream', href: `/campaigns/${campaignId}/livestream`, disabled: false },
     { name: 'Performa', href: `/campaigns/${campaignId}/performa`, disabled: false },
     { name: 'Harian (Daily)', href: `/campaigns/${campaignId}/daily`, disabled: false },
     { name: 'Keuangan', href: `/campaigns/${campaignId}/keuangan`, disabled: false },
