@@ -93,10 +93,12 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
 
   const { campaign, summary, dailyPerf, approvalList, samples, schedules, videos, skus, totalSales, totalAwareness } = data;
   
-  // Filter data untuk hanya mengambil yang Approved (jika campaign menggunakan sistem approval)
-  const validApprovalList = campaign?.require_client_approval 
-    ? approvalList.filter((cc: any) => cc.client_approval === 'approved')
-    : approvalList;
+  // Filter data untuk hanya mengambil yang Approved persis seperti di dashboard internal TNT
+  const validApprovalList = approvalList.filter((cc: any) => {
+    if (cc.approval !== 'approved') return false;
+    if (campaign?.require_client_approval && cc.client_approval !== 'approved') return false;
+    return true;
+  });
 
   // Calculate display values based on campaign type and modern tracking data
   const isAwareness = campaign?.tipe_campaign === 'awareness' || campaign?.tipe_campaign === 'gmv_awareness';
@@ -107,9 +109,7 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
   const displayTotalGmv = displayOrganic + displayAds;
   
   const validCreatorUsernames = new Set(validApprovalList.map((cc: any) => cc.creators?.username));
-  const validVideos = campaign?.require_client_approval 
-    ? (videos || []).filter((v: any) => validCreatorUsernames.has(v.creator_username))
-    : (videos || []);
+  const validVideos = (videos || []).filter((v: any) => validCreatorUsernames.has(v.creator_username));
 
   const displayTotalVideo = validVideos.reduce((sum: number, v: any) => sum + (v.total_videos || 0), 0) || (isAwareness ? (totalAwareness?.total_video || summary.achievement_video || 0) : (summary.achievement_video || 0));
   const displayTotalViews = validVideos.reduce((sum: number, v: any) => sum + (v.total_views || 0), 0);
