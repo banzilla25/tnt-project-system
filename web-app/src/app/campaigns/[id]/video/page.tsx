@@ -577,25 +577,32 @@ export default function CampaignVideoPage() {
                       </div>
                       <div>
                         <h3 className="font-bold text-[16px]">@{creator.username}</h3>
-                        <p className="text-[12px] text-text-soft mt-[2px]">Target Video SOW: {cc.qty_vt} | Realita: {localVideos.filter(v => v.campaign_creator_id === cc.id && v.link_video).length}</p>
                       </div>
                       
                       {/* Summary Metrics */}
-                      <div className="ml-8 hidden md:flex items-center gap-6 text-sm">
-                        <div className="text-center px-4 border-l border-slate-200">
-                          <p className="text-[10px] text-slate-500 font-medium">TOTAL VIEWS</p>
-                          <p className="font-bold text-slate-700">{m?.totalViews?.toLocaleString('id-ID') || 0}</p>
+                      <div className="ml-auto hidden md:flex items-center gap-4 lg:gap-6 text-sm">
+                        <div className="text-center px-2 lg:px-4 border-l border-slate-200">
+                          <p className="text-[10px] text-slate-500 font-medium">SOW VT</p>
+                          <p className="font-bold text-slate-700">{cc.qty_vt}</p>
                         </div>
-                        <div className="text-center px-4 border-l border-slate-200">
-                          <p className="text-[10px] text-slate-500 font-medium">TOTAL LIKES</p>
-                          <p className="font-bold text-slate-700">{m?.totalLikes?.toLocaleString('id-ID') || 0}</p>
+                        <div className="text-center px-2 lg:px-4 border-l border-slate-200">
+                          <p className="text-[10px] text-slate-500 font-medium">TOTAL VT</p>
+                          <p className="font-bold text-slate-700">{localVideos.filter(v => v.campaign_creator_id === cc.id && v.link_video).length}</p>
                         </div>
                         {!isAwareness && (
-                          <div className="text-center px-4 border-l border-slate-200">
+                          <div className="text-center px-2 lg:px-4 border-l border-slate-200">
                             <p className="text-[10px] text-emerald-600 font-medium">TOTAL GMV</p>
                             <p className="font-bold text-emerald-700">Rp {m?.totalGmv?.toLocaleString('id-ID') || 0}</p>
                           </div>
                         )}
+                        <div className="text-center px-2 lg:px-4 border-l border-slate-200">
+                          <p className="text-[10px] text-slate-500 font-medium">TOTAL VIEWS</p>
+                          <p className="font-bold text-slate-700">{m?.totalViews?.toLocaleString('id-ID') || 0}</p>
+                        </div>
+                        <div className="text-center px-2 lg:px-4 border-l border-slate-200">
+                          <p className="text-[10px] text-slate-500 font-medium">TOTAL LIKES</p>
+                          <p className="font-bold text-slate-700">{m?.totalLikes?.toLocaleString('id-ID') || 0}</p>
+                        </div>
                       </div>
                     </div>
                     
