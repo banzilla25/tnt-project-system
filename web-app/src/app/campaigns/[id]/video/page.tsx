@@ -64,6 +64,16 @@ export default function CampaignVideoPage() {
   const [filterSales, setFilterSales] = useState('all');
   const [filterSku, setFilterSku] = useState('all');
   const [sortBy, setSortBy] = useState('none');
+  const [expandedGroups, setExpandedGroups] = useState<Set<number>>(new Set());
+  
+  const toggleGroup = (id: number) => {
+    setExpandedGroups(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) newSet.delete(id);
+      else newSet.add(id);
+      return newSet;
+    });
+  };
   
   const PAGE_SIZE = 50;
 
@@ -552,24 +562,54 @@ export default function CampaignVideoPage() {
                 creatorVideos = [{ campaign_creator_id: cc.id, urutan: 1, concept: '', link_video: '', vt_approval: 'pending' }];
               }
 
+              const isExpanded = expandedGroups.has(cc.id);
+              const m = metricsMap.get(cc.id);
+
               return (
-                <div key={cc.id} className="border border-line rounded-[12px] overflow-hidden">
-                  <div className="bg-slate-50 p-[16px] border-b border-line flex flex-wrap justify-between items-center gap-[16px]">
-                    <div>
-                      <h3 className="font-bold text-[16px]">@{creator.username}</h3>
-                      <p className="text-[12px] text-text-soft mt-[2px]">Target Video SOW: {cc.qty_vt} | Realita: {localVideos.filter(v => v.campaign_creator_id === cc.id && v.link_video).length}</p>
+                <div key={cc.id} className="border border-line rounded-[12px] overflow-hidden bg-white">
+                  <div 
+                    className="bg-slate-50 p-[16px] border-b border-line flex flex-wrap justify-between items-center gap-[16px] cursor-pointer hover:bg-slate-100 transition-colors"
+                    onClick={() => toggleGroup(cc.id)}
+                  >
+                    <div className="flex items-center gap-4 flex-1">
+                      <div className={`p-2 rounded-full ${isExpanded ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-200 text-slate-500'}`}>
+                        {isExpanded ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-[16px]">@{creator.username}</h3>
+                        <p className="text-[12px] text-text-soft mt-[2px]">Target Video SOW: {cc.qty_vt} | Realita: {localVideos.filter(v => v.campaign_creator_id === cc.id && v.link_video).length}</p>
+                      </div>
+                      
+                      {/* Summary Metrics */}
+                      <div className="ml-8 hidden md:flex items-center gap-6 text-sm">
+                        <div className="text-center px-4 border-l border-slate-200">
+                          <p className="text-[10px] text-slate-500 font-medium">TOTAL VIEWS</p>
+                          <p className="font-bold text-slate-700">{m?.totalViews?.toLocaleString('id-ID') || 0}</p>
+                        </div>
+                        <div className="text-center px-4 border-l border-slate-200">
+                          <p className="text-[10px] text-slate-500 font-medium">TOTAL LIKES</p>
+                          <p className="font-bold text-slate-700">{m?.totalLikes?.toLocaleString('id-ID') || 0}</p>
+                        </div>
+                        {!isAwareness && (
+                          <div className="text-center px-4 border-l border-slate-200">
+                            <p className="text-[10px] text-emerald-600 font-medium">TOTAL GMV</p>
+                            <p className="font-bold text-emerald-700">Rp {m?.totalGmv?.toLocaleString('id-ID') || 0}</p>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-[10px]">
+                    
+                    <div className="flex items-center gap-[10px]" onClick={e => e.stopPropagation()}>
                       {hasAccess && (
                         <>
                           <button 
-                            onClick={() => handleAddVideoRow(cc.id)}
+                            onClick={(e) => { e.stopPropagation(); handleAddVideoRow(cc.id); if(!isExpanded) toggleGroup(cc.id); }}
                             className="btn btn-outline"
                           >
                             + Tambah Baris
                           </button>
                           <button 
-                            onClick={() => handleSaveVT(cc.id)}
+                            onClick={(e) => { e.stopPropagation(); handleSaveVT(cc.id); }}
                             disabled={saving[cc.id]}
                             className="btn btn-primary"
                           >
@@ -581,8 +621,10 @@ export default function CampaignVideoPage() {
                     </div>
                   </div>
                   
-                  <div className="p-[16px]">
-                    <div className="tbl-wrap">
+                  {isExpanded && (
+                    <div className="p-[16px]">
+                      <div className="tbl-wrap">
+
                       <table className="w-full">
                         <thead>
                           <tr>
@@ -772,6 +814,7 @@ export default function CampaignVideoPage() {
                       </table>
                     </div>
                   </div>
+                  )}
                 </div>
               );
             })}
