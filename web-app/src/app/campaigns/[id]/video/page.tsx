@@ -6,7 +6,7 @@ import { useDraftLocalStorage } from "@/hooks/useDraftLocalStorage";
 // Replaced standard UI imports
 import { createClient } from "@/utils/supabase/client";
 import { useParams } from "next/navigation";
-import { AlertCircle, Link as LinkIcon, Save, Edit2, Loader2, ChevronDown, Plus, PlayCircle, X } from "lucide-react";
+import { AlertCircle, Link as LinkIcon, Save, Edit2, Loader2, ChevronDown, ChevronRight, Plus, PlayCircle, X } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/Dialog";
 import { useAuth } from "@/providers/AuthProvider";
 
