@@ -91,21 +91,21 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [editedSamples]);
 
-  const { campaign, summary, dailyPerf, approvalList, samples, schedules, videos, skus, totalSales, totalAwareness } = data;
+  const { campaign, summary, dailyPerf, ccData: approvalList, samples, schedules, videos, skus, rpcPerformance } = data;
   
   // Calculate display values based on campaign type and modern tracking data
   const isAwareness = campaign?.tipe_campaign === 'awareness' || campaign?.tipe_campaign === 'gmv_awareness';
   
   // Agar angka di Cards (atas) MATCH PERSIS dengan Internal Dashboard
-  const approvedOnlyList = approvalList.filter((cc: any) => cc.approval === 'approved');
+  const approvedOnlyList = approvalList?.filter((cc: any) => cc.approval === 'approved') || [];
   
-  // Gunakan summary dari tabel agregat (persis seperti internal app) atau fallback ke kalkulasi
-  const displayTotalGmv = totalSales?.total_gmv || approvedOnlyList.reduce((sum: number, c: any) => sum + (c.gmv_organic || 0) + (c.gmv_ads || 0), 0);
-  const displayTotalViews = totalAwareness?.campaign_total_views || 0;
-  const displayTotalVideo = totalAwareness?.campaign_total_videos || 0;
-  const displayTotalCreator = approvedOnlyList.length;
+  // Gunakan summary dari RPC (Sangat cepat dan 100% akurat)
+  const displayTotalGmv = rpcPerformance?.totalAllGmv || 0;
+  const displayTotalViews = rpcPerformance?.totalViews || 0;
+  const displayTotalVideo = rpcPerformance?.totalVideos || 0;
+  const displayTotalCreator = rpcPerformance?.approvedCreators || 0;
 
-  const validCreatorUsernames = new Set(approvalList.map((cc: any) => cc.creators?.username));
+  const validCreatorUsernames = new Set(approvalList?.map((cc: any) => cc.creators?.username) || []);
   const validVideos = (videos || []).filter((v: any) => validCreatorUsernames.has(v.creator_username));
 
 

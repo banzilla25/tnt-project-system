@@ -67,36 +67,28 @@ function CampaignPerformaContent() {
         return all;
       };
 
-      // 1. Fetch Summaries (Paginated for large tables)
+      // 1. Fetch RPC and View
       let salesVtQuery = supabase.from('sales').select('creator_username, content_uid, tanggal').eq('campaign_id', campaignId).not('content_uid', 'is', null);
       if (campaign?.start_date) salesVtQuery = salesVtQuery.gte('tanggal', campaign.start_date);
       if (campaign?.end_date) salesVtQuery = salesVtQuery.lte('tanggal', campaign.end_date);
 
       const [
-        allSales,
-        totalSalesRes,
-        allAds,
-        awarenessSumRes,
-        totalAwarenessRes,
-        allSalesVt,
-        allVideos
+        rpcRes,
+        viewRes,
+        allSalesVt
       ] = await Promise.all([
-        fetchAll(supabase.from('sales').select('creator_username, gmv, quantity, product_id, is_refund, tanggal').eq('campaign_id', campaignId).eq('is_refund', false)),
-        supabase.from('campaign_total_sales').select('*').eq('campaign_id', campaignId).maybeSingle(),
-        fetchAll(supabase.from('ads_performance').select('*, creators(username)').eq('campaign_id', campaignId)),
-        supabase.from('campaign_awareness_summary').select('*').eq('campaign_id', campaignId), // Usually < 1000 rows (aggregated)
-        supabase.from('campaign_total_awareness').select('*').eq('campaign_id', campaignId).maybeSingle(),
-        fetchAll(salesVtQuery),
-        fetchAll(supabase.from('videos').select('vt_code').eq('campaign_id', campaignId))
+        supabase.rpc('get_campaign_performance', { p_campaign_id: campaignId }),
+        supabase.from('campaign_creators_performance').select('*').eq('campaign_id', campaignId),
+        fetchAll(salesVtQuery)
       ]);
 
-      setSalesSummary(allSales);
-      if (totalSalesRes.data) setTotalSales(totalSalesRes.data);
-      setAdsPerf(allAds);
-      if (awarenessSumRes.data) setAwarenessSummary(awarenessSumRes.data);
-      if (totalAwarenessRes.data) setTotalAwareness(totalAwarenessRes.data);
+      if (rpcRes.error) console.error("RPC Error:", rpcRes.error);
+      if (viewRes.error) console.error("VIEW Error:", viewRes.error);
+
+      setSalesSummary(viewRes.data || []); 
+      if (rpcRes.data) setTotalSales(rpcRes.data); 
       setSalesDataForVt(allSalesVt);
-      setManualVideos(allVideos);
+      setManualVideos([]); // manualVideos no longer needed since videos are joined in the view
 
       // 2. Fetch Approved Creators (Paginated to handle >500 limits on joins)
       let allApproved: any[] = [];
@@ -201,39 +193,11 @@ function CampaignPerformaContent() {
 
   const isAwareness = campaign.tipe_campaign === 'awareness' || campaign.tipe_campaign === 'gmv_awareness';
 
-  // Aggregate per creator using local data (Optimized with useMemo & Maps)
+  // Aggregate per creator using SQL VIEW data
   const creatorStats = React.useMemo(() => {
-    const salesMap = new Map();
-    // salesSummary here is actually the raw sales array
-    salesSummary.forEach((s: any) => {
-      // Apply date filter
-      if (campaign?.start_date && s.tanggal < campaign.start_date) return;
-      if (campaign?.end_date && s.tanggal > campaign.end_date) return;
-      
-      // Strict SKU filter
-      if (s.product_id) {
-         const matchingSku = skus.find(sku => sku.product_id === s.product_id && sku.campaign_id === campaignId);
-         if (!matchingSku) return; // Skip if product is not part of campaign SKUs
-      } else {
-         return; // Skip if no product ID (or we can decide to allow it, but strict is better)
-      }
-
-      if (!salesMap.has(s.creator_username)) {
-         salesMap.set(s.creator_username, { gmv_organic: 0, items_sold: 0 });
-      }
-      const existing = salesMap.get(s.creator_username);
-      existing.gmv_organic += (s.gmv || 0);
-      existing.items_sold += (s.quantity || 0);
-    });
-
-    const awarenessMap = new Map();
-    awarenessSummary.forEach(a => awarenessMap.set(a.creator_username, a));
-
-    const adsMap = new Map();
-    adsPerf.forEach(a => {
-      if (!adsMap.has(a.creator_id)) adsMap.set(a.creator_id, []);
-      adsMap.get(a.creator_id).push(a);
-    });
+    // salesSummary now contains the SQL View data (campaign_creators_performance)
+    const perfMap = new Map();
+    salesSummary.forEach((p: any) => perfMap.set(p.campaign_creator_id, p));
 
     const autoSalesMap = new Map();
     salesDataForVt.forEach(s => {
@@ -245,18 +209,17 @@ function CampaignPerformaContent() {
       const creator = cc.creators;
       const username = creator?.username || 'Unknown';
       
-      const ccSales = salesMap.get(username);
-      const gmvOrganic = ccSales?.gmv_organic || 0;
-      const itemsSold = ccSales?.items_sold || 0;
+      const perf = perfMap.get(cc.id);
       
-      const ccAwareness = awarenessMap.get(username);
-      const videoViews = Number(ccAwareness?.total_views || 0);
-      const videoLikes = Number(ccAwareness?.total_likes || 0);
-      const trackedVideos = Number(ccAwareness?.total_videos || 0);
+      const gmvOrganic = perf?.gmv_organic || 0;
+      const itemsSold = perf?.items_sold || 0;
+      
+      const videoViews = perf?.video_views || 0;
+      const videoLikes = perf?.video_likes || 0;
+      const trackedVideos = perf?.tracked_videos || 0;
 
-      const ccAds = adsMap.get(creator?.id) || [];
-      const gmvAds = ccAds.reduce((sum: number, row: any) => sum + (row.gross_revenue_usd * row.kurs), 0);
-      const costAds = ccAds.reduce((sum: number, row: any) => sum + (row.cost_usd * row.kurs), 0);
+      const gmvAds = perf?.gmv_ads || 0;
+      const costAds = perf?.cost_ads || 0;
       
       const totalGmv = gmvOrganic + gmvAds;
       const roas = costAds > 0 ? (gmvAds / costAds).toFixed(2) : '-';
@@ -341,59 +304,25 @@ function CampaignPerformaContent() {
   const totalPages = Math.ceil(filteredCreatorStats.length / pageSize);
   const paginatedStats = filteredCreatorStats.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
-  // Sales Metrics
-  const totalOrganic = React.useMemo(() => {
-     return salesSummary.reduce((sum: number, s: any) => {
-        if (campaign?.start_date && s.tanggal < campaign.start_date) return sum;
-        if (campaign?.end_date && s.tanggal > campaign.end_date) return sum;
-        
-        if (s.product_id) {
-           const matchingSku = skus.find(sku => sku.product_id === s.product_id && sku.campaign_id === campaignId);
-           if (matchingSku) return sum + (s.gmv || 0);
-        }
-        return sum;
-     }, 0);
-  }, [salesSummary, campaign, skus, campaignId]);
-
-  const totalAdsGmv = creatorStats.reduce((sum, c) => sum + c.gmvAds, 0);
-  const totalAllGmv = totalOrganic + totalAdsGmv;
+  // Sales Metrics from RPC
+  const totalOrganic = totalSales?.totalOrganic || 0;
+  const totalAdsGmv = totalSales?.totalAdsGmv || 0;
+  const totalAllGmv = totalSales?.totalAllGmv || 0;
   const percentCapai = campaign?.target_gmv ? Math.round((totalAllGmv / campaign.target_gmv) * 100) : 0;
-  const trackedOrganic = creatorStats.reduce((sum, c) => sum + c.gmvOrganic, 0);
-  const attributionGap = Math.max(0, totalOrganic - trackedOrganic);
+  const trackedOrganic = totalSales?.trackedOrganic || 0;
+  const attributionGap = totalSales?.attributionGap || 0;
   const gapPercentage = totalOrganic > 0 ? Math.round((attributionGap / totalOrganic) * 100) : 0;
 
-  // Awareness Metrics
-  const totalCampaignViews = Number(totalAwareness?.campaign_total_views || 0);
-  const totalCampaignLikes = Number(totalAwareness?.campaign_total_likes || 0);
-  // Calculate True Unique Videos
-  const uniqueVideoIds = new Set<string>();
-  
-  // 1. From Sales Data (Format: video_VIDEOID_PRODUCTID)
-  salesDataForVt.forEach(s => {
-    if (s.content_uid && s.content_uid.startsWith('video_')) {
-      const parts = s.content_uid.split('_');
-      if (parts.length >= 2) {
-        uniqueVideoIds.add(parts[1]); // Add just the video ID part
-      }
-    }
-  });
-
-  // 2. From Manual Videos Table
-  manualVideos.forEach(v => {
-    if (v.vt_code) {
-      // vt_code is usually the video ID or full URL, if it's an ID we just add it
-      uniqueVideoIds.add(v.vt_code);
-    }
-  });
-
-  const totalCampaignVideos = uniqueVideoIds.size > 0 ? uniqueVideoIds.size : Number(totalAwareness?.campaign_total_videos || 0);
-
+  // Awareness Metrics from RPC
+  const totalCampaignViews = Number(totalSales?.totalViews || 0);
+  const totalCampaignLikes = Number(totalSales?.totalLikes || 0);
+  const totalCampaignVideos = Number(totalSales?.totalVideos || 0);
   
   const targetVideo = campaign.target_video || 0;
   const percentCapaiVideo = targetVideo > 0 ? Math.round((totalCampaignVideos / targetVideo) * 100) : 0;
   
   const targetCreator = campaign.target_creator || 0;
-  const percentCapaiCreator = targetCreator > 0 ? Math.round((creatorStats.length / targetCreator) * 100) : 0;
+  const percentCapaiCreator = targetCreator > 0 ? Math.round((Number(totalSales?.approvedCreators || 0) / targetCreator) * 100) : 0;
 
   // Render format currency
   const formatCompactNumber = (num: number) => {

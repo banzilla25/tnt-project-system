@@ -118,53 +118,25 @@ export async function getPortalData(campaignId: number) {
     if (error || !data || data.length === 0) break;
     ccData = ccData.concat(data);
     if (data.length < pageSize) break;
-    start += pageSize;
-  }
+  // Fetch performa summary dari SQL View
+  const { data: creatorPerformance } = await supabase
+    .from('campaign_creators_performance')
+    .select('*')
+    .eq('campaign_id', campaignId);
 
-  // Fetch raw sales for accurate GMV calculation with strict SKU and Date filtering (Paginated)
-  let rawSales: any[] = [];
-  let salesStart = 0;
-  while (true) {
-    let salesQuery = supabase
-      .from('sales')
-      .select('creator_username, gmv, quantity, product_id, is_refund, tanggal')
-      .eq('campaign_id', campaignId)
-      .eq('is_refund', false)
-      .range(salesStart, salesStart + 999);
-      
-    if (campaign?.start_date) salesQuery = salesQuery.gte('tanggal', campaign.start_date);
-    if (campaign?.end_date) salesQuery = salesQuery.lte('tanggal', campaign.end_date);
-    
-    const { data: pageSales } = await salesQuery;
-    if (!pageSales || pageSales.length === 0) break;
-    rawSales = rawSales.concat(pageSales);
-    if (pageSales.length < 1000) break;
-    salesStart += 1000;
-  }
+  // Fetch RPC untuk Global Cards
+  const { data: rpcPerformance, error: rpcError } = await supabase
+    .rpc('get_campaign_performance', { p_campaign_id: campaignId });
 
-  // Fetch ads performance (Paginated)
-  let adsPerf: any[] = [];
-  let adsStart = 0;
-  while (true) {
-    const { data: pageAds } = await supabase
-      .from('ads_performance')
-      .select('creator_id, gross_revenue_usd, kurs')
-      .eq('campaign_id', campaignId)
-      .range(adsStart, adsStart + 999);
-      
-    if (!pageAds || pageAds.length === 0) break;
-    adsPerf = adsPerf.concat(pageAds);
-    if (pageAds.length < 1000) break;
-    adsStart += 1000;
-  }
+  if (rpcError) console.error("RPC Error:", rpcError);
 
-  // Fetch sales for videos (Paginated)
+  // Fetch sales for videos (hanya VT, jauh lebih ringan)
   let salesForVideos: any[] = [];
   let svStart = 0;
   while (true) {
     const { data: pageSv } = await supabase
       .from('sales')
-      .select('content_uid, gmv, creator_username, raw_data')
+      .select('content_uid, gmv, creator_username')
       .eq('campaign_id', campaignId)
       .not('content_uid', 'is', null)
       .range(svStart, svStart + 999);
@@ -201,33 +173,7 @@ export async function getPortalData(campaignId: number) {
     .select('id, product_id, nama_produk')
     .eq('campaign_id', campaignId);
 
-  const salesMap = new Map();
-  const itemsMap = new Map();
-  
-  rawSales?.forEach(s => {
-    // Strict SKU filter sama seperti internal app
-    if (s.product_id) {
-       const matchingSku = skusData?.find((sku: any) => sku.product_id === s.product_id);
-       if (!matchingSku) return; // Skip if product is not part of campaign SKUs
-    } else {
-       return; // Strict require product ID
-    }
-
-    if (!salesMap.has(s.creator_username)) {
-      salesMap.set(s.creator_username, 0);
-      itemsMap.set(s.creator_username, 0);
-    }
-    salesMap.set(s.creator_username, salesMap.get(s.creator_username) + (s.gmv || 0));
-    itemsMap.set(s.creator_username, itemsMap.get(s.creator_username) + (s.quantity || 0));
-  });
-
-  const adsMap = new Map();
-  adsPerf?.forEach(a => {
-    if (!adsMap.has(a.creator_id)) adsMap.set(a.creator_id, 0);
-    const rev = (a.gross_revenue_usd || 0) * (a.kurs || 0);
-    adsMap.set(a.creator_id, adsMap.get(a.creator_id) + rev);
-  });
-
+  // Hapus mapping rawSales dan adsPerf karena sudah dihandle oleh View
   const enrichedCcData = ccData?.map((cc: any) => {
     const creator = Array.isArray(cc.creators) ? cc.creators[0] : cc.creators;
     const snap = creator?.creator_snapshots 
@@ -238,15 +184,20 @@ export async function getPortalData(campaignId: number) {
     const contacts = Array.isArray(creator?.creator_contacts) ? creator.creator_contacts : (creator?.creator_contacts ? [creator.creator_contacts] : []);
     const activeContact = contacts.find((c: any) => c.status === 'aktif') || contacts[0];
 
+    const perf = creatorPerformance?.find(p => p.campaign_creator_id === cc.id);
+
     return {
       ...cc,
       followers: snap?.followers || 0,
       level: snap?.level || '-',
       tier: snap?.tier || cc.tier,
       no_whatsapp: activeContact?.nomor || '',
-      gmv_organic: salesMap.get(username) || 0,
-      items_sold: itemsMap.get(username) || 0,
-      gmv_ads: adsMap.get(creatorId) || 0
+      gmv_organic: perf?.gmv_organic || 0,
+      items_sold: perf?.items_sold || 0,
+      gmv_ads: perf?.gmv_ads || 0,
+      video_views: perf?.video_views || 0,
+      video_likes: perf?.video_likes || 0,
+      total_vt: perf?.tracked_videos || 0
     };
   }) || [];
 
@@ -383,11 +334,12 @@ export async function getPortalData(campaignId: number) {
     totalSales: totalSales || null,
     totalAwareness: totalAwareness || null,
     dailyPerf: dailyPerf || [], 
-    approvalList: enrichedCcData, 
+    ccData: enrichedCcData, 
     samples,
     schedules,
     videos: portalVideos,
-    skus: skusData || []
+    skus: skusData || [],
+    rpcPerformance: rpcPerformance || null
   };
 }
 
