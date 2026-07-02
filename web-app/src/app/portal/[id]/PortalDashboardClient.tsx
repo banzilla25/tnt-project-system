@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import { TrendingUp, Video, Users, Package, Calendar, CheckCircle, Activity, BarChart3, ChevronDown, ChevronUp } from "lucide-react";
+import { TrendingUp, Video, Users, Package, Calendar, CheckCircle, Activity, BarChart3, ChevronDown, ChevronUp, Search, ChevronLeft, ChevronRight, Filter } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/Table";
 import { submitClientApproval, updateResiByClient, batchUpdateResiByClient, type BatchUpdateData } from "../actions/portalActions";
 import { formatAbbreviated } from "@/utils/formatters";
@@ -16,6 +16,34 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
   const [isApproving, setIsApproving] = useState<number | null>(null);
   const [editedSamples, setEditedSamples] = useState<Record<number, BatchUpdateData>>({});
   const [isSavingBatch, setIsSavingBatch] = useState(false);
+  
+  // Filter & Pagination States
+  const PAGE_SIZE = 50;
+  const [performaSearch, setPerformaSearch] = useState('');
+  const [performaPage, setPerformaPage] = useState(0);
+
+  const [listingSearch, setListingSearch] = useState('');
+  const [listingTypeFilter, setListingTypeFilter] = useState('all');
+  const [listingPage, setListingPage] = useState(0);
+
+  const [sampleSearch, setSampleSearch] = useState('');
+  const [sampleStatusFilter, setSampleStatusFilter] = useState('all');
+  const [samplePage, setSamplePage] = useState(0);
+
+  const [liveSearch, setLiveSearch] = useState('');
+  const [livePage, setLivePage] = useState(0);
+
+  const [videoSearch, setVideoSearch] = useState('');
+  const [videoPage, setVideoPage] = useState(0);
+
+  // Reset page when tab changes
+  React.useEffect(() => {
+    setPerformaPage(0);
+    setListingPage(0);
+    setSamplePage(0);
+    setLivePage(0);
+    setVideoPage(0);
+  }, [activeTab]);
 
   // Mencegah user close tab/refresh saat ada data belum disave
   React.useEffect(() => {
@@ -80,6 +108,58 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
       setIsSavingBatch(false);
     }
   };
+
+  // ============================
+  // DERIVED DATA FOR PAGINATION
+  // ============================
+
+  // 1. Performa
+  const filteredPerforma = approvalList.filter((cc: any) => {
+    if (performaSearch && !cc.creators?.username?.toLowerCase().includes(performaSearch.toLowerCase())) return false;
+    return true;
+  }).sort((a: any, b: any) => {
+    const gmvA = (a.gmv_organic || 0) + (a.gmv_ads || 0);
+    const gmvB = (b.gmv_organic || 0) + (b.gmv_ads || 0);
+    return gmvB - gmvA;
+  });
+  const performaTotalPages = Math.ceil(filteredPerforma.length / PAGE_SIZE) || 1;
+  const paginatedPerforma = filteredPerforma.slice(performaPage * PAGE_SIZE, (performaPage + 1) * PAGE_SIZE);
+
+  // 2. Listing
+  const filteredListing = approvalList.filter((cc: any) => {
+    if (listingSearch && !cc.creators?.username?.toLowerCase().includes(listingSearch.toLowerCase())) return false;
+    if (listingTypeFilter !== 'all' && cc.content_type?.toLowerCase() !== listingTypeFilter.toLowerCase()) return false;
+    return true;
+  });
+  const listingTotalPages = Math.ceil(filteredListing.length / PAGE_SIZE) || 1;
+  const paginatedListing = filteredListing.slice(listingPage * PAGE_SIZE, (listingPage + 1) * PAGE_SIZE);
+
+  // 3. Sampel
+  const filteredSamples = samples.filter((addr: any) => {
+    const cc = approvalList.find((c: any) => c.id === addr.campaign_creator_id);
+    const username = cc?.creators?.username || '';
+    if (sampleSearch && !username.toLowerCase().includes(sampleSearch.toLowerCase()) && !(addr.resi || '').toLowerCase().includes(sampleSearch.toLowerCase())) return false;
+    if (sampleStatusFilter !== 'all' && (addr.proses || 'Diproses').toLowerCase() !== sampleStatusFilter.toLowerCase()) return false;
+    return true;
+  });
+  const sampleTotalPages = Math.ceil(filteredSamples.length / PAGE_SIZE) || 1;
+  const paginatedSamples = filteredSamples.slice(samplePage * PAGE_SIZE, (samplePage + 1) * PAGE_SIZE);
+
+  // 4. Live
+  const filteredLive = schedules.filter((l: any) => {
+    if (liveSearch && !l.creator_username?.toLowerCase().includes(liveSearch.toLowerCase())) return false;
+    return true;
+  });
+  const liveTotalPages = Math.ceil(filteredLive.length / PAGE_SIZE) || 1;
+  const paginatedLive = filteredLive.slice(livePage * PAGE_SIZE, (livePage + 1) * PAGE_SIZE);
+
+  // 5. Video
+  const filteredVideo = (videos || []).filter((v: any) => {
+    if (videoSearch && !v.creator_username?.toLowerCase().includes(videoSearch.toLowerCase())) return false;
+    return true;
+  });
+  const videoTotalPages = Math.ceil(filteredVideo.length / PAGE_SIZE) || 1;
+  const paginatedVideo = filteredVideo.slice(videoPage * PAGE_SIZE, (videoPage + 1) * PAGE_SIZE);
 
   return (
     <div className="max-w-6xl mx-auto p-4 md:p-8 space-y-8">
@@ -232,10 +312,20 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
 
               {/* Table Performa Kreator */}
               <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-                <div className="border-b border-slate-200 bg-slate-50/50 p-[16px] flex justify-between items-center">
+                <div className="border-b border-slate-200 bg-slate-50/50 p-[16px] flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                   <h3 className="font-bold flex items-center gap-[8px] text-slate-800">
                     Performa per Kreator (Approved)
                   </h3>
+                  <div className="relative w-full sm:w-64">
+                    <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input 
+                      type="text" 
+                      placeholder="Cari username..." 
+                      className="w-full pl-9 pr-3 py-1.5 text-sm border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                      value={performaSearch}
+                      onChange={(e) => { setPerformaSearch(e.target.value); setPerformaPage(0); }}
+                    />
+                  </div>
                 </div>
                 <div className="overflow-x-auto">
                   <Table className="w-full text-[13px] whitespace-nowrap">
@@ -250,16 +340,12 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {approvalList.length === 0 ? (
+                      {paginatedPerforma.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={6} className="text-center py-[32px] text-slate-500">Belum ada data kreator yang di-approve.</TableCell>
+                          <TableCell colSpan={6} className="text-center py-[32px] text-slate-500">Belum ada data kreator yang sesuai.</TableCell>
                         </TableRow>
                       ) : (
-                        [...approvalList].sort((a: any, b: any) => {
-                          const gmvA = (a.gmv_organic || 0) + (a.gmv_ads || 0);
-                          const gmvB = (b.gmv_organic || 0) + (b.gmv_ads || 0);
-                          return gmvB - gmvA;
-                        }).map((c: any) => {
+                        paginatedPerforma.map((c: any) => {
                           const username = c.creators?.username || 'Unknown';
                           const totalVt = c.videos?.length || 0;
                           const itemsSold = c.items_sold || 0;
@@ -294,6 +380,31 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                     </TableBody>
                   </Table>
                 </div>
+                {/* Pagination Performa */}
+                {performaTotalPages > 1 && (
+                  <div className="flex items-center justify-between px-4 py-3 border-t border-slate-200 bg-slate-50/50">
+                    <span className="text-xs text-slate-500">
+                      Menampilkan {performaPage * PAGE_SIZE + 1}-{Math.min((performaPage + 1) * PAGE_SIZE, filteredPerforma.length)} dari {filteredPerforma.length}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <button 
+                        onClick={() => setPerformaPage(p => Math.max(0, p - 1))}
+                        disabled={performaPage === 0}
+                        className="p-1 rounded-md hover:bg-slate-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        <ChevronLeft className="w-5 h-5 text-slate-600" />
+                      </button>
+                      <span className="text-xs font-medium text-slate-700">Hal {performaPage + 1} / {performaTotalPages}</span>
+                      <button 
+                        onClick={() => setPerformaPage(p => Math.min(performaTotalPages - 1, p + 1))}
+                        disabled={performaPage === performaTotalPages - 1}
+                        className="p-1 rounded-md hover:bg-slate-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        <ChevronRight className="w-5 h-5 text-slate-600" />
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -302,12 +413,39 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
         {activeTab === 'approval' && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6">
             <Card className="shadow-sm border-blue-200">
-              <CardHeader className="bg-blue-50 border-b border-blue-100 rounded-t-xl">
-                <CardTitle className="text-blue-900">Daftar Listing Kreator</CardTitle>
-                <p className="text-sm text-blue-700">
-                  Berikut adalah daftar kreator yang diajukan untuk campaign ini. 
-                  {campaign.require_client_approval && " Silakan tentukan apakah Anda setuju untuk bekerja sama dengan mereka."}
-                </p>
+              <CardHeader className="bg-blue-50 border-b border-blue-100 rounded-t-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                  <CardTitle className="text-blue-900">Daftar Listing Kreator</CardTitle>
+                  <p className="text-sm text-blue-700 mt-1">
+                    Berikut adalah daftar kreator yang diajukan untuk campaign ini. 
+                    {campaign.require_client_approval && " Silakan tentukan apakah Anda setuju untuk bekerja sama dengan mereka."}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <div className="relative w-full sm:w-48">
+                    <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input 
+                      type="text" 
+                      placeholder="Cari username..." 
+                      className="w-full pl-9 pr-3 py-1.5 text-sm border border-blue-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                      value={listingSearch}
+                      onChange={(e) => { setListingSearch(e.target.value); setListingPage(0); }}
+                    />
+                  </div>
+                  <div className="relative">
+                    <Filter className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <select 
+                      className="pl-9 pr-8 py-1.5 text-sm border border-blue-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 appearance-none bg-white transition-all cursor-pointer"
+                      value={listingTypeFilter}
+                      onChange={(e) => { setListingTypeFilter(e.target.value); setListingPage(0); }}
+                    >
+                      <option value="all">Semua Konten</option>
+                      <option value="video">Video</option>
+                      <option value="live">Live</option>
+                    </select>
+                    <ChevronDown className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  </div>
+                </div>
               </CardHeader>
               <CardContent className="p-0">
                 <div className="overflow-x-auto">
@@ -324,12 +462,12 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {approvalList.length === 0 ? (
+                      {paginatedListing.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={4} className="text-center py-8 text-slate-500">Belum ada kreator yang diajukan.</TableCell>
+                          <TableCell colSpan={campaign.require_client_approval ? 7 : 6} className="text-center py-8 text-slate-500">Belum ada kreator yang sesuai pencarian.</TableCell>
                         </TableRow>
                       ) : (
-                        approvalList.map((cc: any) => (
+                        paginatedListing.map((cc: any) => (
                           <TableRow key={cc.id}>
                             <TableCell className="align-top">
                               <div className="font-semibold text-slate-900">@{cc.creators?.username}</div>
@@ -385,6 +523,31 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                     </TableBody>
                   </Table>
                 </div>
+                {/* Pagination Listing */}
+                {listingTotalPages > 1 && (
+                  <div className="flex items-center justify-between px-4 py-3 border-t border-blue-100 bg-blue-50/30 rounded-b-xl">
+                    <span className="text-xs text-slate-500">
+                      Menampilkan {listingPage * PAGE_SIZE + 1}-{Math.min((listingPage + 1) * PAGE_SIZE, filteredListing.length)} dari {filteredListing.length}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <button 
+                        onClick={() => setListingPage(p => Math.max(0, p - 1))}
+                        disabled={listingPage === 0}
+                        className="p-1 rounded-md hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        <ChevronLeft className="w-5 h-5 text-blue-700" />
+                      </button>
+                      <span className="text-xs font-medium text-slate-700">Hal {listingPage + 1} / {listingTotalPages}</span>
+                      <button 
+                        onClick={() => setListingPage(p => Math.min(listingTotalPages - 1, p + 1))}
+                        disabled={listingPage === listingTotalPages - 1}
+                        className="p-1 rounded-md hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        <ChevronRight className="w-5 h-5 text-blue-700" />
+                      </button>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -393,11 +556,38 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
         {activeTab === 'sampel' && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6">
             <Card className="shadow-sm">
-              <CardHeader>
-                <CardTitle>Status Pengiriman Sampel</CardTitle>
-                <p className="text-sm text-slate-500">
-                  Pantau resi dan status pengiriman produk ke kreator yang telah disetujui.
-                </p>
+              <CardHeader className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                  <CardTitle>Status Pengiriman Sampel</CardTitle>
+                  <p className="text-sm text-slate-500 mt-1">
+                    Pantau resi dan status pengiriman produk ke kreator yang telah disetujui.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <div className="relative w-full sm:w-48">
+                    <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input 
+                      type="text" 
+                      placeholder="Cari username/resi..." 
+                      className="w-full pl-9 pr-3 py-1.5 text-sm border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                      value={sampleSearch}
+                      onChange={(e) => { setSampleSearch(e.target.value); setSamplePage(0); }}
+                    />
+                  </div>
+                  <div className="relative">
+                    <Filter className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <select 
+                      className="pl-9 pr-8 py-1.5 text-sm border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 appearance-none bg-white transition-all cursor-pointer"
+                      value={sampleStatusFilter}
+                      onChange={(e) => { setSampleStatusFilter(e.target.value); setSamplePage(0); }}
+                    >
+                      <option value="all">Semua Status</option>
+                      <option value="diproses">Diproses</option>
+                      <option value="dikirim">Dikirim</option>
+                    </select>
+                    <ChevronDown className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  </div>
+                </div>
               </CardHeader>
               <CardContent>
                 <div className="overflow-x-auto pb-4">
@@ -423,12 +613,12 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {samples.length === 0 ? (
+                      {paginatedSamples.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={16} className="text-center py-8 text-slate-500">Belum ada data pengiriman sampel.</TableCell>
+                          <TableCell colSpan={16} className="text-center py-8 text-slate-500">Belum ada data pengiriman sampel yang sesuai.</TableCell>
                         </TableRow>
                       ) : (
-                        samples.map((addr: any, idx: number) => {
+                        paginatedSamples.map((addr: any, idx: number) => {
                           const cc = approvalList.find((c: any) => c.id === addr.campaign_creator_id);
                           const skuNames = (cc?.assigned_sku_ids || []).map((id: number) => {
                             const sku = skus?.find((s: any) => s.id === id);
@@ -438,7 +628,7 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
 
                           return (
                             <TableRow key={addr.id} className="hover:bg-slate-50/50">
-                              <TableCell className="px-3 py-3 text-center">{idx + 1}</TableCell>
+                              <TableCell className="px-3 py-3 text-center">{samplePage * PAGE_SIZE + idx + 1}</TableCell>
                               <TableCell className="px-3 py-3 whitespace-normal">
                                 <div className="flex flex-col gap-1 w-[200px]">
                                   {skuNames.length > 0 ? (
@@ -505,6 +695,31 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                     </TableBody>
                   </Table>
                 </div>
+                {/* Pagination Sampel */}
+                {sampleTotalPages > 1 && (
+                  <div className="flex items-center justify-between px-4 py-3 border-t border-slate-200 bg-slate-50/50 -mx-6 -mb-6 mt-4">
+                    <span className="text-xs text-slate-500">
+                      Menampilkan {samplePage * PAGE_SIZE + 1}-{Math.min((samplePage + 1) * PAGE_SIZE, filteredSamples.length)} dari {filteredSamples.length}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <button 
+                        onClick={() => setSamplePage(p => Math.max(0, p - 1))}
+                        disabled={samplePage === 0}
+                        className="p-1 rounded-md hover:bg-slate-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        <ChevronLeft className="w-5 h-5 text-slate-600" />
+                      </button>
+                      <span className="text-xs font-medium text-slate-700">Hal {samplePage + 1} / {sampleTotalPages}</span>
+                      <button 
+                        onClick={() => setSamplePage(p => Math.min(sampleTotalPages - 1, p + 1))}
+                        disabled={samplePage === sampleTotalPages - 1}
+                        className="p-1 rounded-md hover:bg-slate-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        <ChevronRight className="w-5 h-5 text-slate-600" />
+                      </button>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -513,9 +728,21 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
         {activeTab === 'live' && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6">
             <Card className="shadow-sm">
-              <CardHeader>
-                <CardTitle>Jadwal Live Kreator</CardTitle>
-                <p className="text-sm text-slate-500">Jadwal sesi live streaming yang telah disepakati.</p>
+              <CardHeader className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                  <CardTitle>Jadwal Live Kreator</CardTitle>
+                  <p className="text-sm text-slate-500 mt-1">Jadwal sesi live streaming yang telah disepakati.</p>
+                </div>
+                <div className="relative w-full sm:w-64">
+                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input 
+                    type="text" 
+                    placeholder="Cari username..." 
+                    className="w-full pl-9 pr-3 py-1.5 text-sm border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                    value={liveSearch}
+                    onChange={(e) => { setLiveSearch(e.target.value); setLivePage(0); }}
+                  />
+                </div>
               </CardHeader>
               <CardContent>
                 <div className="overflow-x-auto">
@@ -527,12 +754,12 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {schedules.length === 0 ? (
+                      {paginatedLive.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={2} className="text-center py-8 text-slate-500">Belum ada jadwal live terdaftar.</TableCell>
+                          <TableCell colSpan={2} className="text-center py-8 text-slate-500">Belum ada jadwal live yang sesuai pencarian.</TableCell>
                         </TableRow>
                       ) : (
-                        schedules.map((l: any) => (
+                        paginatedLive.map((l: any) => (
                           <TableRow key={l.id}>
                             <TableCell className="align-top">
                               <div className="font-medium text-slate-800">@{l.creator_username}</div>
@@ -548,6 +775,31 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                     </TableBody>
                   </Table>
                 </div>
+                {/* Pagination Live */}
+                {liveTotalPages > 1 && (
+                  <div className="flex items-center justify-between px-4 py-3 border-t border-slate-200 bg-slate-50/50 mt-4 -mx-6 -mb-6">
+                    <span className="text-xs text-slate-500">
+                      Menampilkan {livePage * PAGE_SIZE + 1}-{Math.min((livePage + 1) * PAGE_SIZE, filteredLive.length)} dari {filteredLive.length}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <button 
+                        onClick={() => setLivePage(p => Math.max(0, p - 1))}
+                        disabled={livePage === 0}
+                        className="p-1 rounded-md hover:bg-slate-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        <ChevronLeft className="w-5 h-5 text-slate-600" />
+                      </button>
+                      <span className="text-xs font-medium text-slate-700">Hal {livePage + 1} / {liveTotalPages}</span>
+                      <button 
+                        onClick={() => setLivePage(p => Math.min(liveTotalPages - 1, p + 1))}
+                        disabled={livePage === liveTotalPages - 1}
+                        className="p-1 rounded-md hover:bg-slate-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        <ChevronRight className="w-5 h-5 text-slate-600" />
+                      </button>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -556,11 +808,23 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
         {activeTab === 'video' as any && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6">
             <Card className="shadow-sm border-blue-200">
-              <CardHeader className="bg-blue-50 border-b border-blue-100 rounded-t-xl">
-                <CardTitle className="text-blue-900">Daftar Video Konten</CardTitle>
-                <p className="text-sm text-blue-700">
-                  Berikut adalah daftar video TikTok yang telah dibuat dan diposting oleh kreator.
-                </p>
+              <CardHeader className="bg-blue-50 border-b border-blue-100 rounded-t-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                  <CardTitle className="text-blue-900">Daftar Video Konten</CardTitle>
+                  <p className="text-sm text-blue-700 mt-1">
+                    Berikut adalah daftar video TikTok yang telah dibuat dan diposting oleh kreator.
+                  </p>
+                </div>
+                <div className="relative w-full sm:w-64">
+                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input 
+                    type="text" 
+                    placeholder="Cari username..." 
+                    className="w-full pl-9 pr-3 py-1.5 text-sm border border-blue-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                    value={videoSearch}
+                    onChange={(e) => { setVideoSearch(e.target.value); setVideoPage(0); }}
+                  />
+                </div>
               </CardHeader>
               <CardContent className="p-0">
                 <div className="overflow-x-auto">
@@ -577,18 +841,18 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {(!videos || videos.length === 0) ? (
+                      {paginatedVideo.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={7} className="text-center py-8 text-slate-500">Belum ada video yang disubmit.</TableCell>
+                          <TableCell colSpan={7} className="text-center py-8 text-slate-500">Belum ada video yang sesuai pencarian.</TableCell>
                         </TableRow>
                       ) : (
-                        videos.map((creatorGroup: any, index: number) => (
+                        paginatedVideo.map((creatorGroup: any, index: number) => (
                           <React.Fragment key={creatorGroup.creator_username || index}>
                             <TableRow 
                               className="hover:bg-slate-50 transition-colors cursor-pointer group"
                               onClick={() => setExpandedVideos(prev => ({...prev, [creatorGroup.creator_username]: !prev[creatorGroup.creator_username]}))}
                             >
-                              <TableCell className="text-center font-medium text-slate-500">{index + 1}</TableCell>
+                              <TableCell className="text-center font-medium text-slate-500">{videoPage * PAGE_SIZE + index + 1}</TableCell>
                               <TableCell>
                                 <a 
                                   href={`https://www.tiktok.com/@${creatorGroup.creator_username}`} 
@@ -663,6 +927,31 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                     </TableBody>
                   </Table>
                 </div>
+                {/* Pagination Video */}
+                {videoTotalPages > 1 && (
+                  <div className="flex items-center justify-between px-4 py-3 border-t border-blue-100 bg-blue-50/30 rounded-b-xl">
+                    <span className="text-xs text-slate-500">
+                      Menampilkan {videoPage * PAGE_SIZE + 1}-{Math.min((videoPage + 1) * PAGE_SIZE, filteredVideo.length)} dari {filteredVideo.length}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <button 
+                        onClick={() => setVideoPage(p => Math.max(0, p - 1))}
+                        disabled={videoPage === 0}
+                        className="p-1 rounded-md hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        <ChevronLeft className="w-5 h-5 text-blue-700" />
+                      </button>
+                      <span className="text-xs font-medium text-slate-700">Hal {videoPage + 1} / {videoTotalPages}</span>
+                      <button 
+                        onClick={() => setVideoPage(p => Math.min(videoTotalPages - 1, p + 1))}
+                        disabled={videoPage === videoTotalPages - 1}
+                        className="p-1 rounded-md hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        <ChevronRight className="w-5 h-5 text-blue-700" />
+                      </button>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>

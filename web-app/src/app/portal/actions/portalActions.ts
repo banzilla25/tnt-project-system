@@ -92,22 +92,33 @@ export async function getPortalData(campaignId: number) {
     .order('date', { ascending: true });
 
   // Fetch creators for Client Approval (hanya yang sudah disetujui internal TNT)
-  const { data: ccData } = await supabase
-    .from('campaign_creators')
-    .select(`
-      id, 
-      creator_id,
-      client_approval, 
-      notes_pic, 
-      tier,
-      content_type,
-      sample_progress,
-      sample_progress,
-      creators(username, nama_asli, link_account, creator_snapshots(followers, level, tier), creator_contacts(nomor, status)),
-      videos(id, link_video, content_uid, vt_approval, urutan)
-    `)
-    .eq('campaign_id', campaignId)
-    .in('approval', ['approved', 'alternate']);
+  let ccData: any[] = [];
+  let start = 0;
+  const pageSize = 1000;
+  
+  while (true) {
+    const { data, error } = await supabase
+      .from('campaign_creators')
+      .select(`
+        id, 
+        creator_id,
+        client_approval, 
+        notes_pic, 
+        tier,
+        content_type,
+        sample_progress,
+        creators(username, nama_asli, link_account, creator_snapshots(followers, level, tier), creator_contacts(nomor, status)),
+        videos(id, link_video, content_uid, vt_approval, urutan)
+      `)
+      .eq('campaign_id', campaignId)
+      .in('approval', ['approved', 'alternate'])
+      .range(start, start + pageSize - 1);
+
+    if (error || !data || data.length === 0) break;
+    ccData = ccData.concat(data);
+    if (data.length < pageSize) break;
+    start += pageSize;
+  }
 
   // Fetch sales summary and ads performance for GMV calculation
   const { data: salesSummary } = await supabase
