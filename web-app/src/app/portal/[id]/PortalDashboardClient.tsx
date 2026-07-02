@@ -101,7 +101,8 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
   const displayAds = approvalList.reduce((sum: number, c: any) => sum + (c.gmv_ads || 0), 0);
   const displayTotalGmv = displayOrganic + displayAds;
   
-  const displayTotalVideo = isAwareness ? (totalAwareness?.total_video || summary.achievement_video || 0) : (summary.achievement_video || 0);
+  const displayTotalVideo = (videos || []).reduce((sum: number, v: any) => sum + (v.total_videos || 0), 0) || (isAwareness ? (totalAwareness?.total_video || summary.achievement_video || 0) : (summary.achievement_video || 0));
+  const displayTotalViews = (videos || []).reduce((sum: number, v: any) => sum + (v.total_views || 0), 0);
 
   const percentGmv = summary.target_gmv ? Math.round((displayTotalGmv / summary.target_gmv) * 100) : 0;
   const percentVideo = summary.target_video ? Math.round((displayTotalVideo / summary.target_video) * 100) : 0;
@@ -352,30 +353,39 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                   )}
                 </div>
 
-                {/* GMV Organik Card */}
+                {/* Total Views Card */}
                 <div className="bg-white border border-slate-200 rounded-xl p-[24px] shadow-sm">
                   <div className="flex justify-between items-start">
                     <div>
-                      <p className="text-[13px] font-medium text-slate-500">GMV Organik</p>
-                      <h3 className="text-[24px] font-bold mt-[8px] text-slate-800">Rp {(displayOrganic / 1000000).toFixed(1)}M</h3>
-                      <p className="text-[11px] font-semibold text-slate-500 mt-[4px]">Rp {displayOrganic.toLocaleString()}</p>
-                      <p className="text-[11px] text-slate-400 mt-[4px]">Total dari CSV Penjualan</p>
+                      <p className="text-[13px] font-medium text-slate-500">Total Views</p>
+                      <h3 className="text-[24px] font-bold mt-[8px] text-slate-800">{displayTotalViews >= 1000000 ? (displayTotalViews / 1000000).toFixed(1) + 'M' : displayTotalViews.toLocaleString()}</h3>
+                      <p className="text-[11px] font-semibold text-slate-500 mt-[4px]">{displayTotalViews.toLocaleString()} views</p>
+                      <p className="text-[11px] text-slate-400 mt-[4px]">Akumulasi seluruh video</p>
                     </div>
                     <div className="p-[8px] bg-blue-50 text-blue-600 rounded-[8px]"><Activity className="w-5 h-5" /></div>
                   </div>
                 </div>
 
-                {/* GMV Ads Card */}
+                {/* Total Videos Card */}
                 <div className="bg-white border border-slate-200 rounded-xl p-[24px] shadow-sm">
                   <div className="flex justify-between items-start">
                     <div>
-                      <p className="text-[13px] font-medium text-slate-500">GMV Ads</p>
-                      <h3 className="text-[24px] font-bold mt-[8px] text-slate-800">Rp {(displayAds / 1000000).toFixed(1)}M</h3>
-                      <p className="text-[11px] font-semibold text-slate-500 mt-[4px]">Rp {displayAds.toLocaleString()}</p>
-                      <p className="text-[11px] text-slate-400 mt-[4px]">Total dari Impor Iklan</p>
+                      <p className="text-[13px] font-medium text-slate-500">Total Video</p>
+                      <h3 className="text-[24px] font-bold mt-[8px] text-slate-800">{displayTotalVideo} <span className="text-[13px] text-slate-500 font-normal">video</span></h3>
                     </div>
-                    <div className="p-[8px] bg-purple-50 text-purple-600 rounded-[8px]"><BarChart3 className="w-5 h-5" /></div>
+                    <div className="p-[8px] bg-purple-50 text-purple-600 rounded-[8px]"><Video className="w-5 h-5" /></div>
                   </div>
+                  {summary.target_video && (
+                    <div className="mt-[16px] pt-[16px] border-t border-slate-100">
+                      <div className="flex justify-between text-[11px] text-slate-500 mb-[4px] font-medium">
+                        <span>Target: {summary.target_video}</span>
+                        <span>{percentVideo}%</span>
+                      </div>
+                      <div className="w-full bg-slate-100 rounded-full h-[6px] flex overflow-hidden">
+                        <div className="bg-purple-500 h-[6px] transition-all duration-1000" style={{ width: `${Math.min(percentVideo, 100)}%` }}></div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Target Creator Card */}
@@ -425,15 +435,13 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                         <SortableHeader label="Creator" sortKey="username" currentSort={performaSort} onSort={(k) => handleSort('performa', k)} />
                         <SortableHeader label="Total VT" sortKey="total_vt" currentSort={performaSort} onSort={(k) => handleSort('performa', k)} className="text-center" />
                         <SortableHeader label="Item Sold" sortKey="items_sold" currentSort={performaSort} onSort={(k) => handleSort('performa', k)} className="text-center" />
-                        <SortableHeader label="GMV Organik" sortKey="gmv_organic" currentSort={performaSort} onSort={(k) => handleSort('performa', k)} className="text-right" />
-                        <SortableHeader label="GMV Ads" sortKey="gmv_ads" currentSort={performaSort} onSort={(k) => handleSort('performa', k)} className="text-right" />
                         <SortableHeader label="Total GMV" sortKey="total_gmv" currentSort={performaSort} onSort={(k) => handleSort('performa', k)} className="text-right" />
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {paginatedPerforma.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={6} className="text-center py-[32px] text-slate-500">Belum ada data kreator yang sesuai.</TableCell>
+                          <TableCell colSpan={4} className="text-center py-[32px] text-slate-500">Belum ada data kreator yang sesuai.</TableCell>
                         </TableRow>
                       ) : (
                         paginatedPerforma.map((c: any) => {
@@ -455,13 +463,7 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                               <TableCell className="text-center font-bold">
                                 {itemsSold} pcs
                               </TableCell>
-                              <TableCell className="text-right text-slate-500">
-                                Rp {gmvOrganic.toLocaleString()}
-                              </TableCell>
-                              <TableCell className="text-right text-slate-500">
-                                Rp {gmvAds.toLocaleString()}
-                              </TableCell>
-                              <TableCell className="text-right font-bold">
+                              <TableCell className="text-right font-bold text-slate-800">
                                 Rp {totalGmv.toLocaleString()}
                               </TableCell>
                             </TableRow>
