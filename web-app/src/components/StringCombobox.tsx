@@ -30,13 +30,19 @@ export function StringCombobox({
         setOpen(false);
         // On blur, commit the search value
         if (search !== value) {
-          onChange(search);
+          const trimmed = search.trim();
+          if (!trimmed) {
+            onChange("");
+          } else {
+            const existingMatch = options.find(opt => opt.toLowerCase() === trimmed.toLowerCase());
+            onChange(existingMatch || trimmed);
+          }
         }
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [search, value, onChange]);
+  }, [search, value, onChange, options]);
 
   const filteredOptions = options.filter(opt => opt.toLowerCase().includes(search.toLowerCase()) && opt.toLowerCase() !== search.toLowerCase());
 
@@ -69,8 +75,11 @@ export function StringCombobox({
             <div
               className="p-3 text-sm bg-blue-50/50 hover:bg-blue-100 text-blue-700 cursor-pointer transition-colors border-b border-slate-100 italic font-medium"
               onClick={() => {
-                setSearch(search);
-                onChange(search);
+                const trimmed = search.trim();
+                const existingMatch = options.find(opt => opt.toLowerCase() === trimmed.toLowerCase());
+                const finalValue = existingMatch || trimmed;
+                setSearch(finalValue);
+                onChange(finalValue);
                 setOpen(false);
               }}
             >
