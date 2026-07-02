@@ -3,11 +3,26 @@
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import { TrendingUp, Video, Users, Package, Calendar, CheckCircle, Activity, BarChart3, ChevronDown, ChevronUp, Search, ChevronLeft, ChevronRight, Filter } from "lucide-react";
+import { TrendingUp, Video, Users, Package, Calendar, CheckCircle, Activity, BarChart3, ChevronDown, ChevronUp, Search, ChevronLeft, ChevronRight, Filter, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/Table";
 import { submitClientApproval, updateResiByClient, batchUpdateResiByClient, type BatchUpdateData } from "../actions/portalActions";
 import { formatAbbreviated } from "@/utils/formatters";
 import { useRouter } from "next/navigation";
+
+const SortableHeader = ({ label, sortKey, currentSort, onSort, className = "" }: { label: string, sortKey: string, currentSort: {key: string, direction: 'asc'|'desc'}, onSort: (k: string) => void, className?: string }) => {
+  return (
+    <TableHead className={`py-[16px] cursor-pointer hover:bg-slate-50 transition-colors select-none group ${className}`} onClick={() => onSort(sortKey)}>
+      <div className={`flex items-center gap-2 ${className.includes('text-right') ? 'justify-end' : className.includes('text-center') ? 'justify-center' : 'justify-start'}`}>
+        {label}
+        {currentSort.key === sortKey ? (
+          currentSort.direction === 'asc' ? <ArrowUp className="w-4 h-4 text-blue-600" /> : <ArrowDown className="w-4 h-4 text-blue-600" />
+        ) : (
+          <ArrowUpDown className="w-4 h-4 text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+        )}
+      </div>
+    </TableHead>
+  );
+};
 
 export default function PortalDashboardClient({ data, campaignId }: { data: any, campaignId: number }) {
   const router = useRouter();
@@ -17,8 +32,27 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
   const [editedSamples, setEditedSamples] = useState<Record<number, BatchUpdateData>>({});
   const [isSavingBatch, setIsSavingBatch] = useState(false);
   
-  // Filter & Pagination States
+  // Filter, Sort, & Pagination States
   const PAGE_SIZE = 50;
+  
+  type SortDirection = 'asc' | 'desc';
+  const [performaSort, setPerformaSort] = useState<{key: string, direction: SortDirection}>({ key: 'total_gmv', direction: 'desc' });
+  const [listingSort, setListingSort] = useState<{key: string, direction: SortDirection}>({ key: 'username', direction: 'asc' });
+  const [sampleSort, setSampleSort] = useState<{key: string, direction: SortDirection}>({ key: 'tanggal_kirim', direction: 'desc' });
+  const [liveSort, setLiveSort] = useState<{key: string, direction: SortDirection}>({ key: 'tanggal_live', direction: 'asc' });
+  const [videoSort, setVideoSort] = useState<{key: string, direction: SortDirection}>({ key: 'total_views', direction: 'desc' });
+
+  const handleSort = (tab: 'performa' | 'listing' | 'sample' | 'live' | 'video', key: string) => {
+    const setterMap = { performa: setPerformaSort, listing: setListingSort, sample: setSampleSort, live: setLiveSort, video: setVideoSort };
+    const stateMap = { performa: performaSort, listing: listingSort, sample: sampleSort, live: liveSort, video: videoSort };
+    const setter = setterMap[tab];
+    const currentState = stateMap[tab];
+    if (currentState.key === key) {
+      setter({ key, direction: currentState.direction === 'asc' ? 'desc' : 'asc' });
+    } else {
+      setter({ key, direction: 'desc' });
+    }
+  };
   const [performaSearch, setPerformaSearch] = useState('');
   const [performaPage, setPerformaPage] = useState(0);
 
@@ -61,9 +95,12 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
   
   // Calculate display values based on campaign type and modern tracking data
   const isAwareness = campaign?.tipe_campaign === 'awareness' || campaign?.tipe_campaign === 'gmv_awareness';
-  const displayOrganic = isAwareness ? (totalAwareness?.total_organic_gmv || summary.total_daily_organic || 0) : (totalSales?.total_organic_gmv || summary.total_daily_organic || 0);
+  
+  // Bugfix: Ambil perhitungan GMV Organik & Ads langsung dari list kreator yang datanya sudah real-time
+  const displayOrganic = approvalList.reduce((sum: number, c: any) => sum + (c.gmv_organic || 0), 0);
   const displayAds = approvalList.reduce((sum: number, c: any) => sum + (c.gmv_ads || 0), 0);
   const displayTotalGmv = displayOrganic + displayAds;
+  
   const displayTotalVideo = isAwareness ? (totalAwareness?.total_video || summary.achievement_video || 0) : (summary.achievement_video || 0);
 
   const percentGmv = summary.target_gmv ? Math.round((displayTotalGmv / summary.target_gmv) * 100) : 0;
@@ -110,53 +147,107 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
   };
 
   // ============================
-  // DERIVED DATA FOR PAGINATION
+  // DERIVED DATA FOR PAGINATION & SORTING
   // ============================
 
+  const genericSort = (arr: any[], sortConfig: {key: string, direction: SortDirection}, getValue: (item: any) => any) => {
+    return [...arr].sort((a, b) => {
+      let valA = getValue(a);
+      let valB = getValue(b);
+      // Handle string comparison gracefully
+      if (typeof valA === 'string') valA = valA.toLowerCase();
+      if (typeof valB === 'string') valB = valB.toLowerCase();
+      
+      if (valA === valB) return 0;
+      // Handle undefined/null (push them to the end)
+      if (valA === undefined || valA === null) return 1;
+      if (valB === undefined || valB === null) return -1;
+      
+      const comparison = valA > valB ? 1 : -1;
+      return sortConfig.direction === 'asc' ? comparison : -comparison;
+    });
+  };
+
   // 1. Performa
-  const filteredPerforma = approvalList.filter((cc: any) => {
+  let filteredPerforma = approvalList.filter((cc: any) => {
     if (performaSearch && !cc.creators?.username?.toLowerCase().includes(performaSearch.toLowerCase())) return false;
     return true;
-  }).sort((a: any, b: any) => {
-    const gmvA = (a.gmv_organic || 0) + (a.gmv_ads || 0);
-    const gmvB = (b.gmv_organic || 0) + (b.gmv_ads || 0);
-    return gmvB - gmvA;
+  });
+  filteredPerforma = genericSort(filteredPerforma, performaSort, (c) => {
+    if (performaSort.key === 'username') return c.creators?.username;
+    if (performaSort.key === 'total_vt') return c.videos?.length || 0;
+    if (performaSort.key === 'items_sold') return c.items_sold || 0;
+    if (performaSort.key === 'gmv_organic') return c.gmv_organic || 0;
+    if (performaSort.key === 'gmv_ads') return c.gmv_ads || 0;
+    if (performaSort.key === 'total_gmv') return (c.gmv_organic || 0) + (c.gmv_ads || 0);
+    return 0;
   });
   const performaTotalPages = Math.ceil(filteredPerforma.length / PAGE_SIZE) || 1;
   const paginatedPerforma = filteredPerforma.slice(performaPage * PAGE_SIZE, (performaPage + 1) * PAGE_SIZE);
 
   // 2. Listing
-  const filteredListing = approvalList.filter((cc: any) => {
+  let filteredListing = approvalList.filter((cc: any) => {
     if (listingSearch && !cc.creators?.username?.toLowerCase().includes(listingSearch.toLowerCase())) return false;
     if (listingTypeFilter !== 'all' && cc.content_type?.toLowerCase() !== listingTypeFilter.toLowerCase()) return false;
     return true;
+  });
+  filteredListing = genericSort(filteredListing, listingSort, (c) => {
+    if (listingSort.key === 'username') return c.creators?.username;
+    if (listingSort.key === 'followers') return c.followers || 0;
+    if (listingSort.key === 'level') return c.level;
+    if (listingSort.key === 'tier') return c.tier;
+    if (listingSort.key === 'content_type') return c.content_type;
+    if (listingSort.key === 'sample_progress') return c.sample_progress;
+    if (listingSort.key === 'status_approval') return c.client_approval;
+    return 0;
   });
   const listingTotalPages = Math.ceil(filteredListing.length / PAGE_SIZE) || 1;
   const paginatedListing = filteredListing.slice(listingPage * PAGE_SIZE, (listingPage + 1) * PAGE_SIZE);
 
   // 3. Sampel
-  const filteredSamples = samples.filter((addr: any) => {
+  let filteredSamples = samples.filter((addr: any) => {
     const cc = approvalList.find((c: any) => c.id === addr.campaign_creator_id);
     const username = cc?.creators?.username || '';
     if (sampleSearch && !username.toLowerCase().includes(sampleSearch.toLowerCase()) && !(addr.resi || '').toLowerCase().includes(sampleSearch.toLowerCase())) return false;
     if (sampleStatusFilter !== 'all' && (addr.proses || 'Diproses').toLowerCase() !== sampleStatusFilter.toLowerCase()) return false;
     return true;
   });
+  filteredSamples = genericSort(filteredSamples, sampleSort, (addr) => {
+    const cc = approvalList.find((c: any) => c.id === addr.campaign_creator_id);
+    if (sampleSort.key === 'username') return cc?.creators?.username;
+    if (sampleSort.key === 'proses') return addr.proses;
+    if (sampleSort.key === 'tanggal_kirim') return new Date(addr.tanggal_kirim || 0).getTime();
+    if (sampleSort.key === 'resi') return addr.resi;
+    return 0;
+  });
   const sampleTotalPages = Math.ceil(filteredSamples.length / PAGE_SIZE) || 1;
   const paginatedSamples = filteredSamples.slice(samplePage * PAGE_SIZE, (samplePage + 1) * PAGE_SIZE);
 
   // 4. Live
-  const filteredLive = schedules.filter((l: any) => {
+  let filteredLive = schedules.filter((l: any) => {
     if (liveSearch && !l.creator_username?.toLowerCase().includes(liveSearch.toLowerCase())) return false;
     return true;
+  });
+  filteredLive = genericSort(filteredLive, liveSort, (l) => {
+    if (liveSort.key === 'username') return l.creator_username;
+    if (liveSort.key === 'tanggal_live') return new Date(l.tanggal_live || 0).getTime();
+    return 0;
   });
   const liveTotalPages = Math.ceil(filteredLive.length / PAGE_SIZE) || 1;
   const paginatedLive = filteredLive.slice(livePage * PAGE_SIZE, (livePage + 1) * PAGE_SIZE);
 
   // 5. Video
-  const filteredVideo = (videos || []).filter((v: any) => {
+  let filteredVideo = (videos || []).filter((v: any) => {
     if (videoSearch && !v.creator_username?.toLowerCase().includes(videoSearch.toLowerCase())) return false;
     return true;
+  });
+  filteredVideo = genericSort(filteredVideo, videoSort, (v) => {
+    if (videoSort.key === 'username') return v.creator_username;
+    if (videoSort.key === 'total_videos') return v.total_videos || 0;
+    if (videoSort.key === 'total_views') return v.total_views || 0;
+    if (videoSort.key === 'total_likes') return v.total_likes || 0;
+    if (videoSort.key === 'total_gmv') return v.total_gmv || 0;
+    return 0;
   });
   const videoTotalPages = Math.ceil(filteredVideo.length / PAGE_SIZE) || 1;
   const paginatedVideo = filteredVideo.slice(videoPage * PAGE_SIZE, (videoPage + 1) * PAGE_SIZE);
@@ -331,12 +422,12 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                   <Table className="w-full text-[13px] whitespace-nowrap">
                     <TableHeader className="bg-white border-b border-slate-200">
                       <TableRow className="hover:bg-transparent">
-                        <TableHead className="py-[16px]">Creator</TableHead>
-                        <TableHead className="py-[16px] text-center">Total VT</TableHead>
-                        <TableHead className="py-[16px] text-center">Item Sold</TableHead>
-                        <TableHead className="py-[16px] text-right">GMV Organik</TableHead>
-                        <TableHead className="py-[16px] text-right">GMV Ads</TableHead>
-                        <TableHead className="py-[16px] text-right">Total GMV</TableHead>
+                        <SortableHeader label="Creator" sortKey="username" currentSort={performaSort} onSort={(k) => handleSort('performa', k)} />
+                        <SortableHeader label="Total VT" sortKey="total_vt" currentSort={performaSort} onSort={(k) => handleSort('performa', k)} className="text-center" />
+                        <SortableHeader label="Item Sold" sortKey="items_sold" currentSort={performaSort} onSort={(k) => handleSort('performa', k)} className="text-center" />
+                        <SortableHeader label="GMV Organik" sortKey="gmv_organic" currentSort={performaSort} onSort={(k) => handleSort('performa', k)} className="text-right" />
+                        <SortableHeader label="GMV Ads" sortKey="gmv_ads" currentSort={performaSort} onSort={(k) => handleSort('performa', k)} className="text-right" />
+                        <SortableHeader label="Total GMV" sortKey="total_gmv" currentSort={performaSort} onSort={(k) => handleSort('performa', k)} className="text-right" />
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -452,13 +543,13 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                   <Table>
                     <TableHeader className="bg-white">
                       <TableRow>
-                        <TableHead className="w-48">Kreator</TableHead>
-                        <TableHead>Followers</TableHead>
-                        <TableHead>Level</TableHead>
-                        <TableHead>Tier</TableHead>
-                        <TableHead>Tipe Konten</TableHead>
-                        <TableHead>Progres Sampel</TableHead>
-                        {campaign.require_client_approval && <TableHead className="w-48 text-center">Status Approval</TableHead>}
+                        <SortableHeader label="Kreator" sortKey="username" currentSort={listingSort} onSort={(k) => handleSort('listing', k)} className="w-48" />
+                        <SortableHeader label="Followers" sortKey="followers" currentSort={listingSort} onSort={(k) => handleSort('listing', k)} />
+                        <SortableHeader label="Level" sortKey="level" currentSort={listingSort} onSort={(k) => handleSort('listing', k)} />
+                        <SortableHeader label="Tier" sortKey="tier" currentSort={listingSort} onSort={(k) => handleSort('listing', k)} />
+                        <SortableHeader label="Tipe Konten" sortKey="content_type" currentSort={listingSort} onSort={(k) => handleSort('listing', k)} />
+                        <SortableHeader label="Progres Sampel" sortKey="sample_progress" currentSort={listingSort} onSort={(k) => handleSort('listing', k)} />
+                        {campaign.require_client_approval && <SortableHeader label="Status Approval" sortKey="status_approval" currentSort={listingSort} onSort={(k) => handleSort('listing', k)} className="w-48 text-center" />}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -596,7 +687,7 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                       <TableRow>
                         <TableHead className="py-[16px] px-3">No</TableHead>
                         <TableHead className="py-[16px] px-3 min-w-[150px]">Product</TableHead>
-                        <TableHead className="py-[16px] px-3">Username</TableHead>
+                        <SortableHeader label="Username" sortKey="username" currentSort={sampleSort} onSort={(k) => handleSort('sample', k)} className="px-3" />
                         <TableHead className="py-[16px] px-3">No Whatsapp</TableHead>
                         <TableHead className="py-[16px] px-3 min-w-[150px]">Nama Penerima</TableHead>
                         <TableHead className="py-[16px] px-3 min-w-[200px]">Nama Jalan</TableHead>
@@ -605,9 +696,9 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                         <TableHead className="py-[16px] px-3">Kecamatan</TableHead>
                         <TableHead className="py-[16px] px-3">Kelurahan</TableHead>
                         <TableHead className="py-[16px] px-3">Kode Pos</TableHead>
-                        <TableHead className="py-[16px] px-3 min-w-[120px]">Proses</TableHead>
-                        <TableHead className="py-[16px] px-3">Tanggal Kirim</TableHead>
-                        <TableHead className="py-[16px] px-3">Resi</TableHead>
+                        <SortableHeader label="Proses" sortKey="proses" currentSort={sampleSort} onSort={(k) => handleSort('sample', k)} className="px-3 min-w-[120px]" />
+                        <SortableHeader label="Tanggal Kirim" sortKey="tanggal_kirim" currentSort={sampleSort} onSort={(k) => handleSort('sample', k)} className="px-3" />
+                        <SortableHeader label="Resi" sortKey="resi" currentSort={sampleSort} onSort={(k) => handleSort('sample', k)} className="px-3" />
                         <TableHead className="py-[16px] px-3 min-w-[150px]">Notes</TableHead>
                         <TableHead className="py-[16px] px-3">Status</TableHead>
                       </TableRow>
@@ -749,8 +840,8 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                   <Table>
                     <TableHeader className="bg-slate-50">
                       <TableRow>
-                        <TableHead className="w-48">Kreator</TableHead>
-                        <TableHead>Tanggal Live</TableHead>
+                        <SortableHeader label="Kreator" sortKey="username" currentSort={liveSort} onSort={(k) => handleSort('live', k)} className="w-48" />
+                        <SortableHeader label="Tanggal Live" sortKey="tanggal_live" currentSort={liveSort} onSort={(k) => handleSort('live', k)} />
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -832,11 +923,11 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                     <TableHeader className="bg-white">
                       <TableRow>
                         <TableHead className="w-16 text-center">No</TableHead>
-                        <TableHead className="w-48">Kreator</TableHead>
-                        <TableHead className="w-32 text-center">Total Video</TableHead>
-                        <TableHead className="text-right">Total Views</TableHead>
-                        <TableHead className="text-right">Total Likes</TableHead>
-                        <TableHead className="text-right">Total Sales GMV</TableHead>
+                        <SortableHeader label="Kreator" sortKey="username" currentSort={videoSort} onSort={(k) => handleSort('video', k)} className="w-48" />
+                        <SortableHeader label="Total Video" sortKey="total_videos" currentSort={videoSort} onSort={(k) => handleSort('video', k)} className="w-32 text-center" />
+                        <SortableHeader label="Total Views" sortKey="total_views" currentSort={videoSort} onSort={(k) => handleSort('video', k)} className="text-right" />
+                        <SortableHeader label="Total Likes" sortKey="total_likes" currentSort={videoSort} onSort={(k) => handleSort('video', k)} className="text-right" />
+                        <SortableHeader label="Total Sales GMV" sortKey="total_gmv" currentSort={videoSort} onSort={(k) => handleSort('video', k)} className="text-right" />
                         <TableHead className="w-16"></TableHead>
                       </TableRow>
                     </TableHeader>
