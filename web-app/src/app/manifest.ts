@@ -11,9 +11,9 @@ export default function manifest(): MetadataRoute.Manifest {
     theme_color: '#4f46e5',
     icons: [
       {
-        src: '/icon-tnt-project-tracking.svg',
-        sizes: 'any',
-        type: 'image/svg+xml',
+        src: '/icon-tnt-rounded.png',
+        sizes: '512x512',
+        type: 'image/png',
       },
     ],
   };
