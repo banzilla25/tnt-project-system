@@ -10,7 +10,7 @@ import { createClient } from "@/utils/supabase/client";
 import { useDatabaseStore } from "@/store/useDatabaseStore";
 
 type PreviewRow = {
-  campaign_id: number;
+  campaign_id: number | null;
   creator_username: string;
   content_uid: string | null;
   product_id: string | null;
@@ -348,7 +348,7 @@ export default function OrganicImport() {
       if (!mappedCampaignId) {
         unmappedRowsCount++;
         if (rawProductId) unmappedSkusMap.set(rawProductId, productName);
-        continue; // REJECT baris ini jika SKU tidak dikenal
+        // Tetap simpan baris ini dengan campaign_id = null
       } else {
         if (rawProductId) mappedSkusMap.set(rawProductId, productName);
       }
@@ -633,9 +633,9 @@ export default function OrganicImport() {
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
               <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
               <div>
-                <p className="font-bold text-amber-900 text-sm">Mode Strict SKU Aktif!</p>
+                <p className="font-bold text-amber-900 text-sm">Smart Routing Aktif!</p>
                 <p className="text-sm text-amber-800 mt-1">
-                  File campuran akan dipisah otomatis ke masing-masing Campaign. Baris data dengan SKU yang <b>belum terdaftar</b> di menu SKU Campaign akan <b>ditolak otomatis</b> oleh sistem.
+                  Data otomatis dipisah ke masing-masing Campaign. Data dengan SKU/Campaign ID yang <b>belum terdaftar</b> akan tetap disimpan ke database, namun statusnya <b>belum terpetakan</b> sampai Anda mendaftarkan SKU tersebut di Campaign.
                 </p>
               </div>
             </div>
@@ -676,12 +676,12 @@ export default function OrganicImport() {
         {step === 2 && stats && (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             {stats.unmappedRows > 0 ? (
-              <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-4">
-                <XCircle className="w-6 h-6 text-red-600 shrink-0 mt-1" />
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-4">
+                <AlertCircle className="w-6 h-6 text-amber-600 shrink-0 mt-1" />
                 <div>
-                  <h4 className="font-bold text-red-900 mb-1">Ada Data Ditolak!</h4>
-                  <p className="text-sm text-red-800">
-                    Ada <b>{stats.unmappedRows} baris</b> data yang ditolak karena SKU-nya belum didaftarkan. Harap daftarkan ID SKU yang ditolak di bawah ini ke menu "SKU Campaign" jika ingin data tersebut masuk.
+                  <h4 className="font-bold text-amber-900 mb-1">Ada Data Belum Terpetakan!</h4>
+                  <p className="text-sm text-amber-800">
+                    Ada <b>{stats.unmappedRows} baris</b> data yang SKU-nya belum terdaftar. Data ini <b>tetap akan disimpan ke database</b>, namun belum masuk ke total GMV Campaign mana pun. Harap daftarkan ID Produk di bawah ini ke menu "SKU Campaign" jika ingin data tersebut dihitung.
                   </p>
                 </div>
               </div>
@@ -721,8 +721,8 @@ export default function OrganicImport() {
               </div>
               <div className="bg-slate-50 border border-slate-100 p-4 rounded-xl">
                 <Tags className="w-5 h-5 text-amber-600 mb-2" />
-                <p className="text-xs text-slate-500 font-medium">SKU Ditolak</p>
-                <p className="text-lg font-bold text-red-600">{stats.unmappedRows}</p>
+                <p className="text-xs text-slate-500 font-medium">Belum Terpetakan</p>
+                <p className="text-lg font-bold text-amber-600">{stats.unmappedRows}</p>
               </div>
             </div>
 
@@ -783,10 +783,10 @@ export default function OrganicImport() {
                       </thead>
                       <tbody className="divide-y divide-slate-100">
                         {stats.unmappedSkus.map(sku => (
-                          <tr key={sku.id} className="bg-red-50/50 hover:bg-red-50">
-                            <td className="px-4 py-2"><span className="inline-flex px-2 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-700">DITOLAK</span></td>
-                            <td className="px-4 py-2 font-mono text-red-700">{sku.id}</td>
-                            <td className="px-4 py-2 text-red-900 max-w-[150px] truncate" title={sku.name}>{sku.name}</td>
+                          <tr key={sku.id} className="bg-amber-50/50 hover:bg-amber-50">
+                            <td className="px-4 py-2"><span className="inline-flex px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-700">TERTUNDA</span></td>
+                            <td className="px-4 py-2 font-mono text-amber-700">{sku.id}</td>
+                            <td className="px-4 py-2 text-amber-900 max-w-[150px] truncate" title={sku.name}>{sku.name}</td>
                             <td className="px-4 py-2">
                               <div className="flex items-center gap-2">
                                 <select 
