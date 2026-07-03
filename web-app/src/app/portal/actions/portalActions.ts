@@ -139,7 +139,7 @@ export async function getPortalData(campaignId: number) {
   while (true) {
     const { data: pageSv } = await supabase
       .from('sales')
-      .select('content_uid, gmv, creator_username, content_type')
+      .select('content_uid, gmv, creator_username, content_type, product_id, quantity')
       .eq('campaign_id', campaignId)
       .not('content_uid', 'is', null)
       .range(svStart, svStart + 999);
@@ -333,6 +333,30 @@ export async function getPortalData(campaignId: number) {
      finalSummary.target_creator = campaign.target_creator;
   }
 
+  // Aggregate sales per product_id for Top 5 SKU insight (scoped to campaign SKUs only)
+  const productGmvMap = new Map<string, { product_id: string; nama_produk: string; gmv: number; items_sold: number; }>();
+  const validProductIds = new Set((skusData || []).map((s: any) => s.product_id));
+  
+  // Use salesForVideos which already contains all sales for this campaign
+  salesForVideos?.forEach((s: any) => {
+    if (s.product_id && validProductIds.has(s.product_id)) {
+      const existing = productGmvMap.get(s.product_id) || { 
+        product_id: s.product_id, 
+        nama_produk: (skusData || []).find((sk: any) => sk.product_id === s.product_id)?.nama_produk || s.product_id,
+        gmv: 0, 
+        items_sold: 0 
+      };
+      existing.gmv += (s.gmv || 0);
+      existing.items_sold += (s.quantity || 0);
+      productGmvMap.set(s.product_id, existing);
+    }
+  });
+  
+  const salesPerProduct = Array.from(productGmvMap.values())
+    .sort((a, b) => b.gmv - a.gmv);
+  
+  const totalItemsSold = salesPerProduct.reduce((sum, p) => sum + p.items_sold, 0);
+
   return { 
     authenticated: true, 
     campaign, 
@@ -345,7 +369,9 @@ export async function getPortalData(campaignId: number) {
     schedules,
     videos: portalVideos,
     skus: skusData || [],
-    rpcPerformance: rpcPerformance || null
+    rpcPerformance: rpcPerformance || null,
+    salesPerProduct,
+    totalItemsSold
   };
 }
 

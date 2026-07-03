@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import { TrendingUp, Video, Users, Package, Calendar, CheckCircle, Activity, BarChart3, ChevronDown, ChevronUp, Search, ChevronLeft, ChevronRight, Filter, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
+import { TrendingUp, Video, Users, Package, Calendar, CheckCircle, Activity, BarChart3, ChevronDown, ChevronUp, Search, ChevronLeft, ChevronRight, Filter, ArrowUp, ArrowDown, ArrowUpDown, Download, ShoppingCart } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/Table";
 import { submitClientApproval, updateResiByClient, batchUpdateResiByClient, type BatchUpdateData } from "../actions/portalActions";
 import { formatAbbreviated } from "@/utils/formatters";
@@ -91,7 +91,7 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [editedSamples]);
 
-  const { campaign, summary, dailyPerf, ccData: approvalList, samples, schedules, videos, skus, rpcPerformance } = data;
+  const { campaign, summary, dailyPerf, ccData: approvalList, samples, schedules, videos, skus, rpcPerformance, salesPerProduct, totalItemsSold } = data;
   
   // Calculate display values based on campaign type and modern tracking data
   const isAwareness = campaign?.tipe_campaign === 'awareness' || campaign?.tipe_campaign === 'gmv_awareness';
@@ -153,6 +153,84 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
     } finally {
       setIsSavingBatch(false);
     }
+  };
+
+  // ============================
+  // EXPORT TO EXCEL (XLSX)
+  // ============================
+  const handleExportExcel = async () => {
+    const XLSX = (await import('xlsx')).default;
+    const wb = XLSX.utils.book_new();
+
+    // Sheet 1: Summary
+    const summaryRows = [
+      ['Campaign', campaign.nama],
+      ['Periode', `${new Date(campaign.start_date).toLocaleDateString('id-ID')} - ${new Date(campaign.end_date).toLocaleDateString('id-ID')}`],
+      ['Total GMV', displayTotalGmv],
+      ['Total Views', displayTotalViews],
+      ['Total Video', displayTotalVideo],
+      ['Total Livestream', displayTotalLivestream],
+      ['Total Kreator Approved', displayTotalCreator],
+      ['Total Item Sold', totalItemsSold || 0],
+      [],
+      ['Top 5 Product ID by GMV'],
+      ['Product ID', 'Nama Produk', 'GMV', 'Items Sold'],
+      ...(salesPerProduct || []).slice(0, 5).map((p: any) => [p.product_id, p.nama_produk, p.gmv, p.items_sold])
+    ];
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summaryRows), 'Summary');
+
+    // Sheet 2: Listing Kreator
+    const creatorRows = approvalList.map((cc: any) => ({
+      'Username': cc.creators?.username || 'Unknown',
+      'Followers': cc.followers || 0,
+      'Level': cc.level || '-',
+      'Tier': cc.tier || '-',
+      'Tipe Konten': cc.content_type || '-',
+      'Progress Sampel': cc.sample_progress || '-',
+      'Status Approval': cc.client_approval || '-',
+      'GMV Organic': cc.gmv_organic || 0,
+      'GMV Ads': cc.gmv_ads || 0,
+      'Total GMV': (cc.gmv_organic || 0) + (cc.gmv_ads || 0),
+      'Item Sold': cc.items_sold || 0,
+      'Total VT': cc.total_vt || 0,
+      'Total Livestream': cc.total_livestreams || 0
+    }));
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(creatorRows), 'Listing Kreator');
+
+    // Sheet 3: Video & Konten
+    const videoRows: any[] = [];
+    (videos || []).forEach((vGroup: any) => {
+      (vGroup.videos || []).forEach((v: any) => {
+        videoRows.push({
+          'Kreator': vGroup.creator_username,
+          'Link Video': v.link_video || '-',
+          'Views': v.views || 0,
+          'Likes': v.likes || 0,
+          'GMV': v.gmv || 0,
+          'Auto Tracked': v.isAuto ? 'Ya' : 'Tidak'
+        });
+      });
+    });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(videoRows.length > 0 ? videoRows : [{ 'Info': 'Tidak ada data video' }]), 'Video & Konten');
+
+    // Sheet 4: Sampel & Resi
+    const sampleRows = (samples || []).map((addr: any) => {
+      const cc = approvalList.find((c: any) => c.id === addr.campaign_creator_id);
+      return {
+        'Username': cc?.creators?.username || addr.creator_username || 'Unknown',
+        'Produk': addr.produk_dikirim || '-',
+        'No WhatsApp': cc?.no_whatsapp || '-',
+        'Nama Penerima': addr.nama_penerima || '-',
+        'Alamat': addr.nama_jalan || '-',
+        'Provinsi': addr.provinsi || '-',
+        'Resi': addr.resi || '-',
+        'Status': addr.proses || 'Diproses',
+        'Tanggal Kirim': addr.tanggal_kirim ? new Date(addr.tanggal_kirim).toLocaleDateString('id-ID') : '-'
+      };
+    });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sampleRows.length > 0 ? sampleRows : [{ 'Info': 'Tidak ada data sampel' }]), 'Sampel & Resi');
+
+    XLSX.writeFile(wb, `${campaign.nama.replace(/[^a-zA-Z0-9]/g, '_')}_Report.xlsx`);
   };
 
   // ============================
@@ -275,11 +353,19 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
             Periode: {new Date(campaign.start_date).toLocaleDateString('id-ID')} - {new Date(campaign.end_date).toLocaleDateString('id-ID')}
           </p>
         </div>
-        <div className="text-left md:text-right">
-          <p className="text-sm text-slate-500">Status</p>
-          <Badge variant={campaign.status === 'aktif' ? 'success' : 'secondary'} className="uppercase mt-1 text-sm">
-            {campaign.status}
-          </Badge>
+        <div className="text-left md:text-right flex flex-col items-start md:items-end gap-2">
+          <div>
+            <p className="text-sm text-slate-500">Status</p>
+            <Badge variant={campaign.status === 'aktif' ? 'success' : 'secondary'} className="uppercase mt-1 text-sm">
+              {campaign.status}
+            </Badge>
+          </div>
+          <button 
+            onClick={handleExportExcel}
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-500 to-green-600 text-white text-sm font-medium rounded-lg hover:from-emerald-600 hover:to-green-700 transition-all shadow-sm hover:shadow-md"
+          >
+            <Download className="w-4 h-4" /> Export Excel
+          </button>
         </div>
       </div>
 
@@ -424,6 +510,61 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                       </div>
                     </div>
                   )}
+                </div>
+              </div>
+
+              {/* Total Item Sold + Top 5 Product ID */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-[24px]">
+                {/* Total Item Sold Card */}
+                <div className="bg-gradient-to-br from-amber-50 to-yellow-100/50 border border-amber-100 rounded-xl overflow-hidden p-[24px] shadow-sm">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="text-[13px] font-medium text-amber-800">Total Item Sold</p>
+                      <h3 className="text-[32px] font-bold mt-[8px] text-amber-900">{(totalItemsSold || 0).toLocaleString()}</h3>
+                      <p className="text-[11px] text-amber-700/70 mt-[4px]">Total produk terjual di campaign ini</p>
+                    </div>
+                    <div className="p-[12px] bg-white text-amber-600 rounded-[12px] shadow-sm"><ShoppingCart className="w-6 h-6" /></div>
+                  </div>
+                </div>
+
+                {/* Top 5 Product ID by GMV */}
+                <div className="md:col-span-2 bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                  <div className="border-b border-slate-200 bg-slate-50/50 p-[16px]">
+                    <h3 className="font-bold flex items-center gap-[8px] text-slate-800">
+                      <BarChart3 className="w-5 h-5 text-blue-600" /> Top 5 Product ID by GMV
+                    </h3>
+                    <p className="text-[12px] text-slate-500 mt-1">Produk dengan pencapaian GMV tertinggi di campaign ini</p>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <Table className="w-full text-[13px]">
+                      <TableHeader className="bg-white border-b border-slate-200">
+                        <TableRow className="hover:bg-transparent">
+                          <TableHead className="py-[12px] w-8 text-center">#</TableHead>
+                          <TableHead className="py-[12px]">Product ID</TableHead>
+                          <TableHead className="py-[12px]">Nama Produk</TableHead>
+                          <TableHead className="py-[12px] text-center">Items Sold</TableHead>
+                          <TableHead className="py-[12px] text-right">GMV</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {(salesPerProduct || []).length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={5} className="text-center py-[24px] text-slate-500">Belum ada data penjualan produk.</TableCell>
+                          </TableRow>
+                        ) : (
+                          (salesPerProduct || []).slice(0, 5).map((p: any, idx: number) => (
+                            <TableRow key={p.product_id} className="transition-all duration-300 hover:bg-slate-50">
+                              <TableCell className="text-center font-bold text-slate-400">{idx + 1}</TableCell>
+                              <TableCell className="font-mono text-[12px] text-blue-600">{p.product_id}</TableCell>
+                              <TableCell className="font-medium text-slate-700">{p.nama_produk}</TableCell>
+                              <TableCell className="text-center font-bold">{(p.items_sold || 0).toLocaleString()} pcs</TableCell>
+                              <TableCell className="text-right font-bold text-green-700">Rp {(p.gmv || 0).toLocaleString()}</TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
                 </div>
               </div>
 
