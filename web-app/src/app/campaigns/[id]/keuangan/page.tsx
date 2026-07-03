@@ -80,12 +80,25 @@ function CampaignKeuanganContent() {
   const fetchCreatorData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
+      const fetchAll = async (baseQuery: any) => {
+        let all: any[] = [];
+        let from = 0;
+        while (true) {
+          const { data, error } = await baseQuery.range(from, from + 999);
+          if (error) throw error;
+          if (!data || data.length === 0) break;
+          all = all.concat(data);
+          if (data.length < 1000) break;
+          from += 1000;
+        }
+        return all;
+      };
+
+      const data = await fetchAll(supabase
         .from('campaign_creators')
         .select(`id, price, status_bayar, nominal_pelunasan, tgl_pembayaran, payment_updated_at, payment_updated_by_profile:profiles!campaign_creators_payment_updated_by_fkey(nama), creators ( username )`)
         .eq('campaign_id', campaignId)
-        .eq('approval', 'approved');
-      if (error) throw error;
+        .eq('approval', 'approved'));
       setCreators(data || []);
       const forms: Record<number, any> = {};
       (data || []).forEach(cc => {

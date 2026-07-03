@@ -92,26 +92,50 @@ export default function LiveSchedulePage() {
       const usernames = localCreators.map(cc => cc.creators?.username).filter(Boolean);
       if (usernames.length === 0) return;
       
-      // Fetch live sessions
-      const { data: sessions } = await supabase
-        .from('live_sessions')
-        .select('*')
-        .in('creator_username', usernames);
-        
-      if (sessions && sessions.length > 0) {
-        setActualLives(sessions);
-        
-        const roomIds = sessions.map(s => s.livestream_room_id);
-        
-        // Fetch products for these rooms
-        // Split into chunks if > 1000, but usually safe for a single campaign's lives
-        const { data: products } = await supabase
-          .from('live_session_products')
+      const fetchAll = async (baseQuery: any) => {
+        let all: any[] = [];
+        let from = 0;
+        while (true) {
+          const { data, error } = await baseQuery.range(from, from + 999);
+          if (error) break;
+          if (!data || data.length === 0) break;
+          all = all.concat(data);
+          if (data.length < 1000) break;
+          from += 1000;
+        }
+        return all;
+      };
+
+      // Fetch live sessions in chunks to avoid URL too long and bypass 1000 limit
+      let allSessions: any[] = [];
+      const chunkSize = 200;
+      for (let i = 0; i < usernames.length; i += chunkSize) {
+        const chunk = usernames.slice(i, i + chunkSize);
+        const chunkSessions = await fetchAll(supabase
+          .from('live_sessions')
           .select('*')
-          .in('livestream_room_id', roomIds);
+          .in('creator_username', chunk));
+        allSessions = allSessions.concat(chunkSessions);
+      }
+        
+      if (allSessions && allSessions.length > 0) {
+        setActualLives(allSessions);
+        
+        const roomIds = allSessions.map(s => s.livestream_room_id).filter(Boolean);
+        const uniqueRoomIds = Array.from(new Set(roomIds));
+        
+        let allProducts: any[] = [];
+        for (let i = 0; i < uniqueRoomIds.length; i += chunkSize) {
+          const chunk = uniqueRoomIds.slice(i, i + chunkSize);
+          const chunkProducts = await fetchAll(supabase
+            .from('live_session_products')
+            .select('*')
+            .in('livestream_room_id', chunk));
+          allProducts = allProducts.concat(chunkProducts);
+        }
           
-        if (products) {
-          setActualLiveProducts(products);
+        if (allProducts && allProducts.length > 0) {
+          setActualLiveProducts(allProducts);
         }
       }
     };

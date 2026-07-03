@@ -27,23 +27,38 @@ export default function CampaignLiveStreamPage() {
     const fetchData = async () => {
       setIsLoading(true);
       try {
+      // Helper to fetch all rows paginated to bypass 1000 row limit
+      const fetchAll = async (baseQuery) => {
+        let all = [];
+        let from = 0;
+        while (true) {
+          const { data, error } = await baseQuery.range(from, from + 999);
+          if (error) throw error;
+          if (!data || data.length === 0) break;
+          all = all.concat(data);
+          if (data.length < 1000) break;
+          from += 1000;
+        }
+        return all;
+      };
+
         // 1. Fetch approved creators
-        const { data: ccData, error: ccError } = await supabase
+        const ccData = await fetchAll(supabase
           .from('campaign_creators')
           .select('*, creators!inner(*)')
           .eq('campaign_id', campaignId)
-          .eq('approval', 'approved');
+          .eq('approval', 'approved'));
 
-        if (ccError) throw ccError;
+        
 
         // 2. Fetch Livestream Sales
-        const { data: sData, error: sError } = await supabase
+        const sData = await fetchAll(supabase
           .from('sales')
           .select('*')
           .eq('campaign_id', campaignId)
-          .in('content_type', ['Livestream', 'Live']);
+          .in('content_type', ['Livestream', 'Live']));
 
-        if (sError) throw sError;
+        
 
         // 3. Fetch Livestream Metrics from organic_videos
         const contentUids = sData ? Array.from(new Set(sData.map(s => s.content_uid).filter(Boolean))) : [];
