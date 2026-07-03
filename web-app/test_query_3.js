@@ -6,7 +6,7 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-async function testQuery() {
+async function testQuery3() {
     let allRecapData = [];
     let start = 0;
     const pageSize = 1000;
@@ -15,16 +15,13 @@ async function testQuery() {
         .from('campaign_creators')
         .select(`
           id, approval, approved_at, created_at, added_by, tier, creator_id,
-          creators (
-            username,
-            creator_snapshots ( tier, tanggal_update, id )
-          )
+          creators ( username )
         `)
         .eq('campaign_id', 44)
         .range(start, start + pageSize - 1);
         
       if (error) {
-        console.error("Error:", error);
+        console.error("Error at start", start, ":", error);
         break;
       }
       if (!data || data.length === 0) break;
@@ -37,4 +34,4 @@ async function testQuery() {
     console.log("Total Fetched:", allRecapData.length);
 }
 
-testQuery();
+testQuery3();

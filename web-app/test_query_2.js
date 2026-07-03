@@ -9,7 +9,7 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
 async function testQuery() {
     let allRecapData = [];
     let start = 0;
-    const pageSize = 1000;
+    const pageSize = 200;
     while (true) {
       const { data, error } = await supabase
         .from('campaign_creators')
@@ -24,7 +24,7 @@ async function testQuery() {
         .range(start, start + pageSize - 1);
         
       if (error) {
-        console.error("Error:", error);
+        console.error("Error at start", start, ":", error);
         break;
       }
       if (!data || data.length === 0) break;

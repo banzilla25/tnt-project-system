@@ -16,7 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { MultiSelect } from "@/components/MultiSelect";
 
 const supabase = createClient();
-const PAGE_SIZE = 1000;
+const PAGE_SIZE = 100;
 
 const extractLatestSnapshot = (creator: any) => {
   const snaps = creator?.creator_snapshots || [];
@@ -572,10 +572,7 @@ function CampaignListingContent() {
         .from('campaign_creators')
         .select(`
           id, approval, approved_at, created_at, added_by, tier, creator_id,
-          creators (
-            username,
-            creator_snapshots ( tier, tanggal_update, id )
-          )
+          creators ( username )
         `)
         .eq('campaign_id', campaignId)
         .range(start, start + pageSize - 1);
