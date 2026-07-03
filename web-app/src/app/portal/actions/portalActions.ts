@@ -116,6 +116,7 @@ export async function getPortalData(campaignId: number) {
       .range(start, start + pageSize - 1);
 
     if (error || !data || data.length === 0) break;
+    ccData = ccData.concat(data);
     if (data.length < pageSize) break;
     start += pageSize;
   }
