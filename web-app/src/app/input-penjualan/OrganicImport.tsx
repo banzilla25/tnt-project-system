@@ -25,6 +25,8 @@ type PreviewRow = {
   order_status: string | null;
   commission_rate: string | null;
   attribution_type: string | null;
+  tiktok_campaign_id: string | null;
+  shop_code: string | null;
   video_views: number;
   video_likes: number;
   duration_str: string | null;
@@ -165,15 +167,26 @@ export default function OrganicImport() {
       return;
     }
 
-    // Buat Dictionary SKU Mapping: product_id -> campaign_id
+    // Buat Dictionary Mapping
     const skuMapping: Record<string, number> = {};
     const skuNameMapping: Record<string, string> = {};
     const skuIdMapping: Record<string, number> = {};
+    const tiktokToCampaigns: Record<string, number[]> = {};
+
     skus?.forEach(s => {
       if (s.product_id) {
         skuMapping[s.product_id.toString()] = s.campaign_id;
         skuNameMapping[s.product_id.toString()] = s.nama_produk;
         skuIdMapping[s.product_id.toString()] = s.id;
+      }
+    });
+
+    campaigns?.forEach(c => {
+      if (c.tiktok_campaign_ids && c.tiktok_campaign_ids.length > 0) {
+        c.tiktok_campaign_ids.forEach(tid => {
+          if (!tiktokToCampaigns[tid]) tiktokToCampaigns[tid] = [];
+          tiktokToCampaigns[tid].push(c.id);
+        });
       }
     });
 
@@ -237,6 +250,8 @@ export default function OrganicImport() {
       let orderStatus = '';
       let commissionRate = '';
       let attributionType = '';
+      let tiktokCampaignId = '';
+      let shopCode = '';
       let videoViews = 0;
       let videoLikes = 0;
       let durationStr = '';
@@ -245,6 +260,9 @@ export default function OrganicImport() {
       if (isSalesFormat) {
         const isRefundStr = row['Fully returned or refunded'] || 'No';
         isRefund = isRefundStr.trim().toLowerCase() === 'yes';
+
+        tiktokCampaignId = row['Partner campaign ID']?.toString() || '';
+        shopCode = row['Shop code']?.toString() || '';
 
         rawProductId = row['Product ID']?.toString() || '';
         productName = row['Product Name']?.toString() || skuNameMapping[rawProductId] || 'Unknown Product';
@@ -272,19 +290,20 @@ export default function OrganicImport() {
         commissionRate = row['Standard affiliate partner commission rate']?.toString() || '';
         attributionType = row['Attribution type']?.toString() || '';
       } else if (isLiveFormat) {
-        // Live Format
+        // Live Format - HANYA UPDATE AWARENESS
         rawProductId = row['Product ID']?.toString() || '';
         productName = row['Product name']?.toString() || row['Product Name']?.toString() || skuNameMapping[rawProductId] || 'Unknown Product';
-        const gmvStr = row['Affiliate LIVE GMV']?.toString() || '0';
-        gmv = Math.round(parseFloat(gmvStr.replace(/[^0-9]/g, '')) || 0); 
-        quantity = parseInt(row['Items sold'] || row['LIVE orders'] || 0);
-        price = quantity > 0 ? Math.round(gmv / quantity) : 0;
+        gmv = 0; 
+        quantity = 0;
+        price = 0;
+        tiktokCampaignId = row['Campaign ID']?.toString() || '';
+        shopCode = row['Shop ID']?.toString() || '';
         const rawUsername = row['Creator name'] || '';
         creatorUsername = rawUsername.replace('@', '').toLowerCase();
         contentUid = row['Livestream room ID']?.toString() || '';
         tanggal = parseTikTokDate(row['Date']?.toString() || row['LIVE time info']?.toString() || '');
         contentType = 'Livestream';
-        orderId = `live_${contentUid}_${rawProductId}_${creatorUsername}`; 
+        orderId = ''; 
         orderStatus = 'Completed'; 
         videoViews = parseInt(row['LIVE views'] || 0);
         videoLikes = parseInt(row['LIVE likes'] || 0);
@@ -292,19 +311,20 @@ export default function OrganicImport() {
         const rpmStr = row['LIVE product RPM']?.toString() || '0';
         videoProductRpm = Math.round(parseFloat(rpmStr.replace(/[^0-9]/g, '')) || 0);
       } else {
-        // Awareness Format
+        // Awareness Format - HANYA UPDATE AWARENESS
         rawProductId = row['Product ID']?.toString() || '';
         productName = row['Product name']?.toString() || row['Product Name']?.toString() || skuNameMapping[rawProductId] || 'Unknown Product';
-        const gmvStr = row['Affiliate video GMV']?.toString() || '0';
-        gmv = Math.round(parseFloat(gmvStr.replace(/[^0-9]/g, '')) || 0); 
-        quantity = parseInt(row['Items sold'] || row['Video orders'] || 0);
-        price = quantity > 0 ? Math.round(gmv / quantity) : 0;
+        gmv = 0; 
+        quantity = 0;
+        price = 0;
+        tiktokCampaignId = row['Campaign ID']?.toString() || '';
+        shopCode = row['Shop ID']?.toString() || '';
         const rawUsername = row['Creator name'] || '';
         creatorUsername = rawUsername.replace('@', '').toLowerCase();
         contentUid = row['Video ID']?.toString() || '';
         tanggal = parseTikTokDate(row['Post time']?.toString() || '');
         contentType = 'Video';
-        orderId = `video_${contentUid}_${rawProductId}_${creatorUsername}`; 
+        orderId = ''; 
         orderStatus = 'Completed'; 
         videoViews = parseInt(row['Video views'] || 0);
         videoLikes = parseInt(row['Video likes'] || 0);
@@ -313,8 +333,17 @@ export default function OrganicImport() {
         videoProductRpm = Math.round(parseFloat(rpmStr.replace(/[^0-9]/g, '')) || 0);
       }
 
-      // STRICT SKU ROUTING
-      const mappedCampaignId = skuMapping[rawProductId];
+      // SMART ROUTING
+      let mappedCampaignId = null;
+
+      if (rawProductId && skuMapping[rawProductId]) {
+        mappedCampaignId = skuMapping[rawProductId]; // Priority 1: SKU
+      } else if (tiktokCampaignId && tiktokToCampaigns[tiktokCampaignId]) {
+        const possibleCampaigns = tiktokToCampaigns[tiktokCampaignId];
+        if (possibleCampaigns.length === 1) {
+           mappedCampaignId = possibleCampaigns[0]; // Priority 2: Safe Campaign ID fallback
+        }
+      }
 
       if (!mappedCampaignId) {
         unmappedRowsCount++;
@@ -359,6 +388,8 @@ export default function OrganicImport() {
         order_status: orderStatus || null,
         commission_rate: commissionRate || null,
         attribution_type: attributionType || null,
+        tiktok_campaign_id: tiktokCampaignId || null,
+        shop_code: shopCode || null,
         video_views: videoViews,
         video_likes: videoLikes,
         duration_str: durationStr || null,
@@ -420,36 +451,46 @@ export default function OrganicImport() {
     let successCount = 0;
     const errors: string[] = [];
     
-    // Deduplicate payload by order_id to prevent PostgreSQL error and prevent GMV loss!
-    const payloadMap = new Map<string, any>();
+    // Deduplicate payload correctly based on type
+    const salesMap = new Map<string, any>();
+    const videoMap = new Map<string, any>();
     
     for (const item of previewPayload) {
-      if (!item.order_id) continue;
-      
-      if (payloadMap.has(item.order_id)) {
-        const existing = payloadMap.get(item.order_id);
-        existing.gmv += item.gmv;
-        existing.quantity += item.quantity;
-        // Kita juga bisa tambahkan price jika perlu, tapi biasanya gmv yang penting
-      } else {
-        payloadMap.set(item.order_id, { ...item }); // clone to avoid mutating original
+      if (item.order_id) {
+        // Sales Route
+        if (salesMap.has(item.order_id)) {
+          const existing = salesMap.get(item.order_id);
+          existing.gmv += item.gmv;
+          existing.quantity += item.quantity;
+        } else {
+          salesMap.set(item.order_id, { ...item }); 
+        }
+      } else if (item.content_uid) {
+        // Engagement Route (Custom Report)
+        if (!videoMap.has(item.content_uid)) {
+          videoMap.set(item.content_uid, { ...item });
+        }
       }
     }
     
-    const uniquePayload = Array.from(payloadMap.values());
+    const uniqueSalesPayload = Array.from(salesMap.values());
+    const uniqueVideoPayload = Array.from(videoMap.values());
+    const uniquePayload = [...uniqueSalesPayload, ...uniqueVideoPayload];
     const total = uniquePayload.length;
     const chunkSize = 1000;
     
     for (let i = 0; i < total; i += chunkSize) {
       const chunk = uniquePayload.slice(i, i + chunkSize);
       
-      const salesChunk = chunk.map(c => {
-        const { video_views, video_likes, duration_str, video_product_rpm, ...salesData } = c;
-        return salesData;
-      });
+      const salesChunk = chunk
+        .filter(c => c.order_id)
+        .map(c => {
+          const { video_views, video_likes, duration_str, video_product_rpm, ...salesData } = c;
+          return salesData;
+        });
 
       const videoChunk = chunk
-        .filter(c => (c.content_type === 'Video' || c.content_type === 'Livestream') && c.content_uid)
+        .filter(c => !c.order_id && c.content_uid)
         .map(c => ({
           content_uid: c.content_uid,
           creator_username: c.creator_username,
@@ -460,7 +501,7 @@ export default function OrganicImport() {
           video_product_rpm: c.video_product_rpm
         }));
       
-      const { error } = await supabase.from('sales').upsert(salesChunk as any, { onConflict: 'order_id' });
+      const { error } = salesChunk.length > 0 ? await supabase.from('sales').upsert(salesChunk as any, { onConflict: 'order_id' }) : { error: null };
       
       if (videoChunk.length > 0) {
         await supabase.from('organic_videos').upsert(videoChunk as any, { onConflict: 'content_uid' });

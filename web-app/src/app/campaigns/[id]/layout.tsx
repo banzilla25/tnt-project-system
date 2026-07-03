@@ -44,7 +44,8 @@ export default function CampaignLayout({ children }: { children: React.ReactNode
     budget_creator_plafon: '',
     budget_ads_plafon: '',
     require_client_approval: false,
-    pin: ''
+    pin: '',
+    tiktok_campaign_ids: ''
   });
 
   useEffect(() => {
@@ -61,7 +62,8 @@ export default function CampaignLayout({ children }: { children: React.ReactNode
         budget_creator_plafon: campaign.budget_creator_plafon?.toString() || '',
         budget_ads_plafon: campaign.budget_ads_plafon?.toString() || '',
         require_client_approval: campaign.require_client_approval || false,
-        pin: campaign.pin || ''
+        pin: campaign.pin || '',
+        tiktok_campaign_ids: campaign.tiktok_campaign_ids?.join(', ') || ''
       });
     }
   }, [campaign, isSettingsOpen]);
@@ -80,7 +82,8 @@ export default function CampaignLayout({ children }: { children: React.ReactNode
       budget_creator_plafon: Number(formData.budget_creator_plafon || 0),
       budget_ads_plafon: Number(formData.budget_ads_plafon || 0),
       require_client_approval: formData.require_client_approval,
-      pin: formData.pin
+      pin: formData.pin,
+      tiktok_campaign_ids: formData.tiktok_campaign_ids ? formData.tiktok_campaign_ids.split(',').map(id => id.trim()).filter(id => id) : []
     });
     setIsSettingsOpen(false);
   };
@@ -141,6 +144,11 @@ export default function CampaignLayout({ children }: { children: React.ReactNode
                     <div className="space-y-2">
                       <label className="text-sm font-medium">End Date</label>
                       <input required type="date" className="input" value={formData.end_date} onChange={e => setFormData({...formData, end_date: e.target.value})} />
+                    </div>
+                    <div className="space-y-2 col-span-2">
+                      <label className="text-sm font-medium">TikTok Campaign IDs <span className="text-slate-400 font-normal">(Pisahkan dengan koma jika lebih dari satu)</span></label>
+                      <input type="text" className="input font-mono" value={formData.tiktok_campaign_ids} onChange={e => setFormData({...formData, tiktok_campaign_ids: e.target.value})} placeholder="Contoh: 7584662142017324821, 7598383205545068296" />
+                      <p className="text-xs text-slate-500">ID ini digunakan untuk mendeteksi data penjualan secara otomatis pada saat upload file organik.</p>
                     </div>
                   </div>
                   <div className="border-t border-line pt-[16px] mt-[16px]">

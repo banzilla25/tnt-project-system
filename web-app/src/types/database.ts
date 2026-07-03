@@ -23,6 +23,7 @@ export type Campaign = {
   pic: string | null;
   assist: string | null;
   file_concept_url: string | null;
+  tiktok_campaign_ids?: string[] | null;
   status: 'aktif' | 'selesai';
   pin: string | null;
   require_client_approval: boolean;
@@ -365,6 +366,8 @@ export type Sales = {
   order_status: string | null;
   commission_rate: string | null;
   attribution_type: string | null;
+  tiktok_campaign_id?: string | null;
+  shop_code?: string | null;
   raw_data: any | null;
   created_at: string;
 };
