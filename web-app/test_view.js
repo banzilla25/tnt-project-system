@@ -6,10 +6,13 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-async function testRpc() {
-  const { data, error } = await supabase.rpc('get_campaign_performance', { p_campaign_id: 44 });
+async function testView() {
+  const { data, error } = await supabase
+    .from('campaign_creators_performance')
+    .select('*')
+    .eq('campaign_id', 44);
   console.log('Error:', error);
-  console.log('Data:', data);
+  console.log('Data Length:', data?.length);
 }
 
-testRpc();
+testView();

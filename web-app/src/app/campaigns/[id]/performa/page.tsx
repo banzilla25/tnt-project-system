@@ -78,14 +78,13 @@ function CampaignPerformaContent() {
         allSalesVt
       ] = await Promise.all([
         supabase.rpc('get_campaign_performance', { p_campaign_id: campaignId }),
-        supabase.from('campaign_creators_performance').select('*').eq('campaign_id', campaignId),
+        fetchAll(supabase.from('campaign_creators_performance').select('*').eq('campaign_id', campaignId)),
         fetchAll(salesVtQuery)
       ]);
 
       if (rpcRes.error) console.error("RPC Error:", rpcRes.error);
-      if (viewRes.error) console.error("VIEW Error:", viewRes.error);
 
-      setSalesSummary(viewRes.data || []); 
+      setSalesSummary(viewRes || []); 
       if (rpcRes.data) setTotalSales(rpcRes.data); 
       setSalesDataForVt(allSalesVt);
       setManualVideos([]); // manualVideos no longer needed since videos are joined in the view
@@ -313,28 +312,44 @@ function CampaignPerformaContent() {
   const totalPages = Math.ceil(filteredCreatorStats.length / pageSize);
   const paginatedStats = filteredCreatorStats.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
-  // Sales Metrics from RPC
-  const totalOrganic = totalSales?.totalOrganic || 0;
-  const totalAdsGmv = totalSales?.totalAdsGmv || 0;
-  const totalAllGmv = totalSales?.totalAllGmv || 0;
+  // Fallback aggregations in case RPC times out (especially for huge campaigns)
+  let fbViews = 0, fbLikes = 0, fbVideos = 0, fbLivestreams = 0, fbOrganic = 0, fbAds = 0, fbAllGmv = 0, fbWithVideo = 0, fbWithLive = 0;
+  creatorStats.forEach(c => {
+    fbViews += c.videoViews || 0;
+    fbLikes += c.videoLikes || 0;
+    fbVideos += c.totalVt || 0;
+    fbLivestreams += c.totalLive || 0;
+    fbOrganic += c.gmvOrganic || 0;
+    fbAds += c.gmvAds || 0;
+    fbAllGmv += c.totalGmv || 0;
+    if (c.totalVt > 0) fbWithVideo++;
+    if (c.totalLive > 0) fbWithLive++;
+  });
+
+  // Sales Metrics from RPC (or fallback)
+  const totalOrganic = totalSales?.totalOrganic || fbOrganic;
+  const totalAdsGmv = totalSales?.totalAdsGmv || fbAds;
+  const totalAllGmv = totalSales?.totalAllGmv || fbAllGmv;
   const percentCapai = campaign?.target_gmv ? Math.round((totalAllGmv / campaign.target_gmv) * 100) : 0;
-  const trackedOrganic = totalSales?.trackedOrganic || 0;
+  const trackedOrganic = totalSales?.trackedOrganic || fbOrganic;
   const attributionGap = totalSales?.attributionGap || 0;
   const gapPercentage = totalOrganic > 0 ? Math.round((attributionGap / totalOrganic) * 100) : 0;
 
-  // Awareness Metrics from RPC
-  const totalCampaignViews = Number(totalSales?.totalViews || 0);
-  const totalCampaignLikes = Number(totalSales?.totalLikes || 0);
-  const totalCampaignVideos = Number(totalSales?.totalVideos || 0);
-  const totalCampaignLivestreams = Number(totalSales?.totalLivestreams || 0);
-  const creatorsWithVideo = Number(totalSales?.creatorsWithVideo || 0);
-  const creatorsWithLive = Number(totalSales?.creatorsWithLive || 0);
+  // Awareness Metrics from RPC (or fallback)
+  const totalCampaignViews = Number(totalSales?.totalViews || fbViews);
+  const totalCampaignLikes = Number(totalSales?.totalLikes || fbLikes);
+  const totalCampaignVideos = Number(totalSales?.totalVideos || fbVideos);
+  const totalCampaignLivestreams = Number(totalSales?.totalLivestreams || fbLivestreams);
+  const creatorsWithVideo = Number(totalSales?.creatorsWithVideo || fbWithVideo);
+  const creatorsWithLive = Number(totalSales?.creatorsWithLive || fbWithLive);
   
   const targetVideo = campaign.target_video || 0;
   const percentCapaiVideo = targetVideo > 0 ? Math.round((totalCampaignVideos / targetVideo) * 100) : 0;
   
   const targetCreator = campaign.target_creator || 0;
-  const percentCapaiCreator = targetCreator > 0 ? Math.round((Number(totalSales?.approvedCreators || 0) / targetCreator) * 100) : 0;
+  // Make sure we use creatorStats.length as fallback for target creator if approvedCreators is missing
+  const approvedCreatorsCount = Number(totalSales?.approvedCreators || creatorStats.length);
+  const percentCapaiCreator = targetCreator > 0 ? Math.round((approvedCreatorsCount / targetCreator) * 100) : 0;
 
   // Render format currency
   const formatCompactNumber = (num: number) => {
