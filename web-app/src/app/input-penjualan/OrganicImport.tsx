@@ -477,7 +477,8 @@ export default function OrganicImport() {
     const uniqueVideoPayload = Array.from(videoMap.values());
     const uniquePayload = [...uniqueSalesPayload, ...uniqueVideoPayload];
     const total = uniquePayload.length;
-    const chunkSize = 1000;
+    const chunkSize = 200; // Dikurangi jadi 200 untuk mencegah Payload Too Large / Failed to fetch
+    
     
     for (let i = 0; i < total; i += chunkSize) {
       const chunk = uniquePayload.slice(i, i + chunkSize);
