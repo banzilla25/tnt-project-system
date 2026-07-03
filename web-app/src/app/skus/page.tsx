@@ -5,12 +5,14 @@ import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/Dialog";
 import { useState } from "react";
-import { Edit2, Trash2, ExternalLink } from "lucide-react";
+import { Edit2, Trash2, ExternalLink, RefreshCcw, Loader2 } from "lucide-react";
+import { createClient } from "@/utils/supabase/client";
 
 export default function SkuPage() {
   const { skus, campaigns, addSku, updateSku, deleteSku } = useDatabaseStore();
   
   const [isOpen, setIsOpen] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [formData, setFormData] = useState({
     campaign_id: '',
@@ -89,6 +91,72 @@ export default function SkuPage() {
     }
   };
 
+  const handleSyncData = async () => {
+    if (!confirm("Fitur ini akan menyinkronkan data penjualan masa lalu yang masih berstatus 'Tertunda' (tanpa Campaign). Proses ini memakan waktu beberapa detik. Lanjutkan?")) return;
+    
+    setIsSyncing(true);
+    const supabase = createClient();
+    try {
+      const { data: orphanedSales, error: errFetch } = await supabase
+        .from('sales')
+        .select('*')
+        .is('campaign_id', null);
+        
+      if (errFetch) throw errFetch;
+      
+      if (!orphanedSales || orphanedSales.length === 0) {
+        alert("Semua data sudah tersinkronisasi. Tidak ada data yang tertunda.");
+        setIsSyncing(false);
+        return;
+      }
+
+      const skuMapping: Record<string, number> = {};
+      const tiktokToCampaigns: Record<string, number[]> = {};
+
+      skus?.forEach(s => {
+        if (s.product_id) {
+          skuMapping[s.product_id.toString()] = s.campaign_id;
+        }
+      });
+
+      campaigns?.forEach(c => {
+        if (c.tiktok_campaign_ids && c.tiktok_campaign_ids.length > 0) {
+          c.tiktok_campaign_ids.forEach(tid => {
+            if (!tiktokToCampaigns[tid]) tiktokToCampaigns[tid] = [];
+            tiktokToCampaigns[tid].push(c.id);
+          });
+        }
+      });
+
+      let updatedCount = 0;
+      for (const sale of orphanedSales) {
+        const rawProductId = sale.product_id?.toString() || '';
+        const tiktokCampaignId = sale.tiktok_campaign_id?.toString() || '';
+        let mappedCampaignId = null;
+
+        if (rawProductId && skuMapping[rawProductId]) {
+          mappedCampaignId = skuMapping[rawProductId];
+        } else if (tiktokCampaignId && tiktokToCampaigns[tiktokCampaignId]) {
+          const possibleCampaigns = tiktokToCampaigns[tiktokCampaignId];
+          if (possibleCampaigns.length === 1) {
+             mappedCampaignId = possibleCampaigns[0];
+          }
+        }
+
+        if (mappedCampaignId) {
+          await supabase.from('sales').update({ campaign_id: mappedCampaignId }).eq('id', sale.id);
+          updatedCount++;
+        }
+      }
+
+      alert(`Sinkronisasi selesai! Berhasil memetakan ulang ${updatedCount} baris data dari total ${orphanedSales.length} data yang tertunda.`);
+    } catch (err: any) {
+      alert("Terjadi kesalahan saat sinkronisasi: " + err.message);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   const getCampaignName = (id: number) => {
     return campaigns.find(c => c.id === id)?.nama || 'Unknown';
   };
@@ -100,13 +168,18 @@ export default function SkuPage() {
           <h1 className="text-3xl font-bold tracking-tight">Master Produk</h1>
           <p className="text-slate-500">Kelola data SKU (Product ID) dan komisi untuk tracking GMV.</p>
         </div>
-        <Dialog open={isOpen} onOpenChange={(open) => {
-          if (!open) resetForm();
-          setIsOpen(open);
-        }}>
-          <DialogTrigger asChild>
-            <Button>+ Tambah SKU</Button>
-          </DialogTrigger>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={handleSyncData} disabled={isSyncing} className="border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 hover:text-indigo-800">
+            {isSyncing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCcw className="w-4 h-4 mr-2" />}
+            {isSyncing ? 'Menyinkronkan...' : 'Sinkronisasi Data Masa Lalu'}
+          </Button>
+          <Dialog open={isOpen} onOpenChange={(open) => {
+            if (!open) resetForm();
+            setIsOpen(open);
+          }}>
+            <DialogTrigger asChild>
+              <Button>+ Tambah SKU</Button>
+            </DialogTrigger>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{editingId ? 'Edit SKU' : 'Tambah SKU Baru'}</DialogTitle>
@@ -167,6 +240,7 @@ export default function SkuPage() {
             </form>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       <Card>
