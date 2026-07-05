@@ -174,7 +174,7 @@ export default function LiveSchedulePage() {
       const chunkSize = 100;
       for (let i = 0; i < usernames.length; i += chunkSize) {
         const chunk = usernames.slice(i, i + chunkSize);
-        let query = supabase.from('organic_videos').select('*').in('creator_username', chunk).ilike('duration_str', '%h%min%');
+        let query = supabase.from('organic_videos').select('*').in('creator_username', chunk);
         if (campaign?.start_date) query = query.gte('post_time', campaign.start_date);
         if (campaign?.end_date) query = query.lte('post_time', `${campaign.end_date}T23:59:59Z`);
         const chunkLives = await fetchAll(query);
@@ -189,7 +189,7 @@ export default function LiveSchedulePage() {
             .from('sales')
             .select('content_uid, gmv, quantity, creator_username, post_time')
             .eq('campaign_id', campaignId)
-            .eq('content_type', 'Livestream')
+            .in('content_type', ['Livestream', 'Live'])
             .in('creator_username', chunk)
         );
         salesLives = salesLives.concat(chunkSales);
@@ -205,14 +205,31 @@ export default function LiveSchedulePage() {
         ordersMap.set(vid, (ordersMap.get(vid) || 0) + (s.quantity || 0));
       });
 
-      const unifiedLives = organicLives.map(l => ({
+      // Filter organicLives to only those that are likely Livestreams
+      // (Either they match a sales row, or their duration implies a live stream > 1 min)
+      const validSalesUids = new Set(salesLives.map(s => {
+          let vid = s.content_uid;
+          if (vid && vid.startsWith('video_')) return vid.split('_')[1];
+          return vid;
+      }).filter(Boolean));
+
+      const isLikelyLive = (v: any) => {
+          if (validSalesUids.has(v.content_uid)) return true;
+          // TikTok live durations are like '1h 30min', '45min', '2h', etc.
+          const d = (v.duration_str || '').toLowerCase();
+          return d.includes('h') || d.includes('min');
+      };
+
+      const filteredOrganicLives = organicLives.filter(isLikelyLive);
+
+      const unifiedLives = filteredOrganicLives.map(l => ({
         ...l,
         gmv: gmvMap.get(l.content_uid) || 0,
         orders: ordersMap.get(l.content_uid) || 0,
         start_time: l.post_time,
       }));
 
-      const existingUids = new Set(organicLives.map(l => l.content_uid));
+      const existingUids = new Set(filteredOrganicLives.map(l => l.content_uid));
       salesLives.forEach(s => {
         let vid = s.content_uid;
         if (vid && vid.startsWith('video_')) vid = vid.split('_')[1];
