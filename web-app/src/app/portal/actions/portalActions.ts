@@ -151,9 +151,6 @@ export async function getPortalData(campaignId: number) {
   }
 
   const videoGmvMap = new Map();
-  const videoViewsMap = new Map();
-  const videoLikesMap = new Map();
-
   salesForVideos?.forEach(s => {
     let vid = s.content_uid;
     if (vid && vid.startsWith('video_')) {
@@ -161,12 +158,6 @@ export async function getPortalData(campaignId: number) {
     }
     if (vid) {
       videoGmvMap.set(vid, (videoGmvMap.get(vid) || 0) + s.gmv);
-      
-      const views = parseInt(s.raw_data?.['Video views']?.toString().replace(/[^0-9]/g, '')) || 0;
-      const likes = parseInt(s.raw_data?.['Likes']?.toString().replace(/[^0-9]/g, '')) || parseInt(s.raw_data?.['Like']?.toString().replace(/[^0-9]/g, '')) || 0;
-      
-      if (views > (videoViewsMap.get(vid) || 0)) videoViewsMap.set(vid, views);
-      if (likes > (videoLikesMap.get(vid) || 0)) videoLikesMap.set(vid, likes);
     }
   });
 
@@ -260,7 +251,49 @@ export async function getPortalData(campaignId: number) {
 
   // Fetch SKUs for dropdown already done above
 
-  // Extract videos and attach GMV (merging DB videos + organic auto-detected videos)
+  // Ambil data organic_videos khusus kreator di campaign ini
+  let organicVideos: any[] = [];
+  const validUsernames = enrichedCcData.filter((cc: any) => cc.client_approval === 'approved' || cc.approval === 'approved').map((cc: any) => cc.creators?.username).filter(Boolean);
+  
+  if (validUsernames.length > 0) {
+    const startD = campaign.start_date;
+    const endD = campaign.end_date;
+    
+    for (let i = 0; i < validUsernames.length; i += 100) {
+      const chunk = validUsernames.slice(i, i + 100);
+      let ovStart = 0;
+      while(true) {
+          let query = supabase.from('organic_videos')
+              .select('content_uid, creator_username, video_views, video_likes, duration_str')
+              .in('creator_username', chunk);
+              
+          if (startD) query = query.gte('post_time', startD);
+          if (endD) query = query.lte('post_time', `${endD}T23:59:59Z`);
+          
+          const { data: ovs } = await query.range(ovStart, ovStart + 999);
+          if (!ovs || ovs.length === 0) break;
+          organicVideos = organicVideos.concat(ovs);
+          if (ovs.length < 1000) break;
+          ovStart += 1000;
+      }
+    }
+  }
+
+  const videoViewsMap = new Map();
+  const videoLikesMap = new Map();
+  const organicVideoMap = new Map();
+
+  organicVideos.forEach(v => {
+      if (v.content_uid) {
+          videoViewsMap.set(v.content_uid, v.video_views || 0);
+          videoLikesMap.set(v.content_uid, v.video_likes || 0);
+          
+          const isLive = v.duration_str && v.duration_str.includes('h') && v.duration_str.includes('min');
+          organicVideoMap.set(v.content_uid, { ...v, isLive: isLive });
+      }
+  });
+
+  // Extract videos and attach GMV (merging DB videos + organic auto-detected videos + sales videos)
   const portalVideos: any[] = [];
   enrichedCcData.forEach((cc: any) => {
     const username = cc.creators?.username || 'Unknown';
@@ -286,33 +319,45 @@ export async function getPortalData(campaignId: number) {
       });
     }
 
-    // 2. Add Auto-detected videos from sales
+    // 2. Add Auto-detected videos from organic_videos and sales
     const creatorSales = salesForVideos?.filter((s: any) => s.creator_username === username && s.content_uid) || [];
+    const creatorOrganics = organicVideos?.filter((v: any) => v.creator_username === username) || [];
+    
     const uniqueContentUids = new Set<string>();
+    
     creatorSales.forEach((s: any) => {
        let vid = s.content_uid;
-       if (vid && vid.startsWith('video_')) {
-          vid = vid.split('_')[1];
-       }
-       if (vid && !uniqueContentUids.has(vid)) {
-          uniqueContentUids.add(vid);
-          // check if exists
-          const exists = creatorVideos.some(v => v.content_uid === vid || v.vt_code === vid);
-          if (!exists) {
-             const isLive = s.content_type === 'Livestream';
-             creatorVideos.push({
-                id: `auto_${vid}`,
-                content_uid: vid,
-                link_video: isLive ? '' : `https://www.tiktok.com/@${username}/video/${vid}`,
-                creator_username: username,
-                gmv: videoGmvMap.get(vid) || 0,
-                views: videoViewsMap.get(vid) || 0,
-                likes: videoLikesMap.get(vid) || 0,
-                isAuto: true,
-                isLive: isLive
-             });
-          }
-       }
+       if (vid && vid.startsWith('video_')) vid = vid.split('_')[1];
+       if (vid) uniqueContentUids.add(vid);
+    });
+    
+    creatorOrganics.forEach((v: any) => {
+       if (v.content_uid) uniqueContentUids.add(v.content_uid);
+    });
+
+    uniqueContentUids.forEach(vid => {
+        const exists = creatorVideos.some(v => v.content_uid === vid || v.vt_code === vid);
+        if (!exists) {
+           const sObj = creatorSales.find((s: any) => s.content_uid === vid || s.content_uid === `video_${vid}`);
+           const ovObj = organicVideoMap.get(vid);
+           
+           const isLive = ovObj ? !!ovObj.isLive : (sObj ? sObj.content_type === 'Livestream' : false);
+           
+           // Exclude livestream dari daftar Video & Konten untuk menyesuaikan target 11576 video
+           if (isLive) return;
+           
+           creatorVideos.push({
+              id: `auto_${vid}`,
+              content_uid: vid,
+              link_video: isLive ? '' : `https://www.tiktok.com/@${username}/video/${vid}`,
+              creator_username: username,
+              gmv: videoGmvMap.get(vid) || 0,
+              views: videoViewsMap.get(vid) || 0,
+              likes: videoLikesMap.get(vid) || 0,
+              isAuto: true,
+              isLive: isLive
+           });
+        }
     });
 
     if (creatorVideos.length > 0) {
