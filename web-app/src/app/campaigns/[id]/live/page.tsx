@@ -13,15 +13,12 @@ export default function LiveSchedulePage() {
   const campaignId = Number(id);
 
   const {
-    campaign_creators,
-    creators,
     live_schedules,
     fetchLiveSchedules,
     addLiveSchedule,
     deleteLiveSchedule,
     isLoading,
     campaigns,
-    skus
   } = useDatabaseStore();
 
   const campaign = campaigns.find(c => c.id === campaignId);
@@ -34,7 +31,6 @@ export default function LiveSchedulePage() {
   const [isFetchingCC, setIsFetchingCC] = useState(true);
   
   const [actualLives, setActualLives] = useState<any[]>([]);
-  const [actualLiveProducts, setActualLiveProducts] = useState<any[]>([]);
 
   const [sortConfig, setSortConfig] = useState<{ key: string; dir: 'asc' | 'desc' }>({ key: 'username', dir: 'asc' });
 
@@ -252,6 +248,8 @@ export default function LiveSchedulePage() {
                   const schedules = live_schedules.filter(l => l.campaign_creator_id === cc.id).sort((a, b) => new Date(a.tanggal_live).getTime() - new Date(b.tanggal_live).getTime());
 
                   // Get actual lives for this creator
+                  const creatorLives = actualLives.filter(l => l.creator_username === creator?.username);
+
                   // Collect unique dates from schedules AND actual lives
                   const allDates = new Set<string>();
                   schedules.forEach(s => allDates.add(new Date(s.tanggal_live).toISOString().substring(0, 10)));
