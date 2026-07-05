@@ -168,35 +168,51 @@ export default function LiveSchedulePage() {
     fetchActualLives();
   }, [campaignId]);
 
-  // ─── Stats: Top 5 Kreator (session count) ─────────────────────────────────
-  const top5Creators = (() => {
-    const countMap = new Map<string, number>();
-    actualLives.forEach(l => {
-      const u = l.creator_username;
-      if (u) countMap.set(u, (countMap.get(u) || 0) + 1);
-    });
-    return Array.from(countMap.entries())
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5);
-  })();
-
-  // ─── Stats: Top 5 Live Sessions (GMV) ─────────────────────────────────────
-  const top5LivesByGmv = [...actualLives]
-    .filter(l => l.gmv > 0)
-    .sort((a, b) => (b.gmv || 0) - (a.gmv || 0))
-    .slice(0, 5);
-
-  // ─── Pre-compute creator aggregates from FULL dataset (bukan paginated/chunked!) ─
-  // Ini memastikan filter GMV/Live terbanyak berlaku untuk SEMUA data, bukan hanya 50/1000 baris pertama
-  const creatorGmvMap = new Map<string, number>();
-  const creatorLivesMap = new Map<string, number>();
+  // ─── Pre-compute semua agregat kreator dari FULL dataset (dari RPC, bukan paginated) ──
+  // Satu kali loop, dipakai untuk leaderboard + filter tabel sekaligus
+  const creatorGmvMap    = new Map<string, number>();
+  const creatorLivesMap  = new Map<string, number>();
+  const creatorViewsMap  = new Map<string, number>();
+  const creatorLikesMap  = new Map<string, number>();
   actualLives.forEach(l => {
     const u = l.creator_username;
     if (u) {
-      creatorGmvMap.set(u, (creatorGmvMap.get(u) || 0) + (Number(l.gmv) || 0));
+      creatorGmvMap.set(u,   (creatorGmvMap.get(u)   || 0) + (Number(l.gmv)          || 0));
       creatorLivesMap.set(u, (creatorLivesMap.get(u) || 0) + 1);
+      creatorViewsMap.set(u, (creatorViewsMap.get(u) || 0) + (Number(l.video_views)  || 0));
+      creatorLikesMap.set(u, (creatorLikesMap.get(u) || 0) + (Number(l.video_likes)  || 0));
     }
   });
+
+  // ─── Leaderboard 1: Top 5 Kreator — Sesi Live Terbanyak ──────────────────
+  const top5CreatorsBySession = Array.from(creatorLivesMap.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([username, sessions]) => ({
+      username,
+      sessions,
+      gmv:   creatorGmvMap.get(username)   || 0,
+      views: creatorViewsMap.get(username) || 0,
+      likes: creatorLikesMap.get(username) || 0,
+    }));
+
+  // ─── Leaderboard 2: Top 5 Kreator — GMV Live Terbanyak ───────────────────
+  const top5CreatorsByGmv = Array.from(creatorGmvMap.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([username, gmv]) => ({
+      username,
+      gmv,
+      sessions: creatorLivesMap.get(username) || 0,
+      views:    creatorViewsMap.get(username) || 0,
+      likes:    creatorLikesMap.get(username) || 0,
+    }));
+
+  // ─── Leaderboard 3: Top 5 Sesi Live — GMV Terbanyak (per sesi) ───────────
+  const top5SessionsByGmv = [...actualLives]
+    .filter(l => (l.gmv || 0) > 0)
+    .sort((a, b) => (b.gmv || 0) - (a.gmv || 0))
+    .slice(0, 5);
 
   // ─── Filter / Sort localCreators ───────────────────────────────────────────
   const approvedCCs = localCreators
@@ -271,58 +287,111 @@ export default function LiveSchedulePage() {
   return (
     <div className="space-y-[24px] pb-[80px]">
 
-      {/* ── Stats Section ── */}
+      {/* ── Stats / Leaderboard Section ── */}
       {actualLives.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-[24px]">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-[20px]">
 
-          {/* Left: Top 5 Kreator - Sesi Live Terbanyak */}
+          {/* Card 1: Top 5 Kreator — Sesi Live Terbanyak */}
           <div className="ccard">
-            <h3 className="font-semibold text-text text-[15px] mb-[14px] flex items-center gap-2">
-              🏆 Top 5 Kreator — Sesi Live Terbanyak
+            <h3 className="font-semibold text-text text-[14px] mb-[14px] flex items-center gap-2">
+              🏆 Top 5 Kreator — Live Terbanyak
             </h3>
-            {top5Creators.length === 0 ? (
+            {top5CreatorsBySession.length === 0 ? (
               <p className="text-sm text-text-soft italic">Belum ada data</p>
             ) : (
-              <ol className="space-y-[10px]">
-                {top5Creators.map(([username, count], idx) => (
-                  <li key={username} className="flex items-center gap-3">
-                    <span className="text-[16px] w-8 shrink-0 text-center">{rankBadge(idx + 1)}</span>
-                    <span className="flex-1 text-[13px] font-medium text-text truncate">@{username}</span>
-                    <span className="text-[13px] font-bold text-blue-600 shrink-0">{count} sesi</span>
-                  </li>
-                ))}
+              <ol className="space-y-[12px]">
+                {top5CreatorsBySession.map((c, idx) => {
+                  const gpm = c.views > 0 ? (c.gmv / c.views * 1000) : 0;
+                  return (
+                    <li key={c.username} className="space-y-[6px]">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[15px] w-7 shrink-0 text-center">{rankBadge(idx + 1)}</span>
+                        <span className="flex-1 text-[13px] font-semibold text-text truncate">@{c.username}</span>
+                        <span className="text-[13px] font-bold text-blue-600 shrink-0">{c.sessions} sesi</span>
+                      </div>
+                      <div className="ml-9 grid grid-cols-2 gap-x-3 gap-y-0.5 text-[11px] text-text-soft">
+                        <span>👁 {c.views.toLocaleString('id-ID')} views</span>
+                        <span>❤️ {c.likes.toLocaleString('id-ID')} likes</span>
+                        <span>💰 Rp {c.gmv.toLocaleString('id-ID')}</span>
+                        <span>📊 GPM Rp {gpm.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>
+                      </div>
+                    </li>
+                  );
+                })}
               </ol>
             )}
           </div>
 
-          {/* Right: Top 5 Sesi Live - GMV Terbanyak */}
+          {/* Card 2: Top 5 Kreator — GMV Live Terbanyak (akumulasi) */}
           <div className="ccard">
-            <h3 className="font-semibold text-text text-[15px] mb-[14px] flex items-center gap-2">
-              💰 Top 5 Sesi Live — GMV Terbanyak
+            <h3 className="font-semibold text-text text-[14px] mb-[14px] flex items-center gap-2">
+              💰 Top 5 Kreator — GMV Live Terbanyak
             </h3>
-            {top5LivesByGmv.length === 0 ? (
+            {top5CreatorsByGmv.length === 0 ? (
               <p className="text-sm text-text-soft italic">Belum ada data GMV</p>
             ) : (
-              <ol className="space-y-[10px]">
-                {top5LivesByGmv.map((live, idx) => (
-                  <li key={live.content_uid} className="flex items-center gap-3">
-                    <span className="text-[16px] w-8 shrink-0 text-center">{rankBadge(idx + 1)}</span>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-[13px] font-medium text-text truncate">@{live.creator_username}</div>
-                      <div className="text-[11px] text-text-soft">
-                        {live.start_time
-                          ? new Date(live.start_time).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
-                          : '—'}
+              <ol className="space-y-[12px]">
+                {top5CreatorsByGmv.map((c, idx) => {
+                  const gpm = c.views > 0 ? (c.gmv / c.views * 1000) : 0;
+                  return (
+                    <li key={c.username} className="space-y-[6px]">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[15px] w-7 shrink-0 text-center">{rankBadge(idx + 1)}</span>
+                        <span className="flex-1 text-[13px] font-semibold text-text truncate">@{c.username}</span>
+                        <span className="text-[13px] font-bold text-green-600 shrink-0">Rp {c.gmv.toLocaleString('id-ID')}</span>
                       </div>
-                    </div>
-                    <span className="text-[13px] font-bold text-green-600 shrink-0">
-                      Rp {(live.gmv || 0).toLocaleString('id-ID')}
-                    </span>
-                  </li>
-                ))}
+                      <div className="ml-9 grid grid-cols-2 gap-x-3 gap-y-0.5 text-[11px] text-text-soft">
+                        <span>🎬 {c.sessions} sesi</span>
+                        <span>👁 {c.views.toLocaleString('id-ID')} views</span>
+                        <span>❤️ {c.likes.toLocaleString('id-ID')} likes</span>
+                        <span>📊 GPM Rp {gpm.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>
+                      </div>
+                    </li>
+                  );
+                })}
               </ol>
             )}
           </div>
+
+          {/* Card 3: Top 5 Sesi Live — GMV Terbanyak (per sesi) */}
+          <div className="ccard">
+            <h3 className="font-semibold text-text text-[14px] mb-[14px] flex items-center gap-2">
+              🔥 Top 5 Sesi Live — GMV Per Sesi
+            </h3>
+            {top5SessionsByGmv.length === 0 ? (
+              <p className="text-sm text-text-soft italic">Belum ada data GMV</p>
+            ) : (
+              <ol className="space-y-[12px]">
+                {top5SessionsByGmv.map((live, idx) => {
+                  const views  = Number(live.video_views) || 0;
+                  const likes  = Number(live.video_likes) || 0;
+                  const gmv    = Number(live.gmv) || 0;
+                  const gpm    = views > 0 ? (gmv / views * 1000) : 0;
+                  return (
+                    <li key={live.content_uid || idx} className="space-y-[6px]">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[15px] w-7 shrink-0 text-center">{rankBadge(idx + 1)}</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-[13px] font-semibold text-text truncate">@{live.creator_username}</div>
+                          <div className="text-[11px] text-text-soft">
+                            {live.start_time ? new Date(live.start_time).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
+                            {live.duration_str ? ` · ${live.duration_str}` : ''}
+                          </div>
+                        </div>
+                        <span className="text-[13px] font-bold text-green-600 shrink-0">Rp {gmv.toLocaleString('id-ID')}</span>
+                      </div>
+                      <div className="ml-9 grid grid-cols-2 gap-x-3 gap-y-0.5 text-[11px] text-text-soft">
+                        <span>👁 {views.toLocaleString('id-ID')} views</span>
+                        <span>❤️ {likes.toLocaleString('id-ID')} likes</span>
+                        <span>📊 GPM Rp {gpm.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ol>
+            )}
+          </div>
+
         </div>
       )}
 
