@@ -187,7 +187,7 @@ export default function LiveSchedulePage() {
         const chunkSales = await fetchAll(
           supabase
             .from('sales')
-            .select('content_uid, gmv, quantity, creator_username, post_time')
+            .select('content_uid, gmv, quantity, creator_username, created_at')
             .eq('campaign_id', campaignId)
             .in('content_type', ['Livestream', 'Live'])
             .in('creator_username', chunk)
@@ -242,8 +242,8 @@ export default function LiveSchedulePage() {
           unifiedLives.push({
             content_uid: vid,
             creator_username: s.creator_username,
-            post_time: s.post_time,
-            start_time: s.post_time,
+            post_time: s.created_at,
+            start_time: s.created_at,
             video_views: 0,
             video_likes: 0,
             duration_str: '',
