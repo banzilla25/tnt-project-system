@@ -195,44 +195,48 @@ export default function LiveSchedulePage() {
         salesLives = salesLives.concat(chunkSales);
       }
 
+      // Helper to normalize content_uid
+      const getNormalizedUid = (uid: string | null) => {
+          if (!uid) return '';
+          return uid.startsWith('video_') ? uid.split('_')[1] : uid;
+      };
+
       // Build gmvMap and ordersMap
       const gmvMap = new Map<string, number>();
       const ordersMap = new Map<string, number>();
       salesLives.forEach(s => {
-        let vid = s.content_uid;
-        if (vid && vid.startsWith('video_')) vid = vid.split('_')[1];
-        gmvMap.set(vid, (gmvMap.get(vid) || 0) + (s.gmv || 0));
-        ordersMap.set(vid, (ordersMap.get(vid) || 0) + (s.quantity || 0));
+        const vid = getNormalizedUid(s.content_uid);
+        if (vid) {
+          gmvMap.set(vid, (gmvMap.get(vid) || 0) + (s.gmv || 0));
+          ordersMap.set(vid, (ordersMap.get(vid) || 0) + (s.quantity || 0));
+        }
       });
 
       // Filter organicLives to only those that are likely Livestreams
-      // (Either they match a sales row, or their duration implies a live stream > 1 min)
-      const validSalesUids = new Set(salesLives.map(s => {
-          let vid = s.content_uid;
-          if (vid && vid.startsWith('video_')) return vid.split('_')[1];
-          return vid;
-      }).filter(Boolean));
+      const validSalesUids = new Set(salesLives.map(s => getNormalizedUid(s.content_uid)).filter(Boolean));
 
       const isLikelyLive = (v: any) => {
-          if (validSalesUids.has(v.content_uid)) return true;
-          // TikTok live durations are like '1h 30min', '45min', '2h', etc.
+          const vUid = getNormalizedUid(v.content_uid);
+          if (vUid && validSalesUids.has(vUid)) return true;
           const d = (v.duration_str || '').toLowerCase();
           return d.includes('h') || d.includes('min');
       };
 
       const filteredOrganicLives = organicLives.filter(isLikelyLive);
 
-      const unifiedLives = filteredOrganicLives.map(l => ({
-        ...l,
-        gmv: gmvMap.get(l.content_uid) || 0,
-        orders: ordersMap.get(l.content_uid) || 0,
-        start_time: l.post_time,
-      }));
+      const unifiedLives = filteredOrganicLives.map(l => {
+        const vUid = getNormalizedUid(l.content_uid);
+        return {
+          ...l,
+          gmv: gmvMap.get(vUid) || 0,
+          orders: ordersMap.get(vUid) || 0,
+          start_time: l.post_time,
+        };
+      });
 
-      const existingUids = new Set(filteredOrganicLives.map(l => l.content_uid));
+      const existingUids = new Set(filteredOrganicLives.map(l => getNormalizedUid(l.content_uid)).filter(Boolean));
       salesLives.forEach(s => {
-        let vid = s.content_uid;
-        if (vid && vid.startsWith('video_')) vid = vid.split('_')[1];
+        const vid = getNormalizedUid(s.content_uid);
         if (vid && !existingUids.has(vid)) {
           existingUids.add(vid);
           unifiedLives.push({
@@ -253,7 +257,7 @@ export default function LiveSchedulePage() {
     };
 
     fetchActualLives();
-  }, [campaignId, localCreators, campaign]);
+  }, [campaignId, localCreators, campaign?.start_date, campaign?.end_date]);
 
   // ─── Stats: Top 5 Kreator (session count) ─────────────────────────────────
   const top5Creators = (() => {
