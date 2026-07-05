@@ -314,7 +314,7 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
   const paginatedSamples = filteredSamples.slice(samplePage * PAGE_SIZE, (samplePage + 1) * PAGE_SIZE);
 
   // 4. Live (based on Creators)
-  const approvedCreatorsForLive = initialData.ccData.filter((cc: any) => 
+  const approvedCreatorsForLive = data.ccData.filter((cc: any) => 
     cc.approval === 'approved' || cc.client_approval === 'approved'
   );
 
@@ -1157,7 +1157,7 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                         paginatedLive.map((cc: any) => {
                           const username = cc.creators?.username;
                           const creatorSchedules = schedules.filter((s: any) => s.campaign_creator_id === cc.id);
-                          const creatorLives = initialData.actualLives?.filter((l: any) => l.creator_username === username) || [];
+                          const creatorLives = data.actualLives?.filter((l: any) => l.creator_username === username) || [];
                           
                           const allDates = new Set<string>();
                           creatorSchedules.forEach((s: any) => allDates.add(new Date(s.tanggal_live).toISOString().substring(0, 10)));
