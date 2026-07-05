@@ -94,7 +94,9 @@ export default function LiveSchedulePage() {
   const [localCreators, setLocalCreators] = useState<any[]>([]);
   const [isFetchingCC, setIsFetchingCC] = useState(true);
 
+  // actualLives: hasil dari RPC get_campaign_live_stats — semua data sekaligus dari server
   const [actualLives, setActualLives] = useState<any[]>([]);
+  const [isFetchingLives, setIsFetchingLives] = useState(false);
 
   // "username" | "gmv" | "lives"
   const [activeFilter, setActiveFilter] = useState<'username' | 'gmv' | 'lives'>('username');
@@ -148,116 +150,23 @@ export default function LiveSchedulePage() {
     fetchCCs();
   }, [campaignId, campaign?.require_client_approval]);
 
-  // ─── Fetch Actual Lives ────────────────────────────────────────────────────
+  // ─── Fetch Actual Lives via RPC (semua komputasi di server, bukan browser) ──
   useEffect(() => {
     const fetchActualLives = async () => {
-      if (!campaignId || localCreators.length === 0) return;
-
-      const usernames = localCreators.map(cc => cc.creators?.username).filter(Boolean);
-      if (usernames.length === 0) return;
-
-      const fetchAll = async (baseQuery: any) => {
-        let all: any[] = [];
-        let from = 0;
-        while (true) {
-          const { data, error } = await baseQuery.range(from, from + 999);
-          if (error) break;
-          if (!data || data.length === 0) break;
-          all = all.concat(data);
-          if (data.length < 1000) break;
-          from += 1000;
-        }
-        return all;
-      };
-
-      let organicLives: any[] = [];
-      const chunkSize = 100;
-      for (let i = 0; i < usernames.length; i += chunkSize) {
-        const chunk = usernames.slice(i, i + chunkSize);
-        let query = supabase.from('organic_videos').select('*').in('creator_username', chunk);
-        if (campaign?.start_date) query = query.gte('post_time', campaign.start_date);
-        if (campaign?.end_date) query = query.lte('post_time', `${campaign.end_date}T23:59:59Z`);
-        const chunkLives = await fetchAll(query);
-        organicLives = organicLives.concat(chunkLives);
+      if (!campaignId) return;
+      setIsFetchingLives(true);
+      const { data, error } = await supabase.rpc('get_campaign_live_stats', {
+        p_campaign_id: campaignId,
+      });
+      if (!error && data) {
+        // RPC mengembalikan JSON array langsung — tidak perlu loop atau Map di browser
+        const lives = Array.isArray(data) ? data : [];
+        setActualLives(lives);
       }
-
-      let salesLives: any[] = [];
-      for (let i = 0; i < usernames.length; i += chunkSize) {
-        const chunk = usernames.slice(i, i + chunkSize);
-        const chunkSales = await fetchAll(
-          supabase
-            .from('sales')
-            .select('content_uid, gmv, quantity, creator_username, created_at')
-            .eq('campaign_id', campaignId)
-            .in('content_type', ['Livestream', 'Live'])
-            .in('creator_username', chunk)
-        );
-        salesLives = salesLives.concat(chunkSales);
-      }
-
-      // Helper to normalize content_uid
-      const getNormalizedUid = (uid: string | null) => {
-          if (!uid) return '';
-          return uid.startsWith('video_') ? uid.split('_')[1] : uid;
-      };
-
-      // Build gmvMap and ordersMap
-      const gmvMap = new Map<string, number>();
-      const ordersMap = new Map<string, number>();
-      salesLives.forEach(s => {
-        const vid = getNormalizedUid(s.content_uid);
-        if (vid) {
-          gmvMap.set(vid, (gmvMap.get(vid) || 0) + (s.gmv || 0));
-          ordersMap.set(vid, (ordersMap.get(vid) || 0) + (s.quantity || 0));
-        }
-      });
-
-      // Filter organicLives to only those that are likely Livestreams
-      const validSalesUids = new Set(salesLives.map(s => getNormalizedUid(s.content_uid)).filter(Boolean));
-
-      const isLikelyLive = (v: any) => {
-          const vUid = getNormalizedUid(v.content_uid);
-          if (vUid && validSalesUids.has(vUid)) return true;
-          const d = (v.duration_str || '').toLowerCase();
-          return d.includes('h') || d.includes('min');
-      };
-
-      const filteredOrganicLives = organicLives.filter(isLikelyLive);
-
-      const unifiedLives = filteredOrganicLives.map(l => {
-        const vUid = getNormalizedUid(l.content_uid);
-        return {
-          ...l,
-          gmv: gmvMap.get(vUid) || 0,
-          orders: ordersMap.get(vUid) || 0,
-          start_time: l.post_time,
-        };
-      });
-
-      const existingUids = new Set(filteredOrganicLives.map(l => getNormalizedUid(l.content_uid)).filter(Boolean));
-      salesLives.forEach(s => {
-        const vid = getNormalizedUid(s.content_uid);
-        if (vid && !existingUids.has(vid)) {
-          existingUids.add(vid);
-          unifiedLives.push({
-            content_uid: vid,
-            creator_username: s.creator_username,
-            post_time: s.created_at,
-            start_time: s.created_at,
-            video_views: 0,
-            video_likes: 0,
-            duration_str: '',
-            gmv: gmvMap.get(vid) || 0,
-            orders: ordersMap.get(vid) || 0,
-          });
-        }
-      });
-
-      setActualLives(unifiedLives);
+      setIsFetchingLives(false);
     };
-
     fetchActualLives();
-  }, [campaignId, localCreators, campaign?.start_date, campaign?.end_date]);
+  }, [campaignId]);
 
   // ─── Stats: Top 5 Kreator (session count) ─────────────────────────────────
   const top5Creators = (() => {
@@ -277,6 +186,18 @@ export default function LiveSchedulePage() {
     .sort((a, b) => (b.gmv || 0) - (a.gmv || 0))
     .slice(0, 5);
 
+  // ─── Pre-compute creator aggregates from FULL dataset (bukan paginated/chunked!) ─
+  // Ini memastikan filter GMV/Live terbanyak berlaku untuk SEMUA data, bukan hanya 50/1000 baris pertama
+  const creatorGmvMap = new Map<string, number>();
+  const creatorLivesMap = new Map<string, number>();
+  actualLives.forEach(l => {
+    const u = l.creator_username;
+    if (u) {
+      creatorGmvMap.set(u, (creatorGmvMap.get(u) || 0) + (Number(l.gmv) || 0));
+      creatorLivesMap.set(u, (creatorLivesMap.get(u) || 0) + 1);
+    }
+  });
+
   // ─── Filter / Sort localCreators ───────────────────────────────────────────
   const approvedCCs = localCreators
     .filter(cc => {
@@ -287,13 +208,15 @@ export default function LiveSchedulePage() {
     })
     .sort((a, b) => {
       if (activeFilter === 'gmv') {
-        const gmvA = actualLives.filter(l => l.creator_username === a.creators?.username).reduce((s, l) => s + (l.gmv || 0), 0);
-        const gmvB = actualLives.filter(l => l.creator_username === b.creators?.username).reduce((s, l) => s + (l.gmv || 0), 0);
+        // O(1) lookup dari Map yang sudah dihitung dari SEMUA data
+        const gmvA = creatorGmvMap.get(a.creators?.username) || 0;
+        const gmvB = creatorGmvMap.get(b.creators?.username) || 0;
         return gmvB - gmvA;
       }
       if (activeFilter === 'lives') {
-        const cntA = actualLives.filter(l => l.creator_username === a.creators?.username).length;
-        const cntB = actualLives.filter(l => l.creator_username === b.creators?.username).length;
+        // O(1) lookup dari Map yang sudah dihitung dari SEMUA data
+        const cntA = creatorLivesMap.get(a.creators?.username) || 0;
+        const cntB = creatorLivesMap.get(b.creators?.username) || 0;
         return cntB - cntA;
       }
       // default: username asc (+ respect internal sort toggle for jadwal)
@@ -325,7 +248,7 @@ export default function LiveSchedulePage() {
   };
 
   // ─── Skeleton while fetching ───────────────────────────────────────────────
-  if (isFetchingCC) {
+  if (isFetchingCC || isFetchingLives) {
     return <SkeletonLoader />;
   }
 
