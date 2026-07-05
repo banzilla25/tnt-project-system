@@ -984,8 +984,144 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
           </div>
         )}
 
-        {activeTab === 'live' && (
+        {activeTab === 'live' && (() => {
+          const allLives: any[] = data.actualLives || [];
+
+          // Pre-compute semua agregat dari full dataset (sama seperti internal dashboard)
+          const cGmvMap    = new Map<string, number>();
+          const cSessMap   = new Map<string, number>();
+          const cViewsMap  = new Map<string, number>();
+          const cLikesMap  = new Map<string, number>();
+          allLives.forEach((l: any) => {
+            const u = l.creator_username;
+            if (u) {
+              cGmvMap.set(u,   (cGmvMap.get(u)   || 0) + (Number(l.gmv)         || 0));
+              cSessMap.set(u,  (cSessMap.get(u)   || 0) + 1);
+              cViewsMap.set(u, (cViewsMap.get(u)  || 0) + (Number(l.video_views) || 0));
+              cLikesMap.set(u, (cLikesMap.get(u)  || 0) + (Number(l.video_likes) || 0));
+            }
+          });
+
+          const top5BySess = Array.from(cSessMap.entries()).sort((a,b) => b[1]-a[1]).slice(0,5)
+            .map(([username, sessions]) => ({ username, sessions, gmv: cGmvMap.get(username)||0, views: cViewsMap.get(username)||0, likes: cLikesMap.get(username)||0 }));
+
+          const top5ByGmv = Array.from(cGmvMap.entries()).sort((a,b) => b[1]-a[1]).slice(0,5)
+            .map(([username, gmv]) => ({ username, gmv, sessions: cSessMap.get(username)||0, views: cViewsMap.get(username)||0, likes: cLikesMap.get(username)||0 }));
+
+          const top5Sessions = [...allLives].filter((l:any) => (l.gmv||0) > 0).sort((a:any,b:any) => (b.gmv||0)-(a.gmv||0)).slice(0,5);
+
+          const rankBadge = (i: number) => ({ 1:'🥇', 2:'🥈', 3:'🥉' }[i] ?? `#${i}`);
+          const fmtRp = (n: number) => `Rp ${n.toLocaleString('id-ID')}`;
+
+          return (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6">
+
+            {/* ── Leaderboard ── */}
+            {allLives.length > 0 && (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+                {/* Card 1: Top 5 Kreator — Live Terbanyak */}
+                <Card className="shadow-sm">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-[14px]">🏆 Top 5 Kreator — Live Terbanyak</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {top5BySess.length === 0 ? <p className="text-sm text-slate-500 italic">Belum ada data</p> : (
+                      <ol className="space-y-3">
+                        {top5BySess.map((c, idx) => {
+                          const gpm = c.views > 0 ? c.gmv / c.views * 1000 : 0;
+                          return (
+                            <li key={c.username} className="space-y-1">
+                              <div className="flex items-center gap-2">
+                                <span className="text-[14px] w-6 text-center shrink-0">{rankBadge(idx+1)}</span>
+                                <span className="flex-1 text-[13px] font-semibold truncate">@{c.username}</span>
+                                <span className="text-[13px] font-bold text-blue-600 shrink-0">{c.sessions} sesi</span>
+                              </div>
+                              <div className="ml-8 grid grid-cols-2 gap-x-2 text-[11px] text-slate-500">
+                                <span>👁 {c.views.toLocaleString('id-ID')} views</span>
+                                <span>❤️ {c.likes.toLocaleString('id-ID')} likes</span>
+                                <span>💰 {fmtRp(c.gmv)}</span>
+                                <span>📊 GPM {fmtRp(Math.round(gpm))}</span>
+                              </div>
+                            </li>
+                          );
+                        })}
+                      </ol>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Card 2: Top 5 Kreator — GMV Live Terbanyak */}
+                <Card className="shadow-sm">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-[14px]">💰 Top 5 Kreator — GMV Live Terbanyak</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {top5ByGmv.length === 0 ? <p className="text-sm text-slate-500 italic">Belum ada data GMV</p> : (
+                      <ol className="space-y-3">
+                        {top5ByGmv.map((c, idx) => {
+                          const gpm = c.views > 0 ? c.gmv / c.views * 1000 : 0;
+                          return (
+                            <li key={c.username} className="space-y-1">
+                              <div className="flex items-center gap-2">
+                                <span className="text-[14px] w-6 text-center shrink-0">{rankBadge(idx+1)}</span>
+                                <span className="flex-1 text-[13px] font-semibold truncate">@{c.username}</span>
+                                <span className="text-[13px] font-bold text-green-600 shrink-0">{fmtRp(c.gmv)}</span>
+                              </div>
+                              <div className="ml-8 grid grid-cols-2 gap-x-2 text-[11px] text-slate-500">
+                                <span>🎬 {c.sessions} sesi</span>
+                                <span>👁 {c.views.toLocaleString('id-ID')} views</span>
+                                <span>❤️ {c.likes.toLocaleString('id-ID')} likes</span>
+                                <span>📊 GPM {fmtRp(Math.round(gpm))}</span>
+                              </div>
+                            </li>
+                          );
+                        })}
+                      </ol>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Card 3: Top 5 Sesi Live — GMV Per Sesi */}
+                <Card className="shadow-sm">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-[14px]">🔥 Top 5 Sesi Live — GMV Per Sesi</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {top5Sessions.length === 0 ? <p className="text-sm text-slate-500 italic">Belum ada data GMV</p> : (
+                      <ol className="space-y-3">
+                        {top5Sessions.map((live: any, idx: number) => {
+                          const views = Number(live.video_views)||0;
+                          const likes = Number(live.video_likes)||0;
+                          const gmv   = Number(live.gmv)||0;
+                          const gpm   = views > 0 ? gmv / views * 1000 : 0;
+                          return (
+                            <li key={live.content_uid||idx} className="space-y-1">
+                              <div className="flex items-center gap-2">
+                                <span className="text-[14px] w-6 text-center shrink-0">{rankBadge(idx+1)}</span>
+                                <div className="flex-1 min-w-0">
+                                  <div className="text-[13px] font-semibold truncate">@{live.creator_username}</div>
+                                  <div className="text-[11px] text-slate-400">{live.start_time ? new Date(live.start_time).toLocaleDateString('id-ID',{day:'numeric',month:'short',year:'numeric'}) : '—'}{live.duration_str ? ` · ${live.duration_str}` : ''}</div>
+                                </div>
+                                <span className="text-[13px] font-bold text-green-600 shrink-0">{fmtRp(gmv)}</span>
+                              </div>
+                              <div className="ml-8 grid grid-cols-2 gap-x-2 text-[11px] text-slate-500">
+                                <span>👁 {views.toLocaleString('id-ID')} views</span>
+                                <span>❤️ {likes.toLocaleString('id-ID')} likes</span>
+                                <span>📊 GPM {fmtRp(Math.round(gpm))}</span>
+                              </div>
+                            </li>
+                          );
+                        })}
+                      </ol>
+                    )}
+                  </CardContent>
+                </Card>
+
+              </div>
+            )}
+
+            {/* ── Jadwal Table ── */}
             <Card className="shadow-sm">
               <CardHeader className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
@@ -1186,7 +1322,8 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
               </CardContent>
             </Card>
           </div>
-        )}
+          );
+        })()}
 
         {activeTab === 'video' as any && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6">

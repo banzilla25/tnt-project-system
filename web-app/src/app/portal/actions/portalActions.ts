@@ -251,64 +251,58 @@ export async function getPortalData(campaignId: number) {
 
   // Fetch SKUs for dropdown already done above
 
-  // Ambil data organic_videos khusus kreator di campaign ini
-  let organicVideos: any[] = [];
   const validUsernames = enrichedCcData.filter((cc: any) => cc.client_approval === 'approved' || cc.approval === 'approved').map((cc: any) => cc.creators?.username).filter(Boolean);
-  
-  if (validUsernames.length > 0) {
-    const startD = campaign.start_date;
-    const endD = campaign.end_date;
-    
-    for (let i = 0; i < validUsernames.length; i += 100) {
-      const chunk = validUsernames.slice(i, i + 100);
-      let ovStart = 0;
-      while(true) {
-          let query = supabase.from('organic_videos')
-              .select('content_uid, creator_username, video_views, video_likes, duration_str, post_time')
-              .in('creator_username', chunk);
-              
-          if (startD) query = query.gte('post_time', startD);
-          if (endD) query = query.lte('post_time', `${endD}T23:59:59Z`);
-          
-          const { data: ovs } = await query.range(ovStart, ovStart + 999);
-          if (!ovs || ovs.length === 0) break;
-          organicVideos = organicVideos.concat(ovs);
-          if (ovs.length < 1000) break;
-          ovStart += 1000;
-      }
-    }
-  }
 
+  // Ambil semua sesi Live via RPC — jauh lebih efisien dari loop ribuan baris
+  // RPC melakukan JOIN sales + organic_videos langsung di server DB
+  const { data: rpcLives } = await supabase.rpc('get_campaign_live_stats', {
+    p_campaign_id: campaignId,
+  });
+  const actualLives: any[] = Array.isArray(rpcLives) ? rpcLives : [];
+
+  // videoViewsMap dan videoLikesMap masih diperlukan untuk Video tab (non-live)
   const videoViewsMap = new Map();
   const videoLikesMap = new Map();
   const organicVideoMap = new Map();
 
-  const actualLives: any[] = [];
+  // Ambil hanya organic_videos untuk Video tab
+  let organicVideos: any[] = [];
+  if (validUsernames.length > 0) {
+    const startD = campaign.start_date;
+    const endD = campaign.end_date;
+    for (let i = 0; i < validUsernames.length; i += 100) {
+      const chunk = validUsernames.slice(i, i + 100);
+      let ovStart = 0;
+      while(true) {
+        let query = supabase.from('organic_videos')
+          .select('content_uid, creator_username, video_views, video_likes, duration_str, post_time')
+          .in('creator_username', chunk);
+        if (startD) query = query.gte('post_time', startD);
+        if (endD) query = query.lte('post_time', `${endD}T23:59:59Z`);
+        const { data: ovs } = await query.range(ovStart, ovStart + 999);
+        if (!ovs || ovs.length === 0) break;
+        organicVideos = organicVideos.concat(ovs);
+        if (ovs.length < 1000) break;
+        ovStart += 1000;
+      }
+    }
+  }
+
+  const liveUids = new Set(actualLives.map((l: any) => l.content_uid).filter(Boolean));
 
   organicVideos.forEach(v => {
-      if (v.content_uid) {
-          videoViewsMap.set(v.content_uid, v.video_views || 0);
-          videoLikesMap.set(v.content_uid, v.video_likes || 0);
-          
-          const isLive = v.duration_str && v.duration_str.includes('h') && v.duration_str.includes('min');
-          organicVideoMap.set(v.content_uid, { ...v, isLive: isLive });
-          
-          if (isLive) {
-              actualLives.push({
-                  content_uid: v.content_uid,
-                  creator_username: v.creator_username,
-                  start_time: v.post_time,
-                  video_views: v.video_views,
-                  video_likes: v.video_likes,
-                  duration_str: v.duration_str,
-                  gmv: 0,   // Will be mapped later from sales
-                  orders: 0 // Will be mapped later from sales
-              });
-          }
-      }
+    if (v.content_uid) {
+      videoViewsMap.set(v.content_uid, v.video_views || 0);
+      videoLikesMap.set(v.content_uid, v.video_likes || 0);
+      const isLive = liveUids.has(v.content_uid);
+      organicVideoMap.set(v.content_uid, { ...v, isLive });
+    }
   });
 
   const ordersMap = new Map<string, number>();
+  actualLives.forEach((l: any) => {
+    if (l.content_uid) ordersMap.set(l.content_uid, l.orders || 0);
+  });
 
   // Extract videos and attach GMV (merging DB videos + organic auto-detected videos + sales videos)
   const portalVideos: any[] = [];
@@ -346,28 +340,7 @@ export async function getPortalData(campaignId: number) {
        let vid = s.content_uid;
        if (vid && vid.startsWith('video_')) vid = vid.split('_')[1];
        if (vid) uniqueContentUids.add(vid);
-       
-       if (s.content_type === 'Livestream') {
-           // update gmv and orders for actual lives
-           const liveObj = actualLives.find(l => l.content_uid === vid);
-           if (liveObj) {
-               liveObj.gmv += (s.gmv || 0);
-               liveObj.orders = (liveObj.orders || 0) + (s.quantity || 0);
-           } else {
-               // this is a live stream from sales that might not be in organic videos yet
-               actualLives.push({
-                   content_uid: vid,
-                   creator_username: s.creator_username,
-                   start_time: s.post_time,
-                   video_views: 0,
-                   video_likes: 0,
-                   orders: s.quantity || 0,
-                   gmv: s.gmv || 0
-               });
-           }
-           // Track in ordersMap
-           ordersMap.set(vid, (ordersMap.get(vid) || 0) + (s.quantity || 0));
-       }
+       // Livestream sales tidak perlu diproses di sini — sudah ditangani oleh RPC get_campaign_live_stats
     });
     
     creatorOrganics.forEach((v: any) => {
@@ -382,19 +355,19 @@ export async function getPortalData(campaignId: number) {
            
            const isLive = ovObj ? !!ovObj.isLive : (sObj ? sObj.content_type === 'Livestream' : false);
            
-           // Exclude livestream dari daftar Video & Konten untuk menyesuaikan target 11576 video
+           // Exclude livestream dari daftar Video & Konten
            if (isLive) return;
            
            creatorVideos.push({
               id: `auto_${vid}`,
               content_uid: vid,
-              link_video: isLive ? '' : `https://www.tiktok.com/@${username}/video/${vid}`,
+              link_video: `https://www.tiktok.com/@${username}/video/${vid}`,
               creator_username: username,
               gmv: videoGmvMap.get(vid) || 0,
               views: videoViewsMap.get(vid) || 0,
               likes: videoLikesMap.get(vid) || 0,
               isAuto: true,
-              isLive: isLive
+              isLive: false
            });
         }
     });
