@@ -362,7 +362,8 @@ export default function OrganicImport() {
 
       if (isRefund) {
         refundCount++;
-        gmv = 0; // Set GMV to 0 so it overwrites the positive GMV in database correctly
+        // GMV tetap dihitung (price × qty) karena order tetap terjadi.
+        // Flag is_refund disimpan untuk keperluan analisis di masa depan.
       }
 
       // Hitung agregat untuk data yang VALID saja
