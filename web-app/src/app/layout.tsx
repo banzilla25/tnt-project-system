@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { LayoutWrapper } from "@/components/LayoutWrapper";
 import { DataLoader } from "@/components/DataLoader";
+import { GlobalLoadingOverlay } from "@/components/GlobalLoadingOverlay";
 
 export const metadata: Metadata = {
   title: "TNT Campaign Management",
@@ -21,6 +22,7 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@100..800&family=Plus+Jakarta+Sans:wght@200..800&display=swap" rel="stylesheet" />
       </head>
       <body className={`font-sans bg-bg text-text min-h-screen flex antialiased`}>
+        <GlobalLoadingOverlay />
         <DataLoader />
         <LayoutWrapper>
           {children}

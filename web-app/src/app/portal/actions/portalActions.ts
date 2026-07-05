@@ -301,11 +301,14 @@ export async function getPortalData(campaignId: number) {
                   video_views: v.video_views,
                   video_likes: v.video_likes,
                   duration_str: v.duration_str,
-                  gmv: 0 // Will be mapped later from sales
+                  gmv: 0,   // Will be mapped later from sales
+                  orders: 0 // Will be mapped later from sales
               });
           }
       }
   });
+
+  const ordersMap = new Map<string, number>();
 
   // Extract videos and attach GMV (merging DB videos + organic auto-detected videos + sales videos)
   const portalVideos: any[] = [];
@@ -345,21 +348,25 @@ export async function getPortalData(campaignId: number) {
        if (vid) uniqueContentUids.add(vid);
        
        if (s.content_type === 'Livestream') {
-           // update gmv for actual lives
+           // update gmv and orders for actual lives
            const liveObj = actualLives.find(l => l.content_uid === vid);
            if (liveObj) {
                liveObj.gmv += (s.gmv || 0);
+               liveObj.orders = (liveObj.orders || 0) + (s.quantity || 0);
            } else {
                // this is a live stream from sales that might not be in organic videos yet
                actualLives.push({
                    content_uid: vid,
                    creator_username: s.creator_username,
-                   start_time: s.post_time, // if post_time not in sales, it might be undefined
+                   start_time: s.post_time,
                    video_views: 0,
                    video_likes: 0,
+                   orders: s.quantity || 0,
                    gmv: s.gmv || 0
                });
            }
+           // Track in ordersMap
+           ordersMap.set(vid, (ordersMap.get(vid) || 0) + (s.quantity || 0));
        }
     });
     

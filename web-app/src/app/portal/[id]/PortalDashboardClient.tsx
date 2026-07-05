@@ -1091,24 +1091,48 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                                                     
                                                     {isDone && (
                                                       <div className="mt-3 space-y-2">
-                                                          {livesOnDate.map((live: any, idx: number) => (
-                                                              <div key={idx} className="bg-white/60 p-2 rounded text-sm text-slate-700 border border-black/5">
-                                                                  <div className="flex justify-between items-center font-medium mb-1">
-                                                                      <span>Sesi #{idx + 1} {live.duration_str ? `(${live.duration_str})` : ''}</span>
-                                                                      <span className="text-xs text-slate-500">ID: {live.content_uid}</span>
-                                                                  </div>
-                                                                  <div className="grid grid-cols-2 gap-2 text-xs">
-                                                                      <div>
-                                                                          <div className="opacity-70">Views</div>
-                                                                          <div className="font-semibold">{(live.video_views || 0).toLocaleString('id-ID')}</div>
+                                                          {livesOnDate.map((live: any, idx: number) => {
+                                                              const views = live.video_views || 0;
+                                                              const likes = live.video_likes || 0;
+                                                              const gmv = live.gmv || 0;
+                                                              const orders = live.orders || 0;
+                                                              const gpm = views > 0 ? (gmv / views * 1000).toLocaleString('id-ID', { maximumFractionDigits: 0 }) : '0';
+
+                                                              return (
+                                                                  <div key={idx} className="bg-white/60 p-2 rounded text-sm text-slate-700 border border-black/5">
+                                                                      <div className="flex justify-between items-center font-medium mb-2">
+                                                                          <span>Sesi #{idx + 1} {live.duration_str ? `(${live.duration_str})` : ''}</span>
+                                                                          <span className="text-xs text-slate-500">ID: {live.content_uid}</span>
                                                                       </div>
-                                                                      <div>
-                                                                          <div className="opacity-70">GMV</div>
-                                                                          <div className="font-semibold">Rp {(live.gmv || 0).toLocaleString('id-ID')}</div>
+                                                                      <div className="grid grid-cols-3 gap-2 text-xs">
+                                                                          <div>
+                                                                              <div className="opacity-70 mb-0.5">Views</div>
+                                                                              <div className="font-semibold">{views.toLocaleString('id-ID')}</div>
+                                                                          </div>
+                                                                          <div>
+                                                                              <div className="opacity-70 mb-0.5">Likes</div>
+                                                                              <div className="font-semibold">{likes.toLocaleString('id-ID')}</div>
+                                                                          </div>
+                                                                          <div>
+                                                                              <div className="opacity-70 mb-0.5">Durasi</div>
+                                                                              <div className="font-semibold">{live.duration_str || '—'}</div>
+                                                                          </div>
+                                                                          <div>
+                                                                              <div className="opacity-70 mb-0.5">Orders</div>
+                                                                              <div className="font-semibold">{orders.toLocaleString('id-ID')}</div>
+                                                                          </div>
+                                                                          <div>
+                                                                              <div className="opacity-70 mb-0.5">GMV</div>
+                                                                              <div className="font-semibold text-green-700">Rp {gmv.toLocaleString('id-ID')}</div>
+                                                                          </div>
+                                                                          <div>
+                                                                              <div className="opacity-70 mb-0.5">GPM (per Ribu Views)</div>
+                                                                              <div className="font-semibold text-purple-700">Rp {gpm}</div>
+                                                                          </div>
                                                                       </div>
                                                                   </div>
-                                                              </div>
-                                                          ))}
+                                                              );
+                                                          })}
                                                           {livesOnDate.length > 1 && (
                                                               <div className="mt-2 pt-2 border-t border-black/10 flex justify-between font-semibold text-sm">
                                                                   <span>Total Harian:</span>
