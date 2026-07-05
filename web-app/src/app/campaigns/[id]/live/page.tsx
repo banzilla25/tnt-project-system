@@ -106,42 +106,60 @@ export default function LiveSchedulePage() {
         return all;
       };
 
-      // Fetch live sessions in chunks to avoid URL too long and bypass 1000 limit
-      let allSessions: any[] = [];
-      const chunkSize = 200;
+      let organicLives: any[] = [];
+      const chunkSize = 100;
       for (let i = 0; i < usernames.length; i += chunkSize) {
         const chunk = usernames.slice(i, i + chunkSize);
-        const chunkSessions = await fetchAll(supabase
-          .from('live_sessions')
-          .select('*')
-          .in('creator_username', chunk));
-        allSessions = allSessions.concat(chunkSessions);
+        let query = supabase.from('organic_videos').select('*').in('creator_username', chunk).ilike('duration_str', '%h%min%');
+        if (campaign?.start_date) query = query.gte('post_time', campaign.start_date);
+        if (campaign?.end_date) query = query.lte('post_time', `${campaign.end_date}T23:59:59Z`);
+        const chunkLives = await fetchAll(query);
+        organicLives = organicLives.concat(chunkLives);
       }
-        
-      if (allSessions && allSessions.length > 0) {
-        setActualLives(allSessions);
-        
-        const roomIds = allSessions.map(s => s.livestream_room_id).filter(Boolean);
-        const uniqueRoomIds = Array.from(new Set(roomIds));
-        
-        let allProducts: any[] = [];
-        for (let i = 0; i < uniqueRoomIds.length; i += chunkSize) {
-          const chunk = uniqueRoomIds.slice(i, i + chunkSize);
-          const chunkProducts = await fetchAll(supabase
-            .from('live_session_products')
-            .select('*')
-            .in('livestream_room_id', chunk));
-          allProducts = allProducts.concat(chunkProducts);
-        }
-          
-        if (allProducts && allProducts.length > 0) {
-          setActualLiveProducts(allProducts);
-        }
+      
+      let salesLives: any[] = [];
+      for (let i = 0; i < usernames.length; i += chunkSize) {
+        const chunk = usernames.slice(i, i + chunkSize);
+        const chunkSales = await fetchAll(supabase.from('sales').select('content_uid, gmv, creator_username, post_time').eq('campaign_id', campaignId).eq('content_type', 'Livestream').in('creator_username', chunk));
+        salesLives = salesLives.concat(chunkSales);
       }
+      
+      const gmvMap = new Map();
+      salesLives.forEach(s => {
+         let vid = s.content_uid;
+         if (vid && vid.startsWith('video_')) vid = vid.split('_')[1];
+         gmvMap.set(vid, (gmvMap.get(vid) || 0) + (s.gmv || 0));
+      });
+      
+      const unifiedLives = organicLives.map(l => ({
+         ...l,
+         gmv: gmvMap.get(l.content_uid) || 0,
+         start_time: l.post_time
+      }));
+      
+      const existingUids = new Set(organicLives.map(l => l.content_uid));
+      salesLives.forEach(s => {
+         let vid = s.content_uid;
+         if (vid && vid.startsWith('video_')) vid = vid.split('_')[1];
+         if (vid && !existingUids.has(vid)) {
+             existingUids.add(vid);
+             unifiedLives.push({
+                 content_uid: vid,
+                 creator_username: s.creator_username,
+                 post_time: s.post_time,
+                 start_time: s.post_time,
+                 video_views: 0,
+                 video_likes: 0,
+                 gmv: gmvMap.get(vid) || 0
+             });
+         }
+      });
+      
+      setActualLives(unifiedLives);
     };
     
     fetchActualLives();
-  }, [campaignId, localCreators]);
+  }, [campaignId, localCreators, campaign]);
 
   const approvedCCs = localCreators
     .filter(cc => {
@@ -234,7 +252,14 @@ export default function LiveSchedulePage() {
                   const schedules = live_schedules.filter(l => l.campaign_creator_id === cc.id).sort((a, b) => new Date(a.tanggal_live).getTime() - new Date(b.tanggal_live).getTime());
 
                   // Get actual lives for this creator
-                  const creatorLives = actualLives.filter(l => l.creator_username === creator?.username);
+                  // Collect unique dates from schedules AND actual lives
+                  const allDates = new Set<string>();
+                  schedules.forEach(s => allDates.add(new Date(s.tanggal_live).toISOString().substring(0, 10)));
+                  creatorLives.forEach(l => {
+                      if (l.start_time) allDates.add(new Date(l.start_time).toISOString().substring(0, 10));
+                  });
+                  
+                  const sortedDates = Array.from(allDates).sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
 
                   return (
                     <tr key={cc.id} className="border-b border-line hover:bg-slate-50/50">
@@ -243,77 +268,98 @@ export default function LiveSchedulePage() {
                         <span className="inline-block mt-[4px] px-[8px] py-[2px] border border-line rounded-[4px] text-[10px] font-semibold text-text-soft uppercase bg-slate-100">{cc.approval}</span>
                       </td>
                       <td className="align-top px-[16px] py-[16px]">
-                        {schedules.length === 0 ? (
+                        {sortedDates.length === 0 ? (
                           <span className="text-[13px] text-text-soft italic">Belum ada jadwal live</span>
                         ) : (
                           <div className="flex flex-col gap-[12px]">
-                            {schedules.map(schedule => {
-                              const scheduledDate = new Date(schedule.tanggal_live).toISOString().substring(0, 10);
+                            {sortedDates.map(dateStr => {
+                              const schedule = schedules.find(s => new Date(s.tanggal_live).toISOString().substring(0, 10) === dateStr);
+                              const livesOnDate = creatorLives.filter(l => l.start_time && l.start_time.startsWith(dateStr));
                               
-                              // Check if there are lives on this date
-                              const livesOnDate = creatorLives.filter(l => l.start_time && l.start_time.startsWith(scheduledDate));
+                              const totalViews = livesOnDate.reduce((sum, l) => sum + (l.video_views || 0), 0);
+                              const campaignGmv = livesOnDate.reduce((sum, l) => sum + (l.gmv || 0), 0);
                               
-                              let totalViews = 0;
-                              let campaignGmv = 0;
+                              const isScheduled = !!schedule;
+                              const isDone = livesOnDate.length > 0;
+                              const todayDate = new Date().toISOString().substring(0, 10);
+                              const isPast = dateStr < todayDate;
+
+                              // Determine color and status text
+                              let bgColor = 'bg-blue-50 border-blue-200';
+                              let textColor = 'text-blue-800';
+                              let icon = <Calendar className="w-5 h-5 text-blue-500" />;
+                              let statusText = 'Menunggu pelaksanaan Live...';
                               
-                              if (livesOnDate.length > 0) {
-                                totalViews = livesOnDate.reduce((sum, l) => sum + (l.live_views || 0), 0);
-                                
-                                const roomIds = livesOnDate.map(l => l.livestream_room_id);
-                                const products = actualLiveProducts.filter(p => roomIds.includes(p.livestream_room_id));
-                                
-                                // Calculate GMV strictly for this campaign
-                                products.forEach(p => {
-                                  if (p.product_id && skus.find(s => s.product_id === p.product_id && s.campaign_id === campaignId)) {
-                                    campaignGmv += (p.gmv || 0);
+                              if (isScheduled && isDone) {
+                                  bgColor = 'bg-green-50 border-green-200';
+                                  textColor = 'text-green-800';
+                                  icon = <CheckCircle2 className="w-5 h-5 text-green-600" />;
+                                  statusText = 'Live sesuai jadwal.';
+                              } else if (isScheduled && !isDone) {
+                                  if (isPast) {
+                                      bgColor = 'bg-red-50 border-red-200';
+                                      textColor = 'text-red-800';
+                                      icon = <XCircle className="w-5 h-5 text-red-500" />;
+                                      statusText = 'Kreator tidak melakukan Live pada jadwal ini (Tidak ada data terdeteksi).';
                                   }
-                                });
+                              } else if (!isScheduled && isDone) {
+                                  bgColor = 'bg-yellow-50 border-yellow-200';
+                                  textColor = 'text-yellow-800';
+                                  icon = <CheckCircle2 className="w-5 h-5 text-yellow-600" />;
+                                  statusText = 'Live tambahan (Di luar jadwal).';
                               }
 
-                              const isDone = livesOnDate.length > 0;
-                              // Check if past (ignoring time by just using date string comparison)
-                              const todayDate = new Date().toISOString().substring(0, 10);
-                              const isPast = scheduledDate < todayDate;
-
                               return (
-                                <div key={schedule.id} className={`flex items-start gap-[12px] p-3 rounded-lg border ${isDone ? 'bg-green-50 border-green-200' : isPast ? 'bg-red-50 border-red-200' : 'bg-blue-50 border-blue-200'}`}>
+                                <div key={dateStr} className={`flex items-start gap-[12px] p-3 rounded-lg border ${bgColor}`}>
                                   <div className="mt-0.5">
-                                    {isDone ? (
-                                      <CheckCircle2 className="w-5 h-5 text-green-600" />
-                                    ) : isPast ? (
-                                      <XCircle className="w-5 h-5 text-red-500" />
-                                    ) : (
-                                      <Calendar className="w-5 h-5 text-blue-500" />
-                                    )}
+                                    {icon}
                                   </div>
                                   <div className="flex-1">
                                     <div className="flex items-center justify-between">
-                                      <span className={`text-[14px] font-semibold ${isDone ? 'text-green-800' : isPast ? 'text-red-800' : 'text-blue-800'}`}>
-                                        {new Date(schedule.tanggal_live).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                                      <span className={`text-[14px] font-semibold ${textColor}`}>
+                                        {new Date(dateStr).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
                                       </span>
-                                      <button onClick={() => handleDelete(schedule.id)} className="text-slate-400 hover:text-red-600 p-1">
-                                        <Trash2 className="w-4 h-4" />
-                                      </button>
+                                      {isScheduled && (
+                                          <button onClick={() => handleDelete(schedule.id)} className="text-slate-400 hover:text-red-600 p-1">
+                                            <Trash2 className="w-4 h-4" />
+                                          </button>
+                                      )}
                                     </div>
                                     
-                                    {isDone ? (
-                                      <div className="mt-2 grid grid-cols-2 gap-4 text-sm text-green-700 bg-white/50 p-2 rounded">
-                                        <div>
-                                          <div className="text-xs opacity-70">Total Views</div>
-                                          <div className="font-semibold">{totalViews.toLocaleString('id-ID')}</div>
-                                        </div>
-                                        <div>
-                                          <div className="text-xs opacity-70">GMV Campaign</div>
-                                          <div className="font-semibold">Rp {campaignGmv.toLocaleString('id-ID')}</div>
-                                        </div>
-                                      </div>
-                                    ) : isPast ? (
-                                      <div className="mt-1 text-sm text-red-600 italic">
-                                        Kreator tidak melakukan Live pada jadwal ini (Tidak ada data terdeteksi).
-                                      </div>
-                                    ) : (
-                                      <div className="mt-1 text-sm text-blue-600">
-                                        Menunggu pelaksanaan Live...
+                                    <div className={`mt-1 text-sm italic ${textColor} opacity-80`}>
+                                        {statusText}
+                                    </div>
+                                    
+                                    {isDone && (
+                                      <div className="mt-3 space-y-2">
+                                          {livesOnDate.map((live, idx) => (
+                                              <div key={idx} className="bg-white/60 p-2 rounded text-sm text-slate-700 border border-black/5">
+                                                  <div className="flex justify-between items-center font-medium mb-1">
+                                                      <span>Sesi #{idx + 1} {live.duration_str ? `(${live.duration_str})` : ''}</span>
+                                                      <span className="text-xs text-slate-500">ID: {live.content_uid}</span>
+                                                  </div>
+                                                  <div className="grid grid-cols-2 gap-2 text-xs">
+                                                      <div>
+                                                          <div className="opacity-70">Views</div>
+                                                          <div className="font-semibold">{(live.video_views || 0).toLocaleString('id-ID')}</div>
+                                                      </div>
+                                                      <div>
+                                                          <div className="opacity-70">GMV</div>
+                                                          <div className="font-semibold">Rp {(live.gmv || 0).toLocaleString('id-ID')}</div>
+                                                      </div>
+                                                  </div>
+                                              </div>
+                                          ))}
+                                          
+                                          {livesOnDate.length > 1 && (
+                                              <div className="mt-2 pt-2 border-t border-black/10 flex justify-between font-semibold text-sm">
+                                                  <span>Total Harian:</span>
+                                                  <div className="flex gap-4">
+                                                      <span>{totalViews.toLocaleString('id-ID')} Views</span>
+                                                      <span>Rp {campaignGmv.toLocaleString('id-ID')}</span>
+                                                  </div>
+                                              </div>
+                                          )}
                                       </div>
                                     )}
                                   </div>

@@ -264,7 +264,7 @@ export async function getPortalData(campaignId: number) {
       let ovStart = 0;
       while(true) {
           let query = supabase.from('organic_videos')
-              .select('content_uid, creator_username, video_views, video_likes, duration_str')
+              .select('content_uid, creator_username, video_views, video_likes, duration_str, post_time')
               .in('creator_username', chunk);
               
           if (startD) query = query.gte('post_time', startD);
@@ -283,6 +283,8 @@ export async function getPortalData(campaignId: number) {
   const videoLikesMap = new Map();
   const organicVideoMap = new Map();
 
+  const actualLives: any[] = [];
+
   organicVideos.forEach(v => {
       if (v.content_uid) {
           videoViewsMap.set(v.content_uid, v.video_views || 0);
@@ -290,6 +292,18 @@ export async function getPortalData(campaignId: number) {
           
           const isLive = v.duration_str && v.duration_str.includes('h') && v.duration_str.includes('min');
           organicVideoMap.set(v.content_uid, { ...v, isLive: isLive });
+          
+          if (isLive) {
+              actualLives.push({
+                  content_uid: v.content_uid,
+                  creator_username: v.creator_username,
+                  start_time: v.post_time,
+                  video_views: v.video_views,
+                  video_likes: v.video_likes,
+                  duration_str: v.duration_str,
+                  gmv: 0 // Will be mapped later from sales
+              });
+          }
       }
   });
 
@@ -329,6 +343,24 @@ export async function getPortalData(campaignId: number) {
        let vid = s.content_uid;
        if (vid && vid.startsWith('video_')) vid = vid.split('_')[1];
        if (vid) uniqueContentUids.add(vid);
+       
+       if (s.content_type === 'Livestream') {
+           // update gmv for actual lives
+           const liveObj = actualLives.find(l => l.content_uid === vid);
+           if (liveObj) {
+               liveObj.gmv += (s.gmv || 0);
+           } else {
+               // this is a live stream from sales that might not be in organic videos yet
+               actualLives.push({
+                   content_uid: vid,
+                   creator_username: s.creator_username,
+                   start_time: s.post_time, // if post_time not in sales, it might be undefined
+                   video_views: 0,
+                   video_likes: 0,
+                   gmv: s.gmv || 0
+               });
+           }
+       }
     });
     
     creatorOrganics.forEach((v: any) => {
@@ -406,15 +438,18 @@ export async function getPortalData(campaignId: number) {
     authenticated: true, 
     campaign, 
     summary: finalSummary, 
-    totalSales: totalSales || null,
-    totalAwareness: totalAwareness || null,
-    dailyPerf: dailyPerf || [], 
+    totalSales: null,
+    totalAwareness: null,
+    dailyPerf: [], 
     ccData: enrichedCcData, 
     samples,
     schedules,
     videos: portalVideos,
     skus: skusData || [],
-    rpcPerformance: rpcPerformance || null,
+    liveHistory: [],
+    rpcPerformance,
+    topSkus: salesPerProduct,
+    actualLives,
     salesPerProduct,
     totalItemsSold
   };

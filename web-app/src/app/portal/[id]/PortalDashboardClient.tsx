@@ -313,14 +313,18 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
   const sampleTotalPages = Math.ceil(filteredSamples.length / PAGE_SIZE) || 1;
   const paginatedSamples = filteredSamples.slice(samplePage * PAGE_SIZE, (samplePage + 1) * PAGE_SIZE);
 
-  // 4. Live
-  let filteredLive = schedules.filter((l: any) => {
-    if (liveSearch && !l.creator_username?.toLowerCase().includes(liveSearch.toLowerCase())) return false;
+  // 4. Live (based on Creators)
+  const approvedCreatorsForLive = initialData.ccData.filter((cc: any) => 
+    cc.approval === 'approved' || cc.client_approval === 'approved'
+  );
+
+  let filteredLive = approvedCreatorsForLive.filter((cc: any) => {
+    if (liveSearch && !cc.creators?.username?.toLowerCase().includes(liveSearch.toLowerCase())) return false;
     return true;
   });
-  filteredLive = genericSort(filteredLive, liveSort, (l) => {
-    if (liveSort.key === 'username') return l.creator_username;
-    if (liveSort.key === 'tanggal_live') return new Date(l.tanggal_live || 0).getTime();
+  filteredLive = genericSort(filteredLive, liveSort, (cc) => {
+    if (liveSort.key === 'username') return cc.creators?.username;
+    if (liveSort.key === 'tanggal_live') return cc.creators?.username;
     return 0;
   });
   const liveTotalPages = Math.ceil(filteredLive.length / PAGE_SIZE) || 1;
@@ -1014,18 +1018,118 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                           <TableCell colSpan={2} className="text-center py-8 text-slate-500">Belum ada jadwal live yang sesuai pencarian.</TableCell>
                         </TableRow>
                       ) : (
-                        paginatedLive.map((l: any) => (
-                          <TableRow key={l.id}>
-                            <TableCell className="align-top">
-                              <div className="font-medium text-slate-800">@{l.creator_username}</div>
-                            </TableCell>
-                            <TableCell className="align-top">
-                              <Badge variant="outline" className="px-3 py-1 text-blue-700 bg-blue-50 border-blue-200 text-sm">
-                                {new Date(l.tanggal_live).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-                              </Badge>
-                            </TableCell>
-                          </TableRow>
-                        ))
+                        paginatedLive.map((cc: any) => {
+                          const username = cc.creators?.username;
+                          const creatorSchedules = schedules.filter((s: any) => s.campaign_creator_id === cc.id);
+                          const creatorLives = initialData.actualLives?.filter((l: any) => l.creator_username === username) || [];
+                          
+                          const allDates = new Set<string>();
+                          creatorSchedules.forEach((s: any) => allDates.add(new Date(s.tanggal_live).toISOString().substring(0, 10)));
+                          creatorLives.forEach((l: any) => {
+                              if (l.start_time) allDates.add(new Date(l.start_time).toISOString().substring(0, 10));
+                          });
+                          const sortedDates = Array.from(allDates).sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+
+                          return (
+                            <TableRow key={cc.id}>
+                              <TableCell className="align-top">
+                                <div className="font-semibold text-slate-800">@{username}</div>
+                              </TableCell>
+                              <TableCell className="align-top">
+                                {sortedDates.length === 0 ? (
+                                    <span className="text-sm text-slate-500 italic">Belum ada jadwal atau sesi live.</span>
+                                ) : (
+                                    <div className="flex flex-col gap-3">
+                                        {sortedDates.map(dateStr => {
+                                            const schedule = creatorSchedules.find((s: any) => new Date(s.tanggal_live).toISOString().substring(0, 10) === dateStr);
+                                            const livesOnDate = creatorLives.filter((l: any) => l.start_time && l.start_time.startsWith(dateStr));
+                                            
+                                            const totalViews = livesOnDate.reduce((sum: number, l: any) => sum + (l.video_views || 0), 0);
+                                            const campaignGmv = livesOnDate.reduce((sum: number, l: any) => sum + (l.gmv || 0), 0);
+                                            
+                                            const isScheduled = !!schedule;
+                                            const isDone = livesOnDate.length > 0;
+                                            const todayDate = new Date().toISOString().substring(0, 10);
+                                            const isPast = dateStr < todayDate;
+                                            
+                                            let bgColor = 'bg-blue-50 border-blue-200';
+                                            let textColor = 'text-blue-800';
+                                            let icon = <Calendar className="w-5 h-5 text-blue-500" />;
+                                            let statusText = 'Menunggu pelaksanaan Live...';
+                                            
+                                            if (isScheduled && isDone) {
+                                                bgColor = 'bg-green-50 border-green-200';
+                                                textColor = 'text-green-800';
+                                                icon = <CheckCircle2 className="w-5 h-5 text-green-600" />;
+                                                statusText = 'Live sesuai jadwal.';
+                                            } else if (isScheduled && !isDone) {
+                                                if (isPast) {
+                                                    bgColor = 'bg-red-50 border-red-200';
+                                                    textColor = 'text-red-800';
+                                                    icon = <XCircle className="w-5 h-5 text-red-500" />;
+                                                    statusText = 'Kreator tidak melakukan Live pada jadwal ini (Tidak ada data terdeteksi).';
+                                                }
+                                            } else if (!isScheduled && isDone) {
+                                                bgColor = 'bg-yellow-50 border-yellow-200';
+                                                textColor = 'text-yellow-800';
+                                                icon = <CheckCircle2 className="w-5 h-5 text-yellow-600" />;
+                                                statusText = 'Live tambahan (Di luar jadwal).';
+                                            }
+                                            
+                                            return (
+                                                <div key={dateStr} className={`flex items-start gap-3 p-3 rounded-lg border ${bgColor}`}>
+                                                  <div className="mt-0.5">
+                                                    {icon}
+                                                  </div>
+                                                  <div className="flex-1">
+                                                    <div className={`text-[14px] font-semibold ${textColor}`}>
+                                                      {new Date(dateStr).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                                                    </div>
+                                                    <div className={`mt-1 text-sm italic ${textColor} opacity-80`}>
+                                                        {statusText}
+                                                    </div>
+                                                    
+                                                    {isDone && (
+                                                      <div className="mt-3 space-y-2">
+                                                          {livesOnDate.map((live: any, idx: number) => (
+                                                              <div key={idx} className="bg-white/60 p-2 rounded text-sm text-slate-700 border border-black/5">
+                                                                  <div className="flex justify-between items-center font-medium mb-1">
+                                                                      <span>Sesi #{idx + 1} {live.duration_str ? `(${live.duration_str})` : ''}</span>
+                                                                      <span className="text-xs text-slate-500">ID: {live.content_uid}</span>
+                                                                  </div>
+                                                                  <div className="grid grid-cols-2 gap-2 text-xs">
+                                                                      <div>
+                                                                          <div className="opacity-70">Views</div>
+                                                                          <div className="font-semibold">{(live.video_views || 0).toLocaleString('id-ID')}</div>
+                                                                      </div>
+                                                                      <div>
+                                                                          <div className="opacity-70">GMV</div>
+                                                                          <div className="font-semibold">Rp {(live.gmv || 0).toLocaleString('id-ID')}</div>
+                                                                      </div>
+                                                                  </div>
+                                                              </div>
+                                                          ))}
+                                                          {livesOnDate.length > 1 && (
+                                                              <div className="mt-2 pt-2 border-t border-black/10 flex justify-between font-semibold text-sm">
+                                                                  <span>Total Harian:</span>
+                                                                  <div className="flex gap-4">
+                                                                      <span>{totalViews.toLocaleString('id-ID')} Views</span>
+                                                                      <span>Rp {campaignGmv.toLocaleString('id-ID')}</span>
+                                                                  </div>
+                                                              </div>
+                                                          )}
+                                                      </div>
+                                                    )}
+                                                  </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })
                       )}
                     </TableBody>
                   </Table>
