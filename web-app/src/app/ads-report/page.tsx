@@ -41,6 +41,7 @@ export default function AdsReportPage() {
   const isManager = profile?.role === 'manager';
 
   const supabase = createClient();
+  const [displayLimit, setDisplayLimit] = useState(100);
 
   // Sorting States
 
