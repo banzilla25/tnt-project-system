@@ -151,6 +151,15 @@ export async function getAdsReportData(params: {
     cpm: sumImpr > 0 ? sumSpend / (sumImpr / 1000) : 0,
   };
 
+  // Fetch campaigns to map names
+  const { data: campaignsData } = await supabase.from('campaigns').select('id, nama');
+  const campaignNames: Record<number, string> = {};
+  if (campaignsData) {
+    campaignsData.forEach(c => {
+      campaignNames[c.id] = c.nama;
+    });
+  }
+
   // 5. Calculate Campaign Breakdown
   const campaignBreakdown: any = {};
   let globalUnmappedCampaigns = 0;
@@ -162,7 +171,7 @@ export async function getAdsReportData(params: {
        continue;
     }
     if (!campaignBreakdown[cId]) {
-      campaignBreakdown[cId] = { name: '', spend: 0, gmv: 0, impressions: 0, purchases: 0, unmapped: 0 };
+      campaignBreakdown[cId] = { name: campaignNames[cId] || 'Unknown Campaign', spend: 0, gmv: 0, impressions: 0, purchases: 0, unmapped: 0 };
     }
     campaignBreakdown[cId].spend += ad.cost_usd * kurs;
     campaignBreakdown[cId].gmv += ad.gross_revenue_usd * kurs;
