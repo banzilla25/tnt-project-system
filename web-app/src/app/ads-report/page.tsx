@@ -82,7 +82,7 @@ export default function AdsReportPage() {
       setIsLoading(false);
     };
     fetchAds();
-  }, [appliedStartDate, appliedEndDate, selectedCampaignId, appliedCampaignAdsName, deferredSearchQuery, page, pageSize, sortConfig]);
+  }, [appliedStartDate, appliedEndDate, selectedCampaignId, appliedCampaignAdsName, deferredSearchQuery, sortConfig]);
   
   // Inline Auto-Save States
   type PendingAdChange = { campaign_id?: number | null; campaign_ads_name?: string | null; creator_id?: number | null; kurs?: number; ad_id?: string; original: any };
