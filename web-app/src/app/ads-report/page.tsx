@@ -19,7 +19,7 @@ export default function AdsReportPage() {
   const { creators, campaigns } = useDatabaseStore();
   const [adsPerformance, setAdsPerformance] = useState<any[]>([]);
   const [globalSummary, setGlobalSummary] = useState<any>({ totalSpend: 0, totalGmv: 0, totalImpressions: 0, roas: 0, cpm: 0 });
-  const [campaignBreakdown, setCampaignBreakdown] = useState<any>({});
+  const [campaignBreakdown, setCampaignBreakdown] = useState<any>({ list: [], globalUnmappedCampaigns: 0 });
   
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
