@@ -14,11 +14,28 @@ export async function getAdsReportData(params: {
   const supabase = await createClient();
   
   // 1. Fetch ALL data (we need history to calculate deltas)
-  let query = supabase.from('ads_performance').select('*, creators(username)').order('tanggal', { ascending: true }).limit(100000);
+  let allData: any[] = [];
+  let from = 0;
+  const step = 1000;
   
-  const { data: allData, error } = await query;
-  if (error) throw error;
-  if (!allData) return { summary: { totalSpend: 0, totalGmv: 0, totalImpressions: 0, roas: 0, cpm: 0 }, data: [], campaignBreakdown: { list: [], globalUnmappedCampaigns: 0 }, globalUnmappedCampaigns: 0 };
+  while (true) {
+    const { data, error } = await supabase
+      .from('ads_performance')
+      .select('*, creators(username)')
+      .order('tanggal', { ascending: true })
+      .range(from, from + step - 1);
+      
+    if (error) throw error;
+    if (data && data.length > 0) {
+      allData.push(...data);
+    }
+    if (!data || data.length < step) {
+      break;
+    }
+    from += step;
+  }
+  
+  if (allData.length === 0) return { summary: { totalSpend: 0, totalGmv: 0, totalImpressions: 0, roas: 0, cpm: 0 }, data: [], campaignBreakdown: { list: [], globalUnmappedCampaigns: 0 }, globalUnmappedCampaigns: 0 };
 
   // 2. Group by ad_id to calculate deltas
   const adsByAdId: Record<string, any[]> = {};
