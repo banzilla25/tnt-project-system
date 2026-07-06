@@ -137,9 +137,10 @@ export function CreatorSyncModal({ onComplete }: { onComplete?: () => void }) {
           
           // 1. Upsert Creator
           if (!creatorId) {
+            const cleanUsername = row.username.toLowerCase().replace('@', '').trim();
             const { data: newC, error: errC } = await supabase.from('creators').insert({
-              username: row.username,
-              link_account: `https://www.tiktok.com/@${row.username}`
+              username: cleanUsername,
+              link_account: `https://www.tiktok.com/@${cleanUsername}`
             }).select().single();
             if (errC) { 
               localErrorLog.push({ username: row.username, pesan_error: `Gagal buat kreator: ${errC.message}`, data_mentah: row });
