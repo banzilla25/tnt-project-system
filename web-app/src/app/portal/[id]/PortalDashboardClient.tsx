@@ -30,6 +30,7 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
   const [expandedVideos, setExpandedVideos] = useState<Record<string, boolean>>({});
   const [isApproving, setIsApproving] = useState<number | null>(null);
   const [editedSamples, setEditedSamples] = useState<Record<number, BatchUpdateData>>({});
+  const [autoSavingItems, setAutoSavingItems] = useState<Record<number, boolean>>({});
   const [isSavingBatch, setIsSavingBatch] = useState(false);
   
   // Filter, Sort, & Pagination States
@@ -133,10 +134,14 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
 
   const handleAutoSave = async (addrId: number, field: keyof BatchUpdateData, value: string) => {
     handleQueueUpdate(addrId, field, value);
+    setAutoSavingItems(prev => ({ ...prev, [addrId]: true }));
     try {
       await batchUpdateResiByClient(campaignId, [{ addressId: addrId, [field]: value }]);
+      router.refresh();
     } catch (err) {
       console.error("Auto-save failed", err);
+    } finally {
+      setAutoSavingItems(prev => ({ ...prev, [addrId]: false }));
     }
   };
 
@@ -962,9 +967,16 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                                 />
                               </TableCell>
                               <TableCell className="px-3 py-3 text-center">
-                                <span className="inline-block px-[8px] py-[2px] border border-slate-200 rounded-[4px] text-[10px] font-semibold text-slate-500 uppercase bg-slate-100">
-                                  {cc?.client_approval === 'NOT_REQUIRED' ? 'APPROVED' : (cc?.client_approval || 'pending')}
-                                </span>
+                                {autoSavingItems[addr.id] ? (
+                                  <span className="inline-flex items-center gap-1.5 px-[8px] py-[2px] border border-blue-200 rounded-[4px] text-[10px] font-semibold text-blue-600 uppercase bg-blue-50">
+                                    <div className="w-2.5 h-2.5 rounded-full border-2 border-blue-600 border-t-transparent animate-spin"></div>
+                                    Menyimpan...
+                                  </span>
+                                ) : (
+                                  <span className="inline-block px-[8px] py-[2px] border border-slate-200 rounded-[4px] text-[10px] font-semibold text-slate-500 uppercase bg-slate-100">
+                                    {cc?.client_approval === 'NOT_REQUIRED' ? 'APPROVED' : (cc?.client_approval || 'pending')}
+                                  </span>
+                                )}
                               </TableCell>
                             </TableRow>
                           );
