@@ -457,32 +457,32 @@ export default function AdsReportPage() {
           )}
         </TableCell>
 
-        <TableCell className="text-right font-medium text-xs text-slate-700">
-          ${cost.toFixed(2)}
+        <TableCell className={`text-right font-medium text-xs ${isChild ? 'text-emerald-600' : 'text-slate-700'}`}>
+          {isChild && cost > 0 ? '+' : ''}${cost.toFixed(2)}
         </TableCell>
-        <TableCell className="text-right font-medium text-xs text-slate-700">
-          {impr.toLocaleString('id-ID')}
+        <TableCell className={`text-right font-medium text-xs ${isChild ? 'text-emerald-600' : 'text-slate-700'}`}>
+          {isChild && impr > 0 ? '+' : ''}{impr.toLocaleString('id-ID')}
         </TableCell>
-        <TableCell className="text-right font-medium text-xs text-slate-700">
-          {clicks.toLocaleString('id-ID')}
+        <TableCell className={`text-right font-medium text-xs ${isChild ? 'text-emerald-600' : 'text-slate-700'}`}>
+          {isChild && clicks > 0 ? '+' : ''}{clicks.toLocaleString('id-ID')}
         </TableCell>
-        <TableCell className="text-right font-medium text-xs text-slate-700">
-          {ppv.toLocaleString('id-ID')}
+        <TableCell className={`text-right font-medium text-xs ${isChild ? 'text-emerald-600' : 'text-slate-700'}`}>
+          {isChild && ppv > 0 ? '+' : ''}{ppv.toLocaleString('id-ID')}
         </TableCell>
-        <TableCell className="text-right font-medium text-xs text-slate-700">
+        <TableCell className={`text-right font-medium text-xs ${isChild ? 'text-emerald-600' : 'text-slate-700'}`}>
           {ppvRate.toFixed(2)}%
         </TableCell>
-        <TableCell className="text-right font-medium text-xs text-slate-700">
-          {checkouts.toLocaleString('id-ID')}
+        <TableCell className={`text-right font-medium text-xs ${isChild ? 'text-emerald-600' : 'text-slate-700'}`}>
+          {isChild && checkouts > 0 ? '+' : ''}{checkouts.toLocaleString('id-ID')}
         </TableCell>
-        <TableCell className="text-right font-medium text-xs text-slate-700">
-          {purchases.toLocaleString('id-ID')}
+        <TableCell className={`text-right font-medium text-xs ${isChild ? 'text-emerald-600' : 'text-slate-700'}`}>
+          {isChild && purchases > 0 ? '+' : ''}{purchases.toLocaleString('id-ID')}
         </TableCell>
-        <TableCell className="text-right font-medium text-xs text-slate-700">
-          {items.toLocaleString('id-ID')}
+        <TableCell className={`text-right font-medium text-xs ${isChild ? 'text-emerald-600' : 'text-slate-700'}`}>
+          {isChild && items > 0 ? '+' : ''}{items.toLocaleString('id-ID')}
         </TableCell>
-        <TableCell className="text-right font-medium text-xs text-green-600">
-          ${rev.toFixed(2)}
+        <TableCell className={`text-right font-medium text-xs ${isChild ? 'text-emerald-600' : 'text-green-600'}`}>
+          {isChild && rev > 0 ? '+' : ''}${rev.toFixed(2)}
         </TableCell>
         <TableCell className="text-right font-medium text-xs text-slate-700">
           {roas.toFixed(2)}
