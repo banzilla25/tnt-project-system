@@ -29,7 +29,7 @@ export async function fetchReportData(campaignId: string) {
   const supabase = createClient();
 
   // Example queries – adapt field names to actual schema
-  const [{ data: soldData }, { data: skuData }, { data: creators }, { data: videos }, { data: samples }, { data: receipts }] = await Promise.all([
+  const [{ data: soldData }, { data: skuData }, creators, videos, samples, receipts] = await Promise.all([
     supabase.from('sales').select('quantity').eq('campaign_id', campaignId),
     supabase
       .from('products')
@@ -89,5 +89,5 @@ export async function generateExcelBuffer(campaignId: string): Promise<Buffer> {
   addSheet('Receipts', data.receipts);
 
   // Return buffer
-  return wb.xlsx.writeBuffer();
+  return wb.xlsx.writeBuffer() as any;
 }

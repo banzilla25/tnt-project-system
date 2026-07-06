@@ -78,7 +78,14 @@ function CampaignListingContent() {
     client_approval?: string;
     assigned_sku_ids?: number[];
     content_type?: string;
-    original: { price: number; qty_vt: number; qty_live: number; approval: string; client_approval: string; assigned_sku_ids: number[]; content_type: string };
+    followers?: number;
+    level?: string;
+    gmv_30d?: number;
+    creator_id?: number;
+    tier?: string;
+    audience_age?: string;
+    ratecard?: number;
+    original: any;
   };
   const [pendingChanges, setPendingChanges] = useState<Map<number, PendingChange>>(new Map());
   const [editingCellId, setEditingCellId] = useState<string | null>(null); // "ccId-field" e.g. "123-price"

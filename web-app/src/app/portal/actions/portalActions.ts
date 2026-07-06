@@ -197,10 +197,12 @@ export async function getPortalData(campaignId: number) {
   }) || [];
 
   // Fetch creator addresses (Pengiriman sampel)
-  // Karena tidak ada direct relation dari creator_addresses ke campaigns, kita ambil via campaign_creators
+  // Strict filter: only show if client_approval is 'approved' (if required) or 'NOT_REQUIRED' (if not required)
+  // Also internal approval must be 'approved' (we fetched 'approved' and 'alternate', but for samples only 'approved' makes sense).
+  // Wait, let's keep internal 'approved' or 'alternate' since they are in ccData, but strictly check client_approval.
   const ccIdsForSamples = campaign.require_client_approval 
     ? enrichedCcData.filter((cc: any) => cc.client_approval === 'approved').map((cc: any) => cc.id)
-    : enrichedCcData.map((cc: any) => cc.id);
+    : enrichedCcData.filter((cc: any) => cc.client_approval === 'NOT_REQUIRED' || cc.client_approval === 'approved').map((cc: any) => cc.id);
 
   const { data: addrData } = await supabase
     .from('creator_addresses')
@@ -219,7 +221,9 @@ export async function getPortalData(campaignId: number) {
       proses,
       produk_dikirim,
       tanggal_kirim,
-      is_cancel
+      is_cancel,
+      resi_updated_at,
+      resi_updated_by
     `)
     .in('campaign_creator_id', ccIdsForSamples.length > 0 ? ccIdsForSamples : [0]);
   const samples = addrData?.filter((addr: any) => ccIdsForSamples.includes(addr.campaign_creator_id)).map((addr: any) => {
@@ -385,7 +389,7 @@ export async function getPortalData(campaignId: number) {
   });
 
   // Also attach campaign's target_creator to summary if missing, so progress bar shows up
-  const finalSummary = summary || {};
+  const finalSummary: any = summary || {};
   if (campaign && !finalSummary.target_creator) {
      finalSummary.target_creator = campaign.target_creator;
   }
@@ -479,7 +483,9 @@ export async function updateResiByClient(campaignId: number, addressId: number, 
   const updatePayload: any = { 
     resi: resi, 
     proses: proses,
-    tanggal_kirim: proses === 'Dikirim' ? new Date().toISOString() : undefined
+    tanggal_kirim: proses === 'Dikirim' ? new Date().toISOString() : undefined,
+    resi_updated_at: new Date().toISOString(),
+    resi_updated_by: 'Brand'
   };
   
   if (produk_dikirim !== undefined) {
@@ -537,7 +543,11 @@ export async function batchUpdateResiByClient(campaignId: number, updates: Batch
   // Jadi kita loop dan update satu-satu secara berurutan. Karena jalan di server action (backend), latency db sangat kecil.
   for (const update of updates) {
     const updatePayload: any = {};
-    if (update.resi !== undefined) updatePayload.resi = update.resi;
+    if (update.resi !== undefined) {
+      updatePayload.resi = update.resi;
+      updatePayload.resi_updated_at = new Date().toISOString();
+      updatePayload.resi_updated_by = 'Brand';
+    }
     if (update.proses !== undefined) {
       updatePayload.proses = update.proses;
       if (update.proses === 'Dikirim') {

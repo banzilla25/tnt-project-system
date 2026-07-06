@@ -70,10 +70,13 @@ export default function AlamatPage() {
         let query = supabase
           .from('campaign_creators')
           .select('*, creators(*, creator_contacts(nomor, status))')
-          .eq('campaign_id', campaignId);
+          .eq('campaign_id', campaignId)
+          .eq('approval', 'approved');
           
         if (campaign?.require_client_approval) {
           query = query.eq('client_approval', 'approved');
+        } else {
+          query = query.in('client_approval', ['approved', 'NOT_REQUIRED']);
         }
 
         const { data } = await query.range(from, from + 999);
@@ -186,7 +189,14 @@ export default function AlamatPage() {
   const handleSave = async (ccId: number) => {
     setIsSaving(true);
     const existing = creator_addresses.find(a => a.campaign_creator_id === ccId);
-    await updateCreatorAddress(existing?.id || null, formData);
+    
+    const payload = { ...formData };
+    if (existing?.resi !== payload.resi) {
+      (payload as any).resi_updated_at = new Date().toISOString();
+      (payload as any).resi_updated_by = 'Internal TNT';
+    }
+
+    await updateCreatorAddress(existing?.id || null, payload);
     
     // Save assigned_sku_ids
     const cc = localCreators.find(c => c.id === ccId);
@@ -423,7 +433,15 @@ export default function AlamatPage() {
                         {isEditing ? (
                           <input type="text" className="input w-full min-w-[150px]" value={formData.resi || ''} onChange={e => setFormData({ ...formData, resi: e.target.value })} />
                         ) : (
-                          <span className="font-mono">{addr?.resi || '-'}</span>
+                          <div className="flex flex-col">
+                            <span className="font-mono">{addr?.resi || '-'}</span>
+                            {(addr as any)?.resi_updated_at && (
+                              <span className="text-[9px] text-slate-400 mt-1 leading-tight">
+                                Updated by {(addr as any)?.resi_updated_by || 'Unknown'} <br/>
+                                {new Date((addr as any)?.resi_updated_at).toLocaleDateString('id-ID', {day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'})}
+                              </span>
+                            )}
+                          </div>
                         )}
                       </td>
                       <td className="px-3 py-3 whitespace-normal">

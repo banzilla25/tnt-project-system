@@ -364,8 +364,8 @@ export default function AdsReportPage() {
         </TableCell>
         
         <TableCell className="font-medium text-xs">
-          {isParent ? (
-            <span className="font-bold">{ad.ad_id}</span>
+          {isParent || !isManager ? (
+            <span className={isParent ? "font-bold" : ""}>{ad.ad_id || '-'}</span>
           ) : (
             <input
               type="text"
@@ -383,7 +383,7 @@ export default function AdsReportPage() {
         
         {/* Campaign Column */}
         <TableCell>
-          {isParent ? (
+          {isParent || !isManager ? (
             <span className="text-slate-600">{campaigns.find(c => c.id === ad.campaign_id)?.nama || '-'}</span>
           ) : (
             <select
@@ -407,7 +407,7 @@ export default function AdsReportPage() {
 
         {/* Campaign Ads Column */}
         <TableCell className="text-xs font-medium text-slate-700 min-w-[200px]">
-          {isParent ? (
+          {isParent || !isManager ? (
             <span>{ad.campaign_ads_name || '-'}</span>
           ) : (
             <StringCombobox
@@ -422,7 +422,7 @@ export default function AdsReportPage() {
 
         {/* Creator Column */}
         <TableCell>
-          {isParent ? (
+          {isParent || !isManager ? (
             <span className="text-slate-600">{creatorUsername ? `@${creatorUsername}` : '-'}</span>
           ) : (
             pendingCampaignId ? (
@@ -442,7 +442,7 @@ export default function AdsReportPage() {
 
         {/* Kurs Column */}
         <TableCell>
-          {isParent ? (
+          {isParent || !isManager ? (
             <span className="text-xs text-slate-500">Rp{ad.kurs}</span>
           ) : (
             <div className="flex items-center gap-1 group">
@@ -508,7 +508,7 @@ export default function AdsReportPage() {
         
         {/* Action Column */}
         <TableCell className="text-center sticky right-0 bg-slate-50 z-10 border-l border-slate-100 shadow-[-5px_0_10px_-5px_rgba(0,0,0,0.05)]">
-          {!isParent && (
+          {!isParent && isManager && (
             <div className="flex items-center justify-center gap-1">
               <button onClick={(e) => { e.stopPropagation(); deleteAd(ad.id); }} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors" disabled={deletingId === ad.id} title="Hapus Permanen">
                 {deletingId === ad.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
@@ -520,19 +520,7 @@ export default function AdsReportPage() {
     );
   };
 
-  if (!isManager) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-4">
-        <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center text-red-500 mb-2">
-          <Lock className="w-8 h-8" />
-        </div>
-        <h2 className="text-2xl font-bold text-slate-800">Akses Ditolak</h2>
-        <p className="text-slate-500 max-w-md">
-          Hanya pengguna dengan role <span className="font-semibold text-slate-700">Manager</span> yang diizinkan untuk melihat Ads Report.
-        </p>
-      </div>
-    );
-  }
+
 
   return (
     <div className="space-y-6">
@@ -553,11 +541,13 @@ export default function AdsReportPage() {
               className="w-full pl-10 pr-4 py-2 border rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
-          <Link href="/ads-report/import-ads">
-            <Button className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white">
-              <UploadCloud className="w-4 h-4" /> Import Data Iklan
-            </Button>
-          </Link>
+          {isManager && (
+            <Link href="/ads-report/import-ads">
+              <Button className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white">
+                <UploadCloud className="w-4 h-4" /> Import Data Iklan
+              </Button>
+            </Link>
+          )}
           <Button onClick={handleExport} className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white">
             <Download className="w-4 h-4" /> Export Excel
           </Button>
@@ -687,7 +677,7 @@ export default function AdsReportPage() {
               )}
             </div>
             <div className="flex gap-4 overflow-x-auto pb-4 pt-1 px-1 custom-scrollbar snap-x">
-              {campaignBreakdown.list.map(camp => {
+              {campaignBreakdown.list.map((camp: any) => {
                 const roas = camp.spend > 0 ? camp.gmv / camp.spend : 0;
                 const isActive = selectedCampaignId === camp.id;
                 return (

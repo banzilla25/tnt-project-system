@@ -109,11 +109,19 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
   const percentGmv = summary.target_gmv ? Math.round((displayTotalGmv / summary.target_gmv) * 100) : 0;
   const percentVideo = summary.target_video ? Math.round((displayTotalVideo / summary.target_video) * 100) : 0;
 
+  const [toastMessage, setToastMessage] = useState<{message: string, type: 'success' | 'error'} | null>(null);
+
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setToastMessage({ message, type });
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
   const handleApproval = async (ccId: number, status: 'approved' | 'rejected') => {
     setIsApproving(ccId);
     try {
       await submitClientApproval(campaignId, ccId, status);
       router.refresh();
+      showToast("Persetujuan berhasil disimpan!", "success");
     } catch (err) {
       alert("Gagal menyimpan persetujuan. Silakan coba lagi.");
     } finally {
@@ -137,9 +145,22 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
     setAutoSavingItems(prev => ({ ...prev, [addrId]: true }));
     try {
       await batchUpdateResiByClient(campaignId, [{ addressId: addrId, [field]: value }]);
+      
+      setEditedSamples(prev => {
+        const next = { ...prev };
+        if (next[addrId]) {
+          delete next[addrId][field];
+          if (Object.keys(next[addrId]).length <= 1) { // only addressId left or empty
+            delete next[addrId];
+          }
+        }
+        return next;
+      });
       router.refresh();
+      showToast("Perubahan berhasil disimpan!", "success");
     } catch (err) {
       console.error("Auto-save failed", err);
+      showToast("Gagal menyimpan perubahan", "error");
     } finally {
       setAutoSavingItems(prev => ({ ...prev, [addrId]: false }));
     }
@@ -221,18 +242,30 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(videoRows.length > 0 ? videoRows : [{ 'Info': 'Tidak ada data video' }]), 'Video & Konten');
 
     // Sheet 4: Sampel & Resi
-    const sampleRows = (samples || []).map((addr: any) => {
+    const sampleRows = (samples || []).map((addr: any, idx: number) => {
       const cc = approvalList.find((c: any) => c.id === addr.campaign_creator_id);
+      
+      const skuNames = (cc?.assigned_sku_ids || []).map((id: number) => {
+        const sku = skus?.find((s: any) => s.id === id);
+        return sku ? sku.nama_produk : '';
+      }).filter(Boolean).join(', ');
+
       return {
+        'No': idx + 1,
+        'Product': skuNames || '',
         'Username': cc?.creators?.username || addr.creator_username || 'Unknown',
-        'Produk': addr.produk_dikirim || '-',
-        'No WhatsApp': cc?.no_whatsapp || '-',
-        'Nama Penerima': addr.nama_penerima || '-',
-        'Alamat': addr.nama_jalan || '-',
-        'Provinsi': addr.provinsi || '-',
-        'Resi': addr.resi || '-',
-        'Status': addr.proses || 'Diproses',
-        'Tanggal Kirim': addr.tanggal_kirim ? new Date(addr.tanggal_kirim).toLocaleDateString('id-ID') : '-'
+        'No Whatsapp': cc?.no_whatsapp || '-',
+        'Nama Penerima': addr.nama_penerima || '',
+        'Nama Jalan': addr.nama_jalan || '',
+        'Provinsi': addr.provinsi || '',
+        'Kabupaten/Kota': addr.kabupaten_kota || '',
+        'Kecamatan': addr.kecamatan || '',
+        'Kelurahan': addr.kelurahan || '',
+        'Kode Pos': addr.kode_pos || '',
+        'Tanggal Kirim': addr.tanggal_kirim ? new Date(addr.tanggal_kirim).toLocaleDateString('id-ID') : '',
+        'Resi': addr.resi || '',
+        'Notes': addr.notes || '',
+        'Status': addr.proses || 'Diproses'
       };
     });
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sampleRows.length > 0 ? sampleRows : [{ 'Info': 'Tidak ada data sampel' }]), 'Sampel & Resi');
@@ -368,6 +401,14 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
 
   return (
     <div className="max-w-6xl mx-auto p-4 md:p-8 space-y-8">
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className={`fixed bottom-6 right-6 px-4 py-3 rounded-lg shadow-[0_4px_20px_-4px_rgba(0,0,0,0.2)] text-white font-medium z-[100] flex items-center gap-3 animate-in slide-in-from-bottom-4 fade-in duration-300 ${toastMessage.type === 'success' ? 'bg-gradient-to-r from-emerald-500 to-green-600' : 'bg-gradient-to-r from-red-500 to-red-600'}`}>
+          {toastMessage.type === 'success' ? <CheckCircle className="w-5 h-5 opacity-90" /> : <XCircle className="w-5 h-5 opacity-90" />}
+          <span className="text-sm">{toastMessage.message}</span>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-slate-200 pb-6">
         <div>
@@ -863,6 +904,9 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                       <option value="all">Semua Status</option>
                       <option value="diproses">Diproses</option>
                       <option value="dikirim">Dikirim</option>
+                      <option value="diterima">Diterima</option>
+                      <option value="kendala">Kendala</option>
+                      <option value="batal">Batal</option>
                       <option value="resi_belum">Resi Belum Diisi</option>
                       <option value="resi_sudah">Resi Sudah Diisi</option>
                     </select>
@@ -947,14 +991,27 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                                 {editedSamples[addr.id]?.proses === 'Dikirim' ? 'Akan set hari ini' : (addr.tanggal_kirim || '-')}
                               </TableCell>
                               <TableCell className="px-3 py-3 font-mono">
-                                <input 
-                                  type="text" 
-                                  className="w-full text-[12px] p-1 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none bg-white min-w-[120px]" 
-                                  placeholder="Input resi..." 
-                                  value={editedSamples[addr.id]?.resi ?? (addr.resi || '')} 
-                                  onChange={e => handleQueueUpdate(addr.id, 'resi', e.target.value)}
-                                  onBlur={e => handleAutoSave(addr.id, 'resi', e.target.value)} 
-                                />
+                                <div className="flex flex-col">
+                                  <input 
+                                    type="text" 
+                                    className="w-full text-[12px] p-1 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none bg-white min-w-[120px]" 
+                                    placeholder="Input resi..." 
+                                    value={editedSamples[addr.id]?.resi ?? (addr.resi || '')} 
+                                    onChange={e => handleQueueUpdate(addr.id, 'resi', e.target.value)}
+                                    onKeyDown={e => {
+                                      if (e.key === 'Enter') {
+                                        e.currentTarget.blur();
+                                      }
+                                    }}
+                                    onBlur={e => handleAutoSave(addr.id, 'resi', e.target.value)} 
+                                  />
+                                  {addr.resi_updated_at && (
+                                    <span className="text-[9px] text-slate-400 mt-1 leading-tight">
+                                      Diupdate oleh {addr.resi_updated_by || 'Unknown'} <br/>
+                                      {new Date(addr.resi_updated_at).toLocaleDateString('id-ID', {day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'})}
+                                    </span>
+                                  )}
+                                </div>
                               </TableCell>
                               <TableCell className="px-3 py-3 whitespace-normal">
                                 <input 

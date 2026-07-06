@@ -28,8 +28,8 @@ export default function CampaignLiveStreamPage() {
       setIsLoading(true);
       try {
       // Helper to fetch all rows paginated to bypass 1000 row limit
-      const fetchAll = async (baseQuery) => {
-        let all = [];
+      const fetchAll = async (baseQuery: any) => {
+        let all: any[] = [];
         let from = 0;
         while (true) {
           const { data, error } = await baseQuery.range(from, from + 999);

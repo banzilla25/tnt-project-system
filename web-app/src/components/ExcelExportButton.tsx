@@ -10,7 +10,7 @@ const ExcelExportButton: React.FC<Props> = ({ campaignId }) => {
   const handleExport = async () => {
     try {
       const buffer = await generateExcelBuffer(campaignId);
-      const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      const blob = new Blob([buffer as any], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
       saveAs(blob, `campaign_${campaignId}_report.xlsx`);
     } catch (err) {
       console.error('Export gagal:', err);

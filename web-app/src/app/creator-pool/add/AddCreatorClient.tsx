@@ -57,7 +57,7 @@ export default function AddCreatorClient() {
     
     setIsLoading(true);
     try {
-      const username = formData.username.trim();
+      const username = formData.username.trim().toLowerCase();
       const link_account = `https://www.tiktok.com/@${username}`;
       
       // 1. Upsert Creator

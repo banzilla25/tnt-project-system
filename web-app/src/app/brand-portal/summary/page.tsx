@@ -110,7 +110,7 @@ const Tabs = ({ data }: { data: any }) => {
               <tbody>
                 {sec.rows.map((row: any, idx: number) => (
                   <tr key={idx} className="border-t">
-                    {Object.values(row).map((val, i) => (
+                    {Object.values(row).map((val: any, i) => (
                       <td key={i} className="px-4 py-2 text-sm text-gray-800">
                         {val}
                       </td>

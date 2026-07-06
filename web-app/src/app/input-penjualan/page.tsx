@@ -18,20 +18,6 @@ export default function InputPenjualanPage() {
   
   const isManager = profile?.role === 'manager';
 
-  if (!isManager) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-4">
-        <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center text-red-500 mb-2">
-          <Lock className="w-8 h-8" />
-        </div>
-        <h2 className="text-2xl font-bold text-slate-800">Akses Ditolak</h2>
-        <p className="text-slate-500 max-w-md">
-          Hanya pengguna dengan role <span className="font-semibold text-slate-700">Manager</span> yang diizinkan untuk melakukan import data penjualan.
-        </p>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
       <div>
