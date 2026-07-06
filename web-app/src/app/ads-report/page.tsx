@@ -596,7 +596,7 @@ export default function AdsReportPage() {
               <div>
                 <p className="text-sm font-medium text-slate-500 mb-1">Total Spend (IDR)</p>
                 <h3 className="text-2xl font-bold text-slate-800 tracking-tight">
-                  Rp {globalSummary.totalSpend.toLocaleString('id-ID', { maximumFractionDigits: 0 })}
+                  Rp {(globalSummary.totalSpend || 0).toLocaleString('id-ID', { maximumFractionDigits: 0 })}
                 </h3>
               </div>
             </CardContent>
@@ -613,7 +613,7 @@ export default function AdsReportPage() {
               <div>
                 <p className="text-sm font-medium text-slate-500 mb-1">Total GMV (IDR)</p>
                 <h3 className="text-2xl font-bold text-emerald-600 tracking-tight">
-                  Rp {globalSummary.totalGmv.toLocaleString('id-ID', { maximumFractionDigits: 0 })}
+                  Rp {(globalSummary.totalGmv || 0).toLocaleString('id-ID', { maximumFractionDigits: 0 })}
                 </h3>
               </div>
             </CardContent>
@@ -629,8 +629,8 @@ export default function AdsReportPage() {
               </div>
               <div>
                 <p className="text-sm font-medium text-slate-500 mb-1">ROAS Keseluruhan</p>
-                <h3 className={`text-2xl font-bold tracking-tight ${globalSummary.roas >= 2 ? 'text-emerald-600' : globalSummary.roas >= 1 ? 'text-amber-500' : 'text-red-500'}`}>
-                  {globalSummary.roas.toFixed(2)}x
+                <h3 className={`text-2xl font-bold tracking-tight ${(globalSummary.roas || 0) >= 2 ? 'text-emerald-600' : (globalSummary.roas || 0) >= 1 ? 'text-amber-500' : 'text-red-500'}`}>
+                  {(globalSummary.roas || 0).toFixed(2)}x
                 </h3>
               </div>
             </CardContent>
@@ -645,9 +645,9 @@ export default function AdsReportPage() {
                 </div>
               </div>
               <div>
-                <p className="text-sm font-medium text-slate-500 mb-1">Total Views</p>
+                <p className="text-sm font-medium text-slate-500 mb-1">Total Impressions</p>
                 <h3 className="text-2xl font-bold text-purple-700 tracking-tight">
-                  {globalSummary.totalViews.toLocaleString('id-ID')}
+                  {(globalSummary.totalImpressions || 0).toLocaleString('id-ID')}
                 </h3>
               </div>
             </CardContent>
@@ -662,9 +662,9 @@ export default function AdsReportPage() {
                 </div>
               </div>
               <div>
-                <p className="text-sm font-medium text-slate-500 mb-1">Cost Per View (IDR)</p>
+                <p className="text-sm font-medium text-slate-500 mb-1">Cost Per Mille (CPM)</p>
                 <h3 className="text-2xl font-bold text-orange-600 tracking-tight">
-                  Rp {globalSummary.cpv.toLocaleString('id-ID', { maximumFractionDigits: 1 })}
+                  Rp {(globalSummary.cpm || 0).toLocaleString('id-ID', { maximumFractionDigits: 1 })}
                 </h3>
               </div>
             </CardContent>

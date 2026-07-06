@@ -18,7 +18,7 @@ export async function getAdsReportData(params: {
   
   const { data: allData, error } = await query;
   if (error) throw error;
-  if (!allData) return { summary: {}, data: [], campaignBreakdown: { list: [], globalUnmappedCampaigns: 0 }, globalUnmappedCampaigns: 0 };
+  if (!allData) return { summary: { totalSpend: 0, totalGmv: 0, totalImpressions: 0, roas: 0, cpm: 0 }, data: [], campaignBreakdown: { list: [], globalUnmappedCampaigns: 0 }, globalUnmappedCampaigns: 0 };
 
   // 2. Group by ad_id to calculate deltas
   const adsByAdId: Record<string, any[]> = {};
