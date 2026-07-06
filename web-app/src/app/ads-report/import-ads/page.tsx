@@ -73,6 +73,7 @@ export default function ImportAdsPage() {
   
   // Smart prediction state
   const [autoMappedCreators, setAutoMappedCreators] = useState<Record<string, { id: number, username: string } | null>>({}); // ad_id -> creator_id
+  const [showUnmappedOnly, setShowUnmappedOnly] = useState(false);
 
   const [historyMapState, setHistoryMapState] = useState<Record<string, { cost: number; revenue: number; purchases: number; impressions: number; clicks: number; product_page_views: number; checkouts_initiated: number; items_purchased: number }>>({});
   const [historicalAdsList, setHistoricalAdsList] = useState<{ad_id: string, ad_name: string}[]>([]);
@@ -143,20 +144,56 @@ export default function ImportAdsPage() {
       setErrors(res.errors);
       
       const adNames = Array.from(new Set(validData.map(r => r.ad_name)));
+      const adIds = Array.from(new Set(validData.map(r => r.ad_id))).filter(Boolean);
 
-      // Historical data fetch removed since database now stores raw Lifetime data
+      // Fetch historical data prior to selectedDate to calculate delta
+      const { data: history } = await supabase
+        .from('ads_performance')
+        .select('ad_id, ad_name, cost_usd, gross_revenue_usd, purchases, impressions, clicks, product_page_views, checkouts_initiated, items_purchased, tanggal')
+        .lt('tanggal', selectedDate)
+        .order('tanggal', { ascending: false });
+
+      const historyMap: Record<string, any> = {};
+      if (history) {
+        // Group by ad_id or ad_name, keeping only the first one encountered (which is the latest due to order by descending)
+        for (const row of history) {
+          const keyId = row.ad_id;
+          const keyName = row.ad_name;
+          if (keyId && !historyMap[keyId]) historyMap[keyId] = row;
+          if (keyName && !historyMap[keyName]) historyMap[keyName] = row;
+        }
+      }
 
       const enrichedData: EnrichedAdsRow[] = validData.map(row => {
+        const prev = historyMap[row.ad_id] || historyMap[row.ad_name] || null;
+        
+        const prev_cost = prev ? prev.cost_usd : 0;
+        const prev_revenue = prev ? prev.gross_revenue_usd : 0;
+        const prev_purchases = prev ? prev.purchases : 0;
+        const prev_impressions = prev ? prev.impressions : 0;
+        const prev_clicks = prev ? prev.clicks : 0;
+        const prev_product_page_views = prev ? prev.product_page_views : 0;
+        const prev_checkouts_initiated = prev ? prev.checkouts_initiated : 0;
+        const prev_items_purchased = prev ? prev.items_purchased : 0;
+
         return {
           ...row,
-          delta_cost: row.cost,
-          delta_revenue: row.revenue,
-          delta_purchases: row.purchases,
-          delta_impressions: row.impressions,
-          delta_clicks: row.clicks,
-          delta_product_page_views: row.product_page_views,
-          delta_checkouts_initiated: row.checkouts_initiated,
-          delta_items_purchased: row.items_purchased,
+          prev_cost,
+          prev_revenue,
+          prev_purchases,
+          prev_impressions,
+          prev_clicks,
+          prev_product_page_views,
+          prev_checkouts_initiated,
+          prev_items_purchased,
+          delta_cost: Math.max(0, row.cost - prev_cost),
+          delta_revenue: Math.max(0, row.revenue - prev_revenue),
+          delta_purchases: Math.max(0, row.purchases - prev_purchases),
+          delta_impressions: Math.max(0, row.impressions - prev_impressions),
+          delta_clicks: Math.max(0, row.clicks - prev_clicks),
+          delta_product_page_views: Math.max(0, row.product_page_views - prev_product_page_views),
+          delta_checkouts_initiated: Math.max(0, row.checkouts_initiated - prev_checkouts_initiated),
+          delta_items_purchased: Math.max(0, row.items_purchased - prev_items_purchased),
         };
       });
 
@@ -547,13 +584,52 @@ export default function ImportAdsPage() {
                   <h2 className="text-2xl font-bold text-slate-800 mb-2">Preview Data ({preview.length} Baris)</h2>
                   <p className="text-slate-600">Periksa kembali data yang akan diunggah. <span className="font-semibold text-blue-600">Smart Mapping</span> secara otomatis mendeteksi kreator berdasarkan Ad ID sebelumnya.</p>
                 </div>
-                <Button onClick={commitData} className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2 font-bold px-8 shadow-lg shadow-emerald-600/30" disabled={isCommitting || preview.length === 0}>
-                  {isCommitting ? (
-                    <><Loader2 className="w-4 h-4 animate-spin" /> Mengunggah...</>
-                  ) : (
-                    <><UploadCloud className="w-5 h-5" /> Unggah & Simpan</>
-                  )}
-                </Button>
+                <div className="flex items-center gap-3">
+                  <label className="flex items-center gap-2 text-sm font-medium text-slate-700 bg-slate-50 border border-slate-200 px-3 py-2 rounded-lg cursor-pointer hover:bg-slate-100 transition-colors">
+                    <input 
+                      type="checkbox" 
+                      className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500"
+                      checked={showUnmappedOnly}
+                      onChange={(e) => setShowUnmappedOnly(e.target.checked)}
+                    />
+                    Hanya tampilkan iklan tanpa kreator
+                  </label>
+                  <Button onClick={commitData} className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2 font-bold px-8 shadow-lg shadow-emerald-600/30" disabled={isCommitting || preview.length === 0}>
+                    {isCommitting ? (
+                      <><Loader2 className="w-4 h-4 animate-spin" /> Mengunggah...</>
+                    ) : (
+                      <><UploadCloud className="w-5 h-5" /> Unggah & Simpan</>
+                    )}
+                  </Button>
+                </div>
+              </div>
+
+              {/* Duplicate Settings Panel for Double Checking */}
+              <div className="mb-6 p-4 bg-blue-50 border border-blue-100 rounded-xl">
+                <div className="flex items-center gap-2 mb-3 text-blue-800 font-semibold">
+                  <AlertCircle className="w-4 h-4" />
+                  <span>Double Check Pengaturan (Bisa diubah jika salah)</span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Tanggal</label>
+                    <input type="date" className="block w-full p-2 border border-slate-300 rounded text-sm bg-white" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Campaign Sistem</label>
+                    <select className="block w-full p-2 border border-slate-300 rounded text-sm bg-white" value={selectedCampaign} onChange={(e) => setSelectedCampaign(e.target.value)}>
+                      {campaigns.map(c => <option key={c.id} value={c.id}>{c.nama}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Campaign Ads</label>
+                    <StringCombobox value={selectedCampaignAdsName} onChange={setSelectedCampaignAdsName} options={campaignAdsList} placeholder="Ketik..." className="block w-full p-2 border border-slate-300 rounded text-sm bg-white" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Kurs (IDR/USD)</label>
+                    <input type="number" className="block w-full p-2 border border-slate-300 rounded text-sm bg-white" value={selectedKurs} onChange={(e) => setSelectedKurs(Number(e.target.value))} />
+                  </div>
+                </div>
               </div>
 
               {errors.length > 0 && (
@@ -588,17 +664,24 @@ export default function ImportAdsPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {preview.map((row, i) => {
+                      {preview.filter(row => {
+                        if (!showUnmappedOnly) return true;
+                        const predictedCreatorId = autoMappedCreators[row.ad_id]?.id;
+                        return !predictedCreatorId;
+                      }).map((row, i) => {
                         const predictedCreator = autoMappedCreators[row.ad_id];
                         const predictedCreatorId = predictedCreator?.id || null;
                         const creatorUsername = predictedCreator?.username || null; 
                         
-                        const renderValueCell = (val: number, isCurrency: boolean = false) => {
+                        const renderValueCell = (val: number, delta: number, isCurrency: boolean = false) => {
                           const prefix = isCurrency ? '$' : '';
                           const formatVal = isCurrency ? val.toFixed(2) : val.toLocaleString();
+                          const formatDelta = isCurrency ? delta.toFixed(2) : delta.toLocaleString();
                           return (
                             <div className="flex flex-col items-end">
                               <div className="font-bold text-sm text-slate-700">{prefix}{formatVal}</div>
+                              {delta > 0 && <div className="text-[10px] font-bold text-emerald-600">+{prefix}{formatDelta}</div>}
+                              {delta === 0 && <div className="text-[10px] font-semibold text-slate-400">Tdk ada data baru</div>}
                             </div>
                           );
                         };
@@ -622,14 +705,14 @@ export default function ImportAdsPage() {
                               )}
                             </TableCell>
                             <TableCell className="text-xs font-semibold max-w-[150px] truncate" title={row.ad_name}>{row.ad_name}</TableCell>
-                            <TableCell className="text-right">{renderValueCell(row.cost, true)}</TableCell>
-                            <TableCell className="text-right">{renderValueCell(row.revenue, true)}</TableCell>
-                            <TableCell className="text-right">{renderValueCell(row.purchases, false)}</TableCell>
-                            <TableCell className="text-right">{renderValueCell(row.impressions, false)}</TableCell>
-                            <TableCell className="text-right">{renderValueCell(row.clicks, false)}</TableCell>
-                            <TableCell className="text-right">{renderValueCell(row.product_page_views, false)}</TableCell>
-                            <TableCell className="text-right">{renderValueCell(row.checkouts_initiated, false)}</TableCell>
-                            <TableCell className="text-right">{renderValueCell(row.items_purchased, false)}</TableCell>
+                            <TableCell className="text-right">{renderValueCell(row.cost, row.delta_cost, true)}</TableCell>
+                            <TableCell className="text-right">{renderValueCell(row.revenue, row.delta_revenue, true)}</TableCell>
+                            <TableCell className="text-right">{renderValueCell(row.purchases, row.delta_purchases, false)}</TableCell>
+                            <TableCell className="text-right">{renderValueCell(row.impressions, row.delta_impressions, false)}</TableCell>
+                            <TableCell className="text-right">{renderValueCell(row.clicks, row.delta_clicks, false)}</TableCell>
+                            <TableCell className="text-right">{renderValueCell(row.product_page_views, row.delta_product_page_views, false)}</TableCell>
+                            <TableCell className="text-right">{renderValueCell(row.checkouts_initiated, row.delta_checkouts_initiated, false)}</TableCell>
+                            <TableCell className="text-right">{renderValueCell(row.items_purchased, row.delta_items_purchased, false)}</TableCell>
                             <TableCell className="border-l border-blue-50 bg-blue-50/30 text-xs font-medium min-w-[200px]">
                               <SearchableSelect 
                                 value={predictedCreatorId || ''} 
