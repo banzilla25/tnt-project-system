@@ -721,7 +721,7 @@ export default function AdsReportPage() {
                       </div>
                       <div className="flex justify-between text-xs">
                         <span className={isActive ? 'text-blue-100' : 'text-slate-500'}>Total Orders:</span>
-                        <span className={`font-bold ${isActive ? 'text-white' : 'text-slate-700'}`}>{camp.purchases.toLocaleString('id-ID')}</span>
+                        <span className={`font-bold ${isActive ? 'text-white' : 'text-slate-700'}`}>{(camp.purchases || 0).toLocaleString('id-ID')}</span>
                       </div>
                     </div>
 

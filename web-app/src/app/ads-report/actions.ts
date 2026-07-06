@@ -120,11 +120,12 @@ export async function getAdsReportData(params: {
        continue;
     }
     if (!campaignBreakdown[cId]) {
-      campaignBreakdown[cId] = { name: '', spend: 0, gmv: 0, impressions: 0, unmapped: 0 };
+      campaignBreakdown[cId] = { name: '', spend: 0, gmv: 0, impressions: 0, purchases: 0, unmapped: 0 };
     }
     campaignBreakdown[cId].spend += ad.cost_usd * kurs;
     campaignBreakdown[cId].gmv += ad.gross_revenue_usd * kurs;
     campaignBreakdown[cId].impressions += ad.impressions;
+    campaignBreakdown[cId].purchases += ad.purchases || 0;
     if (!ad.creator_id || !ad.campaign_ads_name) {
       campaignBreakdown[cId].unmapped++;
     }
