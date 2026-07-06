@@ -14,7 +14,7 @@ export async function getAdsReportData(params: {
   const supabase = await createClient();
   
   // 1. Fetch ALL data (we need history to calculate deltas)
-  let query = supabase.from('ads_performance').select('*, creators(username)').order('tanggal', { ascending: true });
+  let query = supabase.from('ads_performance').select('*, creators(username)').order('tanggal', { ascending: true }).limit(100000);
   
   const { data: allData, error } = await query;
   if (error) throw error;
