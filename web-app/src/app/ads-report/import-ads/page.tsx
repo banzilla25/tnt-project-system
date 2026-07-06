@@ -85,28 +85,6 @@ export default function ImportAdsPage() {
       const newPreview = [...prev];
       const row = newPreview[rowIndex];
       row.linked_ad_id = selectedAdId;
-      
-      const key = selectedAdId || row.ad_name;
-      const hist = historyMapState[key] || { cost: 0, revenue: 0, purchases: 0, impressions: 0, clicks: 0, product_page_views: 0, checkouts_initiated: 0, items_purchased: 0 };
-      
-      row.prev_cost = hist.cost;
-      row.prev_revenue = hist.revenue;
-      row.prev_purchases = hist.purchases;
-      row.prev_impressions = hist.impressions;
-      row.prev_clicks = hist.clicks;
-      row.prev_product_page_views = hist.product_page_views;
-      row.prev_checkouts_initiated = hist.checkouts_initiated;
-      row.prev_items_purchased = hist.items_purchased;
-      
-      row.delta_cost = Math.max(0, row.cost - hist.cost);
-      row.delta_revenue = Math.max(0, row.revenue - hist.revenue);
-      row.delta_purchases = Math.max(0, row.purchases - hist.purchases);
-      row.delta_impressions = Math.max(0, row.impressions - hist.impressions);
-      row.delta_clicks = Math.max(0, row.clicks - hist.clicks);
-      row.delta_product_page_views = Math.max(0, row.product_page_views - hist.product_page_views);
-      row.delta_checkouts_initiated = Math.max(0, row.checkouts_initiated - hist.checkouts_initiated);
-      row.delta_items_purchased = Math.max(0, row.items_purchased - hist.items_purchased);
-      
       return newPreview;
     });
   };
@@ -166,79 +144,19 @@ export default function ImportAdsPage() {
       
       const adNames = Array.from(new Set(validData.map(r => r.ad_name)));
 
-      // 1. Fetch Historical Lifetime Data for delta calculation
-      // We sum up the historical metrics where tanggal < selectedDate for each campaign_id + campaign_ads_name
-      let query = supabase
-        .from('ads_performance')
-        .select('ad_id, ad_name, cost_usd, gross_revenue_usd, purchases, impressions, clicks, product_page_views, checkouts_initiated, items_purchased')
-        .eq('campaign_id', selectedCampaign)
-        .lt('tanggal', selectedDate);
-        
-      if (selectedCampaignAdsName) {
-        query = query.eq('campaign_ads_name', selectedCampaignAdsName);
-      } else {
-        query = query.is('campaign_ads_name', null);
-      }
-      
-      const { data: historyData, error: historyError } = await query;
-
-      if (historyError) throw historyError;
-
-      const historyMap: Record<string, { cost: number; revenue: number; purchases: number; impressions: number; clicks: number; product_page_views: number; checkouts_initiated: number; items_purchased: number }> = {};
-      if (historyData) {
-        historyData.forEach(row => {
-          const key = row.ad_id || row.ad_name;
-          if (!key) return;
-          if (!historyMap[key]) {
-            historyMap[key] = { cost: 0, revenue: 0, purchases: 0, impressions: 0, clicks: 0, product_page_views: 0, checkouts_initiated: 0, items_purchased: 0 };
-          }
-          historyMap[key].cost += Number(row.cost_usd || 0);
-          historyMap[key].revenue += Number(row.gross_revenue_usd || 0);
-          historyMap[key].purchases += Number(row.purchases || 0);
-          historyMap[key].impressions += Number(row.impressions || 0);
-          historyMap[key].clicks += Number(row.clicks || 0);
-          historyMap[key].product_page_views += Number(row.product_page_views || 0);
-          historyMap[key].checkouts_initiated += Number(row.checkouts_initiated || 0);
-          historyMap[key].items_purchased += Number(row.items_purchased || 0);
-        });
-      }
-      
-      setHistoryMapState(historyMap);
-      const uniqueAdsList: {ad_id: string, ad_name: string}[] = [];
-      const seenIds = new Set();
-      if (historyData) {
-        historyData.forEach(row => {
-          if (row.ad_id && !seenIds.has(row.ad_id)) {
-            seenIds.add(row.ad_id);
-            uniqueAdsList.push({ ad_id: row.ad_id, ad_name: row.ad_name || '-' });
-          }
-        });
-      }
-      setHistoricalAdsList(uniqueAdsList);
+      // Historical data fetch removed since database now stores raw Lifetime data
 
       const enrichedData: EnrichedAdsRow[] = validData.map(row => {
-        const key1 = row.ad_id;
-        const key2 = row.ad_name;
-        const hist = (key1 && historyMap[key1]) || (key2 && historyMap[key2]) || { cost: 0, revenue: 0, purchases: 0, impressions: 0, clicks: 0, product_page_views: 0, checkouts_initiated: 0, items_purchased: 0 };
         return {
           ...row,
-          prev_cost: hist.cost,
-          prev_revenue: hist.revenue,
-          prev_purchases: hist.purchases,
-          prev_impressions: hist.impressions,
-          prev_clicks: hist.clicks,
-          prev_product_page_views: hist.product_page_views,
-          prev_checkouts_initiated: hist.checkouts_initiated,
-          prev_items_purchased: hist.items_purchased,
-          // Calculate delta (Incremental)
-          delta_cost: Math.max(0, row.cost - hist.cost),
-          delta_revenue: Math.max(0, row.revenue - hist.revenue),
-          delta_purchases: Math.max(0, row.purchases - hist.purchases),
-          delta_impressions: Math.max(0, row.impressions - hist.impressions),
-          delta_clicks: Math.max(0, row.clicks - hist.clicks),
-          delta_product_page_views: Math.max(0, row.product_page_views - hist.product_page_views),
-          delta_checkouts_initiated: Math.max(0, row.checkouts_initiated - hist.checkouts_initiated),
-          delta_items_purchased: Math.max(0, row.items_purchased - hist.items_purchased),
+          delta_cost: row.cost,
+          delta_revenue: row.revenue,
+          delta_purchases: row.purchases,
+          delta_impressions: row.impressions,
+          delta_clicks: row.clicks,
+          delta_product_page_views: row.product_page_views,
+          delta_checkouts_initiated: row.checkouts_initiated,
+          delta_items_purchased: row.items_purchased,
         };
       });
 
@@ -658,14 +576,14 @@ export default function ImportAdsPage() {
                       <TableRow>
                         <TableHead className="w-[120px]">Ad ID</TableHead>
                         <TableHead className="w-[200px]">Ad Name</TableHead>
-                        <TableHead className="text-right">Cost (Delta)</TableHead>
-                        <TableHead className="text-right">Revenue (Delta)</TableHead>
-                        <TableHead className="text-right">Purchases (Delta)</TableHead>
-                        <TableHead className="text-right">Impr (Delta)</TableHead>
-                        <TableHead className="text-right">Clicks (Delta)</TableHead>
-                        <TableHead className="text-right">PP Views (Delta)</TableHead>
-                        <TableHead className="text-right">Checkouts (Delta)</TableHead>
-                        <TableHead className="text-right">Items (Delta)</TableHead>
+                        <TableHead className="text-right">Cost</TableHead>
+                        <TableHead className="text-right">Revenue</TableHead>
+                        <TableHead className="text-right">Purchases</TableHead>
+                        <TableHead className="text-right">Impr</TableHead>
+                        <TableHead className="text-right">Clicks</TableHead>
+                        <TableHead className="text-right">PP Views</TableHead>
+                        <TableHead className="text-right">Checkouts</TableHead>
+                        <TableHead className="text-right">Items</TableHead>
                         <TableHead className="bg-blue-50 text-blue-800 w-[150px] border-l border-blue-100">Predicted Creator</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -675,17 +593,12 @@ export default function ImportAdsPage() {
                         const predictedCreatorId = predictedCreator?.id || null;
                         const creatorUsername = predictedCreator?.username || null; 
                         
-                        const renderDeltaCell = (delta: number, cur: number, prev: number, isCurrency: boolean = false) => {
+                        const renderValueCell = (val: number, isCurrency: boolean = false) => {
                           const prefix = isCurrency ? '$' : '';
-                          const formatVal = (v: number) => isCurrency ? v.toFixed(2) : v.toLocaleString();
-                          const color = delta < 0 ? 'text-red-500' : delta > 0 ? 'text-emerald-600' : 'text-slate-500';
-                          const sign = delta > 0 ? '+' : '';
+                          const formatVal = isCurrency ? val.toFixed(2) : val.toLocaleString();
                           return (
                             <div className="flex flex-col items-end">
-                              <div className={`font-bold text-sm ${color}`}>{sign}{prefix}{formatVal(delta)}</div>
-                              <div className="text-[10px] text-slate-400 mt-0.5 whitespace-nowrap" title={`Current: ${prefix}${formatVal(cur)} | Previous: ${prefix}${formatVal(prev)}`}>
-                                {prefix}{formatVal(cur)} <span className="text-slate-300">({prefix}{formatVal(prev)})</span>
-                              </div>
+                              <div className="font-bold text-sm text-slate-700">{prefix}{formatVal}</div>
                             </div>
                           );
                         };
@@ -709,14 +622,14 @@ export default function ImportAdsPage() {
                               )}
                             </TableCell>
                             <TableCell className="text-xs font-semibold max-w-[150px] truncate" title={row.ad_name}>{row.ad_name}</TableCell>
-                            <TableCell className="text-right">{renderDeltaCell(row.delta_cost, row.cost, row.prev_cost, true)}</TableCell>
-                            <TableCell className="text-right">{renderDeltaCell(row.delta_revenue, row.revenue, row.prev_revenue, true)}</TableCell>
-                            <TableCell className="text-right">{renderDeltaCell(row.delta_purchases, row.purchases, row.prev_purchases, false)}</TableCell>
-                            <TableCell className="text-right">{renderDeltaCell(row.delta_impressions, row.impressions, row.prev_impressions, false)}</TableCell>
-                            <TableCell className="text-right">{renderDeltaCell(row.delta_clicks, row.clicks, row.prev_clicks, false)}</TableCell>
-                            <TableCell className="text-right">{renderDeltaCell(row.delta_product_page_views, row.product_page_views, row.prev_product_page_views, false)}</TableCell>
-                            <TableCell className="text-right">{renderDeltaCell(row.delta_checkouts_initiated, row.checkouts_initiated, row.prev_checkouts_initiated, false)}</TableCell>
-                            <TableCell className="text-right">{renderDeltaCell(row.delta_items_purchased, row.items_purchased, row.prev_items_purchased, false)}</TableCell>
+                            <TableCell className="text-right">{renderValueCell(row.cost, true)}</TableCell>
+                            <TableCell className="text-right">{renderValueCell(row.revenue, true)}</TableCell>
+                            <TableCell className="text-right">{renderValueCell(row.purchases, false)}</TableCell>
+                            <TableCell className="text-right">{renderValueCell(row.impressions, false)}</TableCell>
+                            <TableCell className="text-right">{renderValueCell(row.clicks, false)}</TableCell>
+                            <TableCell className="text-right">{renderValueCell(row.product_page_views, false)}</TableCell>
+                            <TableCell className="text-right">{renderValueCell(row.checkouts_initiated, false)}</TableCell>
+                            <TableCell className="text-right">{renderValueCell(row.items_purchased, false)}</TableCell>
                             <TableCell className="border-l border-blue-50 bg-blue-50/30 text-xs font-medium min-w-[200px]">
                               <SearchableSelect 
                                 value={predictedCreatorId || ''} 

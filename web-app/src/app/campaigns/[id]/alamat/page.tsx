@@ -266,9 +266,9 @@ export default function AlamatPage() {
           <table className="w-full whitespace-nowrap text-[13px]">
             <thead className="border-b border-line bg-slate-50">
               <tr>
-                <th className="py-[16px] px-3">No</th>
-                <th className="py-[16px] px-3 min-w-[150px]">Product</th>
-                <th className="py-[16px] px-3">
+                <th className="py-[16px] px-3 sticky left-0 z-20 bg-slate-50 min-w-[50px] max-w-[50px]">No</th>
+                <th className="py-[16px] px-3 sticky left-[50px] z-20 bg-slate-50 min-w-[150px] max-w-[150px]">Product</th>
+                <th className="py-[16px] px-3 sticky left-[200px] z-20 bg-slate-50 min-w-[150px] max-w-[150px] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
                   <button onClick={() => toggleSort('username')} className="flex items-center font-semibold hover:text-blue-600 transition-colors">
                     Username <SortIcon col="username" />
                   </button>
@@ -311,9 +311,18 @@ export default function AlamatPage() {
                   const noWhatsapp = activeContact?.nomor || '';
 
                   return (
-                    <tr key={cc.id} className="border-b border-line hover:bg-slate-50/50">
-                      <td className="px-3 py-3 text-center">{idx + 1}</td>
-                      <td className="px-3 py-3 whitespace-normal">
+                    <tr 
+                      key={cc.id} 
+                      className="border-b border-line hover:bg-slate-50 group cursor-pointer"
+                      onClick={() => { if (!isEditing && !isSaving) handleEdit(cc.id); }}
+                      onBlur={(e) => {
+                        if (isEditing && !e.currentTarget.contains(e.relatedTarget)) {
+                          handleSave(cc.id);
+                        }
+                      }}
+                    >
+                      <td className="px-3 py-3 text-center sticky left-0 z-10 bg-white group-hover:bg-slate-50 transition-colors min-w-[50px] max-w-[50px]">{idx + 1}</td>
+                      <td className="px-3 py-3 whitespace-normal sticky left-[50px] z-10 bg-white group-hover:bg-slate-50 transition-colors min-w-[150px] max-w-[150px]">
                         {isEditing ? (
                           <div className="w-[200px]">
                             <MultiSelect 
@@ -337,7 +346,7 @@ export default function AlamatPage() {
                           </div>
                         )}
                       </td>
-                      <td className="px-3 py-3 font-medium">@{creator?.username}</td>
+                      <td className="px-3 py-3 font-medium sticky left-[200px] z-10 bg-white group-hover:bg-slate-50 transition-colors min-w-[150px] max-w-[150px] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">@{creator?.username}</td>
                       <td className="px-3 py-3">{noWhatsapp || '-'}</td>
                       
                       <td className="px-3 py-3">
@@ -428,14 +437,11 @@ export default function AlamatPage() {
                         <span className="inline-block px-[8px] py-[2px] border border-line rounded-[4px] text-[10px] font-semibold text-text-soft uppercase bg-slate-100">{cc.approval}</span>
                       </td>
                       {hasAccess && (
-                        <td className="text-center align-middle px-3 py-3 sticky right-0 bg-white/95 backdrop-blur-sm shadow-[-4px_0_10px_-4px_rgba(0,0,0,0.1)]">
+                        <td className="text-center align-middle px-3 py-3 sticky right-0 bg-white group-hover:bg-slate-50 transition-colors shadow-[-4px_0_10px_-4px_rgba(0,0,0,0.1)]">
                           {isEditing ? (
-                            <div className="flex flex-col gap-[8px] w-[80px] mx-auto">
-                              <button onClick={() => handleSave(cc.id)} disabled={isSaving} className="btn btn-primary w-full !py-[6px] !text-[12px]">{isSaving ? '...' : 'Simpan'}</button>
-                              <button onClick={() => setEditId(null)} className="btn btn-outline w-full !py-[6px] !text-[12px]">Batal</button>
-                            </div>
+                            <span className="text-blue-500 font-semibold text-[12px]">{isSaving ? 'Menyimpan...' : 'Sedang Edit'}</span>
                           ) : (
-                            <button onClick={() => handleEdit(cc.id)} className="text-[12px] text-blue-600 hover:text-blue-800 hover:underline font-semibold whitespace-nowrap">Edit Data</button>
+                            <button onClick={(e) => { e.stopPropagation(); handleEdit(cc.id); }} className="text-[12px] text-blue-600 hover:text-blue-800 hover:underline font-semibold whitespace-nowrap">Edit Data</button>
                           )}
                         </td>
                       )}

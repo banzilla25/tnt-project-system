@@ -13,19 +13,29 @@ import { Button } from "@/components/ui/Button";
 
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { StringCombobox } from "@/components/StringCombobox";
+import { getAdsReportData } from "./actions";
 
 export default function AdsReportPage() {
   const { creators, campaigns } = useDatabaseStore();
   const [adsPerformance, setAdsPerformance] = useState<any[]>([]);
+  const [globalSummary, setGlobalSummary] = useState<any>({ totalSpend: 0, totalGmv: 0, totalImpressions: 0, roas: 0, cpm: 0 });
+  const [campaignBreakdown, setCampaignBreakdown] = useState<any>({});
+  
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const [selectedCampaignId, setSelectedCampaignId] = useState<number | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   
-  // Date Filter States
+  // Date Filter States (UI only)
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
+  
+  // Applied Filter States (Triggers Fetch)
+  const [appliedStartDate, setAppliedStartDate] = useState<string>('');
+  const [appliedEndDate, setAppliedEndDate] = useState<string>('');
+  const [campaignAdsName, setCampaignAdsName] = useState<string>('');
+  const [appliedCampaignAdsName, setAppliedCampaignAdsName] = useState<string>('');
   
   const { profile } = useAuth();
   const isManager = profile?.role === 'manager';
@@ -33,7 +43,10 @@ export default function AdsReportPage() {
   const supabase = createClient();
 
   // Pagination & Sorting States
-  const [displayLimit, setDisplayLimit] = useState(100);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(100);
+  const [totalCount, setTotalCount] = useState(0);
+
   type SortColumn = 'tanggal' | 'ad_id' | 'ad_name' | 'campaign_ads_name' | 'campaign_id' | 'creator_id' | 'kurs' | 'cost_usd' | 'gross_revenue_usd' | 'impressions' | 'clicks' | 'product_page_views' | 'checkouts_initiated' | 'purchases' | 'items_purchased';
   const [sortConfig, setSortConfig] = useState<{ key: SortColumn; direction: 'asc' | 'desc' } | null>({ key: 'tanggal', direction: 'desc' });
 
@@ -52,21 +65,30 @@ export default function AdsReportPage() {
   useEffect(() => {
     const fetchAds = async () => {
       setIsLoading(true);
-      let query = supabase.from('ads_performance').select('*, creators(username)').order('tanggal', { ascending: false }).limit(2000);
-      
-      if (startDate) {
-        query = query.gte('tanggal', startDate);
+      try {
+        const result = await getAdsReportData({
+          startDate: appliedStartDate || undefined,
+          endDate: appliedEndDate || undefined,
+          campaignId: selectedCampaignId,
+          campaignAdsName: appliedCampaignAdsName || undefined,
+          searchQuery: deferredSearchQuery || undefined,
+          page,
+          pageSize,
+          sortKey: sortConfig?.key || 'tanggal',
+          sortDir: sortConfig?.direction || 'desc'
+        });
+        
+        setAdsPerformance(result.paginatedData);
+        setGlobalSummary(result.summary);
+        setCampaignBreakdown(result.campaignBreakdown);
+        setTotalCount(result.totalCount);
+      } catch (err) {
+        console.error(err);
       }
-      if (endDate) {
-        query = query.lte('tanggal', endDate);
-      }
-      
-      const { data } = await query;
-      if (data) setAdsPerformance(data);
       setIsLoading(false);
     };
     fetchAds();
-  }, [supabase, startDate, endDate]);
+  }, [appliedStartDate, appliedEndDate, selectedCampaignId, appliedCampaignAdsName, deferredSearchQuery, page, pageSize, sortConfig]);
   
   // Inline Auto-Save States
   type PendingAdChange = { campaign_id?: number | null; campaign_ads_name?: string | null; creator_id?: number | null; kurs?: number; ad_id?: string; original: any };
@@ -192,95 +214,11 @@ export default function AdsReportPage() {
     setDeletingId(null);
   };
 
-  // 1. Filter by Search Query ONLY (for Campaign Cards)
-  const searchFilteredAds = useMemo(() => {
-    return adsPerformance.filter(ad => {
-      if (!deferredSearchQuery) return true;
-      const q = deferredSearchQuery.toLowerCase();
-      return (
-        (ad.ad_name && ad.ad_name.toLowerCase().includes(q)) || 
-        (ad.ad_id && ad.ad_id.toLowerCase().includes(q))
-      );
-    }).sort((a, b) => {
-      if (!sortConfig) return 0;
-      
-      const { key, direction } = sortConfig;
-      let valA = a[key];
-      let valB = b[key];
+  // 1. (Removed) Filter by Search Query ONLY (for Campaign Cards) - Now handled by Server Action
 
-      if (key === 'tanggal') {
-        valA = new Date(valA || '1970-01-01').getTime();
-        valB = new Date(valB || '1970-01-01').getTime();
-      } else if (key === 'campaign_id') {
-         valA = campaigns.find(c => c.id === valA)?.nama || '';
-         valB = campaigns.find(c => c.id === valB)?.nama || '';
-      } else if (key === 'creator_id') {
-         valA = a.creators?.username || '';
-         valB = b.creators?.username || '';
-      } else if (key === 'cost_usd' || key === 'gross_revenue_usd' || key === 'kurs') {
-         valA = Number(valA || 0);
-         valB = Number(valB || 0);
-      } else {
-         valA = String(valA || '');
-         valB = String(valB || '');
-      }
-
-      if (valA < valB) return direction === 'asc' ? -1 : 1;
-      if (valA > valB) return direction === 'asc' ? 1 : -1;
-      return 0;
-    });
-  }, [adsPerformance, deferredSearchQuery, sortConfig, campaigns]);
-
-  // 2. Filter by Search Query AND Clicked Campaign (for Table & Global Summary)
-  const tableFilteredAds = useMemo(() => {
-    if (selectedCampaignId === null) return searchFilteredAds;
-    return searchFilteredAds.filter(ad => ad.campaign_id === selectedCampaignId);
-  }, [searchFilteredAds, selectedCampaignId]);
-
-  // 3. Campaign Breakdown Calculation (from searchFilteredAds)
-  const campaignBreakdown = useMemo(() => {
-    const summary: Record<number, { name: string, spend: number, gmv: number, views: number, unmapped: number }> = {};
-    let globalUnmappedCampaigns = 0;
-
-    searchFilteredAds.forEach(ad => {
-      const kurs = ad.kurs || 16000;
-      const spendIDR = (ad.cost_usd || 0) * kurs;
-      const gmvIDR = (ad.gross_revenue_usd || 0) * kurs;
-      const views = ad.video_views || 0;
-      
-      const cId = ad.campaign_id;
-      if (!cId) {
-        globalUnmappedCampaigns++;
-        return;
-      }
-      
-      if (!summary[cId]) {
-        summary[cId] = { 
-          name: campaigns.find(c => c.id === cId)?.nama || 'Unknown', 
-          spend: 0, 
-          gmv: 0, 
-          views: 0,
-          unmapped: 0,
-          purchases: 0,
-          clicks: 0,
-          impressions: 0
-        };
-      }
-      
-      summary[cId].spend += spendIDR;
-      summary[cId].gmv += gmvIDR;
-      summary[cId].views += views;
-      summary[cId].purchases += Number(ad.purchases || 0);
-      summary[cId].clicks += Number(ad.clicks || 0);
-      summary[cId].impressions += Number(ad.impressions || 0);
-      if (!ad.creator_id) summary[cId].unmapped++;
-    });
-
-    const list = Object.entries(summary).map(([id, data]) => ({ id: Number(id), ...data }));
-    list.sort((a, b) => b.gmv - a.gmv); // sort by GMV highest
-
-    return { list, globalUnmappedCampaigns };
-  }, [searchFilteredAds, campaigns]);
+  // 2. (Removed) Filter by Search Query AND Clicked Campaign (for Table & Global Summary) - Now handled by Server Action
+  
+  // 3. (Removed) Campaign Breakdown Calculation - Now handled by Server Action
 
   const groupedAds = useMemo(() => {
     const groups: Record<string, {
@@ -302,7 +240,7 @@ export default function AdsReportPage() {
       rows: any[];
     }> = {};
 
-    const sortedAds = [...tableFilteredAds].sort((a, b) => {
+    const sortedAds = [...adsPerformance].sort((a, b) => {
       const dA = a.tanggal || '';
       const dB = b.tanggal || '';
       return dA.localeCompare(dB);
@@ -345,36 +283,18 @@ export default function AdsReportPage() {
     });
 
     return Object.values(groups).sort((a, b) => b.cost_usd - a.cost_usd);
-  }, [tableFilteredAds]);
+  }, [adsPerformance]);
 
   const globalCampaignAdsOptions = useMemo(() => {
     return Array.from(new Set(adsPerformance.map(ad => ad.campaign_ads_name).filter(Boolean))) as string[];
   }, [adsPerformance]);
 
-  // 4. Global Summary Calculation (from tableFilteredAds)
-  const globalSummary = useMemo(() => {
-    let totalSpend = 0;
-    let totalGmv = 0;
-    let totalViews = 0;
-    let totalUnmapped = 0;
-
-    tableFilteredAds.forEach(ad => {
-      const kurs = ad.kurs || 16000;
-      totalSpend += (ad.cost_usd || 0) * kurs;
-      totalGmv += (ad.gross_revenue_usd || 0) * kurs;
-      totalViews += (ad.video_views || 0);
-      if (!ad.campaign_id || !ad.creator_id) totalUnmapped++;
-    });
-
-    const roas = totalSpend > 0 ? totalGmv / totalSpend : 0;
-    const cpv = totalViews > 0 ? totalSpend / totalViews : 0;
-    return { totalSpend, totalGmv, totalViews, totalUnmapped, roas, cpv };
-  }, [tableFilteredAds]);
+  // 4. (Removed) Global Summary Calculation - Now handled by Server Action
 
   // const creatorOptions = creators.map(c => ({ id: c.id, label: `@${c.username}` }));
 
   const handleExport = () => {
-    const dataToExport = tableFilteredAds.map(ad => ({
+    const dataToExport = adsPerformance.map(ad => ({
       "Tanggal": ad.tanggal,
       "Campaign": campaigns.find(c => c.id === ad.campaign_id)?.nama || 'Unknown',
       "Creator": ad.creators?.username || 'Unknown',
@@ -869,31 +789,61 @@ export default function AdsReportPage() {
 
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mt-6 mb-2">
           <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
-            <Calendar className="w-4 h-4 text-indigo-600" /> Filter Tanggal Laporan:
+            <Calendar className="w-4 h-4 text-indigo-600" /> Filter Laporan:
           </div>
-          <div className="flex items-center gap-2">
-            <input 
-              type="date" 
-              className="p-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-indigo-500"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-            />
-            <span className="text-slate-500 text-sm">s/d</span>
-            <input 
-              type="date" 
-              className="p-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-indigo-500"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-            />
-            {(startDate || endDate) && (
-              <button 
-                onClick={() => { setStartDate(''); setEndDate(''); }}
-                className="p-2 text-red-500 hover:bg-red-50 rounded"
-                title="Reset Filter"
+          <div className="flex flex-col md:flex-row items-start md:items-center gap-3">
+            <div className="flex items-center gap-2">
+              <input 
+                type="date" 
+                className="p-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-indigo-500"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+              />
+              <span className="text-slate-500 text-sm">s/d</span>
+              <input 
+                type="date" 
+                className="p-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-indigo-500"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+              />
+            </div>
+            <div className="flex items-center gap-2 w-full md:w-auto">
+              <input
+                type="text"
+                placeholder="Pilih Campaign Ads..."
+                value={campaignAdsName}
+                onChange={(e) => setCampaignAdsName(e.target.value)}
+                className="w-full md:w-48 p-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-indigo-500"
+                list="campaign-ads-list"
+              />
+              <datalist id="campaign-ads-list">
+                {globalCampaignAdsOptions.map(name => <option key={name} value={name} />)}
+              </datalist>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                onClick={() => {
+                  setAppliedStartDate(startDate);
+                  setAppliedEndDate(endDate);
+                  setAppliedCampaignAdsName(campaignAdsName);
+                }}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white"
               >
-                <X className="w-4 h-4" />
-              </button>
-            )}
+                Terapkan
+              </Button>
+              {(startDate || endDate || campaignAdsName) && (
+                <button 
+                  onClick={() => { 
+                    setStartDate(''); setEndDate(''); setCampaignAdsName('');
+                    setAppliedStartDate(''); setAppliedEndDate(''); setAppliedCampaignAdsName('');
+                  }}
+                  className="p-2 text-red-500 hover:bg-red-50 rounded border border-red-200"
+                  title="Reset Filter"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
@@ -981,7 +931,7 @@ export default function AdsReportPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {viewMode === 'flat' && tableFilteredAds.slice(0, displayLimit).map((ad) => {
+                {viewMode === 'flat' && adsPerformance.slice(0, displayLimit).map((ad) => {
                   return renderTableRow(ad);
                 })}
 
@@ -1000,14 +950,14 @@ export default function AdsReportPage() {
                 })}
               </TableBody>
             </Table>
-            {tableFilteredAds.length > displayLimit && (
+            {adsPerformance.length > displayLimit && (
               <div className="flex justify-center p-4 border-t border-slate-100">
                 <Button variant="outline" onClick={() => setDisplayLimit(prev => prev + 100)}>
-                  Tampilkan Lainnya ({tableFilteredAds.length - displayLimit} lagi)
+                  Tampilkan Lainnya ({adsPerformance.length - displayLimit} lagi)
                 </Button>
               </div>
             )}
-            {tableFilteredAds.length === 0 && (
+            {adsPerformance.length === 0 && (
               <div className="text-center py-12 text-slate-500">
                 Tidak ada data iklan yang ditemukan.
               </div>

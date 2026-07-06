@@ -875,9 +875,9 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                   <Table className="w-full whitespace-nowrap text-[13px]">
                     <TableHeader className="bg-slate-50">
                       <TableRow>
-                        <TableHead className="py-[16px] px-3">No</TableHead>
-                        <TableHead className="py-[16px] px-3 min-w-[150px]">Product</TableHead>
-                        <SortableHeader label="Username" sortKey="username" currentSort={sampleSort} onSort={(k) => handleSort('sample', k)} className="px-3" />
+                        <TableHead className="py-[16px] px-3 sticky left-0 z-20 bg-slate-50 min-w-[50px] max-w-[50px]">No</TableHead>
+                        <TableHead className="py-[16px] px-3 sticky left-[50px] z-20 bg-slate-50 min-w-[150px] max-w-[150px]">Product</TableHead>
+                        <SortableHeader label="Username" sortKey="username" currentSort={sampleSort} onSort={(k) => handleSort('sample', k)} className="px-3 sticky left-[200px] z-20 bg-slate-50 min-w-[150px] max-w-[150px] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" />
                         <TableHead className="py-[16px] px-3">No Whatsapp</TableHead>
                         <TableHead className="py-[16px] px-3 min-w-[150px]">Nama Penerima</TableHead>
                         <TableHead className="py-[16px] px-3 min-w-[200px]">Nama Jalan</TableHead>
@@ -908,10 +908,10 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                           const noWhatsapp = cc?.no_whatsapp || '-';
 
                           return (
-                            <TableRow key={addr.id} className="hover:bg-slate-50/50">
-                              <TableCell className="px-3 py-3 text-center">{samplePage * PAGE_SIZE + idx + 1}</TableCell>
-                              <TableCell className="px-3 py-3 whitespace-normal">
-                                <div className="flex flex-col gap-1 w-[200px]">
+                            <TableRow key={addr.id} className="hover:bg-slate-50/50 group">
+                              <TableCell className="px-3 py-3 text-center sticky left-0 z-10 bg-white group-hover:bg-slate-50 transition-colors min-w-[50px] max-w-[50px]">{samplePage * PAGE_SIZE + idx + 1}</TableCell>
+                              <TableCell className="px-3 py-3 whitespace-normal sticky left-[50px] z-10 bg-white group-hover:bg-slate-50 transition-colors min-w-[150px] max-w-[150px]">
+                                <div className="flex flex-col gap-1 w-[150px]">
                                   {skuNames.length > 0 ? (
                                     skuNames.map((name: string, i: number) => (
                                       <span key={i} className="inline-flex items-center gap-1 bg-blue-50 text-blue-700 text-[11px] px-2 py-0.5 rounded border border-blue-100">{name}</span>
@@ -921,7 +921,7 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                                   )}
                                 </div>
                               </TableCell>
-                              <TableCell className="px-3 py-3 font-medium">@{addr.creator_username}</TableCell>
+                              <TableCell className="px-3 py-3 font-medium sticky left-[200px] z-10 bg-white group-hover:bg-slate-50 transition-colors min-w-[150px] max-w-[150px] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">@{addr.creator_username}</TableCell>
                               <TableCell className="px-3 py-3">{noWhatsapp}</TableCell>
                               <TableCell className="px-3 py-3">{addr.nama_penerima || '-'}</TableCell>
                               <TableCell className="px-3 py-3 whitespace-normal">{addr.nama_jalan || '-'}</TableCell>
