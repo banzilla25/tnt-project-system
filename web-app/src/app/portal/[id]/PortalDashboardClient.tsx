@@ -17,7 +17,7 @@ const SortableHeader = ({ label, sortKey, currentSort, onSort, className = "" }:
         {currentSort.key === sortKey ? (
           currentSort.direction === 'asc' ? <ArrowUp className="w-4 h-4 text-blue-600" /> : <ArrowDown className="w-4 h-4 text-blue-600" />
         ) : (
-          <ArrowUpDown className="w-4 h-4 text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+          <ArrowUpDown className="w-4 h-4 text-slate-400 transition-opacity" />
         )}
       </div>
     </TableHead>
@@ -79,17 +79,10 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
     setVideoPage(0);
   }, [activeTab]);
 
-  // Mencegah user close tab/refresh saat ada data belum disave
+  // Auto-save logic replaces batch save prompt requirement
   React.useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (Object.keys(editedSamples).length > 0) {
-        e.preventDefault();
-        e.returnValue = ''; // Standard untuk memunculkan prompt browser
-      }
-    };
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [editedSamples]);
+    // No-op for beforeunload since we auto-save on blur/change
+  }, []);
 
   const { campaign, summary, dailyPerf, ccData: approvalList, samples, schedules, videos, skus, rpcPerformance, salesPerProduct, totalItemsSold } = data;
   
@@ -136,6 +129,15 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
         [field]: value
       }
     }));
+  };
+
+  const handleAutoSave = async (addrId: number, field: keyof BatchUpdateData, value: string) => {
+    handleQueueUpdate(addrId, field, value);
+    try {
+      await batchUpdateResiByClient(campaignId, [{ addressId: addrId, [field]: value }]);
+    } catch (err) {
+      console.error("Auto-save failed", err);
+    }
   };
 
   const handleBatchSave = async () => {
@@ -297,9 +299,22 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
   // 3. Sampel
   let filteredSamples = samples.filter((addr: any) => {
     const cc = approvalList.find((c: any) => c.id === addr.campaign_creator_id);
+    
+    // Only approved creators
+    if (cc?.approval !== 'approved' && cc?.client_approval !== 'approved') return false;
+
     const username = cc?.creators?.username || '';
-    if (sampleSearch && !username.toLowerCase().includes(sampleSearch.toLowerCase()) && !(addr.resi || '').toLowerCase().includes(sampleSearch.toLowerCase())) return false;
-    if (sampleStatusFilter !== 'all' && (addr.proses || 'Diproses').toLowerCase() !== sampleStatusFilter.toLowerCase()) return false;
+    const resiStr = (editedSamples[addr.id]?.resi ?? addr.resi) || '';
+    const prosesStr = (editedSamples[addr.id]?.proses ?? addr.proses) || 'Diproses';
+
+    if (sampleSearch && !username.toLowerCase().includes(sampleSearch.toLowerCase()) && !resiStr.toLowerCase().includes(sampleSearch.toLowerCase())) return false;
+    
+    if (sampleStatusFilter === 'resi_belum' && resiStr.trim() !== '') return false;
+    if (sampleStatusFilter === 'resi_sudah' && resiStr.trim() === '') return false;
+    if (sampleStatusFilter !== 'all' && sampleStatusFilter !== 'resi_belum' && sampleStatusFilter !== 'resi_sudah') {
+      if (prosesStr.toLowerCase() !== sampleStatusFilter.toLowerCase()) return false;
+    }
+    
     return true;
   });
   filteredSamples = genericSort(filteredSamples, sampleSort, (addr) => {
@@ -843,6 +858,8 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                       <option value="all">Semua Status</option>
                       <option value="diproses">Diproses</option>
                       <option value="dikirim">Dikirim</option>
+                      <option value="resi_belum">Resi Belum Diisi</option>
+                      <option value="resi_sudah">Resi Sudah Diisi</option>
                     </select>
                     <ChevronDown className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                   </div>
@@ -912,7 +929,7 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                                 <select 
                                   className="w-full text-[12px] p-1 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none bg-white" 
                                   value={editedSamples[addr.id]?.proses ?? (addr.proses || 'Diproses')} 
-                                  onChange={e => handleQueueUpdate(addr.id, 'proses', e.target.value)}
+                                  onChange={e => handleAutoSave(addr.id, 'proses', e.target.value)}
                                 >
                                   <option value="Diproses">Diproses</option>
                                   <option value="Dikirim">Dikirim</option>
@@ -930,7 +947,8 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                                   className="w-full text-[12px] p-1 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none bg-white min-w-[120px]" 
                                   placeholder="Input resi..." 
                                   value={editedSamples[addr.id]?.resi ?? (addr.resi || '')} 
-                                  onChange={e => handleQueueUpdate(addr.id, 'resi', e.target.value)} 
+                                  onChange={e => handleQueueUpdate(addr.id, 'resi', e.target.value)}
+                                  onBlur={e => handleAutoSave(addr.id, 'resi', e.target.value)} 
                                 />
                               </TableCell>
                               <TableCell className="px-3 py-3 whitespace-normal">
@@ -939,7 +957,8 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                                   className="w-full text-[12px] p-1 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none bg-white min-w-[150px]" 
                                   placeholder="Notes..." 
                                   value={editedSamples[addr.id]?.notes ?? (addr.notes || '')} 
-                                  onChange={e => handleQueueUpdate(addr.id, 'notes', e.target.value)} 
+                                  onChange={e => handleQueueUpdate(addr.id, 'notes', e.target.value)}
+                                  onBlur={e => handleAutoSave(addr.id, 'notes', e.target.value)} 
                                 />
                               </TableCell>
                               <TableCell className="px-3 py-3 text-center">
