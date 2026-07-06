@@ -42,10 +42,7 @@ export default function AdsReportPage() {
 
   const supabase = createClient();
 
-  // Pagination & Sorting States
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(100);
-  const [totalCount, setTotalCount] = useState(0);
+  // Sorting States
 
   type SortColumn = 'tanggal' | 'ad_id' | 'ad_name' | 'campaign_ads_name' | 'campaign_id' | 'creator_id' | 'kurs' | 'cost_usd' | 'gross_revenue_usd' | 'impressions' | 'clicks' | 'product_page_views' | 'checkouts_initiated' | 'purchases' | 'items_purchased';
   const [sortConfig, setSortConfig] = useState<{ key: SortColumn; direction: 'asc' | 'desc' } | null>({ key: 'tanggal', direction: 'desc' });
@@ -72,16 +69,13 @@ export default function AdsReportPage() {
           campaignId: selectedCampaignId,
           campaignAdsName: appliedCampaignAdsName || undefined,
           searchQuery: deferredSearchQuery || undefined,
-          page,
-          pageSize,
           sortKey: sortConfig?.key || 'tanggal',
           sortDir: sortConfig?.direction || 'desc'
         });
         
-        setAdsPerformance(result.paginatedData);
+        setAdsPerformance(result.data || []);
         setGlobalSummary(result.summary);
         setCampaignBreakdown(result.campaignBreakdown);
-        setTotalCount(result.totalCount);
       } catch (err) {
         console.error(err);
       }
