@@ -11,7 +11,7 @@ export async function getAdsReportData(params: {
   sortKey: string;
   sortDir: 'asc' | 'desc';
 }) {
-  const supabase = createClient();
+  const supabase = await createClient();
   
   // 1. Fetch ALL data (we need history to calculate deltas)
   let query = supabase.from('ads_performance').select('*, creators(username)').order('tanggal', { ascending: true });
