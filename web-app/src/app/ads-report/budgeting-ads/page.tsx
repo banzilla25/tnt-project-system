@@ -80,6 +80,7 @@ export default function BudgetingAdsPage() {
     // total alokasi ke campaign ini
     const campAllocations = allocations.filter(a => a.campaign_id === camp.id);
     const allocatedUsd = campAllocations.reduce((acc, curr) => acc + Number(curr.alokasi_usd), 0);
+    const allocatedIdr = campAllocations.reduce((acc, curr) => acc + Number(curr.alokasi_idr), 0);
     
     // total spend campaign ini
     const campSpends = adsSpend.filter(s => s.campaign_id === camp.id);
@@ -87,11 +88,17 @@ export default function BudgetingAdsPage() {
     
     const remainingUsd = allocatedUsd - spentUsd;
     
+    const plafonIdr = camp.budget_ads_plafon || 0;
+    const sisaPlafonIdr = plafonIdr - allocatedIdr;
+    
     return {
       ...camp,
       allocatedUsd,
+      allocatedIdr,
       spentUsd,
-      remainingUsd
+      remainingUsd,
+      plafonIdr,
+      sisaPlafonIdr
     };
   });
   
@@ -263,10 +270,13 @@ export default function BudgetingAdsPage() {
                 <Table>
                   <TableHeader className="bg-slate-50">
                     <TableRow>
-                      <TableHead className="font-semibold">Campaign</TableHead>
-                      <TableHead className="font-semibold text-right">Modal Diberikan (USD)</TableHead>
-                      <TableHead className="font-semibold text-right text-red-600">Terpakai (USD)</TableHead>
-                      <TableHead className="font-semibold text-right text-emerald-600">SISA SALDO</TableHead>
+                      <TableHead className="font-semibold text-slate-700 whitespace-nowrap">Campaign</TableHead>
+                      <TableHead className="font-semibold text-right text-slate-700 border-l border-slate-200 bg-slate-100/50 whitespace-nowrap">Budgeting (IDR)</TableHead>
+                      <TableHead className="font-semibold text-right text-slate-700 bg-slate-100/50 whitespace-nowrap">Telah di-Top Up (IDR)</TableHead>
+                      <TableHead className="font-semibold text-right text-orange-600 bg-slate-100/50 whitespace-nowrap">Sisa Top Up (IDR)</TableHead>
+                      <TableHead className="font-semibold text-right border-l border-slate-200 whitespace-nowrap">Modal (USD)</TableHead>
+                      <TableHead className="font-semibold text-right text-red-600 whitespace-nowrap">Terpakai (USD)</TableHead>
+                      <TableHead className="font-semibold text-right text-emerald-600 whitespace-nowrap">SISA SALDO</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -277,10 +287,13 @@ export default function BudgetingAdsPage() {
                     ) : (
                       campaignBalances.map(camp => (
                         <TableRow key={camp.id} className="hover:bg-slate-50">
-                          <TableCell className="font-medium text-slate-800">{camp.nama}</TableCell>
-                          <TableCell className="text-right text-slate-600">${camp.allocatedUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                          <TableCell className="text-right text-red-600">${camp.spentUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                          <TableCell className="text-right">
+                          <TableCell className="font-medium text-slate-800 whitespace-nowrap">{camp.nama}</TableCell>
+                          <TableCell className="text-right text-slate-600 border-l border-slate-100 bg-slate-50/50 whitespace-nowrap">Rp{(camp.plafonIdr).toLocaleString('id-ID')}</TableCell>
+                          <TableCell className="text-right text-slate-600 bg-slate-50/50 whitespace-nowrap">Rp{(camp.allocatedIdr).toLocaleString('id-ID')}</TableCell>
+                          <TableCell className="text-right font-medium text-orange-600 bg-slate-50/50 whitespace-nowrap">Rp{(camp.sisaPlafonIdr).toLocaleString('id-ID')}</TableCell>
+                          <TableCell className="text-right text-slate-600 border-l border-slate-200 whitespace-nowrap">${camp.allocatedUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                          <TableCell className="text-right text-red-600 whitespace-nowrap">${camp.spentUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                          <TableCell className="text-right whitespace-nowrap">
                             <span className={`font-bold ${camp.remainingUsd <= 10 ? 'text-red-600' : 'text-emerald-600'}`}>
                               ${camp.remainingUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </span>
