@@ -1,24 +1,17 @@
-const xlsx = require('xlsx');
+const XLSX = require('xlsx');
 const fs = require('fs');
 
-function readExcel(filePath) {
-  try {
-    const workbook = xlsx.readFile(filePath);
-    const sheetName = workbook.SheetNames[0];
-    const sheet = workbook.Sheets[sheetName];
-    const data = xlsx.utils.sheet_to_json(sheet, { header: 1 });
-    
-    console.log(`--- File: ${filePath} ---`);
-    console.log("Headers:");
-    console.log(data[0]);
-    console.log("Row 1:");
-    console.log(data[1]);
-    console.log("Row 2:");
-    console.log(data[2]);
-    console.log("\n");
-  } catch (err) {
-    console.error(`Error reading ${filePath}:`, err.message);
-  }
-}
+const filePath = 'D:\\Project-Tracking-System\\ADS External.xlsx';
+const workbook = XLSX.readFile(filePath);
 
-readExcel("D:\\Project-Tracking-System\\ORGANIC TNT 12 JUNI\\AWARENESS\\PWS 07-05-2026 - 11-06-2026.xlsx");
+console.log('Sheets:', workbook.SheetNames);
+
+workbook.SheetNames.forEach(sheetName => {
+    console.log(`\n--- Sheet: ${sheetName} ---`);
+    const worksheet = workbook.Sheets[sheetName];
+    const data = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+    // Print first 20 rows
+    data.slice(0, 20).forEach(row => {
+        console.log(row.join(' | '));
+    });
+});

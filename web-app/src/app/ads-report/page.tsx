@@ -650,11 +650,7 @@ export default function AdsReportPage() {
               </Button>
             </Link>
           )}
-          {isManager && selectedAds.length > 0 && (
-            <Button onClick={bulkDeleteSelectedAds} className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white">
-              <Trash2 className="w-4 h-4" /> Hapus Terpilih ({selectedAds.length})
-            </Button>
-          )}
+
           <Button onClick={handleExport} className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white">
             <Download className="w-4 h-4" /> Export Excel
           </Button>
@@ -1019,7 +1015,15 @@ export default function AdsReportPage() {
                   <TableHead className="text-right">CTR</TableHead>
                   <TableHead className="text-right">Purchase Rate</TableHead>
                   <TableHead className="text-right">AOV</TableHead>
-                  <TableHead className="w-[80px] text-center sticky right-0 bg-slate-50 z-20">Aksi</TableHead>
+                  <TableHead className="text-center sticky right-0 bg-slate-50 z-10 border-l border-slate-100 min-w-[120px]">
+                    {selectedAds.length > 0 ? (
+                      <Button onClick={bulkDeleteSelectedAds} size="sm" className="h-7 px-2 text-xs bg-red-600 hover:bg-red-700 text-white flex items-center gap-1 mx-auto">
+                        <Trash2 className="w-3 h-3" /> Hapus ({selectedAds.length})
+                      </Button>
+                    ) : (
+                      "Aksi"
+                    )}
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
