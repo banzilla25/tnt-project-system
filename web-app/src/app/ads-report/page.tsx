@@ -206,31 +206,87 @@ const cost = isParent && groupStats ? groupStats.cost_usd : (ad.cost_usd || 0);
         </TableCell>
 
         <TableCell className={`text-right font-medium text-xs ${isChild ? 'text-emerald-600' : 'text-slate-700'}`}>
-          {isChild && cost > 0 ? '+' : ''}${cost.toFixed(2)}
+          {isChild ? (
+            <div className="flex flex-col items-end gap-0.5">
+              <span>{cost > 0 ? '+' : ''}${cost.toFixed(2)}</span>
+              <span className="text-[10px] text-slate-400">({ad.lifetime_cost_usd?.toFixed(2) || '0.00'})</span>
+            </div>
+          ) : (
+            `$${cost.toFixed(2)}`
+          )}
         </TableCell>
         <TableCell className={`text-right font-medium text-xs ${isChild ? 'text-emerald-600' : 'text-slate-700'}`}>
-          {isChild && impr > 0 ? '+' : ''}{impr.toLocaleString('id-ID')}
+          {isChild ? (
+            <div className="flex flex-col items-end gap-0.5">
+              <span>{impr > 0 ? '+' : ''}{impr.toLocaleString('id-ID')}</span>
+              <span className="text-[10px] text-slate-400">({ad.lifetime_impressions?.toLocaleString('id-ID') || '0'})</span>
+            </div>
+          ) : (
+            impr.toLocaleString('id-ID')
+          )}
         </TableCell>
         <TableCell className={`text-right font-medium text-xs ${isChild ? 'text-emerald-600' : 'text-slate-700'}`}>
-          {isChild && clicks > 0 ? '+' : ''}{clicks.toLocaleString('id-ID')}
+          {isChild ? (
+            <div className="flex flex-col items-end gap-0.5">
+              <span>{clicks > 0 ? '+' : ''}{clicks.toLocaleString('id-ID')}</span>
+              <span className="text-[10px] text-slate-400">({ad.lifetime_clicks?.toLocaleString('id-ID') || '0'})</span>
+            </div>
+          ) : (
+            clicks.toLocaleString('id-ID')
+          )}
         </TableCell>
         <TableCell className={`text-right font-medium text-xs ${isChild ? 'text-emerald-600' : 'text-slate-700'}`}>
-          {isChild && ppv > 0 ? '+' : ''}{ppv.toLocaleString('id-ID')}
+          {isChild ? (
+            <div className="flex flex-col items-end gap-0.5">
+              <span>{ppv > 0 ? '+' : ''}{ppv.toLocaleString('id-ID')}</span>
+              <span className="text-[10px] text-slate-400">({ad.lifetime_product_page_views?.toLocaleString('id-ID') || '0'})</span>
+            </div>
+          ) : (
+            ppv.toLocaleString('id-ID')
+          )}
         </TableCell>
         <TableCell className={`text-right font-medium text-xs ${isChild ? 'text-emerald-600' : 'text-slate-700'}`}>
           {ppvRate.toFixed(2)}%
         </TableCell>
         <TableCell className={`text-right font-medium text-xs ${isChild ? 'text-emerald-600' : 'text-slate-700'}`}>
-          {isChild && checkouts > 0 ? '+' : ''}{checkouts.toLocaleString('id-ID')}
+          {isChild ? (
+            <div className="flex flex-col items-end gap-0.5">
+              <span>{checkouts > 0 ? '+' : ''}{checkouts.toLocaleString('id-ID')}</span>
+              <span className="text-[10px] text-slate-400">({ad.lifetime_checkouts_initiated?.toLocaleString('id-ID') || '0'})</span>
+            </div>
+          ) : (
+            checkouts.toLocaleString('id-ID')
+          )}
         </TableCell>
         <TableCell className={`text-right font-medium text-xs ${isChild ? 'text-emerald-600' : 'text-slate-700'}`}>
-          {isChild && purchases > 0 ? '+' : ''}{purchases.toLocaleString('id-ID')}
+          {isChild ? (
+            <div className="flex flex-col items-end gap-0.5">
+              <span>{purchases > 0 ? '+' : ''}{purchases.toLocaleString('id-ID')}</span>
+              <span className="text-[10px] text-slate-400">({ad.lifetime_purchases?.toLocaleString('id-ID') || '0'})</span>
+            </div>
+          ) : (
+            purchases.toLocaleString('id-ID')
+          )}
         </TableCell>
         <TableCell className={`text-right font-medium text-xs ${isChild ? 'text-emerald-600' : 'text-slate-700'}`}>
-          {isChild && items > 0 ? '+' : ''}{items.toLocaleString('id-ID')}
+          {isChild ? (
+            <div className="flex flex-col items-end gap-0.5">
+              <span>{items > 0 ? '+' : ''}{items.toLocaleString('id-ID')}</span>
+              <span className="text-[10px] text-slate-400">({ad.lifetime_items_purchased?.toLocaleString('id-ID') || '0'})</span>
+            </div>
+          ) : (
+            items.toLocaleString('id-ID')
+          )}
         </TableCell>
         <TableCell className={`text-right font-medium text-xs ${isChild ? 'text-emerald-600' : 'text-green-600'}`}>
-          {isChild && rev > 0 ? '+' : ''}${rev.toFixed(2)}
+          {isChild ? (
+            <div className="flex flex-col items-end gap-0.5">
+              <span>{rev > 0 ? '+' : ''}${rev.toFixed(2)}</span>
+              <span className="text-[10px] text-slate-400">({ad.lifetime_gross_revenue_usd?.toFixed(2) || '0.00'})</span>
+            </div>
+          ) : (
+            `$${rev.toFixed(2)}`
+          )}
         </TableCell>
         <TableCell className="text-right font-medium text-xs text-slate-700">
           {roas.toFixed(2)}

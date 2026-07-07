@@ -45,19 +45,19 @@ export async function getAdsReportData(params: {
     adsByAdId[key].push(row);
   }
 
-  // Calculate Deltas
-  const deltaData = [];
+  // Calculate Lifetime (Cumulative)
+  const enrichedData = [];
   for (const key in adsByAdId) {
     const rows = adsByAdId[key];
     // Rows are already ordered by tanggal ASC
-    let hwm_cost = 0;
-    let hwm_rev = 0;
-    let hwm_imp = 0;
-    let hwm_clicks = 0;
-    let hwm_ppv = 0;
-    let hwm_checkouts = 0;
-    let hwm_purchases = 0;
-    let hwm_items = 0;
+    let lifetime_cost = 0;
+    let lifetime_rev = 0;
+    let lifetime_imp = 0;
+    let lifetime_clicks = 0;
+    let lifetime_ppv = 0;
+    let lifetime_checkouts = 0;
+    let lifetime_purchases = 0;
+    let lifetime_items = 0;
 
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
@@ -71,42 +71,33 @@ export async function getAdsReportData(params: {
       const purchases = Number(row.purchases || 0);
       const items = Number(row.items_purchased || 0);
       
-      const deltaRow = {
+      lifetime_cost += cost;
+      lifetime_rev += rev;
+      lifetime_imp += imp;
+      lifetime_clicks += clicks;
+      lifetime_ppv += ppv;
+      lifetime_checkouts += checkouts;
+      lifetime_purchases += purchases;
+      lifetime_items += items;
+
+      const enrichedRow = {
         ...row,
-        delta_cost_usd: cost > hwm_cost ? cost - hwm_cost : 0,
-        delta_gross_revenue_usd: rev > hwm_rev ? rev - hwm_rev : 0,
-        delta_impressions: imp > hwm_imp ? imp - hwm_imp : 0,
-        delta_clicks: clicks > hwm_clicks ? clicks - hwm_clicks : 0,
-        delta_product_page_views: ppv > hwm_ppv ? ppv - hwm_ppv : 0,
-        delta_checkouts_initiated: checkouts > hwm_checkouts ? checkouts - hwm_checkouts : 0,
-        delta_purchases: purchases > hwm_purchases ? purchases - hwm_purchases : 0,
-        delta_items_purchased: items > hwm_items ? items - hwm_items : 0,
+        lifetime_cost_usd: lifetime_cost,
+        lifetime_gross_revenue_usd: lifetime_rev,
+        lifetime_impressions: lifetime_imp,
+        lifetime_clicks: lifetime_clicks,
+        lifetime_product_page_views: lifetime_ppv,
+        lifetime_checkouts_initiated: lifetime_checkouts,
+        lifetime_purchases: lifetime_purchases,
+        lifetime_items_purchased: lifetime_items,
       };
 
-      hwm_cost = Math.max(hwm_cost, cost);
-      hwm_rev = Math.max(hwm_rev, rev);
-      hwm_imp = Math.max(hwm_imp, imp);
-      hwm_clicks = Math.max(hwm_clicks, clicks);
-      hwm_ppv = Math.max(hwm_ppv, ppv);
-      hwm_checkouts = Math.max(hwm_checkouts, checkouts);
-      hwm_purchases = Math.max(hwm_purchases, purchases);
-      hwm_items = Math.max(hwm_items, items);
-
-      deltaRow.cost_usd = deltaRow.delta_cost_usd;
-      deltaRow.gross_revenue_usd = deltaRow.delta_gross_revenue_usd;
-      deltaRow.impressions = deltaRow.delta_impressions;
-      deltaRow.clicks = deltaRow.delta_clicks;
-      deltaRow.product_page_views = deltaRow.delta_product_page_views;
-      deltaRow.checkouts_initiated = deltaRow.delta_checkouts_initiated;
-      deltaRow.purchases = deltaRow.delta_purchases;
-      deltaRow.items_purchased = deltaRow.delta_items_purchased;
-      
-      deltaData.push(deltaRow);
+      enrichedData.push(enrichedRow);
     }
   }
 
   // 3. Apply Filters
-  let filteredData = deltaData;
+  let filteredData = enrichedData;
   
   if (params.startDate) {
     filteredData = filteredData.filter(r => r.tanggal >= params.startDate!);
