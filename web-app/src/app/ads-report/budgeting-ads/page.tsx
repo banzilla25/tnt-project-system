@@ -35,6 +35,13 @@ export default function BudgetingAdsPage() {
   const [allocIdr, setAllocIdr] = useState("");
   const [allocNote, setAllocNote] = useState("");
 
+  // Filter States
+  const [filterTopupStart, setFilterTopupStart] = useState("");
+  const [filterTopupEnd, setFilterTopupEnd] = useState("");
+  const [filterAllocStart, setFilterAllocStart] = useState("");
+  const [filterAllocEnd, setFilterAllocEnd] = useState("");
+  const [filterAllocCampaign, setFilterAllocCampaign] = useState("");
+
   const fetchData = async () => {
     setIsLoading(true);
     try {
@@ -159,6 +166,21 @@ export default function BudgetingAdsPage() {
     if (error) alert(error.message);
     else fetchData();
   };
+
+  const filteredTopups = topups.filter(t => {
+    let pass = true;
+    if (filterTopupStart) pass = pass && new Date(t.tanggal) >= new Date(filterTopupStart);
+    if (filterTopupEnd) pass = pass && new Date(t.tanggal) <= new Date(filterTopupEnd);
+    return pass;
+  });
+
+  const filteredAllocations = allocations.filter(a => {
+    let pass = true;
+    if (filterAllocStart) pass = pass && new Date(a.tanggal) >= new Date(filterAllocStart);
+    if (filterAllocEnd) pass = pass && new Date(a.tanggal) <= new Date(filterAllocEnd);
+    if (filterAllocCampaign) pass = pass && a.campaign_id.toString() === filterAllocCampaign;
+    return pass;
+  });
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
@@ -326,8 +348,15 @@ export default function BudgetingAdsPage() {
                   </button>
                 </form>
               ) : (
-                  <div className="space-y-3 max-h-[400px] overflow-y-auto custom-scrollbar pr-1">
-                    {topups.map((t, idx) => {
+                <div className="flex flex-col gap-3">
+                  <div className="flex gap-2 items-center bg-slate-50 p-2 rounded-lg border border-slate-100">
+                    <span className="text-xs font-medium text-slate-500 whitespace-nowrap">Periode:</span>
+                    <input type="date" value={filterTopupStart} onChange={e => setFilterTopupStart(e.target.value)} className="w-full p-1.5 text-xs border rounded outline-none text-slate-600" title="Start Date" />
+                    <span className="text-slate-400 text-xs">-</span>
+                    <input type="date" value={filterTopupEnd} onChange={e => setFilterTopupEnd(e.target.value)} className="w-full p-1.5 text-xs border rounded outline-none text-slate-600" title="End Date" />
+                  </div>
+                  <div className="space-y-3 max-h-[350px] overflow-y-auto custom-scrollbar pr-1">
+                    {filteredTopups.map((t, idx) => {
                       const isExpanded = expandedTopupId === t.id;
                       const topupAllocations = allocations.filter(a => a.topup_id === t.id);
                       
@@ -380,8 +409,9 @@ export default function BudgetingAdsPage() {
                         </div>
                       )
                     })}
-                    {topups.length === 0 && <div className="text-center text-sm text-slate-500 py-4">Belum ada riwayat top up</div>}
+                    {filteredTopups.length === 0 && <div className="text-center text-sm text-slate-500 py-4">Tidak ada data top up</div>}
                   </div>
+                </div>
               )}
             </CardContent>
           </Card>
@@ -454,30 +484,43 @@ export default function BudgetingAdsPage() {
                   </button>
                 </form>
               ) : (
-                <div className="space-y-3 max-h-[300px] overflow-y-auto custom-scrollbar pr-1">
-                  {allocations.map((a, idx) => {
-                    const camp = campaigns.find(c => c.id === a.campaign_id);
-                    return (
-                      <div key={idx} className="p-3 border border-slate-100 rounded-lg bg-white shadow-sm flex flex-col gap-1 relative group">
-                        <div className="flex justify-between items-start pr-6">
-                          <span className="font-bold text-slate-800 text-sm">{camp?.nama || 'Unknown'}</span>
-                          <span className="text-emerald-600 font-bold text-sm">+${Number(a.alokasi_usd).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                <div className="flex flex-col gap-3">
+                  <div className="flex gap-2 items-center bg-emerald-50 p-2 rounded-lg border border-emerald-100/50">
+                    <input type="date" value={filterAllocStart} onChange={e => setFilterAllocStart(e.target.value)} className="w-1/3 p-1.5 text-xs border rounded outline-none text-slate-600" title="Start Date" />
+                    <span className="text-emerald-400 text-xs">-</span>
+                    <input type="date" value={filterAllocEnd} onChange={e => setFilterAllocEnd(e.target.value)} className="w-1/3 p-1.5 text-xs border rounded outline-none text-slate-600" title="End Date" />
+                    <select value={filterAllocCampaign} onChange={e => setFilterAllocCampaign(e.target.value)} className="w-1/3 p-1.5 text-xs border rounded outline-none bg-white text-slate-600">
+                      <option value="">Semua Campaign</option>
+                      {campaigns.filter(c => c.status === "aktif").map(c => (
+                        <option key={c.id} value={c.id}>{c.nama}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-3 max-h-[350px] overflow-y-auto custom-scrollbar pr-1">
+                    {filteredAllocations.map((a, idx) => {
+                      const camp = campaigns.find(c => c.id === a.campaign_id);
+                      return (
+                        <div key={idx} className="p-3 border border-slate-100 rounded-lg bg-white shadow-sm flex flex-col gap-1 relative group">
+                          <div className="flex justify-between items-start pr-6">
+                            <span className="font-bold text-slate-800 text-sm">{camp?.nama || 'Unknown'}</span>
+                            <span className="text-emerald-600 font-bold text-sm">+${Number(a.alokasi_usd).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                          </div>
+                          <div className="flex justify-between items-center mt-1 text-xs text-slate-500 pr-6">
+                            <span>{new Date(a.tanggal).toLocaleDateString('id-ID')}</span>
+                            <span>Rp{Number(a.alokasi_idr).toLocaleString('id-ID')}</span>
+                          </div>
+                          <button 
+                            onClick={() => handleDeleteAlloc(a.id)} 
+                            className="absolute top-2 right-2 p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded opacity-0 group-hover:opacity-100 transition-all"
+                            title="Hapus Alokasi"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
                         </div>
-                        <div className="flex justify-between items-center mt-1 text-xs text-slate-500 pr-6">
-                          <span>{new Date(a.tanggal).toLocaleDateString('id-ID')}</span>
-                          <span>Rp{Number(a.alokasi_idr).toLocaleString('id-ID')}</span>
-                        </div>
-                        <button 
-                          onClick={() => handleDeleteAlloc(a.id)} 
-                          className="absolute top-2 right-2 p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded opacity-0 group-hover:opacity-100 transition-all"
-                          title="Hapus Alokasi"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    )
-                  })}
-                  {allocations.length === 0 && <div className="text-center text-sm text-slate-500 py-4">Belum ada riwayat alokasi</div>}
+                      )
+                    })}
+                    {filteredAllocations.length === 0 && <div className="text-center text-sm text-slate-500 py-4">Tidak ada data alokasi</div>}
+                  </div>
                 </div>
               )}
             </CardContent>
