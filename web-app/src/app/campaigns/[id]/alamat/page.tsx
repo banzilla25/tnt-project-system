@@ -75,8 +75,6 @@ export default function AlamatPage() {
           
         if (campaign?.require_client_approval) {
           query = query.eq('client_approval', 'approved');
-        } else {
-          query = query.in('client_approval', ['approved', 'NOT_REQUIRED']);
         }
 
         const { data } = await query.range(from, from + 999);

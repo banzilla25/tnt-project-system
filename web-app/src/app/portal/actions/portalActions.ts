@@ -201,8 +201,8 @@ export async function getPortalData(campaignId: number) {
   // Also internal approval must be 'approved' (we fetched 'approved' and 'alternate', but for samples only 'approved' makes sense).
   // Wait, let's keep internal 'approved' or 'alternate' since they are in ccData, but strictly check client_approval.
   const ccIdsForSamples = campaign.require_client_approval 
-    ? enrichedCcData.filter((cc: any) => cc.client_approval === 'approved').map((cc: any) => cc.id)
-    : enrichedCcData.filter((cc: any) => cc.client_approval === 'NOT_REQUIRED' || cc.client_approval === 'approved').map((cc: any) => cc.id);
+    ? enrichedCcData.filter((cc: any) => cc.approval === 'approved' && cc.client_approval === 'approved').map((cc: any) => cc.id)
+    : enrichedCcData.filter((cc: any) => cc.approval === 'approved').map((cc: any) => cc.id);
 
   const { data: addrData } = await supabase
     .from('creator_addresses')
