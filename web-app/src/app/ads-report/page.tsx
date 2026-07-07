@@ -26,6 +26,7 @@ const MemoizedTableRow = React.memo(({
   const pendingCreatorId = pendingChange?.creator_id !== undefined ? pendingChange.creator_id : ad.creator_id;
   const pendingKurs = pendingChange?.kurs !== undefined ? pendingChange.kurs : ad.kurs;
   const pendingAdId = pendingChange?.ad_id !== undefined ? pendingChange.ad_id : ad.ad_id;
+  const pendingAdName = pendingChange?.ad_name !== undefined ? pendingChange.ad_name : ad.ad_name;
   const pendingCampaignAdsName = pendingChange?.campaign_ads_name !== undefined ? pendingChange.campaign_ads_name : ad.campaign_ads_name;
   const pendingTanggal = pendingChange?.tanggal !== undefined ? pendingChange.tanggal : ad.tanggal;
   const hasPending = !!pendingChange;
@@ -98,7 +99,7 @@ const cost = isParent && groupStats ? groupStats.cost_usd : (ad.cost_usd || 0);
           </div>
         </TableCell>
         
-        <TableCell className="font-medium text-xs">
+        <TableCell className="font-medium text-xs whitespace-nowrap">
           {isChild || !isManager ? (
             <span className={isParent ? "font-bold" : ""}>{ad.ad_id || '-'}</span>
           ) : (
@@ -113,7 +114,17 @@ const cost = isParent && groupStats ? groupStats.cost_usd : (ad.cost_usd || 0);
         </TableCell>
         
         <TableCell className="text-xs font-medium text-slate-700">
-          <div className="whitespace-nowrap min-w-[200px]" title={ad.ad_name}>{ad.ad_name}</div>
+          {isChild || !isManager ? (
+            <div className="whitespace-nowrap min-w-[200px]" title={ad.ad_name}>{ad.ad_name}</div>
+          ) : (
+            <input
+              type="text"
+              placeholder="Ad Name"
+              className="w-full min-w-[200px] p-1.5 border border-transparent hover:border-slate-300 rounded text-xs focus:ring-1 focus:ring-indigo-500 bg-transparent"
+              value={pendingAdName || ''}
+              onChange={(e) => setCellChange(ad.id, 'ad_name', e.target.value, ad)}
+            />
+          )}
         </TableCell>
         
         {/* Campaign Column */}
@@ -342,7 +353,7 @@ export default function AdsReportPage() {
   }, [appliedStartDate, appliedEndDate, selectedCampaignId, appliedCampaignAdsName, deferredSearchQuery, sortConfig]);
   
   // Inline Auto-Save States
-  type PendingAdChange = { campaign_id?: number | null; campaign_ads_name?: string | null; creator_id?: number | null; kurs?: number; ad_id?: string; tanggal?: string; original: any };
+  type PendingAdChange = { campaign_id?: number | null; campaign_ads_name?: string | null; creator_id?: number | null; kurs?: number; ad_id?: string; ad_name?: string; tanggal?: string; original: any };
   const [pendingChanges, setPendingChanges] = useState<Map<number, PendingAdChange>>(new Map());
   const [isBatchSaving, setIsBatchSaving] = useState(false);
   const [batchSaveProgress, setBatchSaveProgress] = useState(0);
@@ -378,6 +389,7 @@ export default function AdsReportPage() {
       if (change.creator_id !== undefined) updates.creator_id = change.creator_id;
       if (change.kurs !== undefined) updates.kurs = change.kurs;
       if (change.ad_id !== undefined) updates.ad_id = change.ad_id;
+      if (change.ad_name !== undefined) updates.ad_name = change.ad_name;
       if (change.tanggal !== undefined) updates.tanggal = change.tanggal;
       
       let newUsername = change.original.creators?.username;
@@ -398,6 +410,7 @@ export default function AdsReportPage() {
         if (updates.campaign_ads_name !== undefined) bulkUpdates.campaign_ads_name = updates.campaign_ads_name;
         if (updates.creator_id !== undefined) bulkUpdates.creator_id = updates.creator_id;
         if (updates.ad_id !== undefined) bulkUpdates.ad_id = updates.ad_id;
+        if (updates.ad_name !== undefined) bulkUpdates.ad_name = updates.ad_name;
         
         if (updates.kurs !== undefined) specificUpdates.kurs = updates.kurs;
         if (updates.tanggal !== undefined) specificUpdates.tanggal = updates.tanggal;
@@ -461,6 +474,7 @@ export default function AdsReportPage() {
       else if (field === 'creator_id') isDifferent = value !== originalAd.creator_id;
       else if (field === 'kurs') isDifferent = value !== originalAd.kurs;
       else if (field === 'ad_id') isDifferent = value !== originalAd.ad_id;
+      else if (field === 'ad_name') isDifferent = value !== originalAd.ad_name;
       else if (field === 'tanggal') isDifferent = value !== originalAd.tanggal;
       
       if (isDifferent) {
