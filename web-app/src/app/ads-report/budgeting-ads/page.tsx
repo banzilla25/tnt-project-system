@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/Table";
 import { createClient } from "@/utils/supabase/client";
-import { ArrowLeft, Plus, DollarSign, Wallet, TrendingUp, AlertCircle, History, Trash2 } from "lucide-react";
+import { ArrowLeft, Plus, DollarSign, Wallet, TrendingUp, AlertCircle, History, Trash2, ChevronDown, ChevronUp } from "lucide-react";
 import Link from "next/link";
 import { useDatabaseStore } from "@/store/useDatabaseStore";
 
@@ -24,6 +24,8 @@ export default function BudgetingAdsPage() {
   const [topupIdr, setTopupIdr] = useState("");
   const [topupUsd, setTopupUsd] = useState("");
   const [topupNote, setTopupNote] = useState("");
+
+  const [expandedTopupId, setExpandedTopupId] = useState<number | null>(null);
 
   // Form State Allocation
   const [showAllocForm, setShowAllocForm] = useState(false);
@@ -324,25 +326,59 @@ export default function BudgetingAdsPage() {
                   </button>
                 </form>
               ) : (
-                <div className="space-y-3 max-h-[300px] overflow-y-auto custom-scrollbar pr-1">
-                  {topups.map((t, idx) => (
-                    <div key={idx} className="p-3 border border-slate-100 rounded-lg bg-white shadow-sm flex justify-between items-center group">
-                      <div>
-                        <div className="text-xs text-slate-400 mb-0.5">{new Date(t.tanggal).toLocaleDateString('id-ID')}</div>
-                        <div className="font-bold text-slate-800">${Number(t.nominal_usd).toLocaleString('en-US')}</div>
-                        <div className="text-xs text-slate-500">Rp{Number(t.nominal_idr).toLocaleString('id-ID')} (Kurs: {(Number(t.kurs_topup)).toLocaleString('id-ID')})</div>
-                      </div>
-                      <button 
-                        onClick={() => handleDeleteTopup(t.id)} 
-                        className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded opacity-0 group-hover:opacity-100 transition-all"
-                        title="Hapus Top Up"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))}
-                  {topups.length === 0 && <div className="text-center text-sm text-slate-500 py-4">Belum ada riwayat top up</div>}
-                </div>
+                  <div className="space-y-3 max-h-[400px] overflow-y-auto custom-scrollbar pr-1">
+                    {topups.map((t, idx) => {
+                      const isExpanded = expandedTopupId === t.id;
+                      const topupAllocations = allocations.filter(a => a.topup_id === t.id);
+                      
+                      return (
+                        <div key={idx} className="border border-slate-100 rounded-lg bg-white shadow-sm overflow-hidden group">
+                          <div 
+                            className="p-3 flex justify-between items-center cursor-pointer hover:bg-slate-50 transition-colors"
+                            onClick={() => setExpandedTopupId(isExpanded ? null : t.id)}
+                          >
+                            <div>
+                              <div className="text-xs text-slate-400 mb-0.5">{new Date(t.tanggal).toLocaleDateString('id-ID')} {t.catatan && `• ${t.catatan}`}</div>
+                              <div className="font-bold text-slate-800 flex items-center gap-2">
+                                ${Number(t.nominal_usd).toLocaleString('en-US', {minimumFractionDigits: 2})}
+                                {isExpanded ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+                              </div>
+                              <div className="text-xs text-slate-500">Rp{Number(t.nominal_idr).toLocaleString('id-ID')} (Kurs: {(Number(t.kurs_topup)).toLocaleString('id-ID')})</div>
+                            </div>
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); handleDeleteTopup(t.id); }} 
+                              className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded opacity-0 group-hover:opacity-100 transition-all"
+                              title="Hapus Top Up"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                          
+                          {isExpanded && (
+                            <div className="bg-slate-50 p-3 border-t border-slate-100">
+                              <div className="text-xs font-semibold text-slate-500 mb-2">Dibagikan ke:</div>
+                              {topupAllocations.length > 0 ? (
+                                <div className="space-y-2">
+                                  {topupAllocations.map(a => {
+                                    const cName = campaigns.find(c => c.id === a.campaign_id)?.nama || 'Unknown';
+                                    return (
+                                      <div key={a.id} className="flex justify-between items-center text-xs">
+                                        <span className="text-slate-600 font-medium">{cName}</span>
+                                        <span className="text-emerald-600 font-bold">${Number(a.alokasi_usd).toLocaleString('en-US', {minimumFractionDigits: 2})}</span>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              ) : (
+                                <div className="text-xs text-slate-400 italic">Belum ada dana yang dibagikan dari Top Up ini.</div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                    {topups.length === 0 && <div className="text-center text-sm text-slate-500 py-4">Belum ada riwayat top up</div>}
+                  </div>
               )}
             </CardContent>
           </Card>
