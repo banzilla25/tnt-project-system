@@ -91,7 +91,7 @@ const cost = isParent && groupStats ? groupStats.cost_usd : (ad.cost_usd || 0);
         </TableCell>
         
         <TableCell className="font-medium text-xs">
-          {isParent || !isManager ? (
+          {isChild || !isManager ? (
             <span className={isParent ? "font-bold" : ""}>{ad.ad_id || '-'}</span>
           ) : (
             <input
@@ -110,7 +110,7 @@ const cost = isParent && groupStats ? groupStats.cost_usd : (ad.cost_usd || 0);
         
         {/* Campaign Column */}
         <TableCell>
-          {isParent || !isManager ? (
+          {isChild || !isManager ? (
             <span className="text-slate-600">{campaigns.find((c: any) => c.id === ad.campaign_id)?.nama || '-'}</span>
           ) : (
             <select
@@ -134,7 +134,7 @@ const cost = isParent && groupStats ? groupStats.cost_usd : (ad.cost_usd || 0);
 
         {/* Campaign Ads Column */}
         <TableCell className="text-xs font-medium text-slate-700 min-w-[200px]">
-          {isParent || !isManager ? (
+          {isChild || !isManager ? (
             <span>{ad.campaign_ads_name || '-'}</span>
           ) : (
             <StringCombobox
@@ -149,7 +149,7 @@ const cost = isParent && groupStats ? groupStats.cost_usd : (ad.cost_usd || 0);
 
         {/* Creator Column */}
         <TableCell>
-          {isParent || !isManager ? (
+          {isChild || !isManager ? (
             <span className="text-slate-600">{creatorUsername ? `@${creatorUsername}` : '-'}</span>
           ) : (
             pendingCampaignId ? (
