@@ -400,7 +400,7 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
   const paginatedVideo = filteredVideo.slice(videoPage * PAGE_SIZE, (videoPage + 1) * PAGE_SIZE);
 
   return (
-    <div className="max-w-6xl mx-auto p-4 md:p-8 space-y-8">
+    <div className="w-full mx-auto p-4 md:p-8 space-y-8">
       {/* Toast Notification */}
       {toastMessage && (
         <div className={`fixed bottom-6 right-6 px-4 py-3 rounded-lg shadow-[0_4px_20px_-4px_rgba(0,0,0,0.2)] text-white font-medium z-[100] flex items-center gap-3 animate-in slide-in-from-bottom-4 fade-in duration-300 ${toastMessage.type === 'success' ? 'bg-gradient-to-r from-emerald-500 to-green-600' : 'bg-gradient-to-r from-red-500 to-red-600'}`}>

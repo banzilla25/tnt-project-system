@@ -190,7 +190,7 @@ export default function BudgetingAdsPage() {
   });
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6">
+    <div className="w-full mx-auto space-y-6">
       <div className="flex items-center gap-4">
         <Link href="/ads-report" className="p-2 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
           <ArrowLeft className="w-5 h-5 text-slate-600" />

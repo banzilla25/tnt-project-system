@@ -525,7 +525,7 @@ export default function SpreadsheetImportClient() {
   };
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto py-6 px-4">
+    <div className="space-y-6 w-full mx-auto py-6 px-4">
       <div className="flex items-center gap-4">
         <Button variant="outline" onClick={() => router.push(`/creator-pool`)}>
           <ArrowLeft className="w-4 h-4 mr-2" /> Kembali

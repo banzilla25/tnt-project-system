@@ -5,7 +5,7 @@ import { Download, Puzzle, AlertCircle, PlayCircle, Settings, CheckCircle2, File
 
 export default function ExtensionPage() {
   return (
-    <div className="max-w-5xl mx-auto pb-16">
+    <div className="w-full mx-auto pb-16">
       {/* Header Section */}
       <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl p-[40px] text-white shadow-xl mb-[32px] relative overflow-hidden">
         <div className="absolute top-0 right-0 p-8 opacity-10">
