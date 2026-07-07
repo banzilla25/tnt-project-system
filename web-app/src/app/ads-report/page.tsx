@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect, useDeferredValue, useMemo } from "react";
+import React, { useState, useRef, useEffect, useDeferredValue, useMemo, startTransition } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/Table";
 import { useDatabaseStore } from "@/store/useDatabaseStore";
@@ -56,11 +56,13 @@ const cost = isParent && groupStats ? groupStats.cost_usd : (ad.cost_usd || 0);
         className={`transition-colors ${isParent ? 'bg-indigo-50/50 hover:bg-indigo-50 border-b-2 border-indigo-100 cursor-pointer' : isChild ? 'bg-slate-50/50 pl-4 border-l-4 border-l-indigo-300' : 'hover:bg-slate-50/50'} ${hasPending && !isParent ? 'bg-amber-50/30' : ''}`}
         onClick={() => {
           if (isParent) {
-            setExpandedGroups((prev: Set<string>) => {
-              const next = new Set(prev);
-              if (next.has(parentKey)) next.delete(parentKey);
-              else next.add(parentKey);
-              return next;
+            startTransition(() => {
+              setExpandedGroups((prev: Set<string>) => {
+                const next = new Set(prev);
+                if (next.has(parentKey)) next.delete(parentKey);
+                else next.add(parentKey);
+                return next;
+              });
             });
           }
         }}
