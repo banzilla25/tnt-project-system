@@ -113,7 +113,7 @@ const cost = isParent && groupStats ? groupStats.cost_usd : (ad.cost_usd || 0);
         </TableCell>
         
         <TableCell className="text-xs font-medium text-slate-700">
-          <div className="max-w-[200px] truncate" title={ad.ad_name}>{ad.ad_name}</div>
+          <div className="whitespace-nowrap min-w-[200px]" title={ad.ad_name}>{ad.ad_name}</div>
         </TableCell>
         
         {/* Campaign Column */}
