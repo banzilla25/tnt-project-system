@@ -49,6 +49,14 @@ function CampaignPerformaContent() {
 
   const [localCreators, setLocalCreators] = useState<any[]>([]);
 
+  // Filter Creator State
+  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+  const [filterType, setFilterType] = useState<'none'|'include'|'exclude'>('none');
+  const [filterUsernames, setFilterUsernames] = useState('');
+  
+  const [appliedFilterType, setAppliedFilterType] = useState<'none'|'include'|'exclude'>('none');
+  const [appliedFilterUsernames, setAppliedFilterUsernames] = useState<string[]>([]);
+
   const fetchPerformanceData = useCallback(async () => {
     try {
       const isAwareness = campaign?.tipe_campaign === 'awareness' || campaign?.tipe_campaign === 'gmv_awareness';
@@ -193,7 +201,7 @@ function CampaignPerformaContent() {
   const isAwareness = campaign.tipe_campaign === 'awareness' || campaign.tipe_campaign === 'gmv_awareness';
 
   // Aggregate per creator using SQL VIEW data
-  const creatorStats = React.useMemo(() => {
+  const baseCreatorStats = React.useMemo(() => {
     // salesSummary now contains the SQL View data (campaign_creators_performance)
     const perfMap = new Map();
     salesSummary.forEach((p: any) => perfMap.set(p.campaign_creator_id, p));
@@ -276,6 +284,14 @@ function CampaignPerformaContent() {
     });
   }, [localCreators, salesSummary, awarenessSummary, adsPerf, salesDataForVt]);
 
+  const creatorStats = React.useMemo(() => {
+    if (appliedFilterType === 'none' || appliedFilterUsernames.length === 0) return baseCreatorStats;
+    return baseCreatorStats.filter(c => {
+      const match = appliedFilterUsernames.includes(c.username.toLowerCase());
+      return appliedFilterType === 'include' ? match : !match;
+    });
+  }, [baseCreatorStats, appliedFilterType, appliedFilterUsernames]);
+
   const [sortField, setSortField] = useState<'username' | 'gmvOrganic' | 'gmvAds' | 'totalGmv' | 'totalVt' | 'totalLive' | 'videoViews'>('totalGmv');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [currentPage, setCurrentPage] = useState(1);
@@ -326,29 +342,31 @@ function CampaignPerformaContent() {
     if (c.totalLive > 0) fbWithLive++;
   });
 
+  const isFiltered = appliedFilterType !== 'none' && appliedFilterUsernames.length > 0;
+
   // Sales Metrics from RPC (or fallback)
-  const totalOrganic = totalSales?.totalOrganic || fbOrganic;
-  const totalAdsGmv = totalSales?.totalAdsGmv || fbAds;
-  const totalAllGmv = totalSales?.totalAllGmv || fbAllGmv;
+  const totalOrganic = isFiltered ? fbOrganic : (totalSales?.totalOrganic || fbOrganic);
+  const totalAdsGmv = isFiltered ? fbAds : (totalSales?.totalAdsGmv || fbAds);
+  const totalAllGmv = isFiltered ? fbAllGmv : (totalSales?.totalAllGmv || fbAllGmv);
   const percentCapai = campaign?.target_gmv ? Math.round((totalAllGmv / campaign.target_gmv) * 100) : 0;
-  const trackedOrganic = totalSales?.trackedOrganic || fbOrganic;
-  const attributionGap = totalSales?.attributionGap || 0;
+  const trackedOrganic = isFiltered ? fbOrganic : (totalSales?.trackedOrganic || fbOrganic);
+  const attributionGap = isFiltered ? 0 : (totalSales?.attributionGap || 0);
   const gapPercentage = totalOrganic > 0 ? Math.round((attributionGap / totalOrganic) * 100) : 0;
 
   // Awareness Metrics from RPC (or fallback)
-  const totalCampaignViews = Number(totalSales?.totalViews || fbViews);
-  const totalCampaignLikes = Number(totalSales?.totalLikes || fbLikes);
-  const totalCampaignVideos = Number(totalSales?.totalVideos || fbVideos);
-  const totalCampaignLivestreams = Number(totalSales?.totalLivestreams || fbLivestreams);
-  const creatorsWithVideo = Number(totalSales?.creatorsWithVideo || fbWithVideo);
-  const creatorsWithLive = Number(totalSales?.creatorsWithLive || fbWithLive);
+  const totalCampaignViews = isFiltered ? fbViews : Number(totalSales?.totalViews || fbViews);
+  const totalCampaignLikes = isFiltered ? fbLikes : Number(totalSales?.totalLikes || fbLikes);
+  const totalCampaignVideos = isFiltered ? fbVideos : Number(totalSales?.totalVideos || fbVideos);
+  const totalCampaignLivestreams = isFiltered ? fbLivestreams : Number(totalSales?.totalLivestreams || fbLivestreams);
+  const creatorsWithVideo = isFiltered ? fbWithVideo : Number(totalSales?.creatorsWithVideo || fbWithVideo);
+  const creatorsWithLive = isFiltered ? fbWithLive : Number(totalSales?.creatorsWithLive || fbWithLive);
   
   const targetVideo = campaign.target_video || 0;
   const percentCapaiVideo = targetVideo > 0 ? Math.round((totalCampaignVideos / targetVideo) * 100) : 0;
   
   const targetCreator = campaign.target_creator || 0;
   // Make sure we use creatorStats.length as fallback for target creator if approvedCreators is missing
-  const approvedCreatorsCount = Number(totalSales?.approvedCreators || creatorStats.length);
+  const approvedCreatorsCount = isFiltered ? creatorStats.length : Number(totalSales?.approvedCreators || creatorStats.length);
   const percentCapaiCreator = targetCreator > 0 ? Math.round((approvedCreatorsCount / targetCreator) * 100) : 0;
 
   // Render format currency
@@ -367,9 +385,18 @@ function CampaignPerformaContent() {
           </h2>
           <p className="text-[13px] text-text-soft">Analitik 100% otomatis dari data impor secara <span className="font-bold text-green-600 border-b border-green-600">Real-Time</span>.</p>
         </div>
-        <button className="btn btn-outline" onClick={handleExport}>
-          <Download className="ico" /> Export CSV
-        </button>
+        <div className="flex gap-2">
+          <button className={`btn ${appliedFilterType !== 'none' ? 'bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100' : 'btn-outline'}`} onClick={() => {
+            setFilterType(appliedFilterType === 'none' ? 'exclude' : appliedFilterType);
+            setFilterUsernames(appliedFilterUsernames.join('\n'));
+            setIsFilterModalOpen(true);
+          }}>
+            <Search className="ico" /> Filter Creator {appliedFilterType !== 'none' && '(Active)'}
+          </button>
+          <button className="btn btn-outline" onClick={handleExport}>
+            <Download className="ico" /> Export CSV
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-col gap-[24px]">
@@ -751,6 +778,74 @@ function CampaignPerformaContent() {
           </div>
         )}
       </div>
+
+      {/* FILTER MODAL */}
+      {isFilterModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="flex justify-between items-center p-5 border-b border-slate-100">
+              <h2 className="text-xl font-bold text-slate-800">Edit creator filter</h2>
+              <button onClick={() => setIsFilterModalOpen(false)} className="text-slate-400 hover:text-slate-600 transition-colors p-1 rounded-full hover:bg-slate-100">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-5 overflow-y-auto max-h-[70vh]">
+              <div className="flex gap-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="radio" checked={filterType === 'include'} onChange={() => setFilterType('include')} className="w-4 h-4 text-indigo-600 focus:ring-indigo-500 border-gray-300" />
+                  <span className="text-sm font-medium text-slate-700">Include</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="radio" checked={filterType === 'exclude'} onChange={() => setFilterType('exclude')} className="w-4 h-4 text-indigo-600 focus:ring-indigo-500 border-gray-300" />
+                  <span className="text-sm font-medium text-slate-700">Exclude</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer ml-auto">
+                  <input type="radio" checked={filterType === 'none'} onChange={() => setFilterType('none')} className="w-4 h-4 text-slate-400 focus:ring-slate-500 border-gray-300" />
+                  <span className="text-sm font-medium text-slate-500">Off / No Filter</span>
+                </label>
+              </div>
+
+              {filterType !== 'none' && (
+                <>
+                  <div className="bg-blue-50 text-blue-800 text-xs p-3 rounded-md flex items-center gap-2 border border-blue-100">
+                    <div className="w-4 h-4 bg-blue-500 text-white rounded-full flex items-center justify-center font-bold">i</div>
+                    Use new lines to separate usernames (e.g. paste from excel or text)
+                  </div>
+                  
+                  <div>
+                    <textarea 
+                      className="w-full h-48 p-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm resize-y font-mono"
+                      placeholder="username1&#10;username2&#10;username3"
+                      value={filterUsernames}
+                      onChange={e => setFilterUsernames(e.target.value)}
+                    ></textarea>
+                    <div className="text-right text-xs text-slate-400 mt-1">{filterUsernames.split('\n').filter(n => n.trim()).length} usernames detected</div>
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="p-5 border-t border-slate-100 flex justify-end gap-3 bg-slate-50">
+              <button className="px-5 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg transition-colors" onClick={() => setIsFilterModalOpen(false)}>
+                Cancel
+              </button>
+              <button 
+                className="px-5 py-2 text-sm font-bold text-white bg-[#0e9f85] hover:bg-[#0c8a73] rounded-lg transition-colors shadow-sm"
+                onClick={() => {
+                  setAppliedFilterType(filterType);
+                  const names = filterUsernames.split('\n').map(n => n.trim().toLowerCase()).filter(n => n);
+                  setAppliedFilterUsernames(names);
+                  setIsFilterModalOpen(false);
+                }}
+              >
+                Apply
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
