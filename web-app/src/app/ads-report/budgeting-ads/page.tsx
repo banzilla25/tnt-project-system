@@ -358,13 +358,16 @@ export default function BudgetingAdsPage() {
                             <div className="bg-slate-50 p-3 border-t border-slate-100">
                               <div className="text-xs font-semibold text-slate-500 mb-2">Dibagikan ke:</div>
                               {topupAllocations.length > 0 ? (
-                                <div className="space-y-2">
+                                <div className="space-y-1">
                                   {topupAllocations.map(a => {
                                     const cName = campaigns.find(c => c.id === a.campaign_id)?.nama || 'Unknown';
+                                    const percentage = (Number(a.alokasi_idr) / Number(t.nominal_idr)) * 100;
                                     return (
-                                      <div key={a.id} className="flex justify-between items-center text-xs">
-                                        <span className="text-slate-600 font-medium">{cName}</span>
-                                        <span className="text-emerald-600 font-bold">${Number(a.alokasi_usd).toLocaleString('en-US', {minimumFractionDigits: 2})}</span>
+                                      <div key={a.id} className="flex justify-between items-center text-xs p-1.5 rounded hover:bg-slate-200/50 transition-colors">
+                                        <span className="text-slate-700 font-medium w-1/3">{cName}</span>
+                                        <span className="text-slate-500 w-1/4 text-right">Rp{Number(a.alokasi_idr).toLocaleString('id-ID')}</span>
+                                        <span className="text-blue-600 font-medium w-1/5 text-right">{percentage.toFixed(2)}%</span>
+                                        <span className="text-emerald-600 font-bold w-1/4 text-right">${Number(a.alokasi_usd).toLocaleString('en-US', {minimumFractionDigits: 2})}</span>
                                       </div>
                                     );
                                   })}
