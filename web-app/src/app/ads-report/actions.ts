@@ -162,9 +162,10 @@ export async function getAdsReportData(params: {
        continue;
     }
     if (!campaignBreakdown[cId]) {
-      campaignBreakdown[cId] = { name: campaignNames[cId] || 'Unknown Campaign', spend: 0, gmv: 0, impressions: 0, clicks: 0, purchases: 0, unmapped: 0 };
+      campaignBreakdown[cId] = { name: campaignNames[cId] || 'Unknown Campaign', spend: 0, gmv: 0, impressions: 0, clicks: 0, purchases: 0, unmapped: 0, spend_usd: 0 };
     }
     campaignBreakdown[cId].spend += ad.cost_usd * kurs;
+    campaignBreakdown[cId].spend_usd += ad.cost_usd;
     campaignBreakdown[cId].gmv += ad.gross_revenue_usd * kurs;
     campaignBreakdown[cId].impressions += ad.impressions;
     campaignBreakdown[cId].clicks += ad.clicks || 0;
@@ -195,11 +196,39 @@ export async function getAdsReportData(params: {
     return 0;
   });
 
-  // 7. Return all filtered data so frontend can group it and paginate the DOM
+  // 7. Calculate Lifetime Budget Balances for Campaigns
+  const { data: allocations } = await supabase.from('ads_allocations').select('campaign_id, alokasi_usd');
+  const { data: allSpend } = await supabase.from('ads_performance').select('campaign_id, cost_usd');
+  
+  const budgetBalances: Record<number, { allocated: number, spent: number, remaining: number }> = {};
+  
+  if (allocations) {
+    for (const alloc of allocations) {
+      const cId = alloc.campaign_id;
+      if (!budgetBalances[cId]) budgetBalances[cId] = { allocated: 0, spent: 0, remaining: 0 };
+      budgetBalances[cId].allocated += Number(alloc.alokasi_usd || 0);
+    }
+  }
+  
+  if (allSpend) {
+    for (const spend of allSpend) {
+      const cId = spend.campaign_id;
+      if (!cId) continue;
+      if (!budgetBalances[cId]) budgetBalances[cId] = { allocated: 0, spent: 0, remaining: 0 };
+      budgetBalances[cId].spent += Number(spend.cost_usd || 0);
+    }
+  }
+  
+  for (const cId in budgetBalances) {
+    budgetBalances[cId].remaining = budgetBalances[cId].allocated - budgetBalances[cId].spent;
+  }
+
+  // 8. Return all filtered data so frontend can group it and paginate the DOM
   return {
     summary,
     campaignBreakdown: { list, globalUnmappedCampaigns },
     globalUnmappedCampaigns,
+    budgetBalances,
     data: filteredData
   };
 }

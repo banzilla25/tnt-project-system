@@ -345,6 +345,7 @@ export default function AdsReportPage() {
   const [adsPerformance, setAdsPerformance] = useState<any[]>([]);
   const [globalSummary, setGlobalSummary] = useState<any>({ totalSpend: 0, totalGmv: 0, totalImpressions: 0, roas: 0, cpm: 0 });
   const [campaignBreakdown, setCampaignBreakdown] = useState<any>({ list: [], globalUnmappedCampaigns: 0 });
+  const [budgetBalances, setBudgetBalances] = useState<Record<number, any>>({});
   
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -402,6 +403,7 @@ export default function AdsReportPage() {
         setAdsPerformance(result.data || []);
         setGlobalSummary(result.summary);
         setCampaignBreakdown(result.campaignBreakdown);
+        setBudgetBalances(result.budgetBalances || {});
       } catch (err) {
         console.error(err);
       }
@@ -699,13 +701,22 @@ export default function AdsReportPage() {
               className="w-full pl-10 pr-4 py-2 border rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
-          {isManager && (
-            <Link href="/ads-report/import-ads">
-              <Button className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white">
-                <UploadCloud className="w-4 h-4" /> Import Data Iklan
-              </Button>
-            </Link>
-          )}
+            {isManager && (
+              <div className="flex items-center gap-2">
+                <Link href="/ads-report/budgeting-ads">
+                  <Button variant="outline" className="text-indigo-600 border-indigo-200 hover:bg-indigo-50">
+                    <Wallet className="w-4 h-4 mr-2" />
+                    Budgeting (Finance)
+                  </Button>
+                </Link>
+                <Link href="/ads-report/import-ads">
+                  <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+                    <UploadCloud className="w-4 h-4 mr-2" />
+                    Import Ads Data
+                  </Button>
+                </Link>
+              </div>
+            )}
 
           <Button onClick={handleExport} className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white">
             <Download className="w-4 h-4" /> Export Excel
@@ -859,11 +870,24 @@ export default function AdsReportPage() {
                       )}
                     </div>
                     
-                    <div className="space-y-1 mb-3 relative z-10">
-                      <div className="flex justify-between text-xs">
-                        <span className={isActive ? 'text-blue-100' : 'text-slate-500'}>Spend:</span>
-                        <span className={`font-bold ${isActive ? 'text-white' : 'text-slate-700'}`}>Rp {(camp.spend / 1000000).toFixed(1)}M</span>
-                      </div>
+                      <div className="space-y-1 mb-3 relative z-10">
+                        {/* Budget Info */}
+                        <div className="flex justify-between items-end mb-2 pb-2 border-b border-white/10">
+                          <div>
+                            <div className={`text-[10px] uppercase font-bold tracking-wider mb-0.5 opacity-80 ${isActive ? 'text-blue-200' : 'text-slate-500'}`}>Sisa Budget (USD)</div>
+                            <div className={`font-bold ${isActive ? 'text-white' : 'text-slate-800'}`}>
+                              ${budgetBalances[camp.id]?.remaining?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}
+                            </div>
+                          </div>
+                          <div className={`text-[10px] ${isActive ? 'text-blue-100' : 'text-slate-500'} text-right`}>
+                            <div>Alokasi: ${budgetBalances[camp.id]?.allocated?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}</div>
+                          </div>
+                        </div>
+
+                        <div className="flex justify-between text-xs">
+                          <span className={isActive ? 'text-blue-100' : 'text-slate-500'}>Spend:</span>
+                          <span className={`font-bold ${isActive ? 'text-white' : 'text-slate-700'}`}>Rp {(camp.spend / 1000000).toFixed(1)}M</span>
+                        </div>
                       <div className="flex justify-between text-xs">
                         <span className={isActive ? 'text-blue-100' : 'text-slate-500'}>GMV:</span>
                         <span className={`font-bold ${isActive ? 'text-emerald-300' : 'text-emerald-600'}`}>Rp {(camp.gmv / 1000000).toFixed(1)}M</span>

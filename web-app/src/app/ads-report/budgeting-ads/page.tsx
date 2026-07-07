@@ -1,0 +1,422 @@
+"use client";
+
+import React, { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/Table";
+import { createClient } from "@/utils/supabase/client";
+import { ArrowLeft, Plus, DollarSign, Wallet, TrendingUp, AlertCircle, History } from "lucide-react";
+import Link from "next/link";
+import { useDatabaseStore } from "@/store/useDatabaseStore";
+
+export default function BudgetingAdsPage() {
+  const { campaigns } = useDatabaseStore();
+  const supabase = createClient();
+  
+  const [topups, setTopups] = useState<any[]>([]);
+  const [allocations, setAllocations] = useState<any[]>([]);
+  const [adsSpend, setAdsSpend] = useState<any[]>([]);
+  
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Form State Top Up
+  const [showTopupForm, setShowTopupForm] = useState(false);
+  const [topupDate, setTopupDate] = useState("");
+  const [topupIdr, setTopupIdr] = useState("");
+  const [topupUsd, setTopupUsd] = useState("");
+  const [topupNote, setTopupNote] = useState("");
+
+  // Form State Allocation
+  const [showAllocForm, setShowAllocForm] = useState(false);
+  const [allocDate, setAllocDate] = useState("");
+  const [allocTopupId, setAllocTopupId] = useState("");
+  const [allocCampaignId, setAllocCampaignId] = useState("");
+  const [allocIdr, setAllocIdr] = useState("");
+  const [allocNote, setAllocNote] = useState("");
+
+  const fetchData = async () => {
+    setIsLoading(true);
+    try {
+      const [resTopups, resAlloc, resSpend] = await Promise.all([
+        supabase.from("ads_topups").select("*").order("tanggal", { ascending: false }),
+        supabase.from("ads_allocations").select("*").order("tanggal", { ascending: false }),
+        // get lifetime spend per campaign
+        supabase.from("ads_performance").select("campaign_id, cost_usd")
+      ]);
+      
+      if (resTopups.data) setTopups(resTopups.data);
+      if (resAlloc.data) setAllocations(resAlloc.data);
+      if (resSpend.data) setAdsSpend(resSpend.data);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  // -- Kalkulasi Metrik Global --
+  const totalTopupUsd = topups.reduce((acc, curr) => acc + Number(curr.nominal_usd), 0);
+  const totalTopupIdr = topups.reduce((acc, curr) => acc + Number(curr.nominal_idr), 0);
+  
+  const totalAllocatedUsd = allocations.reduce((acc, curr) => acc + Number(curr.alokasi_usd), 0);
+  const totalAllocatedIdr = allocations.reduce((acc, curr) => acc + Number(curr.alokasi_idr), 0);
+  
+  const idleFundsUsd = totalTopupUsd - totalAllocatedUsd;
+
+  // -- Kalkulasi Per Campaign --
+  const campaignBalances = campaigns.filter(c => c.status === "aktif").map(camp => {
+    // total alokasi ke campaign ini
+    const campAllocations = allocations.filter(a => a.campaign_id === camp.id);
+    const allocatedUsd = campAllocations.reduce((acc, curr) => acc + Number(curr.alokasi_usd), 0);
+    
+    // total spend campaign ini
+    const campSpends = adsSpend.filter(s => s.campaign_id === camp.id);
+    const spentUsd = campSpends.reduce((acc, curr) => acc + Number(curr.cost_usd || 0), 0);
+    
+    const remainingUsd = allocatedUsd - spentUsd;
+    
+    return {
+      ...camp,
+      allocatedUsd,
+      spentUsd,
+      remainingUsd
+    };
+  });
+  
+  // Sort by remaining desc
+  campaignBalances.sort((a, b) => b.remainingUsd - a.remainingUsd);
+
+  // -- Handlers --
+  const handleSubmitTopup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const idr = Number(topupIdr);
+    const usd = Number(topupUsd);
+    if (!idr || !usd || !topupDate) return alert("Lengkapi form Top Up");
+    
+    const kurs = idr / usd;
+    
+    const { error } = await supabase.from("ads_topups").insert({
+      tanggal: topupDate,
+      nominal_idr: idr,
+      nominal_usd: usd,
+      kurs_topup: kurs,
+      catatan: topupNote
+    });
+    
+    if (error) {
+      alert(error.message);
+    } else {
+      setShowTopupForm(false);
+      setTopupDate(""); setTopupIdr(""); setTopupUsd(""); setTopupNote("");
+      fetchData();
+    }
+  };
+
+  const handleSubmitAlloc = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!allocDate || !allocTopupId || !allocCampaignId || !allocIdr) return alert("Lengkapi form");
+    
+    const sourceTopup = topups.find(t => t.id.toString() === allocTopupId);
+    if (!sourceTopup) return alert("Top up sumber tidak valid");
+    
+    const idr = Number(allocIdr);
+    const kurs = Number(sourceTopup.kurs_topup);
+    const usd = idr / kurs;
+    
+    const { error } = await supabase.from("ads_allocations").insert({
+      tanggal: allocDate,
+      topup_id: Number(allocTopupId),
+      campaign_id: Number(allocCampaignId),
+      alokasi_idr: idr,
+      alokasi_usd: usd,
+      catatan: allocNote
+    });
+    
+    if (error) {
+      alert(error.message);
+    } else {
+      setShowAllocForm(false);
+      setAllocDate(""); setAllocTopupId(""); setAllocCampaignId(""); setAllocIdr(""); setAllocNote("");
+      fetchData();
+    }
+  };
+
+  return (
+    <div className="max-w-7xl mx-auto space-y-6">
+      <div className="flex items-center gap-4">
+        <Link href="/ads-report" className="p-2 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
+          <ArrowLeft className="w-5 h-5 text-slate-600" />
+        </Link>
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Ads Budgeting (Finance)</h1>
+          <p className="text-sm text-slate-500">Kelola dompet USD dan pantau distribusi saldo per Campaign.</p>
+        </div>
+      </div>
+
+      {/* Global Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="bg-gradient-to-br from-indigo-500 to-indigo-600 text-white shadow-md border-0">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
+                <Wallet className="w-5 h-5 text-white" />
+              </div>
+            </div>
+            <p className="text-indigo-100 font-medium text-sm mb-1">Total Saldo USD Tersedia (Idle)</p>
+            <h3 className="text-3xl font-bold tracking-tight mb-2">
+              ${idleFundsUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </h3>
+            <p className="text-xs text-indigo-200">
+              Uang Top Up yang belum dialokasikan ke Campaign.
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-white shadow-sm border-slate-200">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-2 bg-emerald-100 rounded-lg">
+                <DollarSign className="w-5 h-5 text-emerald-600" />
+              </div>
+            </div>
+            <p className="text-slate-500 font-medium text-sm mb-1">Total Top Up Masuk (USD)</p>
+            <h3 className="text-3xl font-bold text-slate-800 tracking-tight mb-2">
+              ${totalTopupUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </h3>
+            <p className="text-xs text-slate-400">
+              Ekuivalen dengan Rp {totalTopupIdr.toLocaleString('id-ID')}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-white shadow-sm border-slate-200">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-2 bg-blue-100 rounded-lg">
+                <TrendingUp className="w-5 h-5 text-blue-600" />
+              </div>
+            </div>
+            <p className="text-slate-500 font-medium text-sm mb-1">Total Teralokasi ke Campaign (USD)</p>
+            <h3 className="text-3xl font-bold text-slate-800 tracking-tight mb-2">
+              ${totalAllocatedUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </h3>
+            <p className="text-xs text-slate-400">
+              Sudah didistribusikan ke dompet Campaign
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Kolom Kiri: Campaign Balances (Memakan 2 kolom di layar besar) */}
+        <div className="lg:col-span-2 space-y-6">
+          <Card className="shadow-sm border-slate-200">
+            <CardHeader className="border-b border-slate-100 pb-4">
+              <CardTitle className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                <Wallet className="w-5 h-5 text-indigo-500" />
+                Dompet Ads Campaign
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader className="bg-slate-50">
+                    <TableRow>
+                      <TableHead className="font-semibold">Campaign</TableHead>
+                      <TableHead className="font-semibold text-right">Modal Diberikan (USD)</TableHead>
+                      <TableHead className="font-semibold text-right text-red-600">Terpakai (USD)</TableHead>
+                      <TableHead className="font-semibold text-right text-emerald-600">SISA SALDO</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {isLoading ? (
+                      <TableRow><TableCell colSpan={4} className="text-center py-8">Memuat data...</TableCell></TableRow>
+                    ) : campaignBalances.length === 0 ? (
+                      <TableRow><TableCell colSpan={4} className="text-center py-8 text-slate-500">Tidak ada data campaign aktif.</TableCell></TableRow>
+                    ) : (
+                      campaignBalances.map(camp => (
+                        <TableRow key={camp.id} className="hover:bg-slate-50">
+                          <TableCell className="font-medium text-slate-800">{camp.nama}</TableCell>
+                          <TableCell className="text-right text-slate-600">${camp.allocatedUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                          <TableCell className="text-right text-red-600">${camp.spentUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                          <TableCell className="text-right">
+                            <span className={`font-bold ${camp.remainingUsd <= 10 ? 'text-red-600' : 'text-emerald-600'}`}>
+                              ${camp.remainingUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Kolom Kanan: Actions (Top Up & Alokasi) */}
+        <div className="space-y-6">
+          <Card className="shadow-sm border-slate-200">
+            <CardHeader className="bg-slate-50 border-b border-slate-100 py-3 flex flex-row items-center justify-between">
+              <CardTitle className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                <History className="w-4 h-4 text-slate-500" />
+                Riwayat Top Up
+              </CardTitle>
+              <button 
+                onClick={() => setShowTopupForm(!showTopupForm)}
+                className="p-1.5 bg-indigo-50 text-indigo-600 rounded hover:bg-indigo-100 transition-colors"
+                title="Tambah Top Up Baru"
+              >
+                {showTopupForm ? <ArrowLeft className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+              </button>
+            </CardHeader>
+            <CardContent className="p-4">
+              {showTopupForm ? (
+                <form onSubmit={handleSubmitTopup} className="space-y-3 bg-slate-50 p-3 rounded-lg border border-slate-200">
+                  <h4 className="text-xs font-semibold text-slate-700 uppercase">Input Top Up Global</h4>
+                  <div>
+                    <label className="block text-xs text-slate-500 mb-1">Tanggal</label>
+                    <input type="date" value={topupDate} onChange={e => setTopupDate(e.target.value)} className="w-full p-2 text-sm border rounded focus:ring-2 focus:ring-indigo-500 outline-none" required />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-slate-500 mb-1">Nominal Rupiah (Setor)</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-2 text-slate-400 text-sm">Rp</span>
+                      <input type="number" value={topupIdr} onChange={e => setTopupIdr(e.target.value)} className="w-full pl-8 p-2 text-sm border rounded focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="10000000" required />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-slate-500 mb-1">Nominal USD (Didapat)</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-2 text-slate-400 text-sm">$</span>
+                      <input type="number" step="0.01" value={topupUsd} onChange={e => setTopupUsd(e.target.value)} className="w-full pl-7 p-2 text-sm border rounded focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="500.00" required />
+                    </div>
+                  </div>
+                  {(topupIdr && topupUsd) && (
+                    <div className="bg-blue-50 text-blue-800 text-xs p-2 rounded flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4" />
+                      Kurs Top Up ini: Rp {(Number(topupIdr) / Number(topupUsd)).toLocaleString('id-ID')} / USD
+                    </div>
+                  )}
+                  <div>
+                    <label className="block text-xs text-slate-500 mb-1">Catatan</label>
+                    <input type="text" value={topupNote} onChange={e => setTopupNote(e.target.value)} className="w-full p-2 text-sm border rounded focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="Top up bulan Juli via BCA" />
+                  </div>
+                  <button type="submit" className="w-full py-2 bg-indigo-600 text-white rounded text-sm font-medium hover:bg-indigo-700 transition-colors">
+                    Simpan Top Up
+                  </button>
+                </form>
+              ) : (
+                <div className="space-y-3 max-h-[300px] overflow-y-auto custom-scrollbar pr-1">
+                  {topups.map((t, idx) => (
+                    <div key={idx} className="p-3 border border-slate-100 rounded-lg bg-white shadow-sm flex justify-between items-center">
+                      <div>
+                        <div className="text-xs text-slate-400 mb-0.5">{new Date(t.tanggal).toLocaleDateString('id-ID')}</div>
+                        <div className="font-bold text-slate-800">${Number(t.nominal_usd).toLocaleString('en-US')}</div>
+                        <div className="text-xs text-slate-500">Rp{Number(t.nominal_idr).toLocaleString('id-ID')} (Kurs: {(Number(t.kurs_topup)).toLocaleString('id-ID')})</div>
+                      </div>
+                    </div>
+                  ))}
+                  {topups.length === 0 && <div className="text-center text-sm text-slate-500 py-4">Belum ada riwayat top up</div>}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-sm border-slate-200">
+            <CardHeader className="bg-slate-50 border-b border-slate-100 py-3 flex flex-row items-center justify-between">
+              <CardTitle className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-slate-500" />
+                Distribusi Jatah (Alokasi)
+              </CardTitle>
+              <button 
+                onClick={() => setShowAllocForm(!showAllocForm)}
+                className="p-1.5 bg-emerald-50 text-emerald-600 rounded hover:bg-emerald-100 transition-colors"
+                title="Bagi Dana ke Campaign"
+              >
+                {showAllocForm ? <ArrowLeft className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+              </button>
+            </CardHeader>
+            <CardContent className="p-4">
+              {showAllocForm ? (
+                <form onSubmit={handleSubmitAlloc} className="space-y-3 bg-emerald-50/50 p-3 rounded-lg border border-emerald-100">
+                  <h4 className="text-xs font-semibold text-slate-700 uppercase">Bagikan Dana ke Campaign</h4>
+                  <div>
+                    <label className="block text-xs text-slate-500 mb-1">Tanggal</label>
+                    <input type="date" value={allocDate} onChange={e => setAllocDate(e.target.value)} className="w-full p-2 text-sm border rounded focus:ring-2 focus:ring-emerald-500 outline-none" required />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-slate-500 mb-1">Sumber Uang (Pilih Top Up)</label>
+                    <select value={allocTopupId} onChange={e => setAllocTopupId(e.target.value)} className="w-full p-2 text-sm border rounded focus:ring-2 focus:ring-emerald-500 outline-none bg-white" required>
+                      <option value="">-- Pilih Top Up --</option>
+                      {topups.map(t => {
+                        const topupAllocated = allocations.filter(a => a.topup_id === t.id).reduce((sum, curr) => sum + Number(curr.alokasi_usd), 0);
+                        const sisaIdle = Number(t.nominal_usd) - topupAllocated;
+                        return (
+                          <option key={t.id} value={t.id}>
+                            {new Date(t.tanggal).toLocaleDateString('id-ID')} | {t.catatan || 'Top Up'} (${Number(t.nominal_usd)}) - Sisa: ${sisaIdle.toLocaleString('en-US', {minimumFractionDigits: 2})}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-slate-500 mb-1">Campaign Penerima</label>
+                    <select value={allocCampaignId} onChange={e => setAllocCampaignId(e.target.value)} className="w-full p-2 text-sm border rounded focus:ring-2 focus:ring-emerald-500 outline-none bg-white" required>
+                      <option value="">-- Pilih Campaign --</option>
+                      {campaigns.filter(c => c.status === "aktif").map(c => (
+                        <option key={c.id} value={c.id}>{c.nama}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-slate-500 mb-1">Nominal Jatah Rupiah</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-2 text-slate-400 text-sm">Rp</span>
+                      <input type="number" value={allocIdr} onChange={e => setAllocIdr(e.target.value)} className="w-full pl-8 p-2 text-sm border rounded focus:ring-2 focus:ring-emerald-500 outline-none" placeholder="3000000" required />
+                    </div>
+                  </div>
+                  {(allocTopupId && allocIdr) && (
+                    <div className="bg-blue-50 text-blue-800 text-xs p-2 rounded">
+                      Karena kurs top up sumber adalah Rp {(Number(topups.find(t => t.id.toString() === allocTopupId)?.kurs_topup)).toLocaleString('id-ID')}, maka dompet campaign akan terisi: <br/>
+                      <strong className="text-sm">${(Number(allocIdr) / Number(topups.find(t => t.id.toString() === allocTopupId)?.kurs_topup)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+                    </div>
+                  )}
+                  <div>
+                    <label className="block text-xs text-slate-500 mb-1">Catatan</label>
+                    <input type="text" value={allocNote} onChange={e => setAllocNote(e.target.value)} className="w-full p-2 text-sm border rounded focus:ring-2 focus:ring-emerald-500 outline-none" placeholder="Jatah minggu pertama" />
+                  </div>
+                  <button type="submit" className="w-full py-2 bg-emerald-600 text-white rounded text-sm font-medium hover:bg-emerald-700 transition-colors">
+                    Bagikan Saldo
+                  </button>
+                </form>
+              ) : (
+                <div className="space-y-3 max-h-[300px] overflow-y-auto custom-scrollbar pr-1">
+                  {allocations.map((a, idx) => {
+                    const camp = campaigns.find(c => c.id === a.campaign_id);
+                    return (
+                      <div key={idx} className="p-3 border border-slate-100 rounded-lg bg-white shadow-sm flex flex-col gap-1">
+                        <div className="flex justify-between items-start">
+                          <span className="font-bold text-slate-800 text-sm">{camp?.nama || 'Unknown'}</span>
+                          <span className="text-emerald-600 font-bold text-sm">+${Number(a.alokasi_usd).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                        <div className="flex justify-between items-center mt-1 text-xs text-slate-500">
+                          <span>{new Date(a.tanggal).toLocaleDateString('id-ID')}</span>
+                          <span>Rp{Number(a.alokasi_idr).toLocaleString('id-ID')}</span>
+                        </div>
+                      </div>
+                    )
+                  })}
+                  {allocations.length === 0 && <div className="text-center text-sm text-slate-500 py-4">Belum ada riwayat alokasi</div>}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+}
