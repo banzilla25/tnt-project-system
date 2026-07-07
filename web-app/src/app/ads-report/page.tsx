@@ -91,6 +91,8 @@ export default function AdsReportPage() {
   const [isBatchSaving, setIsBatchSaving] = useState(false);
   const [batchSaveProgress, setBatchSaveProgress] = useState(0);
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  const [selectedAds, setSelectedAds] = useState<number[]>([]);
 
   // beforeunload protection
   useEffect(() => {
@@ -132,16 +134,40 @@ export default function AdsReportPage() {
       }
       
       if (Object.keys(updates).length > 0) {
-        const { error } = await supabase.from('ads_performance').update(updates).eq('id', adId);
-        if (!error) {
-           const adIndex = currentAds.findIndex(a => a.id === adId);
-           if (adIndex !== -1) {
-             currentAds[adIndex] = { 
-               ...currentAds[adIndex], 
-               ...updates, 
-               creators: newUsername !== undefined ? (newUsername ? { username: newUsername } : null) : currentAds[adIndex].creators 
-             };
-           }
+        const bulkUpdates: any = {};
+        const specificUpdates: any = {};
+        
+        if (updates.campaign_id !== undefined) bulkUpdates.campaign_id = updates.campaign_id;
+        if (updates.campaign_ads_name !== undefined) bulkUpdates.campaign_ads_name = updates.campaign_ads_name;
+        if (updates.creator_id !== undefined) bulkUpdates.creator_id = updates.creator_id;
+        if (updates.ad_id !== undefined) bulkUpdates.ad_id = updates.ad_id;
+        
+        if (updates.kurs !== undefined) specificUpdates.kurs = updates.kurs;
+
+        if (Object.keys(bulkUpdates).length > 0) {
+          const originalAdId = change.original.ad_id;
+          const { error } = await supabase.from('ads_performance').update(bulkUpdates).eq('ad_id', originalAdId);
+          if (!error) {
+            currentAds.forEach((a, idx) => {
+              if (a.ad_id === originalAdId) {
+                currentAds[idx] = {
+                  ...currentAds[idx],
+                  ...bulkUpdates,
+                  creators: newUsername !== undefined ? (newUsername ? { username: newUsername } : null) : currentAds[idx].creators
+                };
+              }
+            });
+          }
+        }
+        
+        if (Object.keys(specificUpdates).length > 0) {
+          const { error } = await supabase.from('ads_performance').update(specificUpdates).eq('id', adId);
+          if (!error) {
+            const adIndex = currentAds.findIndex(a => a.id === adId);
+            if (adIndex !== -1) {
+              currentAds[adIndex] = { ...currentAds[adIndex], ...specificUpdates };
+            }
+          }
         }
       }
       
@@ -203,10 +229,27 @@ export default function AdsReportPage() {
     const { error } = await supabase.from('ads_performance').delete().eq('id', id);
     if (!error) {
       setAdsPerformance(prev => prev.filter(ad => ad.id !== id));
+      setSelectedAds(prev => prev.filter(selectedId => selectedId !== id));
     } else {
       alert("Gagal menghapus data: " + error.message);
     }
     setDeletingId(null);
+  };
+
+  const bulkDeleteSelectedAds = async () => {
+    if (selectedAds.length === 0) return;
+    if (!confirm(`Apakah Anda yakin ingin menghapus ${selectedAds.length} data iklan yang dipilih secara permanen?`)) return;
+    
+    setIsLoading(true);
+    const { error } = await supabase.from('ads_performance').delete().in('id', selectedAds);
+    
+    if (!error) {
+      setAdsPerformance(prev => prev.filter(ad => !selectedAds.includes(ad.id)));
+      setSelectedAds([]);
+    } else {
+      alert("Gagal menghapus data masal: " + error.message);
+    }
+    setIsLoading(false);
   };
 
   // 1. (Removed) Filter by Search Query ONLY (for Campaign Cards) - Now handled by Server Action
@@ -350,6 +393,18 @@ export default function AdsReportPage() {
       >
         <TableCell className="text-xs text-slate-500">
           <div className="flex items-center gap-2">
+            {!isParent && isManager && (
+              <input
+                type="checkbox"
+                className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                checked={selectedAds.includes(ad.id)}
+                onChange={(e) => {
+                  e.stopPropagation();
+                  setSelectedAds(prev => e.target.checked ? [...prev, ad.id] : prev.filter(id => id !== ad.id));
+                }}
+                onClick={(e) => e.stopPropagation()}
+              />
+            )}
             {isParent && (
               <div className="text-indigo-500">
                 {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
@@ -547,6 +602,11 @@ export default function AdsReportPage() {
                 <UploadCloud className="w-4 h-4" /> Import Data Iklan
               </Button>
             </Link>
+          )}
+          {isManager && selectedAds.length > 0 && (
+            <Button onClick={bulkDeleteSelectedAds} className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white">
+              <Trash2 className="w-4 h-4" /> Hapus Terpilih ({selectedAds.length})
+            </Button>
           )}
           <Button onClick={handleExport} className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white">
             <Download className="w-4 h-4" /> Export Excel
