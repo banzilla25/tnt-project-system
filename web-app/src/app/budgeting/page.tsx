@@ -266,10 +266,10 @@ export default function BudgetingPage() {
               💰 Budget Creator
             </button>
             <button
-              onClick={() => setActiveTab('ads')}
-              className={`px-6 py-3 text-sm font-semibold border-b-2 transition-colors ${activeTab === 'ads' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+              onClick={() => { window.location.href = '/ads-report/budgeting-ads' }}
+              className={`px-6 py-3 text-sm font-semibold border-b-2 transition-colors border-transparent text-slate-500 hover:text-indigo-600`}
             >
-              📢 Budget Ads
+              Beralih ke Ads Budgeting ➔
             </button>
           </div>
 

@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/Table";
 import { createClient } from "@/utils/supabase/client";
-import { ArrowLeft, Plus, DollarSign, Wallet, TrendingUp, AlertCircle, History } from "lucide-react";
+import { ArrowLeft, Plus, DollarSign, Wallet, TrendingUp, AlertCircle, History, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useDatabaseStore } from "@/store/useDatabaseStore";
 
@@ -142,6 +142,20 @@ export default function BudgetingAdsPage() {
       setAllocDate(""); setAllocTopupId(""); setAllocCampaignId(""); setAllocIdr(""); setAllocNote("");
       fetchData();
     }
+  };
+
+  const handleDeleteTopup = async (id: number) => {
+    if (!confirm("Hapus Top Up ini? Semua alokasi yang menggunakan dana dari top up ini juga akan ikut terhapus!")) return;
+    const { error } = await supabase.from("ads_topups").delete().eq("id", id);
+    if (error) alert(error.message);
+    else fetchData();
+  };
+
+  const handleDeleteAlloc = async (id: number) => {
+    if (!confirm("Hapus riwayat alokasi ini? Saldo USD akan dikembalikan ke status Idle.")) return;
+    const { error } = await supabase.from("ads_allocations").delete().eq("id", id);
+    if (error) alert(error.message);
+    else fetchData();
   };
 
   return (
@@ -312,12 +326,19 @@ export default function BudgetingAdsPage() {
               ) : (
                 <div className="space-y-3 max-h-[300px] overflow-y-auto custom-scrollbar pr-1">
                   {topups.map((t, idx) => (
-                    <div key={idx} className="p-3 border border-slate-100 rounded-lg bg-white shadow-sm flex justify-between items-center">
+                    <div key={idx} className="p-3 border border-slate-100 rounded-lg bg-white shadow-sm flex justify-between items-center group">
                       <div>
                         <div className="text-xs text-slate-400 mb-0.5">{new Date(t.tanggal).toLocaleDateString('id-ID')}</div>
                         <div className="font-bold text-slate-800">${Number(t.nominal_usd).toLocaleString('en-US')}</div>
                         <div className="text-xs text-slate-500">Rp{Number(t.nominal_idr).toLocaleString('id-ID')} (Kurs: {(Number(t.kurs_topup)).toLocaleString('id-ID')})</div>
                       </div>
+                      <button 
+                        onClick={() => handleDeleteTopup(t.id)} 
+                        className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded opacity-0 group-hover:opacity-100 transition-all"
+                        title="Hapus Top Up"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
                   ))}
                   {topups.length === 0 && <div className="text-center text-sm text-slate-500 py-4">Belum ada riwayat top up</div>}
@@ -382,7 +403,7 @@ export default function BudgetingAdsPage() {
                   {(allocTopupId && allocIdr) && (
                     <div className="bg-blue-50 text-blue-800 text-xs p-2 rounded">
                       Karena kurs top up sumber adalah Rp {(Number(topups.find(t => t.id.toString() === allocTopupId)?.kurs_topup)).toLocaleString('id-ID')}, maka dompet campaign akan terisi: <br/>
-                      <strong className="text-sm">${(Number(allocIdr) / Number(topups.find(t => t.id.toString() === allocTopupId)?.kurs_topup)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+                      <strong className="text-sm">${(Number(allocIdr) / Number(topups.find(t => t.id.toString() === allocTopupId)?.kurs_topup)).toLocaleString('en-US', { minimumFractionDigits: 2, minimumFractionDigits: 2 })}</strong>
                     </div>
                   )}
                   <div>
@@ -398,15 +419,22 @@ export default function BudgetingAdsPage() {
                   {allocations.map((a, idx) => {
                     const camp = campaigns.find(c => c.id === a.campaign_id);
                     return (
-                      <div key={idx} className="p-3 border border-slate-100 rounded-lg bg-white shadow-sm flex flex-col gap-1">
-                        <div className="flex justify-between items-start">
+                      <div key={idx} className="p-3 border border-slate-100 rounded-lg bg-white shadow-sm flex flex-col gap-1 relative group">
+                        <div className="flex justify-between items-start pr-6">
                           <span className="font-bold text-slate-800 text-sm">{camp?.nama || 'Unknown'}</span>
                           <span className="text-emerald-600 font-bold text-sm">+${Number(a.alokasi_usd).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
                         </div>
-                        <div className="flex justify-between items-center mt-1 text-xs text-slate-500">
+                        <div className="flex justify-between items-center mt-1 text-xs text-slate-500 pr-6">
                           <span>{new Date(a.tanggal).toLocaleDateString('id-ID')}</span>
                           <span>Rp{Number(a.alokasi_idr).toLocaleString('id-ID')}</span>
                         </div>
+                        <button 
+                          onClick={() => handleDeleteAlloc(a.id)} 
+                          className="absolute top-2 right-2 p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded opacity-0 group-hover:opacity-100 transition-all"
+                          title="Hapus Alokasi"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </div>
                     )
                   })}
