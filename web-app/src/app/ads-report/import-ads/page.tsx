@@ -186,14 +186,14 @@ export default function ImportAdsPage() {
           prev_product_page_views,
           prev_checkouts_initiated,
           prev_items_purchased,
-          delta_cost: Math.max(0, row.cost - prev_cost),
-          delta_revenue: Math.max(0, row.revenue - prev_revenue),
-          delta_purchases: Math.max(0, row.purchases - prev_purchases),
-          delta_impressions: Math.max(0, row.impressions - prev_impressions),
-          delta_clicks: Math.max(0, row.clicks - prev_clicks),
-          delta_product_page_views: Math.max(0, row.product_page_views - prev_product_page_views),
-          delta_checkouts_initiated: Math.max(0, row.checkouts_initiated - prev_checkouts_initiated),
-          delta_items_purchased: Math.max(0, row.items_purchased - prev_items_purchased),
+          delta_cost: row.cost,
+          delta_revenue: row.revenue,
+          delta_purchases: row.purchases,
+          delta_impressions: row.impressions,
+          delta_clicks: row.clicks,
+          delta_product_page_views: row.product_page_views,
+          delta_checkouts_initiated: row.checkouts_initiated,
+          delta_items_purchased: row.items_purchased,
         };
       });
 
@@ -285,86 +285,90 @@ export default function ImportAdsPage() {
     setIsCommitting(true);
     setCommitProgress(0);
     
-    const total = preview.length;
-    let processed = 0;
-    
     try {
+      // 1. SIMPAN SNAPSHOT LIFETIME
       for (const row of preview) {
-        // Upsert to ads_performance
-        // If ad_id + tanggal exists, update it, else insert it
-        // Since we don't have a strict unique constraint on ad_id + tanggal, we will check manually or insert.
-        // Usually, users want to update if it exists for the same date.
-        
-        const predictedCreator = autoMappedCreators[row.ad_id];
-        const creatorId = predictedCreator ? predictedCreator.id : null;
-        
         const targetAdId = row.linked_ad_id || row.ad_id;
+        if (!targetAdId) continue;
         
-        let existing;
-        if (targetAdId) {
-          const { data } = await supabase.from('ads_performance')
-            .select('id, campaign_id')
-            .eq('ad_id', targetAdId)
-            .eq('tanggal', selectedDate)
-            .single();
-          existing = data;
-        } else {
-          const { data } = await supabase.from('ads_performance')
-            .select('id, campaign_id')
-            .eq('ad_name', row.ad_name)
-            .is('ad_id', null)
-            .eq('tanggal', selectedDate)
-            .single();
-          existing = data;
-        }
-          
-        if (existing) {
-          // Update
-          const { error } = await supabase.from('ads_performance').update({
-            ad_name: row.ad_name,
-            cost_usd: row.delta_cost,
-            gross_revenue_usd: row.delta_revenue,
-            purchases: row.delta_purchases,
-            impressions: row.delta_impressions,
-            clicks: row.delta_clicks,
-            product_page_views: row.delta_product_page_views,
-            checkouts_initiated: row.delta_checkouts_initiated,
-            items_purchased: row.delta_items_purchased,
-            kurs: selectedKurs,
-            ...(selectedCampaign ? { campaign_id: Number(selectedCampaign) } : {}),
-            campaign_ads_name: selectedCampaignAdsName || null,
-            // creator_id is not overwritten here if not intentionally changed, but if we have a new manual mapping we could update it. 
-            // Since step 3 has a predictor, let's update creator_id too if predictedCreatorId is set.
-            ...(creatorId ? { creator_id: creatorId } : {})
-          }).eq('id', existing.id);
-          if (error) throw error;
-        } else {
-          // Insert
-          const { error } = await supabase.from('ads_performance').insert({
-            ad_id: targetAdId || null,
-            ad_name: row.ad_name,
-            tanggal: selectedDate,
-            campaign_id: selectedCampaign ? Number(selectedCampaign) : null,
-            campaign_ads_name: selectedCampaignAdsName || null,
-            cost_usd: row.delta_cost,
-            gross_revenue_usd: row.delta_revenue,
-            purchases: row.delta_purchases,
-            impressions: row.delta_impressions,
-            clicks: row.delta_clicks,
-            product_page_views: row.delta_product_page_views,
-            checkouts_initiated: row.delta_checkouts_initiated,
-            items_purchased: row.delta_items_purchased,
-            creator_id: creatorId || null,
-            kurs: selectedKurs
-          });
-          if (error) throw error;
-        }
-        
-        processed++;
-        setCommitProgress(Math.round((processed / total) * 100));
+        await supabase.from("ads_lifetime_snapshots").upsert({
+           ad_id: targetAdId,
+           ad_name: row.ad_name,
+           tanggal: selectedDate,
+           cost_usd: row.cost,
+           gross_revenue_usd: row.revenue,
+           purchases: row.purchases,
+           impressions: row.impressions,
+           clicks: row.clicks,
+           product_page_views: row.product_page_views || 0,
+           checkouts_initiated: row.checkouts_initiated || 0,
+           items_purchased: row.items_purchased || 0
+        }, { onConflict: "ad_id, tanggal" });
       }
       
-      await fetchData(); // Refresh global data (including vw_campaign_summary) so dashboard updates
+      // 2. SMART RECALCULATION (Urutkan & Hitung Selisih)
+      const uniqueAdIds = Array.from(new Set(preview.map(r => r.linked_ad_id || r.ad_id).filter(Boolean)));
+      let processed = 0;
+      
+      for (const adId of uniqueAdIds) {
+        if (!adId) continue;
+        const { data: snapshots } = await supabase.from("ads_lifetime_snapshots")
+          .select("*")
+          .eq("ad_id", adId)
+          .order("tanggal", { ascending: true });
+          
+        if (snapshots) {
+          for (let i = 0; i < snapshots.length; i++) {
+            const current = snapshots[i];
+            const prev = i > 0 ? snapshots[i - 1] : null;
+            
+            const d_cost = Math.max(0, current.cost_usd - (prev ? prev.cost_usd : 0));
+            const d_rev = Math.max(0, current.gross_revenue_usd - (prev ? prev.gross_revenue_usd : 0));
+            const d_pur = Math.max(0, current.purchases - (prev ? prev.purchases : 0));
+            const d_imp = Math.max(0, current.impressions - (prev ? prev.impressions : 0));
+            const d_clk = Math.max(0, current.clicks - (prev ? prev.clicks : 0));
+            const d_ppv = Math.max(0, current.product_page_views - (prev ? prev.product_page_views : 0));
+            const d_chk = Math.max(0, current.checkouts_initiated - (prev ? prev.checkouts_initiated : 0));
+            const d_itm = Math.max(0, current.items_purchased - (prev ? prev.items_purchased : 0));
+            
+            const { data: existing } = await supabase.from("ads_performance")
+              .select("id").eq("ad_id", adId).eq("tanggal", current.tanggal).single();
+              
+            if (existing) {
+              const updatePayload: any = {
+                ad_name: current.ad_name,
+                cost_usd: d_cost, gross_revenue_usd: d_rev, purchases: d_pur,
+                impressions: d_imp, clicks: d_clk, product_page_views: d_ppv,
+                checkouts_initiated: d_chk, items_purchased: d_itm
+              };
+              if (current.tanggal === selectedDate) {
+                updatePayload.kurs = selectedKurs;
+                if (selectedCampaign) updatePayload.campaign_id = Number(selectedCampaign);
+                if (selectedCampaignAdsName) updatePayload.campaign_ads_name = selectedCampaignAdsName;
+                const predictedCreator = autoMappedCreators[adId as string];
+                if (predictedCreator) updatePayload.creator_id = predictedCreator.id;
+              }
+              await supabase.from("ads_performance").update(updatePayload).eq("id", existing.id);
+            } else {
+              const predictedCreator = autoMappedCreators[adId as string];
+              await supabase.from("ads_performance").insert({
+                ad_id: adId, ad_name: current.ad_name, tanggal: current.tanggal,
+                cost_usd: d_cost, gross_revenue_usd: d_rev, purchases: d_pur,
+                impressions: d_imp, clicks: d_clk, product_page_views: d_ppv,
+                checkouts_initiated: d_chk, items_purchased: d_itm,
+                kurs: current.tanggal === selectedDate ? selectedKurs : 16000,
+                campaign_id: current.tanggal === selectedDate && selectedCampaign ? Number(selectedCampaign) : null,
+                campaign_ads_name: current.tanggal === selectedDate ? selectedCampaignAdsName : null,
+                creator_id: predictedCreator ? predictedCreator.id : null
+              });
+            }
+          }
+        }
+        processed++;
+        setCommitProgress(Math.round((processed / uniqueAdIds.length) * 100));
+      }
+      
+      await fetchData(); 
       setStep(4);
     } catch (err: any) {
       alert("Gagal menyimpan data: " + err.message);
