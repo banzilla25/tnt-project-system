@@ -74,7 +74,6 @@ export default function ImportAdsPage() {
   // Smart prediction state
   const [autoMappedCreators, setAutoMappedCreators] = useState<Record<string, { id: number, username: string } | null>>({}); // ad_id -> creator_id
   const [showUnmappedOnly, setShowUnmappedOnly] = useState(false);
-  const [isLifetimeData, setIsLifetimeData] = useState(true);
 
   const [historyMapState, setHistoryMapState] = useState<Record<string, { cost: number; revenue: number; purchases: number; impressions: number; clicks: number; product_page_views: number; checkouts_initiated: number; items_purchased: number }>>({});
   const [historicalAdsList, setHistoricalAdsList] = useState<{ad_id: string, ad_name: string}[]>([]);
@@ -187,14 +186,14 @@ export default function ImportAdsPage() {
           prev_product_page_views,
           prev_checkouts_initiated,
           prev_items_purchased,
-          delta_cost: isLifetimeData ? Math.max(0, row.cost - prev_cost) : row.cost,
-          delta_revenue: isLifetimeData ? Math.max(0, row.revenue - prev_revenue) : row.revenue,
-          delta_purchases: isLifetimeData ? Math.max(0, row.purchases - prev_purchases) : row.purchases,
-          delta_impressions: isLifetimeData ? Math.max(0, row.impressions - prev_impressions) : row.impressions,
-          delta_clicks: isLifetimeData ? Math.max(0, row.clicks - prev_clicks) : row.clicks,
-          delta_product_page_views: isLifetimeData ? Math.max(0, row.product_page_views - prev_product_page_views) : row.product_page_views,
-          delta_checkouts_initiated: isLifetimeData ? Math.max(0, row.checkouts_initiated - prev_checkouts_initiated) : row.checkouts_initiated,
-          delta_items_purchased: isLifetimeData ? Math.max(0, row.items_purchased - prev_items_purchased) : row.items_purchased,
+          delta_cost: Math.max(0, row.cost - prev_cost),
+          delta_revenue: Math.max(0, row.revenue - prev_revenue),
+          delta_purchases: Math.max(0, row.purchases - prev_purchases),
+          delta_impressions: Math.max(0, row.impressions - prev_impressions),
+          delta_clicks: Math.max(0, row.clicks - prev_clicks),
+          delta_product_page_views: Math.max(0, row.product_page_views - prev_product_page_views),
+          delta_checkouts_initiated: Math.max(0, row.checkouts_initiated - prev_checkouts_initiated),
+          delta_items_purchased: Math.max(0, row.items_purchased - prev_items_purchased),
         };
       });
 
@@ -511,23 +510,6 @@ export default function ImportAdsPage() {
                     <span className="text-sm font-medium">Memproses file...</span>
                   </div>
                 )}
-              </div>
-              
-              <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-100 max-w-2xl mx-auto flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-                <div>
-                  <h4 className="font-semibold text-blue-800 text-sm">Tipe Laporan (Penting)</h4>
-                  <p className="text-xs text-blue-600 mt-1">Pilih tipe laporan CSV yang Anda unggah dari TikTok Ads Manager.</p>
-                </div>
-                <div className="flex gap-4">
-                  <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
-                    <input type="radio" name="dataType" checked={!isLifetimeData} onChange={() => setIsLifetimeData(false)} className="text-blue-600 focus:ring-blue-500" />
-                    Data Harian (Daily)
-                  </label>
-                  <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
-                    <input type="radio" name="dataType" checked={isLifetimeData} onChange={() => setIsLifetimeData(true)} className="text-blue-600 focus:ring-blue-500" />
-                    Data Lifetime (Total)
-                  </label>
-                </div>
               </div>
               
               <div className="mt-8 pt-8 border-t border-slate-100 w-full flex items-center justify-between">
