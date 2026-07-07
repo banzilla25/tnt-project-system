@@ -105,6 +105,8 @@ export default function BudgetingAdsPage() {
   // Sort by remaining desc
   campaignBalances.sort((a, b) => b.remainingUsd - a.remainingUsd);
 
+  const overspentCampaigns = campaignBalances.filter(c => c.remainingUsd < -1);
+
   // -- Handlers --
   const handleSubmitTopup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -141,6 +143,14 @@ export default function BudgetingAdsPage() {
     const idr = Number(allocIdr);
     const kurs = Number(sourceTopup.kurs_topup);
     const usd = idr / kurs;
+    
+    // VALIDASI HARD BLOCK:
+    const topupAllocated = allocations.filter(a => a.topup_id.toString() === allocTopupId).reduce((sum, curr) => sum + Number(curr.alokasi_usd), 0);
+    const sisaIdle = Number(sourceTopup.nominal_usd) - topupAllocated;
+    
+    if (usd > sisaIdle + 0.05) {
+      return alert(`Gagal: Dana Top Up tidak cukup!\nAnda mencoba membagikan $${usd.toLocaleString('en-US', {minimumFractionDigits: 2})}, tapi Sisa Top Up ini hanya $${sisaIdle.toLocaleString('en-US', {minimumFractionDigits: 2})}.`);
+    }
     
     const { error } = await supabase.from("ads_allocations").insert({
       tanggal: allocDate,
@@ -200,6 +210,20 @@ export default function BudgetingAdsPage() {
           <p className="text-sm text-slate-500">Kelola dompet USD dan pantau distribusi saldo per Campaign.</p>
         </div>
       </div>
+
+      {overspentCampaigns.length > 0 && (
+        <div className="bg-red-50 border border-red-200 p-4 rounded-lg flex gap-3 items-start shadow-sm mb-2">
+          <AlertCircle className="w-5 h-5 text-red-500 mt-0.5 shrink-0" />
+          <div>
+            <h3 className="text-red-800 font-bold text-sm">Overspend Alert!</h3>
+            <p className="text-red-700 text-xs mt-1 leading-relaxed">
+              Ada {overspentCampaigns.length} campaign yang sisa saldonya minus (menggunakan dana campaign lain): 
+              <strong className="ml-1">{overspentCampaigns.map(c => c.nama).join(', ')}</strong>.
+              <br />Segera lakukan alokasi Top Up ke campaign tersebut untuk menutup defisit.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Global Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -285,9 +309,14 @@ export default function BudgetingAdsPage() {
                     ) : campaignBalances.length === 0 ? (
                       <TableRow><TableCell colSpan={4} className="text-center py-8 text-slate-500">Tidak ada data campaign aktif.</TableCell></TableRow>
                     ) : (
-                      campaignBalances.map(camp => (
-                        <TableRow key={camp.id} className="hover:bg-slate-50">
-                          <TableCell className="font-medium text-slate-800 whitespace-nowrap">{camp.nama}</TableCell>
+                      campaignBalances.map(camp => {
+                        const isOverspent = camp.remainingUsd < -1;
+                        return (
+                          <TableRow key={camp.id} className={`hover:bg-slate-50 ${isOverspent ? 'bg-red-50/50' : ''}`}>
+                            <TableCell className="font-medium text-slate-800 whitespace-nowrap">
+                              {camp.nama}
+                              {isOverspent && <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-100 text-red-800">Overspend</span>}
+                            </TableCell>
                           <TableCell className="text-right text-slate-600 border-l border-slate-100 bg-slate-50/50 whitespace-nowrap">Rp{(camp.plafonIdr).toLocaleString('id-ID')}</TableCell>
                           <TableCell className="text-right text-slate-600 bg-slate-50/50 whitespace-nowrap">Rp{(camp.allocatedIdr).toLocaleString('id-ID')}</TableCell>
                           <TableCell className="text-right font-medium text-orange-600 bg-slate-50/50 whitespace-nowrap">Rp{(camp.sisaPlafonIdr).toLocaleString('id-ID')}</TableCell>
@@ -299,7 +328,8 @@ export default function BudgetingAdsPage() {
                             </span>
                           </TableCell>
                         </TableRow>
-                      ))
+                      );
+                      })
                     )}
                   </TableBody>
                 </Table>
@@ -367,6 +397,9 @@ export default function BudgetingAdsPage() {
                     <input type="date" value={filterTopupStart} onChange={e => setFilterTopupStart(e.target.value)} className="w-full p-1.5 text-xs border rounded outline-none text-slate-600" title="Start Date" />
                     <span className="text-slate-400 text-xs">-</span>
                     <input type="date" value={filterTopupEnd} onChange={e => setFilterTopupEnd(e.target.value)} className="w-full p-1.5 text-xs border rounded outline-none text-slate-600" title="End Date" />
+                    {(filterTopupStart || filterTopupEnd) && (
+                      <button onClick={() => {setFilterTopupStart(""); setFilterTopupEnd("");}} className="p-1 text-xs text-slate-500 hover:text-slate-700 bg-white border border-slate-200 rounded shrink-0">Reset</button>
+                    )}
                   </div>
                   <div className="space-y-3 max-h-[350px] overflow-y-auto custom-scrollbar pr-1">
                     {filteredTopups.map((t, idx) => {
@@ -508,6 +541,9 @@ export default function BudgetingAdsPage() {
                         <option key={c.id} value={c.id}>{c.nama}</option>
                       ))}
                     </select>
+                    {(filterAllocStart || filterAllocEnd || filterAllocCampaign) && (
+                      <button onClick={() => {setFilterAllocStart(""); setFilterAllocEnd(""); setFilterAllocCampaign("");}} className="p-1 text-xs text-emerald-600 hover:text-emerald-700 bg-white border border-emerald-200 rounded shrink-0">Reset</button>
+                    )}
                   </div>
                   <div className="space-y-3 max-h-[350px] overflow-y-auto custom-scrollbar pr-1">
                     {filteredAllocations.map((a, idx) => {
