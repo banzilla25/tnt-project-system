@@ -27,6 +27,7 @@ const MemoizedTableRow = React.memo(({
   const pendingKurs = pendingChange?.kurs !== undefined ? pendingChange.kurs : ad.kurs;
   const pendingAdId = pendingChange?.ad_id !== undefined ? pendingChange.ad_id : ad.ad_id;
   const pendingCampaignAdsName = pendingChange?.campaign_ads_name !== undefined ? pendingChange.campaign_ads_name : ad.campaign_ads_name;
+  const pendingTanggal = pendingChange?.tanggal !== undefined ? pendingChange.tanggal : ad.tanggal;
   const hasPending = !!pendingChange;
 
   const creatorUsername = ad.creators?.username;
@@ -84,6 +85,13 @@ const cost = isParent && groupStats ? groupStats.cost_usd : (ad.cost_usd || 0);
             )}
             {isParent ? (
               <span className="font-semibold text-indigo-700">{groupStats.rows.length} Data</span>
+            ) : isManager ? (
+              <input
+                type="date"
+                className="w-full p-1 border border-transparent hover:border-slate-300 rounded text-xs text-slate-700 focus:ring-1 focus:ring-indigo-500 bg-transparent"
+                value={pendingTanggal || ''}
+                onChange={(e) => setCellChange(ad.id, 'tanggal', e.target.value, ad)}
+              />
             ) : (
               ad.tanggal ? new Date(ad.tanggal).toLocaleDateString('id-ID') : '-'
             )}
@@ -334,7 +342,7 @@ export default function AdsReportPage() {
   }, [appliedStartDate, appliedEndDate, selectedCampaignId, appliedCampaignAdsName, deferredSearchQuery, sortConfig]);
   
   // Inline Auto-Save States
-  type PendingAdChange = { campaign_id?: number | null; campaign_ads_name?: string | null; creator_id?: number | null; kurs?: number; ad_id?: string; original: any };
+  type PendingAdChange = { campaign_id?: number | null; campaign_ads_name?: string | null; creator_id?: number | null; kurs?: number; ad_id?: string; tanggal?: string; original: any };
   const [pendingChanges, setPendingChanges] = useState<Map<number, PendingAdChange>>(new Map());
   const [isBatchSaving, setIsBatchSaving] = useState(false);
   const [batchSaveProgress, setBatchSaveProgress] = useState(0);
@@ -370,6 +378,7 @@ export default function AdsReportPage() {
       if (change.creator_id !== undefined) updates.creator_id = change.creator_id;
       if (change.kurs !== undefined) updates.kurs = change.kurs;
       if (change.ad_id !== undefined) updates.ad_id = change.ad_id;
+      if (change.tanggal !== undefined) updates.tanggal = change.tanggal;
       
       let newUsername = change.original.creators?.username;
       if (updates.creator_id !== undefined && updates.creator_id !== change.original.creator_id) {
@@ -391,6 +400,7 @@ export default function AdsReportPage() {
         if (updates.ad_id !== undefined) bulkUpdates.ad_id = updates.ad_id;
         
         if (updates.kurs !== undefined) specificUpdates.kurs = updates.kurs;
+        if (updates.tanggal !== undefined) specificUpdates.tanggal = updates.tanggal;
 
         if (Object.keys(bulkUpdates).length > 0) {
           const originalAdId = change.original.ad_id;
@@ -451,6 +461,7 @@ export default function AdsReportPage() {
       else if (field === 'creator_id') isDifferent = value !== originalAd.creator_id;
       else if (field === 'kurs') isDifferent = value !== originalAd.kurs;
       else if (field === 'ad_id') isDifferent = value !== originalAd.ad_id;
+      else if (field === 'tanggal') isDifferent = value !== originalAd.tanggal;
       
       if (isDifferent) {
         existing[field] = value;
