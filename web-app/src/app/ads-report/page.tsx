@@ -755,9 +755,9 @@ export default function AdsReportPage() {
                 </div>
               </div>
               <div>
-                <p className="text-sm font-medium text-slate-500 mb-1">Total Spend (IDR)</p>
+                <p className="text-sm font-medium text-slate-500 mb-1">Total Spend (USD)</p>
                 <h3 className="text-2xl font-bold text-slate-800 tracking-tight">
-                  Rp {(globalSummary.totalSpend || 0).toLocaleString('id-ID', { maximumFractionDigits: 0 })}
+                  ${(globalSummary.totalSpendUsd || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </h3>
               </div>
             </CardContent>
@@ -886,7 +886,7 @@ export default function AdsReportPage() {
 
                         <div className="flex justify-between text-xs">
                           <span className={isActive ? 'text-blue-100' : 'text-slate-500'}>Spend:</span>
-                          <span className={`font-bold ${isActive ? 'text-white' : 'text-slate-700'}`}>Rp {(camp.spend / 1000000).toFixed(1)}M</span>
+                          <span className={`font-bold ${isActive ? 'text-white' : 'text-slate-700'}`}>${(camp.spend_usd || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                         </div>
                       <div className="flex justify-between text-xs">
                         <span className={isActive ? 'text-blue-100' : 'text-slate-500'}>GMV:</span>

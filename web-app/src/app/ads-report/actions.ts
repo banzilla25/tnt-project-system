@@ -127,15 +127,17 @@ export async function getAdsReportData(params: {
   }
   
   // 4. Calculate Global Summary
-  let sumSpend = 0; let sumGmv = 0; let sumImpr = 0;
+  let sumSpend = 0; let sumGmv = 0; let sumImpr = 0; let sumSpendUsd = 0;
   for (const ad of filteredData) {
     const kurs = ad.kurs || 16000;
     sumSpend += ad.cost_usd * kurs;
+    sumSpendUsd += ad.cost_usd;
     sumGmv += ad.gross_revenue_usd * kurs;
     sumImpr += ad.impressions;
   }
   const summary = {
     totalSpend: sumSpend,
+    totalSpendUsd: sumSpendUsd,
     totalGmv: sumGmv,
     totalImpressions: sumImpr,
     roas: sumSpend > 0 ? sumGmv / sumSpend : 0,
