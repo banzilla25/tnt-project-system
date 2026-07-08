@@ -191,7 +191,8 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
   const handleExportExcel = async () => {
     setIsExporting(true);
     try {
-      const XLSX = (await import('xlsx')).default;
+      const xlsxModule = await import('xlsx');
+      const XLSX = xlsxModule.default || xlsxModule;
       const wb = XLSX.utils.book_new();
 
     // Sheet 1: Summary
