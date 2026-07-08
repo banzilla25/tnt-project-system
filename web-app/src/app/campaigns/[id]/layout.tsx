@@ -238,6 +238,37 @@ function CampaignLayoutInner({ children }: { children: React.ReactNode }) {
         </div>
       </div>
 
+      {(campaign as any).end_date && (campaign as any).status !== 'selesai' && (() => {
+         const endDate = new Date((campaign as any).end_date);
+         endDate.setHours(0, 0, 0, 0);
+         const today = new Date();
+         today.setHours(0, 0, 0, 0);
+         const diffDays = Math.round((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+         const countdownText = diffDays > 0 ? `(H-${diffDays})` : diffDays < 0 ? `(H+${Math.abs(diffDays)})` : `(Hari ini)`;
+         
+         return (
+           <div className="mb-[24px] p-[12px] bg-amber-50 border border-amber-200 rounded-[8px] flex items-start gap-[12px]">
+             <div className="text-amber-500 mt-[2px]">
+               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+             </div>
+             <p className="text-[13px] text-amber-700 font-medium">
+               <span className="font-bold">Pengingat:</span> Campaign ini di-setting berakhir pada {new Date((campaign as any).end_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })} <span className="font-bold text-amber-900">{countdownText}</span>. Sistem akan terus merekap data harian hingga status campaign diubah menjadi "Selesai".
+             </p>
+           </div>
+         );
+      })()}
+
+      {(campaign as any).end_date && (campaign as any).status === 'selesai' && (
+         <div className="mb-[24px] p-[12px] bg-emerald-50 border border-emerald-200 rounded-[8px] flex items-start gap-[12px]">
+           <div className="text-emerald-500 mt-[2px]">
+             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+           </div>
+           <p className="text-[13px] text-emerald-700 font-medium">
+             <span className="font-bold">Campaign Selesai:</span> Campaign ini telah diselesaikan pada {new Date((campaign as any).end_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}.
+           </p>
+         </div>
+      )}
+
       <div className="border-b border-line overflow-x-auto">
         <nav className="-mb-px flex space-x-[32px] min-w-max">
           {tabs.map((tab) => {
