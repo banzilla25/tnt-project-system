@@ -350,22 +350,23 @@ export default function OrganicImport() {
         }
       }
       
-      // Fallback to Priority 2: SKU
+      // Fallback to Priority 2: SKU (TETAP HARUS PUNYA TIKTOK CAMPAIGN ID YANG COCOK)
       if (!mappedCampaignId && rawProductId && skuMapping[rawProductId]) {
          const potentialCampaignId = skuMapping[rawProductId];
          const c = campaigns?.find(c => c.id === potentialCampaignId);
          const hasRequiredCampaignIds = c?.tiktok_campaign_ids && c.tiktok_campaign_ids.length > 0;
          
+         // WAJIB: Campaign HARUS di-setting tiktok_campaign_ids-nya. 
+         // Jika tidak disetting, maka produknya tidak akan terbaca/masuk.
          if (hasRequiredCampaignIds) {
-             // Wajib Filter: Jika campaign mengatur TikTok Campaign IDs, baris INI HARUS punya ID yg cocok
              if (tiktokCampaignId && c.tiktok_campaign_ids.includes(tiktokCampaignId)) {
                  mappedCampaignId = potentialCampaignId;
              } else {
-                 mappedCampaignId = null; // Tolak baris ini dari campaign tersebut
+                 mappedCampaignId = null; // Tolak baris ini (Campaign ID CSV tidak cocok)
              }
          } else {
-             // Jika campaign tidak mensyaratkan Campaign ID, assign by SKU
-             mappedCampaignId = potentialCampaignId;
+             // Jika campaign di web tidak di-setting tiktok_campaign_ids-nya, TOLAK SEMUA DATA
+             mappedCampaignId = null; 
          }
       }
 
