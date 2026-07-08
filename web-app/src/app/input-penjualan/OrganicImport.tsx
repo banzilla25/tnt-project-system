@@ -155,7 +155,7 @@ export default function OrganicImport({ mode = 'sales' }: { mode?: 'sales' | 'vi
                   const workbook = XLSX.read(dataArr, { type: 'array' });
                   const firstSheetName = workbook.SheetNames[0];
                   const worksheet = workbook.Sheets[firstSheetName];
-                  const jsonData = XLSX.utils.sheet_to_json(worksheet);
+                  const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: '', raw: false });
                   resolve(jsonData as any[]);
                 } catch (error) {
                   reject(error);
@@ -326,72 +326,72 @@ export default function OrganicImport({ mode = 'sales' }: { mode?: 'sales' | 'vi
       let videoProductRpm = 0;
 
       if (isSalesFormat) {
-        const isRefundStr = row[columnMapping['refund_status']] || 'No';
+        const isRefundStr = row[columnMapping['refund_status']]?.toString() || 'No';
         isRefund = isRefundStr.trim().toLowerCase() === 'yes';
 
-        tiktokCampaignId = row[columnMapping['tiktok_campaign_id']]?.toString() || '';
-        shopCode = row[columnMapping['shop_code']]?.toString() || '';
+        tiktokCampaignId = row[columnMapping['tiktok_campaign_id']]?.toString().trim() || '';
+        shopCode = row[columnMapping['shop_code']]?.toString().trim() || '';
 
-        rawProductId = row[columnMapping['product_id']]?.toString() || '';
-        productName = row[columnMapping['product_name']]?.toString() || skuNameMapping[rawProductId] || 'Unknown Product';
-        price = Math.round(parseFloat(row[columnMapping['price']] || 0));
-        quantity = parseInt(row[columnMapping['quantity']] || 0);
+        rawProductId = row[columnMapping['product_id']]?.toString().trim() || '';
+        productName = row[columnMapping['product_name']]?.toString().trim() || skuNameMapping[rawProductId] || 'Unknown Product';
+        price = Math.round(parseFloat(row[columnMapping['price']]?.toString().replace(/[^0-9.-]+/g,"") || '0'));
+        quantity = parseInt(row[columnMapping['quantity']]?.toString().replace(/[^0-9.-]+/g,"") || '0');
         gmv = Math.round(price * quantity);
-        const rawUsername = row[columnMapping['creator_username']] || '';
+        const rawUsername = row[columnMapping['creator_username']]?.toString().trim() || '';
         creatorUsername = rawUsername.replace('@', '').toLowerCase();
         
-        contentUid = row[columnMapping['content_id']]?.toString() || '';
-        contentType = row[columnMapping['content_type']] || 'Video';
+        contentUid = row[columnMapping['content_id']]?.toString().trim() || '';
+        contentType = row[columnMapping['content_type']]?.toString().trim() || 'Video';
         
-        tanggal = parseTikTokDate(row[columnMapping['time_created']]?.toString() || '');
-        const orderIdRaw = row[columnMapping['order_id']]?.toString() || '';
-        const skuIdStr = row[columnMapping['sku_id']]?.toString() || '';
+        tanggal = parseTikTokDate(row[columnMapping['time_created']]?.toString().trim() || '');
+        const orderIdRaw = row[columnMapping['order_id']]?.toString().trim() || '';
+        const skuIdStr = row[columnMapping['sku_id']]?.toString().trim() || '';
         orderId = `${orderIdRaw}_${skuIdStr}_${creatorUsername}_${rawProductId}`;
-        orderStatus = row[columnMapping['order_status']] || '';
-        commissionRate = row[columnMapping['commission_rate']]?.toString() || '';
-        attributionType = row[columnMapping['attribution_type']]?.toString() || '';
+        orderStatus = row[columnMapping['order_status']]?.toString().trim() || '';
+        commissionRate = row[columnMapping['commission_rate']]?.toString().trim() || '';
+        attributionType = row[columnMapping['attribution_type']]?.toString().trim() || '';
       } else if (isLiveFormat) {
         // Live Format - HANYA UPDATE AWARENESS
-        rawProductId = row[columnMapping['product_id']]?.toString() || '';
-        productName = row[columnMapping['product_name']]?.toString() || skuNameMapping[rawProductId] || 'Unknown Product';
+        rawProductId = row[columnMapping['product_id']]?.toString().trim() || '';
+        productName = row[columnMapping['product_name']]?.toString().trim() || skuNameMapping[rawProductId] || 'Unknown Product';
         gmv = 0; 
         quantity = 0;
         price = 0;
-        tiktokCampaignId = row[columnMapping['tiktok_campaign_id']]?.toString() || '';
-        shopCode = row[columnMapping['shop_code']]?.toString() || '';
-        const rawUsername = row[columnMapping['creator_username']] || '';
+        tiktokCampaignId = row[columnMapping['tiktok_campaign_id']]?.toString().trim() || '';
+        shopCode = row[columnMapping['shop_code']]?.toString().trim() || '';
+        const rawUsername = row[columnMapping['creator_username']]?.toString().trim() || '';
         creatorUsername = rawUsername.replace('@', '').toLowerCase();
-        contentUid = row[columnMapping['content_uid']]?.toString() || '';
-        tanggal = parseTikTokDate(row[columnMapping['post_time']]?.toString() || '');
+        contentUid = row[columnMapping['content_uid']]?.toString().trim() || '';
+        tanggal = parseTikTokDate(row[columnMapping['post_time']]?.toString().trim() || '');
         contentType = 'Livestream';
         orderId = ''; 
         orderStatus = 'Completed'; 
-        videoViews = parseInt(row[columnMapping['video_views']] || 0);
-        videoLikes = parseInt(row[columnMapping['video_likes']] || 0);
-        durationStr = row[columnMapping['duration_str']]?.toString() || '';
+        videoViews = parseInt(row[columnMapping['video_views']]?.toString().replace(/[^0-9.-]+/g,"") || '0');
+        videoLikes = parseInt(row[columnMapping['video_likes']]?.toString().replace(/[^0-9.-]+/g,"") || '0');
+        durationStr = row[columnMapping['duration_str']]?.toString().trim() || '';
         const rpmStr = row[columnMapping['video_product_rpm']]?.toString() || '0';
-        videoProductRpm = Math.round(parseFloat(rpmStr.replace(/[^0-9]/g, '')) || 0);
+        videoProductRpm = Math.round(parseFloat(rpmStr.replace(/[^0-9.-]+/g, '')) || 0);
       } else {
         // Awareness Format (Video)
-        rawProductId = row[columnMapping['product_id']]?.toString() || '';
-        productName = row[columnMapping['product_name']]?.toString() || skuNameMapping[rawProductId] || 'Unknown Product';
+        rawProductId = row[columnMapping['product_id']]?.toString().trim() || '';
+        productName = row[columnMapping['product_name']]?.toString().trim() || skuNameMapping[rawProductId] || 'Unknown Product';
         gmv = 0; 
         quantity = 0;
         price = 0;
-        tiktokCampaignId = row[columnMapping['tiktok_campaign_id']]?.toString() || '';
-        shopCode = row[columnMapping['shop_code']]?.toString() || '';
-        const rawUsername = row[columnMapping['creator_username']] || '';
+        tiktokCampaignId = row[columnMapping['tiktok_campaign_id']]?.toString().trim() || '';
+        shopCode = row[columnMapping['shop_code']]?.toString().trim() || '';
+        const rawUsername = row[columnMapping['creator_username']]?.toString().trim() || '';
         creatorUsername = rawUsername.replace('@', '').toLowerCase();
-        contentUid = row[columnMapping['content_uid']]?.toString() || '';
-        tanggal = parseTikTokDate(row[columnMapping['post_time']]?.toString() || '');
+        contentUid = row[columnMapping['content_uid']]?.toString().trim() || '';
+        tanggal = parseTikTokDate(row[columnMapping['post_time']]?.toString().trim() || '');
         contentType = 'Video';
         orderId = ''; 
         orderStatus = 'Completed'; 
-        videoViews = parseInt(row[columnMapping['video_views']] || 0);
-        videoLikes = parseInt(row[columnMapping['video_likes']] || 0);
-        durationStr = row[columnMapping['duration_str']]?.toString() || '';
+        videoViews = parseInt(row[columnMapping['video_views']]?.toString().replace(/[^0-9.-]+/g,"") || '0');
+        videoLikes = parseInt(row[columnMapping['video_likes']]?.toString().replace(/[^0-9.-]+/g,"") || '0');
+        durationStr = row[columnMapping['duration_str']]?.toString().trim() || '';
         const rpmStr = row[columnMapping['video_product_rpm']]?.toString() || '0';
-        videoProductRpm = Math.round(parseFloat(rpmStr.replace(/[^0-9]/g, '')) || 0);
+        videoProductRpm = Math.round(parseFloat(rpmStr.replace(/[^0-9.-]+/g, '')) || 0);
       }
 
       // SMART ROUTING: Hierarchy 1: Campaign ID -> Hierarchy 2: Product ID
