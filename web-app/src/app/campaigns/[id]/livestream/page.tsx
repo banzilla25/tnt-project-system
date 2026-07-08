@@ -6,6 +6,7 @@ import { createClient } from "@/utils/supabase/client";
 import { useParams } from "next/navigation";
 import { Search, Radio, Loader2, ArrowUpDown } from "lucide-react";
 import { useAuth } from "@/providers/AuthProvider";
+import { useCampaignFilter } from "@/providers/CampaignFilterProvider";
 
 export default function CampaignLiveStreamPage() {
   const { id } = useParams();
@@ -20,6 +21,8 @@ export default function CampaignLiveStreamPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('gmv');
+  
+  const { isCreatorVisible } = useCampaignFilter();
 
   const supabase = createClient();
 
@@ -86,7 +89,7 @@ export default function CampaignLiveStreamPage() {
   }, [campaignId]);
 
   const aggregatedData = useMemo(() => {
-    let data = creators.map(cc => {
+    let data = creators.filter(cc => isCreatorVisible(cc.creators.username)).map(cc => {
       const creatorUsername = cc.creators.username;
       
       const cSales = salesData.filter(s => s.creator_username === creatorUsername);
@@ -131,7 +134,7 @@ export default function CampaignLiveStreamPage() {
     }
 
     return data;
-  }, [creators, salesData, liveMetrics, searchQuery, sortBy]);
+  }, [creators, salesData, liveMetrics, searchQuery, sortBy, isCreatorVisible]);
 
   if (isLoading) {
     return (

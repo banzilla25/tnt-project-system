@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { useDatabaseStore } from "@/store/useDatabaseStore";
 import { Calendar, Trash2, Plus, ArrowUp, ArrowDown, ArrowUpDown, CheckCircle2, XCircle } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
+import { useCampaignFilter } from "@/providers/CampaignFilterProvider";
 
 const supabase = createClient();
 
@@ -75,6 +76,7 @@ function SkeletonLoader() {
 export default function LiveSchedulePage() {
   const { id } = useParams();
   const campaignId = Number(id);
+  const { isCreatorVisible } = useCampaignFilter();
 
   const {
     live_schedules,
@@ -217,6 +219,7 @@ export default function LiveSchedulePage() {
   // ─── Filter / Sort localCreators ───────────────────────────────────────────
   const approvedCCs = localCreators
     .filter(cc => {
+      if (!isCreatorVisible(cc.creators?.username)) return false;
       if (searchQuery) {
         if (!cc.creators?.username.toLowerCase().includes(searchQuery.toLowerCase())) return false;
       }

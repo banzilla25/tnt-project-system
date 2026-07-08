@@ -9,12 +9,14 @@ import { Download, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
 import { exportToCSV } from "@/utils/exportCsv";
 import { useAuth } from "@/providers/AuthProvider";
 import { MultiSelect } from "@/components/MultiSelect";
+import { useCampaignFilter } from "@/providers/CampaignFilterProvider";
 
 const supabase = createClient();
 
 export default function AlamatPage() {
   const { id } = useParams();
   const campaignId = Number(id);
+  const { isCreatorVisible } = useCampaignFilter();
 
   const {
     campaign_creators,
@@ -94,6 +96,7 @@ export default function AlamatPage() {
 
   const approvedCCs = localCreators
     .filter(cc => {
+      if (!isCreatorVisible(cc.creators?.username)) return false;
       if (searchQuery) {
         if (!cc.creators?.username.toLowerCase().includes(searchQuery.toLowerCase())) return false;
       }

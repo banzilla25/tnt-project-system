@@ -7,11 +7,30 @@ import { cn } from "@/utils/cn";
 import { Settings2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/Dialog";
+import { CampaignFilterProvider, useCampaignFilter } from "@/providers/CampaignFilterProvider";
+import { Search } from "lucide-react";
 
 export default function CampaignLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <CampaignFilterContextWrapper>
+      {children}
+    </CampaignFilterContextWrapper>
+  );
+}
+
+function CampaignFilterContextWrapper({ children }: { children: React.ReactNode }) {
+  return (
+    <CampaignFilterProvider>
+      <CampaignLayoutInner>{children}</CampaignLayoutInner>
+    </CampaignFilterProvider>
+  );
+}
+
+function CampaignLayoutInner({ children }: { children: React.ReactNode }) {
   const { id } = useParams();
   const pathname = usePathname();
   const campaignId = Number(id);
+  const { appliedFilterType, setFilterType, appliedFilterUsernames, setFilterUsernames, setIsFilterModalOpen } = useCampaignFilter();
   
   const { campaigns, brands, updateCampaign } = useDatabaseStore();
   const campaign = campaigns.find(c => c.id === campaignId);
@@ -102,6 +121,20 @@ export default function CampaignLayout({ children }: { children: React.ReactNode
           </div>
           <div className="flex items-center gap-[12px]">
             <h1 className="text-[28px] font-extrabold tracking-tight">{campaign.nama}</h1>
+            
+            {/* GLOBAL FILTER BUTTON */}
+            <button 
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border ${appliedFilterType !== 'none' ? 'bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 shadow-sm'}`}
+              onClick={() => {
+                setFilterType(appliedFilterType === 'none' ? 'exclude' : appliedFilterType);
+                setFilterUsernames(appliedFilterUsernames.join('\n'));
+                setIsFilterModalOpen(true);
+              }}
+            >
+              <Search className="w-4 h-4" />
+              Creator Filter {appliedFilterType !== 'none' && '(Active)'}
+            </button>
+
             <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
               <DialogTrigger asChild>
                 <button className="p-[8px] text-text-soft hover:text-text rounded-md hover:bg-p50 transition-colors">

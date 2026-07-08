@@ -10,6 +10,7 @@ import Link from "next/link";
 import { AlertCircle, Link as LinkIcon, Save, Edit2, Loader2, ChevronDown, ChevronRight, Plus, PlayCircle, X } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/Dialog";
 import { useAuth } from "@/providers/AuthProvider";
+import { useCampaignFilter } from "@/providers/CampaignFilterProvider";
 
 export default function CampaignVideoPage() {
   const { id } = useParams();
@@ -26,6 +27,7 @@ export default function CampaignVideoPage() {
 
   const { canEditCampaign } = useAuth();
   const hasAccess = canEditCampaign(campaignId);
+  const { isCreatorVisible } = useCampaignFilter();
 
   const campaign = campaigns.find(c => c.id === campaignId);
 
@@ -383,6 +385,9 @@ export default function CampaignVideoPage() {
 
   const processedListingData = React.useMemo(() => {
     let data = [...listingData];
+    
+    // Apply Global Creator Filter
+    data = data.filter((cc: any) => isCreatorVisible(cc.creators?.username));
 
     const metricsMap = new Map();
     data.forEach(cc => {
@@ -470,7 +475,7 @@ export default function CampaignVideoPage() {
     }
 
     return { data, metricsMap };
-  }, [listingData, localVideos, skus, campaignId, filterSow, filterSales, filterSku, sortBy]);
+  }, [listingData, localVideos, skus, campaignId, filterSow, filterSales, filterSku, sortBy, isCreatorVisible]);
 
   const { data: finalListingData, metricsMap } = processedListingData;
   const visibleData = finalListingData.slice(0, clientPage * CLIENT_PAGE_SIZE);
@@ -481,7 +486,7 @@ export default function CampaignVideoPage() {
     
     localVideos.forEach(v => {
        const cc = listingData.find(c => c.id === v.campaign_creator_id);
-       if (!cc || !cc.creators) return;
+       if (!cc || !cc.creators || !isCreatorVisible(cc.creators.username)) return;
        
        const creator = cc.creators;
        const ccSales = cc._localSales || [];
@@ -567,7 +572,7 @@ export default function CampaignVideoPage() {
     }
 
     return allVids;
-  }, [localVideos, listingData, metricsMap, filterSow, filterSales, filterSku, sortBy]);
+  }, [localVideos, listingData, metricsMap, filterSow, filterSales, filterSku, sortBy, isCreatorVisible]);
 
   const visibleVideosData = processedVideosData.slice(0, clientPage * CLIENT_PAGE_SIZE);
   const hasMoreVideosClient = processedVideosData.length > visibleVideosData.length;

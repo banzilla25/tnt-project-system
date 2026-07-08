@@ -14,6 +14,7 @@ import { useAuth } from "@/providers/AuthProvider";
 import { useRouter } from "next/navigation";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/Dialog";
 import { MultiSelect } from "@/components/MultiSelect";
+import { useCampaignFilter } from "@/providers/CampaignFilterProvider";
 
 const supabase = createClient();
 const PAGE_SIZE = 100;
@@ -62,6 +63,7 @@ function CampaignListingContent() {
   const { profile, canEditCampaign } = useAuth();
   const hasAccess = canEditCampaign(campaignId);
   const router = useRouter();
+  const { isCreatorVisible } = useCampaignFilter();
 
   const campaign = campaigns.find(c => c.id === campaignId);
   const isClientApprovalRequired = campaign?.require_client_approval || false;
@@ -1896,6 +1898,9 @@ function CampaignListingContent() {
                     return aHas - bHas;
                   })
                 : [...listingData];
+              
+              // Apply Global Creator Filter
+              displayData = displayData.filter((c: any) => isCreatorVisible(c.creators?.username));
               
               displayData = Array.from(new Map(displayData.map(c => [c.creators?.username?.toLowerCase() || c.id, c])).values());
 
