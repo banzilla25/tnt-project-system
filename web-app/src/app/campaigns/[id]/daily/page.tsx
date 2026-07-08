@@ -95,7 +95,7 @@ export default function CampaignDailyPerformancePage() {
       const monthlyGrouped: Record<string, { gmv: number; creators: Set<string>; videos: Set<string> }> = {};
 
       const campaignStartStr = campaign?.start_date || '';
-      const campaignEndStr = campaign?.end_date || '';
+      const campaignEndStr = campaign?.status === 'selesai' ? campaign?.end_date || '' : '';
 
       if (allSales.length > 0) {
         allSales.forEach(sale => {
@@ -230,9 +230,14 @@ export default function CampaignDailyPerformancePage() {
       <div className="ccard !p-0 overflow-hidden">
         <div className="p-[16px] border-b border-line bg-slate-50/50">
           <h3 className="text-[16px] font-bold text-text">{isAwareness ? 'Daily Video Tracker' : 'Organic Daily Performance'}</h3>
-          {campaign.end_date && (
+          {campaign.end_date && campaign.status !== 'selesai' && (
             <p className="text-[13px] text-amber-600 font-medium mt-[4px]">
-              * Campaign ini di-setting berakhir pada {new Date(campaign.end_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}. Data setelah tanggal tersebut akan disembunyikan.
+              * Pengingat: Campaign ini di-setting berakhir pada {new Date(campaign.end_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}. Sistem akan terus merekap data harian hingga status campaign diubah menjadi "Selesai".
+            </p>
+          )}
+          {campaign.end_date && campaign.status === 'selesai' && (
+            <p className="text-[13px] text-emerald-600 font-medium mt-[4px]">
+              ✓ Campaign telah selesai. Data setelah tanggal {new Date(campaign.end_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })} disembunyikan.
             </p>
           )}
         </div>

@@ -74,7 +74,7 @@ function CampaignPerformaContent() {
       // 1. Fetch RPC and View
       let salesVtQuery = supabase.from('sales').select('creator_username, content_uid, tanggal, content_type').eq('campaign_id', campaignId).not('content_uid', 'is', null);
       if (campaign?.start_date) salesVtQuery = salesVtQuery.gte('tanggal', campaign.start_date);
-      if (campaign?.end_date) salesVtQuery = salesVtQuery.lte('tanggal', campaign.end_date);
+      if (campaign?.end_date && campaign?.status === 'selesai') salesVtQuery = salesVtQuery.lte('tanggal', campaign.end_date);
 
       const [
         rpcRes,

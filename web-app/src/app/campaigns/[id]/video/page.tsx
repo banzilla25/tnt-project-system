@@ -165,7 +165,7 @@ export default function CampaignVideoPage() {
             .in('creator_username', chunk);
 
           if (campaign?.start_date) sQuery = sQuery.gte('tanggal', campaign.start_date);
-          if (campaign?.end_date) sQuery = sQuery.lte('tanggal', campaign.end_date);
+          if (campaign?.end_date && campaign?.status === 'selesai') sQuery = sQuery.lte('tanggal', campaign.end_date);
 
           const { data: sData } = await sQuery;
           if (sData) localSalesData.push(...sData);
@@ -176,7 +176,7 @@ export default function CampaignVideoPage() {
             .in('creator_username', chunk);
             
           if (campaign?.start_date) oQuery = oQuery.gte('post_time', campaign.start_date);
-          if (campaign?.end_date) oQuery = oQuery.lte('post_time', campaign.end_date);
+          if (campaign?.end_date && campaign?.status === 'selesai') oQuery = oQuery.lte('post_time', campaign.end_date);
 
           const { data: oData } = await oQuery;
           if (oData) localOrganicVideos.push(...oData);
