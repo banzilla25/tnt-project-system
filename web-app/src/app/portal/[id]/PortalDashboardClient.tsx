@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import { TrendingUp, Video, Users, Package, Calendar, CheckCircle, CheckCircle2, XCircle, Activity, BarChart3, ChevronDown, ChevronUp, Search, ChevronLeft, ChevronRight, Filter, ArrowUp, ArrowDown, ArrowUpDown, Download, ShoppingCart } from "lucide-react";
+import { TrendingUp, Video, Users, Package, Calendar, CheckCircle, CheckCircle2, XCircle, Activity, BarChart3, ChevronDown, ChevronUp, Search, ChevronLeft, ChevronRight, Filter, ArrowUp, ArrowDown, ArrowUpDown, Download, ShoppingCart, Loader2 } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/Table";
 import { submitClientApproval, updateResiByClient, batchUpdateResiByClient, type BatchUpdateData } from "../actions/portalActions";
 import { formatAbbreviated } from "@/utils/formatters";
@@ -70,6 +70,8 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
 
   const [videoSearch, setVideoSearch] = useState('');
   const [videoPage, setVideoPage] = useState(0);
+
+  const [isExporting, setIsExporting] = useState(false);
 
   // Reset page when tab changes
   React.useEffect(() => {
@@ -187,8 +189,10 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
   // EXPORT TO EXCEL (XLSX)
   // ============================
   const handleExportExcel = async () => {
-    const XLSX = (await import('xlsx')).default;
-    const wb = XLSX.utils.book_new();
+    setIsExporting(true);
+    try {
+      const XLSX = (await import('xlsx')).default;
+      const wb = XLSX.utils.book_new();
 
     // Sheet 1: Summary
     const summaryRows = [
@@ -270,7 +274,15 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
     });
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sampleRows.length > 0 ? sampleRows : [{ 'Info': 'Tidak ada data sampel' }]), 'Sampel & Resi');
 
-    XLSX.writeFile(wb, `${campaign.nama.replace(/[^a-zA-Z0-9]/g, '_')}_Report.xlsx`);
+    // Write and download
+    XLSX.writeFile(wb, `${campaign.nama}_Portal_Export_${new Date().toLocaleDateString('id-ID').replace(/\//g, '-')}.xlsx`);
+    
+    } catch (err) {
+      console.error("Failed to export excel:", err);
+      showToast("Gagal mengekspor file Excel.", "error");
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   // ============================
@@ -427,9 +439,11 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
           </div>
           <button 
             onClick={handleExportExcel}
-            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-500 to-green-600 text-white text-sm font-medium rounded-lg hover:from-emerald-600 hover:to-green-700 transition-all shadow-sm hover:shadow-md"
+            disabled={isExporting}
+            className={`flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-500 to-green-600 text-white text-sm font-medium rounded-lg hover:from-emerald-600 hover:to-green-700 transition-all shadow-sm hover:shadow-md ${isExporting ? 'opacity-80 cursor-not-allowed' : ''}`}
           >
-            <Download className="w-4 h-4" /> Export Excel
+            {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+            {isExporting ? 'Menyiapkan Data...' : 'Export Excel'}
           </button>
         </div>
       </div>
