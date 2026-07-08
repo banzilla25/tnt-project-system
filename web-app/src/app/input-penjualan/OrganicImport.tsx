@@ -50,13 +50,61 @@ type PreviewStats = {
   dateRange: string;
 };
 
-export default function OrganicImport() {
-  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
+export default function OrganicImport({ mode = 'sales' }: { mode?: 'sales' | 'video' | 'live' }) {
+  const [step, setStep] = useState<1 | 1.5 | 2 | 3 | 4>(1);
   const [files, setFiles] = useState<File[]>([]);
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState({ current: 0, total: 0 });
   const [previewPage, setPreviewPage] = useState(1);
   
+  // ================= COLUMN MAPPING STATES =================
+  const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
+  const [columnMapping, setColumnMapping] = useState<Record<string, string>>({});
+  const [parsedData, setParsedData] = useState<any[]>([]);
+
+  // KAMUS PANDUAN KOLOM OTOMATIS
+  const REQUIRED_COLUMNS = mode === 'sales' ? [
+    { key: 'order_id', label: 'Order ID', autoMatch: ['order id', 'id pesanan'] },
+    { key: 'sku_id', label: 'SKU ID', autoMatch: ['sku id'] },
+    { key: 'product_id', label: 'Product ID', autoMatch: ['product id', 'id produk'] },
+    { key: 'product_name', label: 'Product Name', autoMatch: ['product name', 'nama produk'] },
+    { key: 'creator_username', label: 'Creator Username', autoMatch: ['creator username', 'creator', 'kreator', 'username'] },
+    { key: 'time_created', label: 'Time Created', autoMatch: ['time created', 'waktu pesanan'] },
+    { key: 'price', label: 'Price', autoMatch: ['price', 'harga'] },
+    { key: 'quantity', label: 'Quantity', autoMatch: ['quantity', 'jumlah'] },
+    { key: 'refund_status', label: 'Refund Status', autoMatch: ['fully returned or refunded', 'refund', 'pengembalian'] },
+    { key: 'tiktok_campaign_id', label: 'Campaign ID', autoMatch: ['partner campaign id', 'campaign id'] },
+    { key: 'shop_code', label: 'Shop Code', autoMatch: ['shop code', 'shop id'] },
+    { key: 'content_id', label: 'Content ID / Live ID', autoMatch: ['content id', 'live id', 'live stream id', 'livestream id'] },
+    { key: 'content_type', label: 'Content Type', autoMatch: ['content type', 'tipe konten'] },
+    { key: 'order_status', label: 'Order Status', autoMatch: ['order settlement status', 'order status', 'status pesanan'] },
+    { key: 'commission_rate', label: 'Commission Rate', autoMatch: ['standard affiliate partner commission rate', 'commission rate'] },
+    { key: 'attribution_type', label: 'Attribution Type', autoMatch: ['attribution type'] },
+  ] : mode === 'video' ? [
+    { key: 'content_uid', label: 'Video ID', autoMatch: ['video id'] },
+    { key: 'creator_username', label: 'Creator Name', autoMatch: ['creator name', 'creator username', 'kreator'] },
+    { key: 'product_id', label: 'Product ID', autoMatch: ['product id'] },
+    { key: 'product_name', label: 'Product Name', autoMatch: ['product name'] },
+    { key: 'tiktok_campaign_id', label: 'Campaign ID', autoMatch: ['campaign id'] },
+    { key: 'post_time', label: 'Post Time', autoMatch: ['post time', 'date'] },
+    { key: 'video_views', label: 'Video Views', autoMatch: ['video views', 'views'] },
+    { key: 'video_likes', label: 'Video Likes', autoMatch: ['video likes', 'likes'] },
+    { key: 'duration_str', label: 'Duration', autoMatch: ['duration'] },
+    { key: 'video_product_rpm', label: 'Video Product RPM', autoMatch: ['video product rpm', 'rpm'] },
+  ] : [
+    // mode === 'live'
+    { key: 'content_uid', label: 'Livestream Room ID', autoMatch: ['livestream room id', 'live id'] },
+    { key: 'creator_username', label: 'Creator Name', autoMatch: ['creator name', 'creator username', 'kreator'] },
+    { key: 'product_id', label: 'Product ID', autoMatch: ['product id'] },
+    { key: 'product_name', label: 'Product Name', autoMatch: ['product name'] },
+    { key: 'tiktok_campaign_id', label: 'Campaign ID', autoMatch: ['campaign id'] },
+    { key: 'post_time', label: 'LIVE Time Info', autoMatch: ['live time info', 'date'] },
+    { key: 'video_views', label: 'LIVE Views', autoMatch: ['live views', 'views'] },
+    { key: 'video_likes', label: 'LIVE Likes', autoMatch: ['live likes', 'likes'] },
+    { key: 'duration_str', label: 'Duration', autoMatch: ['duration'] },
+    { key: 'video_product_rpm', label: 'LIVE Product RPM', autoMatch: ['live product rpm', 'rpm'] },
+  ];
+
   const [previewPayload, setPreviewPayload] = useState<PreviewRow[]>([]);
   const [stats, setStats] = useState<PreviewStats | null>(null);
   const [result, setResult] = useState<{success: number; skipped: number; errors: string[]} | null>(null);
@@ -120,9 +168,25 @@ export default function OrganicImport() {
           } else {
             alert(`Format file ${file.name} tidak didukung. File ini akan dilewati.`);
           }
+        } // <-- Added missing closing brace
+        if (allData.length > 0) {
+          const headers = Object.keys(allData[0]);
+          setCsvHeaders(headers);
+          
+          const initialMapping: Record<string, string> = {};
+          REQUIRED_COLUMNS.forEach(col => {
+            const matchedHeader = headers.find(h => col.autoMatch.includes(h.toLowerCase().trim()));
+            if (matchedHeader) {
+              initialMapping[col.key] = matchedHeader;
+            }
+          });
+          setColumnMapping(initialMapping);
+          setParsedData(allData);
+          setStep(1.5);
+        } else {
+          alert("File kosong atau tidak memiliki data yang valid.");
         }
-        
-        generatePreview(allData);
+        setLoading(false);
       } catch (error: any) {
         alert("Error membaca file: " + error.message);
         setLoading(false);
@@ -156,16 +220,12 @@ export default function OrganicImport() {
     }
   };
 
-  const generatePreview = (data: any[]) => {
-    const isSalesFormat = data.some((row: any) => row['Order ID']);
-    const isAwarenessFormat = data.some((row: any) => row['Video ID'] && row['Affiliate video GMV']);
-    const isLiveFormat = data.some((row: any) => row['Livestream room ID'] && row['Affiliate LIVE GMV']);
-
-    if (!isSalesFormat && !isAwarenessFormat && !isLiveFormat) {
-      alert("Format file tidak dikenali. Pastikan ini adalah Laporan Pesanan (Sales), Laporan Video, atau Laporan Livestream dari TikTok.");
-      setLoading(false);
-      return;
-    }
+  const generatePreview = () => {
+    // We already parsed the data and have mapping
+    const data = parsedData;
+    const isSalesFormat = mode === 'sales';
+    const isAwarenessFormat = mode === 'video';
+    const isLiveFormat = mode === 'live';
 
     // Buat Dictionary Mapping
     const skuMapping: Record<string, number> = {};
@@ -192,11 +252,19 @@ export default function OrganicImport() {
 
     let validRows = data;
     if (isAwarenessFormat) {
-      validRows = data.filter((row: any) => row['Date'] !== 'Summary' && row['Video ID'] && row['Video ID'] !== '-');
+      validRows = data.filter((row: any) => {
+        const dateStr = row[columnMapping['post_time']]?.toString();
+        const vId = row[columnMapping['content_uid']];
+        return dateStr !== 'Summary' && vId && vId !== '-';
+      });
     } else if (isLiveFormat) {
-      validRows = data.filter((row: any) => row['Date'] !== 'Summary' && row['Livestream room ID'] && row['Livestream room ID'] !== '-');
+      validRows = data.filter((row: any) => {
+        const dateStr = row[columnMapping['post_time']]?.toString();
+        const vId = row[columnMapping['content_uid']];
+        return dateStr !== 'Summary' && vId && vId !== '-';
+      });
     } else {
-      validRows = data.filter((row: any) => row['Order ID']);
+      validRows = data.filter((row: any) => row[columnMapping['order_id']]);
     }
 
     let refundCount = 0;
@@ -258,78 +326,71 @@ export default function OrganicImport() {
       let videoProductRpm = 0;
 
       if (isSalesFormat) {
-        const isRefundStr = row['Fully returned or refunded'] || 'No';
+        const isRefundStr = row[columnMapping['refund_status']] || 'No';
         isRefund = isRefundStr.trim().toLowerCase() === 'yes';
 
-        tiktokCampaignId = row['Partner campaign ID']?.toString() || '';
-        shopCode = row['Shop code']?.toString() || '';
+        tiktokCampaignId = row[columnMapping['tiktok_campaign_id']]?.toString() || '';
+        shopCode = row[columnMapping['shop_code']]?.toString() || '';
 
-        rawProductId = row['Product ID']?.toString() || '';
-        productName = row['Product Name']?.toString() || skuNameMapping[rawProductId] || 'Unknown Product';
-        price = Math.round(parseFloat(row['Price'] || 0));
-        quantity = parseInt(row['Quantity'] || 0);
+        rawProductId = row[columnMapping['product_id']]?.toString() || '';
+        productName = row[columnMapping['product_name']]?.toString() || skuNameMapping[rawProductId] || 'Unknown Product';
+        price = Math.round(parseFloat(row[columnMapping['price']] || 0));
+        quantity = parseInt(row[columnMapping['quantity']] || 0);
         gmv = Math.round(price * quantity);
-        const rawUsername = row['Creator Username'] || row['Creator'] || row['Kreator'] || row['Username'] || '';
+        const rawUsername = row[columnMapping['creator_username']] || '';
         creatorUsername = rawUsername.replace('@', '').toLowerCase();
         
-        const liveIdRaw = row['Live ID'] || row['Live stream ID'] || row['Livestream ID'] || '';
-        if (liveIdRaw && liveIdRaw !== '-' && liveIdRaw !== '0') {
-           contentUid = liveIdRaw.toString();
-           contentType = 'Live';
-        } else {
-           contentUid = row['Content ID']?.toString() || '';
-           contentType = row['Content Type'] || 'Video';
-        }
+        contentUid = row[columnMapping['content_id']]?.toString() || '';
+        contentType = row[columnMapping['content_type']] || 'Video';
         
-        tanggal = parseTikTokDate(row['Time Created']?.toString() || '');
-        // Super Composite Key sama persis dengan backend: Order ID + SKU ID + Creator + Product ID
-        const orderIdRaw = row['Order ID']?.toString() || '';
-        const skuIdStr = row['SKU ID']?.toString() || '';
+        tanggal = parseTikTokDate(row[columnMapping['time_created']]?.toString() || '');
+        const orderIdRaw = row[columnMapping['order_id']]?.toString() || '';
+        const skuIdStr = row[columnMapping['sku_id']]?.toString() || '';
         orderId = `${orderIdRaw}_${skuIdStr}_${creatorUsername}_${rawProductId}`;
-        orderStatus = row['Order settlement status'] || row['Order Status'] || '';
-        commissionRate = row['Standard affiliate partner commission rate']?.toString() || '';
-        attributionType = row['Attribution type']?.toString() || '';
+        orderStatus = row[columnMapping['order_status']] || '';
+        commissionRate = row[columnMapping['commission_rate']]?.toString() || '';
+        attributionType = row[columnMapping['attribution_type']]?.toString() || '';
       } else if (isLiveFormat) {
         // Live Format - HANYA UPDATE AWARENESS
-        rawProductId = row['Product ID']?.toString() || '';
-        productName = row['Product name']?.toString() || row['Product Name']?.toString() || skuNameMapping[rawProductId] || 'Unknown Product';
+        rawProductId = row[columnMapping['product_id']]?.toString() || '';
+        productName = row[columnMapping['product_name']]?.toString() || skuNameMapping[rawProductId] || 'Unknown Product';
         gmv = 0; 
         quantity = 0;
         price = 0;
-        tiktokCampaignId = row['Campaign ID']?.toString() || '';
-        shopCode = row['Shop ID']?.toString() || '';
-        const rawUsername = row['Creator name'] || '';
+        tiktokCampaignId = row[columnMapping['tiktok_campaign_id']]?.toString() || '';
+        shopCode = row[columnMapping['shop_code']]?.toString() || '';
+        const rawUsername = row[columnMapping['creator_username']] || '';
         creatorUsername = rawUsername.replace('@', '').toLowerCase();
-        contentUid = row['Livestream room ID']?.toString() || '';
-        tanggal = parseTikTokDate(row['Date']?.toString() || row['LIVE time info']?.toString() || '');
+        contentUid = row[columnMapping['content_uid']]?.toString() || '';
+        tanggal = parseTikTokDate(row[columnMapping['post_time']]?.toString() || '');
         contentType = 'Livestream';
         orderId = ''; 
         orderStatus = 'Completed'; 
-        videoViews = parseInt(row['LIVE views'] || 0);
-        videoLikes = parseInt(row['LIVE likes'] || 0);
-        durationStr = row['Duration']?.toString() || '';
-        const rpmStr = row['LIVE product RPM']?.toString() || '0';
+        videoViews = parseInt(row[columnMapping['video_views']] || 0);
+        videoLikes = parseInt(row[columnMapping['video_likes']] || 0);
+        durationStr = row[columnMapping['duration_str']]?.toString() || '';
+        const rpmStr = row[columnMapping['video_product_rpm']]?.toString() || '0';
         videoProductRpm = Math.round(parseFloat(rpmStr.replace(/[^0-9]/g, '')) || 0);
       } else {
-        // Awareness Format - HANYA UPDATE AWARENESS
-        rawProductId = row['Product ID']?.toString() || '';
-        productName = row['Product name']?.toString() || row['Product Name']?.toString() || skuNameMapping[rawProductId] || 'Unknown Product';
+        // Awareness Format (Video)
+        rawProductId = row[columnMapping['product_id']]?.toString() || '';
+        productName = row[columnMapping['product_name']]?.toString() || skuNameMapping[rawProductId] || 'Unknown Product';
         gmv = 0; 
         quantity = 0;
         price = 0;
-        tiktokCampaignId = row['Campaign ID']?.toString() || '';
-        shopCode = row['Shop ID']?.toString() || '';
-        const rawUsername = row['Creator name'] || '';
+        tiktokCampaignId = row[columnMapping['tiktok_campaign_id']]?.toString() || '';
+        shopCode = row[columnMapping['shop_code']]?.toString() || '';
+        const rawUsername = row[columnMapping['creator_username']] || '';
         creatorUsername = rawUsername.replace('@', '').toLowerCase();
-        contentUid = row['Video ID']?.toString() || '';
-        tanggal = parseTikTokDate(row['Post time']?.toString() || '');
+        contentUid = row[columnMapping['content_uid']]?.toString() || '';
+        tanggal = parseTikTokDate(row[columnMapping['post_time']]?.toString() || '');
         contentType = 'Video';
         orderId = ''; 
         orderStatus = 'Completed'; 
-        videoViews = parseInt(row['Video views'] || 0);
-        videoLikes = parseInt(row['Video likes'] || 0);
-        durationStr = row['Duration']?.toString() || '';
-        const rpmStr = row['Video product RPM']?.toString() || '0';
+        videoViews = parseInt(row[columnMapping['video_views']] || 0);
+        videoLikes = parseInt(row[columnMapping['video_likes']] || 0);
+        durationStr = row[columnMapping['duration_str']]?.toString() || '';
+        const rpmStr = row[columnMapping['video_product_rpm']]?.toString() || '0';
         videoProductRpm = Math.round(parseFloat(rpmStr.replace(/[^0-9]/g, '')) || 0);
       }
 
@@ -525,7 +586,11 @@ export default function OrganicImport() {
           video_views: c.video_views,
           video_likes: c.video_likes,
           duration_str: c.duration_str,
-          video_product_rpm: c.video_product_rpm
+          video_product_rpm: c.video_product_rpm,
+          campaign_id: c.campaign_id,
+          product_id: c.product_id,
+          tiktok_campaign_id: c.tiktok_campaign_id,
+          raw_data: c.raw_data
         }));
       
       const { error } = salesChunk.length > 0 ? await supabase.from('sales').upsert(salesChunk as any, { onConflict: 'order_id' }) : { error: null };
@@ -639,17 +704,21 @@ export default function OrganicImport() {
   return (
     <Card className="border-0 shadow-md rounded-2xl overflow-hidden bg-white">
       {/* Wizard Header */}
-      <div className="bg-slate-50 border-b border-slate-100 p-4 flex items-center justify-between">
+      <div className="bg-slate-50 border-b border-slate-100 p-4 flex items-center justify-between overflow-x-auto whitespace-nowrap">
         <div className="flex items-center gap-2">
-          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${step >= 1 ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-500'}`}>1</div>
+          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${step >= 1 ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-500'}`}>1</div>
           <span className={`text-sm font-medium ${step >= 1 ? 'text-slate-900' : 'text-slate-500'}`}>Pilih File</span>
-          <div className="w-8 h-[2px] bg-slate-200 mx-1"></div>
+          <div className="w-8 h-[2px] bg-slate-200 mx-1 shrink-0"></div>
           
-          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${step >= 2 ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-500'}`}>2</div>
+          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${step >= 1.5 ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-500'}`}>M</div>
+          <span className={`text-sm font-medium ${step >= 1.5 ? 'text-slate-900' : 'text-slate-500'}`}>Mapping Kolom</span>
+          <div className="w-8 h-[2px] bg-slate-200 mx-1 shrink-0"></div>
+
+          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${step >= 2 ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-500'}`}>2</div>
           <span className={`text-sm font-medium ${step >= 2 ? 'text-slate-900' : 'text-slate-500'}`}>Preview</span>
-          <div className="w-8 h-[2px] bg-slate-200 mx-1"></div>
+          <div className="w-8 h-[2px] bg-slate-200 mx-1 shrink-0"></div>
           
-          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${step >= 3 ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-500'}`}>3</div>
+          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${step >= 3 ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-500'}`}>3</div>
           <span className={`text-sm font-medium ${step >= 3 ? 'text-slate-900' : 'text-slate-500'}`}>Import</span>
         </div>
       </div>
@@ -681,8 +750,7 @@ export default function OrganicImport() {
               />
               <Button variant="secondary" className="pointer-events-none rounded-xl">
                 Pilih File Komputer
-              </Button>
-              {files.length > 0 && (
+              </Button>              {files.length > 0 && (
                 <div className="mt-4 text-sm text-indigo-600 font-bold bg-indigo-100/50 py-2 px-4 rounded-lg inline-block">
                   Terpilih: {files.length} file <br/>
                   <span className="text-xs font-normal text-indigo-500">{files.map(f => f.name).join(', ')}</span>
@@ -690,13 +758,58 @@ export default function OrganicImport() {
               )}
             </div>
 
-            <Button 
-              className="w-full h-12 rounded-xl text-base bg-indigo-600 hover:bg-indigo-700 text-white" 
-              disabled={files.length === 0 || loading} 
-              onClick={processFileLocally}
-            >
-              {loading ? <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> Menganalisa File (Harap Tunggu)...</> : 'Lanjut ke Preview'}
+            <Button onClick={processFileLocally} className="w-full h-12 text-base font-bold rounded-xl" disabled={files.length === 0 || loading}>
+              {loading ? <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Sedang Memproses...</> : 'Lanjut ke Mapping Kolom'}
             </Button>
+          </div>
+        )}
+
+        {step === 1.5 && (
+          <div className="space-y-6">
+             <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+               <h3 className="font-bold text-slate-900 mb-2">Pencocokan Kolom (Column Mapping)</h3>
+               <p className="text-sm text-slate-600 mb-4">Pastikan nama kolom di sistem kami cocok dengan nama kolom yang ada di file Excel/CSV Anda. Sistem sudah mencoba mencocokkan otomatis.</p>
+               
+               <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-2">
+                 {REQUIRED_COLUMNS.map(col => (
+                   <div key={col.key} className="flex items-center justify-between p-3 bg-white rounded-lg border border-slate-200 shadow-sm">
+                     <div className="w-1/3">
+                        <span className="text-sm font-bold text-slate-800">{col.label}</span>
+                     </div>
+                     <div className="w-1/12 text-center text-slate-400">
+                        <ArrowRight className="w-4 h-4 mx-auto" />
+                     </div>
+                     <div className="w-7/12">
+                        <select 
+                          className="w-full text-sm border-slate-300 rounded-lg p-2 focus:ring-indigo-500 focus:border-indigo-500"
+                          value={columnMapping[col.key] || ''}
+                          onChange={(e) => setColumnMapping(prev => ({ ...prev, [col.key]: e.target.value }))}
+                        >
+                          <option value="">-- Pilih Kolom di Excel --</option>
+                          {csvHeaders.map(header => (
+                            <option key={header} value={header}>{header}</option>
+                          ))}
+                        </select>
+                     </div>
+                   </div>
+                 ))}
+               </div>
+             </div>
+             
+             <div className="flex gap-4">
+                <Button variant="outline" onClick={() => setStep(1)} className="w-1/3 h-12 text-base font-bold rounded-xl">Kembali</Button>
+                <Button 
+                  onClick={() => {
+                    setLoading(true);
+                    setTimeout(() => {
+                      generatePreview();
+                    }, 100);
+                  }} 
+                  className="w-2/3 h-12 text-base font-bold rounded-xl"
+                >
+                  Lanjut ke Preview
+                </Button>
+             </div>
           </div>
         )}
 

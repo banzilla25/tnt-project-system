@@ -13,7 +13,7 @@ import { useAuth } from '@/providers/AuthProvider';
 import { LiveSyncModal } from '@/components/LiveSyncModal';
 
 export default function InputPenjualanPage() {
-  const [activeTab, setActiveTab] = useState<'organik' | 'ads' | 'live'>('organik');
+  const [activeTab, setActiveTab] = useState<'organik_sales' | 'awareness_video' | 'awareness_live' | 'ads' | 'live'>('organik_sales');
   const { profile } = useAuth();
   
   const isManager = profile?.role === 'manager';
@@ -21,17 +21,35 @@ export default function InputPenjualanPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Input Penjualan</h1>
+        <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Input Penjualan & Performa</h1>
         <p className="text-slate-500 mt-1">Upload file export dari TikTok Partner Center & Ads Manager</p>
       </div>
 
-      <div className="flex border-b border-slate-200">
+      <div className="flex border-b border-slate-200 overflow-x-auto whitespace-nowrap">
         <button
-          className={`pb-4 px-4 font-medium text-sm transition-colors relative ${activeTab === 'organik' ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
-          onClick={() => setActiveTab('organik')}
+          className={`pb-4 px-4 font-medium text-sm transition-colors relative ${activeTab === 'organik_sales' ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
+          onClick={() => setActiveTab('organik_sales')}
         >
-          Data Organik
-          {activeTab === 'organik' && (
+          Organik Sales
+          {activeTab === 'organik_sales' && (
+            <span className="absolute bottom-0 left-0 w-full h-0.5 bg-indigo-600 rounded-t-full" />
+          )}
+        </button>
+        <button
+          className={`pb-4 px-4 font-medium text-sm transition-colors relative ${activeTab === 'awareness_video' ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
+          onClick={() => setActiveTab('awareness_video')}
+        >
+          Awareness Video
+          {activeTab === 'awareness_video' && (
+            <span className="absolute bottom-0 left-0 w-full h-0.5 bg-indigo-600 rounded-t-full" />
+          )}
+        </button>
+        <button
+          className={`pb-4 px-4 font-medium text-sm transition-colors relative ${activeTab === 'awareness_live' ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
+          onClick={() => setActiveTab('awareness_live')}
+        >
+          Awareness Live
+          {activeTab === 'awareness_live' && (
             <span className="absolute bottom-0 left-0 w-full h-0.5 bg-indigo-600 rounded-t-full" />
           )}
         </button>
@@ -55,8 +73,16 @@ export default function InputPenjualanPage() {
         </button>
       </div>
 
-      {activeTab === 'organik' && (
-        <OrganicImport />
+      {activeTab === 'organik_sales' && (
+        <OrganicImport mode="sales" />
+      )}
+
+      {activeTab === 'awareness_video' && (
+        <OrganicImport mode="video" />
+      )}
+
+      {activeTab === 'awareness_live' && (
+        <OrganicImport mode="live" />
       )}
 
       {activeTab === 'ads' && (

@@ -381,6 +381,10 @@ export type OrganicVideo = {
   video_likes: number;
   duration_str: string | null;
   video_product_rpm: number;
+  campaign_id?: number | null;
+  product_id?: string | null;
+  tiktok_campaign_id?: string | null;
+  raw_data?: any | null;
   created_at: string;
 };
 
