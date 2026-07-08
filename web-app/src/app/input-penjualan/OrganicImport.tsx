@@ -333,16 +333,40 @@ export default function OrganicImport() {
         videoProductRpm = Math.round(parseFloat(rpmStr.replace(/[^0-9]/g, '')) || 0);
       }
 
-      // SMART ROUTING
+      // SMART ROUTING: Hierarchy 1: Campaign ID -> Hierarchy 2: Product ID
       let mappedCampaignId = null;
 
-      if (rawProductId && skuMapping[rawProductId]) {
-        mappedCampaignId = skuMapping[rawProductId]; // Priority 1: SKU
-      } else if (tiktokCampaignId && tiktokToCampaigns[tiktokCampaignId]) {
+      if (tiktokCampaignId && tiktokToCampaigns[tiktokCampaignId]) {
         const possibleCampaigns = tiktokToCampaigns[tiktokCampaignId];
         if (possibleCampaigns.length === 1) {
-           mappedCampaignId = possibleCampaigns[0]; // Priority 2: Safe Campaign ID fallback
+           mappedCampaignId = possibleCampaigns[0]; // Priority 1: Safe Campaign ID fallback
+        } else if (possibleCampaigns.length > 1) {
+           // Disambiguate by SKU if possible
+           if (rawProductId && skuMapping[rawProductId] && possibleCampaigns.includes(skuMapping[rawProductId])) {
+               mappedCampaignId = skuMapping[rawProductId];
+           } else {
+               mappedCampaignId = possibleCampaigns[0];
+           }
         }
+      }
+      
+      // Fallback to Priority 2: SKU
+      if (!mappedCampaignId && rawProductId && skuMapping[rawProductId]) {
+         const potentialCampaignId = skuMapping[rawProductId];
+         const c = campaigns?.find(c => c.id === potentialCampaignId);
+         const hasRequiredCampaignIds = c?.tiktok_campaign_ids && c.tiktok_campaign_ids.length > 0;
+         
+         if (hasRequiredCampaignIds) {
+             // Wajib Filter: Jika campaign mengatur TikTok Campaign IDs, baris INI HARUS punya ID yg cocok
+             if (tiktokCampaignId && c.tiktok_campaign_ids.includes(tiktokCampaignId)) {
+                 mappedCampaignId = potentialCampaignId;
+             } else {
+                 mappedCampaignId = null; // Tolak baris ini dari campaign tersebut
+             }
+         } else {
+             // Jika campaign tidak mensyaratkan Campaign ID, assign by SKU
+             mappedCampaignId = potentialCampaignId;
+         }
       }
 
       if (!mappedCampaignId) {
