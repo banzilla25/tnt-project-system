@@ -64,7 +64,8 @@ function CampaignLayoutInner({ children }: { children: React.ReactNode }) {
     budget_ads_plafon: '',
     require_client_approval: false,
     pin: '',
-    tiktok_campaign_ids: ''
+    tiktok_campaign_ids: '',
+    status: 'aktif'
   });
 
   useEffect(() => {
@@ -82,7 +83,8 @@ function CampaignLayoutInner({ children }: { children: React.ReactNode }) {
         budget_ads_plafon: campaign.budget_ads_plafon?.toString() || '',
         require_client_approval: campaign.require_client_approval || false,
         pin: campaign.pin || '',
-        tiktok_campaign_ids: campaign.tiktok_campaign_ids?.join(', ') || ''
+        tiktok_campaign_ids: campaign.tiktok_campaign_ids?.join(', ') || '',
+        status: (campaign as any).status || 'aktif'
       });
     }
   }, [campaign, isSettingsOpen]);
@@ -102,7 +104,8 @@ function CampaignLayoutInner({ children }: { children: React.ReactNode }) {
       budget_ads_plafon: Number(formData.budget_ads_plafon || 0),
       require_client_approval: formData.require_client_approval,
       pin: formData.pin,
-      tiktok_campaign_ids: formData.tiktok_campaign_ids ? formData.tiktok_campaign_ids.split(',').map(id => id.trim()).filter(id => id) : []
+      tiktok_campaign_ids: formData.tiktok_campaign_ids ? formData.tiktok_campaign_ids.split(',').map(id => id.trim()).filter(id => id) : [],
+      status: formData.status as 'aktif' | 'selesai'
     });
     setIsSettingsOpen(false);
   };
@@ -169,6 +172,13 @@ function CampaignLayoutInner({ children }: { children: React.ReactNode }) {
                     <div className="space-y-2">
                       <label className="text-sm font-medium">PIN Akses Klien</label>
                       <input required type="text" className="input font-mono" value={formData.pin} onChange={e => setFormData({...formData, pin: e.target.value})} placeholder="Contoh: 1234" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Status Campaign</label>
+                      <select required className="select" value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})}>
+                        <option value="aktif">Sedang Berjalan (Aktif)</option>
+                        <option value="selesai">Selesai</option>
+                      </select>
                     </div>
                     <div className="space-y-2">
                       <label className="text-sm font-medium">Start Date</label>
