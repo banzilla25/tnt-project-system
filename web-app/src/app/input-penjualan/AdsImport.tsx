@@ -3,13 +3,14 @@
 import { useState, useRef, useEffect, useDeferredValue } from "react";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { Upload, AlertCircle, CheckCircle2, ChevronDown, ChevronRight, Loader2, ArrowRight } from "lucide-react";
+import { Upload, AlertCircle, CheckCircle2, ChevronDown, ChevronRight, Loader2, ArrowRight, Trash2 } from "lucide-react";
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
 import { createClient } from "@/utils/supabase/client";
 import { useDatabaseStore } from "@/store/useDatabaseStore";
+import { StringCombobox } from "@/components/StringCombobox";
 
-// Komponen mini untuk Searchable Select (Dynamic Fetch)
+// SearchableSelect component (unchanged)
 function SearchableSelect({ value, initialLabel, onChange, placeholder }: { value: number | '', initialLabel?: string, onChange: (val: number | '') => void, placeholder: string }) {
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
@@ -34,20 +35,13 @@ function SearchableSelect({ value, initialLabel, onChange, placeholder }: { valu
         setOptions([]);
         return;
       }
-      
       const fuzzyPattern = '%' + trimmed.split('').join('%') + '%';
-      
-      const { data } = await supabase.from('creators')
-        .select('id, username')
-        .ilike('username', fuzzyPattern)
-        .limit(20);
-        
+      const { data } = await supabase.from('creators').select('id, username').ilike('username', fuzzyPattern).limit(20);
       if (data) {
         const sorted = data.map(d => ({ id: d.id, label: `@${d.username}` })).sort((a, b) => a.label.length - b.label.length).slice(0, 5);
         setOptions(sorted);
       }
     };
-
     const handler = setTimeout(fetchOptions, 300);
     return () => clearTimeout(handler);
   }, [search]);
@@ -56,39 +50,13 @@ function SearchableSelect({ value, initialLabel, onChange, placeholder }: { valu
 
   return (
     <div className="relative w-full" ref={wrapperRef}>
-      <input
-        type="text"
-        className="w-full p-2 border border-slate-300 rounded text-sm focus:outline-none focus:border-indigo-500"
-        placeholder={placeholder}
-        value={displayValue}
-        onClick={() => { setOpen(true); setSearch(""); }}
-        onChange={(e) => {
-          setSearch(e.target.value);
-          setOpen(true);
-        }}
-      />
+      <input type="text" className="w-full p-2 border border-slate-300 rounded text-sm focus:outline-none focus:border-indigo-500" placeholder={placeholder} value={displayValue} onClick={() => { setOpen(true); setSearch(""); }} onChange={(e) => { setSearch(e.target.value); setOpen(true); }} />
       {open && (
         <div className="absolute z-10 w-[250px] mt-1 bg-white border border-slate-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
           {options.length === 0 ? (
-            <div className="p-2 text-xs text-slate-500 text-center">
-              {search.trim() ? "Tidak ditemukan" : "Ketik untuk mencari..."}
-            </div>
+            <div className="p-2 text-xs text-slate-500 text-center">{search.trim() ? "Tidak ditemukan" : "Ketik untuk mencari..."}</div>
           ) : (
-            <>
-              {options.map(opt => (
-                <div
-                  key={opt.id}
-                  className="p-2 text-xs hover:bg-slate-50 cursor-pointer"
-                  onClick={() => {
-                    onChange(opt.id);
-                    setSearch(opt.label);
-                    setOpen(false);
-                  }}
-                >
-                  {opt.label}
-                </div>
-              ))}
-            </>
+            <>{options.map(opt => <div key={opt.id} className="p-2 text-xs hover:bg-slate-50 cursor-pointer" onClick={() => { onChange(opt.id); setSearch(opt.label); setOpen(false); }}>{opt.label}</div>)}</>
           )}
         </div>
       )}
@@ -96,118 +64,153 @@ function SearchableSelect({ value, initialLabel, onChange, placeholder }: { valu
   );
 }
 
+type FileConfig = {
+  id: string;
+  file: File;
+  tanggal: string;
+  campaignId: number | '';
+  campaignAdsName: string;
+  kurs: string;
+  parsedData?: any[];
+};
+
 export default function AdsImport() {
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<FileConfig[]>([]);
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState(1);
-  const [result, setResult] = useState<{success: number; skipped: number; errors: string[]} | null>(null);
+  const [result, setResult] = useState<{success: number; errors: string[]} | null>(null);
   
   const { campaigns, creators } = useDatabaseStore();
-  
-  const [selectedCampaign, setSelectedCampaign] = useState<number | ''>('');
-  const [kurs, setKurs] = useState<string>('16000');
-  const [importMode, setImportMode] = useState<'replace' | 'accumulate'>('replace');
-  
-  const [parsedData, setParsedData] = useState<any[]>([]);
   const [unmappedAds, setUnmappedAds] = useState<{adName: string, adId: string}[]>([]);
   const [mappings, setMappings] = useState<Record<string, number>>({});
-  const [existingAdsMap, setExistingAdsMap] = useState<Map<string, any>>(new Map());
-  const [showErrorLogs, setShowErrorLogs] = useState(false);
+  const [globalCampaignAdsOptions, setGlobalCampaignAdsOptions] = useState<string[]>([]);
   
-  const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
-  const [searchQuery, setSearchQuery] = useState('');
-  const [previewPage, setPreviewPage] = useState(1);
-
   const supabase = createClient();
 
+  useEffect(() => {
+    // Fetch unique campaign ads names for auto-complete
+    const fetchCampaignAds = async () => {
+      const { data } = await supabase.from('ads_performance').select('campaign_ads_name');
+      if (data) {
+        const unique = Array.from(new Set(data.map(d => d.campaign_ads_name).filter(Boolean))) as string[];
+        setGlobalCampaignAdsOptions(unique);
+      }
+    };
+    fetchCampaignAds();
+  }, []);
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0]);
-      setResult(null);
-      setUnmappedAds([]);
-      setParsedData([]);
-      setStep(1);
+    if (e.target.files && e.target.files.length > 0) {
+      const newFiles = Array.from(e.target.files).map(f => {
+        // Try to guess date from filename (e.g. 2025-08-11 to 2026-03-10)
+        const dateMatch = f.name.match(/(\d{4}-\d{2}-\d{2})/g);
+        const guessedDate = dateMatch && dateMatch.length > 0 ? dateMatch[dateMatch.length - 1] : new Date().toISOString().split('T')[0];
+        
+        // Try to guess campaign ads name
+        let guessedCampaignAds = '';
+        if (f.name.toLowerCase().includes('qah')) guessedCampaignAds = 'QAHIRA';
+        else if (f.name.toLowerCase().includes('man')) guessedCampaignAds = 'MANIS2';
+
+        return {
+          id: Math.random().toString(),
+          file: f,
+          tanggal: guessedDate,
+          campaignId: campaigns.length > 0 ? campaigns[0].id : '',
+          campaignAdsName: guessedCampaignAds,
+          kurs: '16000'
+        };
+      });
+      setFiles([...files, ...newFiles]);
     }
   };
 
-  const handleParseAndDetect = async () => {
-    if (!file || !selectedCampaign || !kurs) return;
-    setLoading(true);
+  const updateFileConfig = (id: string, field: keyof FileConfig, value: any) => {
+    setFiles(files.map(f => f.id === id ? { ...f, [field]: value } : f));
+  };
 
-    const ext = file.name.split('.').pop()?.toLowerCase();
+  const removeFile = (id: string) => {
+    setFiles(files.filter(f => f.id !== id));
+  };
 
-    const processParsed = async (data: any[]) => {
-      const validData = data.filter(row => Object.keys(row).length > 0 && (row['Ad name'] || row['Ad Name'] || row['Ad Group Name']));
-      
-      const missingAdIds = validData.filter(row => !String(row['Ad ID'] || row['Ad ID (Shop)'] || row['Ad Id'] || '').trim());
-      if (missingAdIds.length > 0) {
-        alert(`BLOKIR: Terdapat ${missingAdIds.length} baris iklan yang tidak memiliki Ad ID. Mohon perbaiki file Excel Anda dan isi Ad ID-nya (atau buat manual) untuk mencegah duplikasi fatal.`);
-        setLoading(false);
-        return;
-      }
-
-      setParsedData(validData);
-
-      const { data: dbMappings } = await supabase.from('ad_name_mapping').select('*');
-      const knownMappingMap: Record<string, number> = {};
-      dbMappings?.forEach(m => knownMappingMap[m.ad_name] = m.creator_id);
-
-      let unknownAdsMap = new Map<string, string>(); 
-      const adIds = new Set<string>();
-
-      for (const row of validData) {
-        const adName = row['Ad name'] || row['Ad Name'] || row['Ad Group Name'] || '';
-        const adId = String(row['Ad ID'] || row['Ad ID (Shop)'] || row['Ad Id'] || '').trim();
-        adIds.add(adId);
-        
-        if (adName && !knownMappingMap[adName]) {
-          unknownAdsMap.set(adName, adId);
-        }
-      }
-
-      // Fetch existing ads
-      const { data: existingAds } = await supabase.from('ads_performance').select('ad_id, cost_usd, gross_revenue_usd, purchases, impressions, clicks').in('ad_id', Array.from(adIds));
-      const existMap = new Map();
-      existingAds?.forEach(ad => {
-        const prev = existMap.get(ad.ad_id) || { cost_usd: 0, gross_revenue_usd: 0, purchases: 0, impressions: 0, clicks: 0 };
-        existMap.set(ad.ad_id, {
-          cost_usd: prev.cost_usd + (ad.cost_usd || 0),
-          gross_revenue_usd: prev.gross_revenue_usd + (ad.gross_revenue_usd || 0),
-          purchases: prev.purchases + (ad.purchases || 0),
-          impressions: prev.impressions + (ad.impressions || 0),
-          clicks: prev.clicks + (ad.clicks || 0),
-        });
-      });
-      setExistingAdsMap(existMap);
-
-      const unknownAdsList = Array.from(unknownAdsMap.entries()).map(([name, id]) => ({ adName: name, adId: id }));
-      
-      setMappings(knownMappingMap);
-      setUnmappedAds(unknownAdsList);
-      setSelectedIndices(new Set(validData.map((_, i) => i)));
-      setPreviewPage(1);
-      setSearchQuery('');
-      setStep(unknownAdsList.length > 0 ? 2 : 3);
-      setLoading(false);
-    };
-
-    if (ext === 'csv') {
-      Papa.parse(file, {
-        header: true,
-        skipEmptyLines: true,
-        complete: (results) => processParsed(results.data),
-        error: (err) => { alert(err.message); setLoading(false); }
-      });
-    } else if (ext === 'xlsx' || ext === 'xls') {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const data = new Uint8Array(e.target?.result as ArrayBuffer);
-        const workbook = XLSX.read(data, { type: 'array' });
-        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-        processParsed(XLSX.utils.sheet_to_json(worksheet));
-      };
-      reader.readAsArrayBuffer(file);
+  const handleScanFiles = async () => {
+    if (files.length === 0) return;
+    
+    // Validate
+    const invalidFile = files.find(f => !f.tanggal || !f.campaignId || !f.campaignAdsName || !f.kurs);
+    if (invalidFile) {
+      alert(`Mohon lengkapi Tanggal, Campaign Sistem, Campaign Ads, dan Kurs untuk file: ${invalidFile.file.name}`);
+      return;
     }
+
+    setLoading(true);
+    let allValidData: any[] = [];
+    const newFilesWithData = [...files];
+    let hasMissingAdId = false;
+
+    // Process all files
+    for (let i = 0; i < newFilesWithData.length; i++) {
+      const fConfig = newFilesWithData[i];
+      const ext = fConfig.file.name.split('.').pop()?.toLowerCase();
+      
+      const parsed = await new Promise<any[]>((resolve, reject) => {
+        if (ext === 'csv') {
+          Papa.parse(fConfig.file, {
+            header: true, skipEmptyLines: true,
+            complete: (results) => resolve(results.data),
+            error: reject
+          });
+        } else {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            const data = new Uint8Array(e.target?.result as ArrayBuffer);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+            resolve(XLSX.utils.sheet_to_json(worksheet));
+          };
+          reader.readAsArrayBuffer(fConfig.file);
+        }
+      });
+
+      const validData = parsed.filter(row => Object.keys(row).length > 0 && (row['Ad name'] || row['Ad Name'] || row['Ad Group Name']));
+      const missingAdIds = validData.filter(row => !String(row['Ad ID'] || row['Ad ID (Shop)'] || row['Ad Id'] || '').trim());
+      
+      if (missingAdIds.length > 0) {
+        alert(`BLOKIR: File ${fConfig.file.name} memiliki ${missingAdIds.length} baris tanpa Ad ID. Harap perbaiki.`);
+        hasMissingAdId = true;
+        break;
+      }
+      
+      fConfig.parsedData = validData;
+      allValidData.push(...validData);
+    }
+
+    if (hasMissingAdId) {
+      setLoading(false);
+      return;
+    }
+
+    setFiles(newFilesWithData);
+
+    // Detect missing mappings
+    const { data: dbMappings } = await supabase.from('ad_name_mapping').select('*');
+    const knownMappingMap: Record<string, number> = {};
+    dbMappings?.forEach(m => knownMappingMap[m.ad_name] = m.creator_id);
+
+    let unknownAdsMap = new Map<string, string>(); 
+    for (const row of allValidData) {
+      const adName = row['Ad name'] || row['Ad Name'] || row['Ad Group Name'] || '';
+      const adId = String(row['Ad ID'] || row['Ad ID (Shop)'] || row['Ad Id'] || '').trim();
+      if (adName && !knownMappingMap[adName]) {
+        unknownAdsMap.set(adName, adId);
+      }
+    }
+
+    setMappings(knownMappingMap);
+    const unknownAdsList = Array.from(unknownAdsMap.entries()).map(([name, id]) => ({ adName: name, adId: id }));
+    setUnmappedAds(unknownAdsList);
+    
+    setStep(unknownAdsList.length > 0 ? 2 : 3);
+    setLoading(false);
   };
 
   const executeImport = async () => {
@@ -216,87 +219,76 @@ export default function AdsImport() {
 
     try {
       let successCount = 0;
-      let skippedCount = 0;
       let errors: string[] = [];
 
+      // Save mappings
       const newMappings = unmappedAds.filter(ad => mappings[ad.adName]).map(ad => ({ ad_name: ad.adName, creator_id: mappings[ad.adName] }));
       for (const mapping of newMappings) {
         await supabase.from('ad_name_mapping').upsert(mapping, { onConflict: 'ad_name' });
       }
 
-      const dataToImport = parsedData.filter((_, idx) => selectedIndices.has(idx));
-      const chunkSize = 100;
-      for (let i = 0; i < dataToImport.length; i += chunkSize) {
-        const chunk = dataToImport.slice(i, i + chunkSize);
+      // Process each file
+      for (const fConfig of files) {
+        if (!fConfig.parsedData) continue;
         
-        const safeParseNum = (val: any) => {
-          if (!val) return 0;
-          if (typeof val === 'number') return val;
-          const cleaned = String(val).replace(/[^0-9.-]+/g, "");
-          return Number(cleaned) || 0;
-        };
-
-        const rawInserts = chunk.map(row => {
-          const adName = row['Ad name'] || row['Ad Name'] || row['Ad Group Name'] || '';
-          const adId = String(row['Ad ID'] || row['Ad ID (Shop)'] || row['Ad Id']).trim();
-          const costUsd = safeParseNum(row['Cost'] || row['Spend'] || row['Amount Spent (USD)']);
-          const grossRevenueUsd = safeParseNum(row['Gross revenue (Shop)'] || row['Total Revenue']);
-          const purchases = safeParseNum(row['Purchases (Shop)'] || row['Purchases'] || row['Conversions']);
-          const impressions = safeParseNum(row['Impressions']);
-          const clicks = safeParseNum(row['Clicks (destination)'] || row['Clicks']);
-          const creatorId = mappings[adName] || null;
-
-          const oldData = existingAdsMap.get(adId) || { cost_usd: 0, gross_revenue_usd: 0, purchases: 0, impressions: 0, clicks: 0 };
+        const chunkSize = 100;
+        for (let i = 0; i < fConfig.parsedData.length; i += chunkSize) {
+          const chunk = fConfig.parsedData.slice(i, i + chunkSize);
           
-          let deltaCost = costUsd;
-          let deltaRev = grossRevenueUsd;
-          let deltaPurchases = purchases;
-          let deltaImpressions = impressions;
-          let deltaClicks = clicks;
-
-          if (importMode === 'replace') {
-            // Mode "Timpa" / Lifetime: Hitung selisih dari total akumulasi di DB
-            deltaCost = Math.max(0, costUsd - oldData.cost_usd);
-            deltaRev = Math.max(0, grossRevenueUsd - oldData.gross_revenue_usd);
-            deltaPurchases = Math.max(0, purchases - oldData.purchases);
-            deltaImpressions = Math.max(0, impressions - oldData.impressions);
-            deltaClicks = Math.max(0, clicks - oldData.clicks);
-          }
-
-          return {
-            ad_id: adId,
-            campaign_id: Number(selectedCampaign),
-            ad_name: adName,
-            creator_id: creatorId,
-            tanggal: new Date().toISOString().split('T')[0],
-            cost_usd: Number(deltaCost.toFixed(2)),
-            gross_revenue_usd: Number(deltaRev.toFixed(2)),
-            purchases: deltaPurchases,
-            impressions: deltaImpressions,
-            clicks: deltaClicks,
-            kurs: safeParseNum(kurs)
+          const safeParseNum = (val: any) => {
+            if (!val) return 0;
+            if (typeof val === 'number') return val;
+            const cleaned = String(val).replace(/[^0-9.-]+/g, "");
+            return Number(cleaned) || 0;
           };
-        });
 
-        // Hanya masukkan data yang ada selisih pertumbuhannya (menghindari spam row 0)
-        const inserts = rawInserts.filter(row => 
-           row.cost_usd > 0.01 || row.gross_revenue_usd > 0.01 || row.purchases > 0 || row.impressions > 0 || row.clicks > 0
-        );
+          const rawInserts = chunk.map(row => {
+            const adName = row['Ad name'] || row['Ad Name'] || row['Ad Group Name'] || '';
+            const adId = String(row['Ad ID'] || row['Ad ID (Shop)'] || row['Ad Id']).trim();
+            const costUsd = safeParseNum(row['Cost'] || row['Spend'] || row['Amount Spent (USD)']);
+            const grossRevenueUsd = safeParseNum(row['Gross revenue (Shop)'] || row['Total Revenue']);
+            const purchases = safeParseNum(row['Purchases (Shop)'] || row['Purchases'] || row['Conversions']);
+            const impressions = safeParseNum(row['Impressions']);
+            const clicks = safeParseNum(row['Clicks (destination)'] || row['Clicks']);
+            
+            // NEW RAW ARCHITECTURE: Insert raw values directly!
+            return {
+              campaign_id: fConfig.campaignId,
+              campaign_ads_name: fConfig.campaignAdsName,
+              tanggal: fConfig.tanggal,
+              kurs: fConfig.kurs,
+              ad_name: adName,
+              ad_id: adId,
+              creator_id: mappings[adName],
+              cost_usd: costUsd,
+              gross_revenue_usd: grossRevenueUsd,
+              purchases: purchases,
+              impressions: impressions,
+              clicks: clicks,
+              product_page_views: ppv,
+              checkouts_initiated: checkouts,
+              items_purchased: itemsPurchased,
+            };
+          });
 
-        if (inserts.length === 0) {
-           continue; // Skip batch ini jika tidak ada data baru
-        }
+          // Insert or Update the snapshot for that ad_id and tanggal
+          // Deleting purely by tanggal and ad_id ensures we overwrite old mistakes (even if they were mapped to the wrong campaign)
+          const adIds = rawInserts.map(r => r.ad_id);
+          await supabase.from('ads_performance').delete()
+            .eq('tanggal', fConfig.tanggal)
+            .in('ad_id', adIds);
 
-        const { error } = await supabase.from('ads_performance').insert(inserts);
-        
-        if (error) {
-          errors.push(`Gagal insert batch ${i}: ${error.message}`);
-        } else {
-          successCount += inserts.length;
+          const { error } = await supabase.from('ads_performance').insert(rawInserts);
+
+          if (error) {
+            errors.push(`File ${fConfig.file.name} Chunk ${i}: ${error.message}`);
+          } else {
+            successCount += rawInserts.length;
+          }
         }
       }
 
-      setResult({ success: successCount, skipped: skippedCount, errors });
+      setResult({ success: successCount, errors });
       setStep(5);
       
       if (successCount > 0) {
@@ -311,79 +303,76 @@ export default function AdsImport() {
     }
   };
 
-  const safeParseNum = (val: any) => {
-    if (!val) return 0;
-    if (typeof val === 'number') return val;
-    const cleaned = String(val).replace(/[^0-9.-]+/g, "");
-    return Number(cleaned) || 0;
-  };
-
-  const getAdName = (row: any) => row['Ad name'] || row['Ad Name'] || row['Ad Group Name'] || '';
-  
-  const filteredAds = parsedData.map((row, index) => ({ row, index })).filter(({ row }) => {
-    const adName = getAdName(row).toLowerCase();
-    const creatorId = mappings[getAdName(row)];
-    const creatorName = creatorId ? creators.find(c => c.id === creatorId)?.username?.toLowerCase() || '' : '';
-    const q = searchQuery.toLowerCase();
-    return adName.includes(q) || creatorName.includes(q);
-  });
-  
-  const isAllVisibleSelected = filteredAds.length > 0 && filteredAds.every(({ index }) => selectedIndices.has(index));
-  const handleSelectAllVisible = () => {
-    const s = new Set(selectedIndices);
-    if (isAllVisibleSelected) {
-      filteredAds.forEach(({index}) => s.delete(index));
-    } else {
-      filteredAds.forEach(({index}) => s.add(index));
-    }
-    setSelectedIndices(s);
-  };
-
   return (
     <Card>
       <CardContent className="p-6 space-y-6">
-        
         {step === 1 && (
           <div className="space-y-6 animate-in fade-in duration-300">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Campaign Tujuan</label>
-                <select className="w-full p-2 border border-slate-300 rounded-lg focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" value={selectedCampaign} onChange={e => setSelectedCampaign(Number(e.target.value))}>
-                  <option value="">-- Pilih Campaign --</option>
-                  {campaigns.map(c => <option key={c.id} value={c.id}>{c.nama}</option>)}
-                </select>
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Kurs USD to IDR Hari Ini</label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm">Rp</span>
-                  <input type="number" className="w-full p-2 pl-8 border border-slate-300 rounded-lg focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" value={kurs} onChange={e => setKurs(e.target.value)} />
-                </div>
-              </div>
-            </div>
-            
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Mode Import</label>
-              <select className="w-full p-2 border border-slate-300 rounded-lg focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-white" value={importMode} onChange={e => setImportMode(e.target.value as 'replace' | 'accumulate')}>
-                <option value="replace">Timpa Data Lama (Gunakan jika data Excel berupa Laporan Total/Lifetime)</option>
-                <option value="accumulate">Akumulasi / Tambahkan Data (Gunakan jika data Excel berupa Pertambahan Harian)</option>
-              </select>
-            </div>
-
             <div className="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center bg-slate-50 hover:bg-slate-100 transition-colors">
               <Upload className="w-10 h-10 text-slate-400 mx-auto mb-4" />
-              <p className="font-bold text-slate-700 mb-1">Upload File TikTok Ads</p>
-              <p className="text-sm text-slate-500 mb-4">Mendukung format .csv dan .xlsx (Gunakan Laporan Ads Manager)</p>
-              <input type="file" accept=".csv, .xlsx, .xls" className="hidden" id="ads-upload" onChange={handleFileUpload} />
+              <p className="font-bold text-slate-700 mb-1">Batch Upload File TikTok Ads</p>
+              <p className="text-sm text-slate-500 mb-4">Anda bisa memilih banyak file sekaligus (.xlsx, .csv)</p>
+              <input type="file" multiple accept=".csv, .xlsx, .xls" className="hidden" id="ads-upload" onChange={handleFileUpload} />
               <Button variant="outline" className="rounded-xl border-slate-300" onClick={() => document.getElementById('ads-upload')?.click()}>
                 Browse Files
               </Button>
-              {file && <p className="mt-4 text-sm text-indigo-600 font-medium bg-indigo-50 p-2 rounded-lg inline-block">Terpilih: {file.name}</p>}
             </div>
 
-            <Button className="w-full h-12 text-md rounded-xl bg-indigo-600 hover:bg-indigo-700" disabled={!file || !selectedCampaign || !kurs || loading} onClick={handleParseAndDetect}>
-              {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Pindai File (Scan)"}
-            </Button>
+            {files.length > 0 && (
+              <div className="space-y-4">
+                <h3 className="font-bold text-lg">Daftar File ({files.length})</h3>
+                <div className="border rounded-xl overflow-hidden overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-slate-50">
+                      <tr>
+                        <th className="px-3 py-2 text-left">Nama File</th>
+                        <th className="px-3 py-2 text-left">Tanggal</th>
+                        <th className="px-3 py-2 text-left">Campaign Sistem</th>
+                        <th className="px-3 py-2 text-left">Campaign Ads</th>
+                        <th className="px-3 py-2 text-left">Kurs USD</th>
+                        <th className="px-3 py-2"></th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {files.map(f => (
+                        <tr key={f.id} className="hover:bg-slate-50">
+                          <td className="px-3 py-2 max-w-[150px] truncate" title={f.file.name}>{f.file.name}</td>
+                          <td className="px-3 py-2">
+                            <input type="date" className="p-1.5 border rounded w-[130px]" value={f.tanggal} onChange={(e) => updateFileConfig(f.id, 'tanggal', e.target.value)} />
+                          </td>
+                          <td className="px-3 py-2">
+                            <select className="p-1.5 border rounded w-[150px]" value={f.campaignId} onChange={(e) => updateFileConfig(f.id, 'campaignId', Number(e.target.value))}>
+                              <option value="">Pilih...</option>
+                              {campaigns.map(c => <option key={c.id} value={c.id}>{c.nama}</option>)}
+                            </select>
+                          </td>
+                          <td className="px-3 py-2">
+                            <div className="w-[180px]">
+                              <StringCombobox 
+                                value={f.campaignAdsName} 
+                                onChange={(val) => updateFileConfig(f.id, 'campaignAdsName', val)} 
+                                options={globalCampaignAdsOptions} 
+                                placeholder="Cth: QAHIRA" 
+                                className="w-full"
+                              />
+                            </div>
+                          </td>
+                          <td className="px-3 py-2">
+                            <input type="number" className="p-1.5 border rounded w-[90px]" value={f.kurs} onChange={(e) => updateFileConfig(f.id, 'kurs', e.target.value)} />
+                          </td>
+                          <td className="px-3 py-2 text-center">
+                            <button onClick={() => removeFile(f.id)} className="text-red-500 hover:text-red-700 p-1"><Trash2 className="w-4 h-4" /></button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <Button className="w-full h-12 text-md rounded-xl bg-indigo-600 hover:bg-indigo-700" disabled={loading} onClick={handleScanFiles}>
+                  {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Pindai & Proses Semua File"}
+                </Button>
+              </div>
+            )}
           </div>
         )}
 
@@ -394,9 +383,7 @@ export default function AdsImport() {
                 <AlertCircle className="w-5 h-5" />
                 Meja Verifikasi: {unmappedAds.length} Iklan Belum Dikenali
               </div>
-              <p className="text-sm text-amber-700">
-                Sistem mendeteksi ada beberapa *Ad Name* yang belum pernah terdaftar. Silakan pilih kreator yang tepat agar sistem mengingatnya (Permanent Mapping).
-              </p>
+              <p className="text-sm text-amber-700">Silakan pilih kreator yang tepat agar sistem mengingatnya (Permanent Mapping).</p>
             </div>
             
             <div className="border border-slate-200 rounded-xl overflow-hidden max-h-[400px] overflow-y-auto">
@@ -412,21 +399,15 @@ export default function AdsImport() {
                     <tr key={i} className="hover:bg-slate-50">
                       <td className="px-4 py-3 font-medium text-slate-700 max-w-[200px] truncate" title={ad.adName}>{ad.adName}</td>
                       <td className="px-4 py-3">
-                        <SearchableSelect 
-                          value={mappings[ad.adName] || ''}
-                          initialLabel={mappings[ad.adName] ? `@${creators.find(c => c.id === mappings[ad.adName])?.username}` : ''}
-                          onChange={(val) => setMappings({...mappings, [ad.adName]: val as number})}
-                          placeholder="Ketik username kreator..."
-                        />
+                        <SearchableSelect value={mappings[ad.adName] || ''} initialLabel={mappings[ad.adName] ? `@${creators.find(c => c.id === mappings[ad.adName])?.username}` : ''} onChange={(val) => setMappings({...mappings, [ad.adName]: val as number})} placeholder="Ketik username kreator..." />
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-            
-            <div className="flex gap-3 pt-4 border-t border-slate-100">
-              <Button variant="outline" className="w-1/3 h-12 rounded-xl" onClick={() => setStep(1)}>Batal</Button>
+            <div className="flex gap-3 pt-4">
+              <Button variant="outline" className="w-1/3 h-12 rounded-xl" onClick={() => setStep(1)}>Kembali</Button>
               <Button className="w-2/3 h-12 rounded-xl bg-indigo-600" onClick={() => setStep(3)}>Simpan Mapping & Lanjut</Button>
             </div>
           </div>
@@ -434,200 +415,48 @@ export default function AdsImport() {
 
         {step === 3 && (
           <div className="space-y-4 animate-in zoom-in-95 duration-300">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2"><CheckCircle2 className="w-6 h-6 text-green-500" /> Preview & Seleksi Data Ads</h3>
-                <p className="text-sm text-slate-500 mt-1">
-                  Pilih baris yang ingin Bapak import. Data Ad Name yang <strong>belum dimapping</strong> akan tetap masuk ke Campaign, tapi tidak terikat ke kreator manapun.
-                </p>
-              </div>
+            <div className="text-center py-10">
+              <CheckCircle2 className="w-16 h-16 text-green-500 mx-auto mb-4" />
+              <h3 className="text-2xl font-bold text-slate-800">Semua File Siap Di-import!</h3>
+              <p className="text-slate-500 mt-2">Data raw akan disimpan sesuai tanggal masing-masing file.</p>
             </div>
-
-            <div className="flex items-center justify-between bg-slate-50 p-3 rounded-xl border border-slate-200">
-              <div className="flex items-center gap-4">
-                <div className="text-sm">
-                  <span className="font-semibold text-indigo-700">{selectedIndices.size}</span> baris dipilih dari total {parsedData.length} baris
-                </div>
-              </div>
-              <input 
-                type="text" 
-                placeholder="Cari Ad Name atau Username..." 
-                className="p-2 text-sm border border-slate-300 rounded-lg w-64 focus:ring-1 focus:ring-indigo-500"
-                value={searchQuery}
-                onChange={e => { setSearchQuery(e.target.value); setPreviewPage(1); }}
-              />
-            </div>
-
-            <div className="border border-slate-200 rounded-xl overflow-hidden">
-              <div className="overflow-x-auto max-h-[500px]">
-                <table className="w-full text-sm text-left">
-                  <thead className="bg-slate-100 border-b border-slate-200 text-slate-700 sticky top-0 z-10 shadow-sm">
-                    <tr>
-                      <th className="p-3 w-10 text-center">
-                        <input 
-                          type="checkbox" 
-                          className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" 
-                          checked={isAllVisibleSelected}
-                          onChange={handleSelectAllVisible}
-                        />
-                      </th>
-                      <th className="p-3 font-semibold">Ad Name / Ad ID</th>
-                      <th className="p-3 font-semibold">Kreator (Mapped)</th>
-                      <th className="p-3 font-semibold text-center bg-indigo-50/50">Spend (Excel ➔ Akhir)</th>
-                      <th className="p-3 font-semibold text-center bg-emerald-50/50">GMV (Excel ➔ Akhir)</th>
-                      <th className="p-3 font-semibold">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {filteredAds.slice((previewPage - 1) * 50, previewPage * 50).map(({ row, index }) => {
-                      const adName = getAdName(row);
-                      const adId = String(row['Ad ID'] || row['Ad ID (Shop)'] || row['Ad Id']).trim();
-                      const creatorId = mappings[adName];
-                      const creatorName = creatorId ? creators.find(c => c.id === creatorId)?.username : null;
-                      const costUsd = safeParseNum(row['Cost'] || row['Spend'] || row['Amount Spent (USD)']);
-                      const revenueUsd = safeParseNum(row['Gross revenue (Shop)'] || row['Total Revenue']);
-                      const isSelected = selectedIndices.has(index);
-
-                      const oldData = existingAdsMap.get(adId);
-                      const oldCost = oldData ? oldData.cost_usd : 0;
-                      const oldRev = oldData ? oldData.gross_revenue_usd : 0;
-                      
-                      const finalCost = importMode === 'accumulate' ? oldCost + costUsd : costUsd;
-                      const finalRev = importMode === 'accumulate' ? oldRev + revenueUsd : revenueUsd;
-                      const krs = safeParseNum(kurs) || 16000;
-
-                      return (
-                        <tr key={index} className={`hover:bg-indigo-50/50 transition-colors cursor-pointer ${isSelected ? 'bg-indigo-50/30' : ''}`} onClick={() => {
-                          const s = new Set(selectedIndices);
-                          if (isSelected) s.delete(index); else s.add(index);
-                          setSelectedIndices(s);
-                        }}>
-                          <td className="p-3 text-center" onClick={e => e.stopPropagation()}>
-                            <input 
-                              type="checkbox" 
-                              className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                              checked={isSelected}
-                              onChange={() => {
-                                const s = new Set(selectedIndices);
-                                if (isSelected) s.delete(index); else s.add(index);
-                                setSelectedIndices(s);
-                              }}
-                            />
-                          </td>
-                          <td className="p-3">
-                            <div className="font-bold text-slate-800 max-w-[200px] truncate" title={adName}>{adName}</div>
-                            <div className="text-xs text-slate-500 mt-0.5 max-w-[200px] truncate" title={adId}>{adId}</div>
-                          </td>
-                          <td className="p-3">
-                            {creatorName ? (
-                              <span className="font-medium text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded text-xs">@{creatorName}</span>
-                            ) : (
-                              <span className="text-slate-400 italic text-xs">Unmapped</span>
-                            )}
-                          </td>
-                          <td className="p-3 text-center bg-indigo-50/30 border-l border-white">
-                            <div className="text-xs text-slate-500 mb-1">+{costUsd.toFixed(2)} ➔ <span className="font-bold text-indigo-700">${finalCost.toFixed(2)}</span></div>
-                            <div className="text-[10px] text-slate-400">Rp {(finalCost * krs / 1000000).toFixed(2)}M</div>
-                          </td>
-                          <td className="p-3 text-center bg-emerald-50/30 border-l border-white">
-                            <div className="text-xs text-slate-500 mb-1">+{revenueUsd.toFixed(2)} ➔ <span className="font-bold text-emerald-700">${finalRev.toFixed(2)}</span></div>
-                            <div className="text-[10px] text-slate-400">Rp {(finalRev * krs / 1000000).toFixed(2)}M</div>
-                          </td>
-                          <td className="p-3 text-xs">
-                            {oldData ? <span className="text-amber-600 font-medium">Update Data</span> : <span className="text-emerald-600 font-medium">Iklan Baru</span>}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                    {filteredAds.length === 0 && (
-                      <tr>
-                        <td colSpan={7} className="p-8 text-center text-slate-500">Tidak ada baris yang cocok dengan pencarian.</td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-              {filteredAds.length > 50 && (
-                <div className="p-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
-                  <span className="text-sm text-slate-500">Halaman {previewPage} dari {Math.ceil(filteredAds.length / 50)}</span>
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={() => setPreviewPage(p => Math.max(1, p - 1))} disabled={previewPage === 1}>Sebelumnya</Button>
-                    <Button variant="outline" size="sm" onClick={() => setPreviewPage(p => Math.min(Math.ceil(filteredAds.length / 50), p + 1))} disabled={previewPage >= Math.ceil(filteredAds.length / 50)}>Selanjutnya</Button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="flex justify-end gap-3 mt-6">
-              <Button variant="outline" className="h-12 px-6 rounded-xl" onClick={() => setStep(unmappedAds.length > 0 ? 2 : 1)}>Kembali</Button>
-              <Button className="h-12 px-8 rounded-xl bg-indigo-600" onClick={executeImport} disabled={selectedIndices.size === 0}>
-                Mulai Import {selectedIndices.size} Baris <ArrowRight className="w-4 h-4 ml-2" />
-              </Button>
+            <div className="flex gap-3">
+              <Button variant="outline" className="w-1/3 h-12 rounded-xl" onClick={() => setStep(1)}>Batal</Button>
+              <Button className="w-2/3 h-12 rounded-xl bg-indigo-600" onClick={executeImport}>Mulai Import ke Database</Button>
             </div>
           </div>
         )}
 
         {step === 4 && (
-          <div className="py-16 flex flex-col items-center justify-center space-y-4">
-            <Loader2 className="w-12 h-12 text-indigo-600 animate-spin" />
-            <p className="font-medium text-slate-600">Menyimpan data ke database...</p>
+          <div className="text-center py-20 animate-in zoom-in-95 duration-500">
+            <Loader2 className="w-16 h-16 text-indigo-500 animate-spin mx-auto mb-6" />
+            <h3 className="text-2xl font-bold text-slate-800 mb-2">Sedang Memasukkan Data...</h3>
+            <p className="text-slate-500">Mohon jangan tutup halaman ini.</p>
           </div>
         )}
 
         {step === 5 && result && (
-          <div className="py-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className={`p-6 rounded-2xl flex items-start gap-4 mb-6 ${result.errors.length > 0 ? 'bg-amber-50 border border-amber-200' : 'bg-emerald-50 border border-emerald-200'}`}>
-              {result.errors.length > 0 ? (
-                <AlertCircle className="w-10 h-10 text-amber-500 shrink-0" />
-              ) : (
-                <CheckCircle2 className="w-10 h-10 text-emerald-500 shrink-0" />
-              )}
-              
-              <div className="flex-1">
-                <h3 className={`text-xl font-bold mb-2 ${result.errors.length > 0 ? 'text-amber-900' : 'text-emerald-900'}`}>
-                  {result.errors.length > 0 ? 'Import Selesai dengan Peringatan' : 'Import Sukses 100%!'}
-                </h3>
-                <p className={`text-sm mb-4 ${result.errors.length > 0 ? 'text-amber-700' : 'text-emerald-700'}`}>
-                  Proses Upsert performa iklan telah selesai. Duplikasi dicegah melalui Ad ID.
-                </p>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                  <div className="bg-white/60 p-4 rounded-xl border border-white shadow-sm flex flex-col justify-center items-center text-center">
-                    <p className="text-xs font-semibold uppercase tracking-wider mb-1 opacity-70">Total Data Tersimpan</p>
-                    <p className="text-3xl font-bold text-slate-800">{result.success.toLocaleString()} <span className="text-sm font-normal">baris</span></p>
-                  </div>
-                </div>
-
-                {result.errors.length > 0 && (
-                  <div className="mt-4 bg-white/50 rounded-xl border border-amber-100 text-xs overflow-hidden">
-                    <div 
-                      className="p-3 font-bold text-amber-900 flex items-center justify-between cursor-pointer hover:bg-amber-50/50 transition-colors"
-                      onClick={() => setShowErrorLogs(!showErrorLogs)}
-                    >
-                      <div className="flex items-center gap-2">
-                        {showErrorLogs ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-                        <span>Log Error ({result.errors.length})</span>
-                      </div>
-                    </div>
-                    {showErrorLogs && (
-                      <div className="p-4 pt-0 border-t border-amber-100">
-                        <ul className="list-disc pl-4 space-y-1 text-amber-800 font-mono mt-2">
-                          {result.errors.slice(0, 50).map((e, i) => <li key={i}>{e}</li>)}
-                          {result.errors.length > 50 && <li>...dan {result.errors.length - 50} error lainnya.</li>}
-                        </ul>
-                      </div>
-                    )}
-                  </div>
-                )}
-                
-                <div className="mt-6">
-                  <Button variant="outline" className="w-full rounded-xl" onClick={() => setStep(1)}>Import File Lain</Button>
-                </div>
-              </div>
+          <div className="text-center py-10 animate-in slide-in-from-bottom-8 duration-500">
+            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+              <CheckCircle2 className="w-10 h-10 text-green-500" />
             </div>
+            <h3 className="text-3xl font-bold text-slate-800 mb-2">Import Selesai!</h3>
+            <p className="text-slate-600 mb-8">Berhasil memasukkan <strong>{result.success}</strong> baris data raw ke database.</p>
+            
+            {result.errors.length > 0 && (
+              <div className="bg-red-50 text-red-700 p-4 rounded-xl text-left text-sm max-h-40 overflow-y-auto mb-8 border border-red-100">
+                <p className="font-bold mb-2">Beberapa baris gagal diimport:</p>
+                <ul className="list-disc pl-5 space-y-1">
+                  {result.errors.map((err, i) => <li key={i}>{err}</li>)}
+                </ul>
+              </div>
+            )}
+
+            <Button className="h-12 px-8 rounded-xl bg-indigo-600 hover:bg-indigo-700" onClick={() => { setStep(1); setFiles([]); }}>
+              Import File Lain
+            </Button>
           </div>
         )}
-
       </CardContent>
     </Card>
   );
