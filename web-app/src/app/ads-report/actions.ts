@@ -125,14 +125,14 @@ export async function getAdsReportData(params: {
     return 0;
   });
 
-  // Calculate allocated budgets from `campaign_budgets`
-  const { data: budgetData } = await supabase.from('campaign_budgets').select('*');
+  // Calculate allocated budgets from `ads_allocations`
+  const { data: budgetData } = await supabase.from('ads_allocations').select('*');
   const budgetBalances: Record<number, { allocated: number, remaining: number }> = {};
   
   if (budgetData) {
     list.forEach((camp: any) => {
       const campBudgets = budgetData.filter(b => b.campaign_id === camp.id);
-      const allocated = campBudgets.reduce((sum, b) => sum + (Number(b.allocated_budget_usd) || 0), 0);
+      const allocated = campBudgets.reduce((sum, b) => sum + (Number(b.alokasi_usd) || 0), 0);
       const remaining = allocated - camp.spend_usd;
       budgetBalances[camp.id] = { allocated, remaining };
     });
