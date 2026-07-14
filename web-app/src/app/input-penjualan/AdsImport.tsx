@@ -166,9 +166,18 @@ export default function AdsImport() {
       }
 
       // Fetch existing ads
-      const { data: existingAds } = await supabase.from('ads_performance').select('ad_id, cost_usd, gross_revenue_usd').in('ad_id', Array.from(adIds));
+      const { data: existingAds } = await supabase.from('ads_performance').select('ad_id, cost_usd, gross_revenue_usd, purchases, impressions, clicks').in('ad_id', Array.from(adIds));
       const existMap = new Map();
-      existingAds?.forEach(ad => existMap.set(ad.ad_id, ad));
+      existingAds?.forEach(ad => {
+        const prev = existMap.get(ad.ad_id) || { cost_usd: 0, gross_revenue_usd: 0, purchases: 0, impressions: 0, clicks: 0 };
+        existMap.set(ad.ad_id, {
+          cost_usd: prev.cost_usd + (ad.cost_usd || 0),
+          gross_revenue_usd: prev.gross_revenue_usd + (ad.gross_revenue_usd || 0),
+          purchases: prev.purchases + (ad.purchases || 0),
+          impressions: prev.impressions + (ad.impressions || 0),
+          clicks: prev.clicks + (ad.clicks || 0),
+        });
+      });
       setExistingAdsMap(existMap);
 
       const unknownAdsList = Array.from(unknownAdsMap.entries()).map(([name, id]) => ({ adName: name, adId: id }));
@@ -227,7 +236,7 @@ export default function AdsImport() {
           return Number(cleaned) || 0;
         };
 
-        const inserts = chunk.map(row => {
+        const rawInserts = chunk.map(row => {
           const adName = row['Ad name'] || row['Ad Name'] || row['Ad Group Name'] || '';
           const adId = String(row['Ad ID'] || row['Ad ID (Shop)'] || row['Ad Id']).trim();
           const costUsd = safeParseNum(row['Cost'] || row['Spend'] || row['Amount Spent (USD)']);
@@ -237,12 +246,22 @@ export default function AdsImport() {
           const clicks = safeParseNum(row['Clicks (destination)'] || row['Clicks']);
           const creatorId = mappings[adName] || null;
 
-          const oldData = existingAdsMap.get(adId);
-          const oldCost = oldData ? oldData.cost_usd : 0;
-          const oldRev = oldData ? oldData.gross_revenue_usd : 0;
+          const oldData = existingAdsMap.get(adId) || { cost_usd: 0, gross_revenue_usd: 0, purchases: 0, impressions: 0, clicks: 0 };
           
-          const finalCost = importMode === 'accumulate' ? oldCost + costUsd : costUsd;
-          const finalRev = importMode === 'accumulate' ? oldRev + grossRevenueUsd : grossRevenueUsd;
+          let deltaCost = costUsd;
+          let deltaRev = grossRevenueUsd;
+          let deltaPurchases = purchases;
+          let deltaImpressions = impressions;
+          let deltaClicks = clicks;
+
+          if (importMode === 'replace') {
+            // Mode "Timpa" / Lifetime: Hitung selisih dari total akumulasi di DB
+            deltaCost = Math.max(0, costUsd - oldData.cost_usd);
+            deltaRev = Math.max(0, grossRevenueUsd - oldData.gross_revenue_usd);
+            deltaPurchases = Math.max(0, purchases - oldData.purchases);
+            deltaImpressions = Math.max(0, impressions - oldData.impressions);
+            deltaClicks = Math.max(0, clicks - oldData.clicks);
+          }
 
           return {
             ad_id: adId,
@@ -250,16 +269,25 @@ export default function AdsImport() {
             ad_name: adName,
             creator_id: creatorId,
             tanggal: new Date().toISOString().split('T')[0],
-            cost_usd: finalCost,
-            gross_revenue_usd: finalRev,
-            purchases,
-            impressions,
-            clicks,
+            cost_usd: Number(deltaCost.toFixed(2)),
+            gross_revenue_usd: Number(deltaRev.toFixed(2)),
+            purchases: deltaPurchases,
+            impressions: deltaImpressions,
+            clicks: deltaClicks,
             kurs: safeParseNum(kurs)
           };
         });
 
-        const { error } = await supabase.from('ads_performance').upsert(inserts, { onConflict: 'ad_id' });
+        // Hanya masukkan data yang ada selisih pertumbuhannya (menghindari spam row 0)
+        const inserts = rawInserts.filter(row => 
+           row.cost_usd > 0.01 || row.gross_revenue_usd > 0.01 || row.purchases > 0 || row.impressions > 0 || row.clicks > 0
+        );
+
+        if (inserts.length === 0) {
+           continue; // Skip batch ini jika tidak ada data baru
+        }
+
+        const { error } = await supabase.from('ads_performance').insert(inserts);
         
         if (error) {
           errors.push(`Gagal insert batch ${i}: ${error.message}`);
