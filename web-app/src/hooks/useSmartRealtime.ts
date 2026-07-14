@@ -5,8 +5,8 @@ import { createClient } from "@/utils/supabase/client";
 
 export function useSmartRealtime(
   channelName: string,
-  table: string,
-  onPayload: (payload: any) => void,
+  tables: string[],
+  onPayload: (table: string, payload: any) => void,
   idleTimeoutMinutes: number = 5,
   onWakeUp?: () => void
 ) {
@@ -18,12 +18,16 @@ export function useSmartRealtime(
 
   const subscribe = () => {
     if (channelRef.current) return;
-    channelRef.current = supabase
-      .channel(channelName)
-      .on('postgres_changes', { event: '*', schema: 'public', table: table }, (payload) => {
-        onPayload(payload);
-      })
-      .subscribe();
+    
+    let channel = supabase.channel(channelName);
+    
+    tables.forEach(table => {
+      channel = channel.on('postgres_changes', { event: '*', schema: 'public', table: table }, (payload) => {
+        onPayload(table, payload);
+      });
+    });
+    
+    channelRef.current = channel.subscribe();
   };
 
   const unsubscribe = () => {

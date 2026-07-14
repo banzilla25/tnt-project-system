@@ -15,11 +15,18 @@ export function DataLoader() {
     }
   }, [fetchData]);
 
-  // Realtime listener untuk campaign_creators (Persetujuan, update status, dll)
+  // Realtime listener untuk tabel-tabel penting yang butuh kolaborasi
   useSmartRealtime(
-    'campaign-creators-realtime',
-    'campaign_creators',
-    (payload) => applyRealtimeUpdate('campaign_creators', payload),
+    'global-collaboration-realtime',
+    [
+      'campaign_creators', 
+      'videos', 
+      'live_schedules', 
+      'creator_payments', 
+      'creator_addresses', 
+      'ads_spends'
+    ],
+    (table, payload) => applyRealtimeUpdate(table as any, payload),
     5, // 5 menit nganggur -> disconnect
     () => fetchData() // fetch ulang saat bangun dari idle untuk sinkronisasi
   );
