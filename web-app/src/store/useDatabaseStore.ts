@@ -64,6 +64,9 @@ type DatabaseState = DatabaseSchema & {
 
   // Audit Actions
   addAuditLog: (log: Omit<AuditLog, 'id' | 'created_at'>) => Promise<void>;
+
+  // Realtime
+  applyRealtimeUpdate: (table: keyof DatabaseState, payload: any) => void;
 };
 
 const supabase = createClient();
@@ -99,6 +102,30 @@ export const useDatabaseStore = create<DatabaseState>((set, get) => ({
   organic_videos: [],
   isLoading: false,
   error: null,
+
+  applyRealtimeUpdate: (table, payload) => {
+    set((state) => {
+      const currentData = state[table] as any[];
+      if (!Array.isArray(currentData)) return state;
+
+      if (payload.eventType === 'INSERT') {
+        // Only add if it doesn't exist
+        if (!currentData.some(item => item.id === payload.new.id)) {
+          return { [table]: [payload.new, ...currentData] } as any;
+        }
+      } else if (payload.eventType === 'UPDATE') {
+        return {
+          [table]: currentData.map(item => item.id === payload.new.id ? { ...item, ...payload.new } : item)
+        } as any;
+      } else if (payload.eventType === 'DELETE') {
+        return {
+          [table]: currentData.filter(item => item.id !== payload.old.id)
+        } as any;
+      }
+      
+      return state;
+    });
+  },
 
   fetchData: async () => {
     set({ isLoading: true, error: null });
