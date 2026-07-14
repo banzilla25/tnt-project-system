@@ -352,6 +352,25 @@ export default function AdsImport() {
                   {loading ? "Memproses File..." : "Pilih File Sekarang"}
                 </Button>
               </div>
+              <div className="mt-8 pt-8 border-t border-slate-100 w-full flex items-center justify-between">
+                <div>
+                  <h4 className="font-semibold text-slate-700 text-sm">Butuh format CSV yang benar?</h4>
+                  <p className="text-xs text-slate-500 mt-1">Unduh template agar sesuai dengan sistem.</p>
+                </div>
+                <Button variant="outline" onClick={() => {
+                  const headers = ['Ad ID', 'Ad name', 'Cost', 'Gross revenue (Shop)', 'Purchases (Shop)', 'Impressions', 'Clicks (destination)', 'Product page views (Shop)', 'Checkouts initiated (Shop)', 'Items purchased (Shop)'];
+                  const blob = new Blob([headers.join(',')], { type: 'text/csv;charset=utf-8;' });
+                  const url = URL.createObjectURL(blob);
+                  const link = document.createElement('a');
+                  link.href = url;
+                  link.setAttribute('download', 'Ads_Performance_Template.csv');
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+                }} className="gap-2 rounded-xl">
+                  Unduh Template CSV
+                </Button>
+              </div>
             </div>
           )}
 
