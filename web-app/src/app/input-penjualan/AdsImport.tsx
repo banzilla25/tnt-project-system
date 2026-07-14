@@ -1,16 +1,16 @@
 "use client";
 
-import { useState, useRef, useEffect, useDeferredValue } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { Upload, AlertCircle, CheckCircle2, ChevronDown, ChevronRight, Loader2, ArrowRight, Trash2 } from "lucide-react";
+import { Upload, AlertCircle, CheckCircle2, Loader2, Trash2, ArrowRight, ArrowLeft } from "lucide-react";
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
 import { createClient } from "@/utils/supabase/client";
 import { useDatabaseStore } from "@/store/useDatabaseStore";
 import { StringCombobox } from "@/components/StringCombobox";
 
-// SearchableSelect component (unchanged)
+// SearchableSelect component
 function SearchableSelect({ value, initialLabel, onChange, placeholder }: { value: number | '', initialLabel?: string, onChange: (val: number | '') => void, placeholder: string }) {
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
@@ -50,7 +50,7 @@ function SearchableSelect({ value, initialLabel, onChange, placeholder }: { valu
 
   return (
     <div className="relative w-full" ref={wrapperRef}>
-      <input type="text" className="w-full p-2 border border-slate-300 rounded text-sm focus:outline-none focus:border-indigo-500" placeholder={placeholder} value={displayValue} onClick={() => { setOpen(true); setSearch(""); }} onChange={(e) => { setSearch(e.target.value); setOpen(true); }} />
+      <input type="text" className="w-full p-2 border border-slate-300 rounded text-sm focus:outline-none focus:border-indigo-500 bg-white" placeholder={placeholder} value={displayValue} onClick={() => { setOpen(true); setSearch(""); }} onChange={(e) => { setSearch(e.target.value); setOpen(true); }} />
       {open && (
         <div className="absolute z-10 w-[250px] mt-1 bg-white border border-slate-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
           {options.length === 0 ? (
@@ -68,8 +68,6 @@ type FileConfig = {
   id: string;
   file: File;
   tanggal: string;
-  campaignId: number | '';
-  campaignAdsName: string;
   kurs: string;
   parsedData?: any[];
 };
@@ -81,14 +79,19 @@ export default function AdsImport() {
   const [result, setResult] = useState<{success: number; errors: string[]} | null>(null);
   
   const { campaigns, creators } = useDatabaseStore();
-  const [unmappedAds, setUnmappedAds] = useState<{adName: string, adId: string}[]>([]);
-  const [mappings, setMappings] = useState<Record<string, number>>({});
-  const [globalCampaignAdsOptions, setGlobalCampaignAdsOptions] = useState<string[]>([]);
-  
   const supabase = createClient();
 
+  // Carousel Mapping State
+  const [unmappedAdsByFile, setUnmappedAdsByFile] = useState<{fileId: string, fileName: string, unmapped: {adName: string, adId: string}[]}[]>([]);
+  const [currentFileIndex, setCurrentFileIndex] = useState(0);
+  const [mappings, setMappings] = useState<Record<string, number>>({});
+  
+  // Global Config State
+  const [globalCampaignId, setGlobalCampaignId] = useState<number | ''>('');
+  const [globalCampaignAdsName, setGlobalCampaignAdsName] = useState('');
+  const [globalCampaignAdsOptions, setGlobalCampaignAdsOptions] = useState<string[]>([]);
+
   useEffect(() => {
-    // Fetch unique campaign ads names for auto-complete
     const fetchCampaignAds = async () => {
       const { data } = await supabase.from('ads_performance').select('campaign_ads_name');
       if (data) {
@@ -99,28 +102,103 @@ export default function AdsImport() {
     fetchCampaignAds();
   }, []);
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
+      setLoading(true);
+      
       const newFiles = Array.from(e.target.files).map(f => {
-        // Try to guess date from filename (e.g. 2025-08-11 to 2026-03-10)
         const dateMatch = f.name.match(/(\d{4}-\d{2}-\d{2})/g);
         const guessedDate = dateMatch && dateMatch.length > 0 ? dateMatch[dateMatch.length - 1] : new Date().toISOString().split('T')[0];
         
-        // Try to guess campaign ads name
-        let guessedCampaignAds = '';
-        if (f.name.toLowerCase().includes('qah')) guessedCampaignAds = 'QAHIRA';
-        else if (f.name.toLowerCase().includes('man')) guessedCampaignAds = 'MANIS2';
-
         return {
           id: Math.random().toString(),
           file: f,
           tanggal: guessedDate,
-          campaignId: campaigns.length > 0 ? campaigns[0].id : '',
-          campaignAdsName: guessedCampaignAds,
           kurs: '16000'
         };
       });
-      setFiles([...files, ...newFiles]);
+
+      const filesWithData = [...files, ...newFiles];
+      let hasMissingAdId = false;
+
+      // Get existing mappings
+      const { data: dbMappings } = await supabase.from('ad_name_mapping').select('*');
+      const knownMappingMap: Record<string, number> = { ...mappings };
+      dbMappings?.forEach(m => {
+        if (!knownMappingMap[m.ad_name]) knownMappingMap[m.ad_name] = m.creator_id;
+      });
+
+      let unmappedByFile: {fileId: string, fileName: string, unmapped: {adName: string, adId: string}[]}[] = [];
+
+      for (let i = 0; i < filesWithData.length; i++) {
+        const fConfig = filesWithData[i];
+        if (fConfig.parsedData) continue; // Already parsed
+        
+        const ext = fConfig.file.name.split('.').pop()?.toLowerCase();
+        
+        const parsed = await new Promise<any[]>((resolve, reject) => {
+          if (ext === 'csv') {
+            Papa.parse(fConfig.file, {
+              header: true, skipEmptyLines: true,
+              complete: (results) => resolve(results.data),
+              error: reject
+            });
+          } else {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+              const data = new Uint8Array(e.target?.result as ArrayBuffer);
+              const workbook = XLSX.read(data, { type: 'array' });
+              const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+              resolve(XLSX.utils.sheet_to_json(worksheet));
+            };
+            reader.readAsArrayBuffer(fConfig.file);
+          }
+        });
+
+        const validData = parsed.filter(row => Object.keys(row).length > 0 && (row['Ad name'] || row['Ad Name'] || row['Ad Group Name']));
+        const missingAdIds = validData.filter(row => !String(row['Ad ID'] || row['Ad ID (Shop)'] || row['Ad Id'] || '').trim());
+        
+        if (missingAdIds.length > 0) {
+          alert(`BLOKIR: File ${fConfig.file.name} memiliki ${missingAdIds.length} baris tanpa Ad ID. Harap perbaiki sebelum upload.`);
+          hasMissingAdId = true;
+          break;
+        }
+        
+        fConfig.parsedData = validData;
+        
+        // Find unmapped
+        let unknownAdsMap = new Map<string, string>(); 
+        for (const row of validData) {
+          const adName = row['Ad name'] || row['Ad Name'] || row['Ad Group Name'] || '';
+          const adId = String(row['Ad ID'] || row['Ad ID (Shop)'] || row['Ad Id'] || '').trim();
+          if (adName && !knownMappingMap[adName]) {
+            unknownAdsMap.set(adName, adId);
+          }
+        }
+        
+        if (unknownAdsMap.size > 0) {
+          unmappedByFile.push({
+            fileId: fConfig.id,
+            fileName: fConfig.file.name,
+            unmapped: Array.from(unknownAdsMap.entries()).map(([name, id]) => ({ adName: name, adId: id }))
+          });
+        }
+      }
+
+      setLoading(false);
+
+      if (hasMissingAdId) return;
+
+      setFiles(filesWithData);
+      setMappings(knownMappingMap);
+
+      if (unmappedByFile.length > 0) {
+        setUnmappedAdsByFile(unmappedByFile);
+        setCurrentFileIndex(0);
+        setStep(2);
+      } else {
+        setStep(3);
+      }
     }
   };
 
@@ -128,102 +206,17 @@ export default function AdsImport() {
     setFiles(files.map(f => f.id === id ? { ...f, [field]: value } : f));
   };
 
-  const removeFile = (id: string) => {
-    setFiles(files.filter(f => f.id !== id));
-  };
-
-  const handleScanFiles = async () => {
-    if (files.length === 0) return;
-    
-    // Validate
-    const invalidFile = files.find(f => !f.tanggal || !f.campaignId || !f.campaignAdsName || !f.kurs);
-    if (invalidFile) {
-      alert(`Mohon lengkapi Tanggal, Campaign Sistem, Campaign Ads, dan Kurs untuk file: ${invalidFile.file.name}`);
-      return;
-    }
-
-    setLoading(true);
-    let allValidData: any[] = [];
-    const newFilesWithData = [...files];
-    let hasMissingAdId = false;
-
-    // Process all files
-    for (let i = 0; i < newFilesWithData.length; i++) {
-      const fConfig = newFilesWithData[i];
-      const ext = fConfig.file.name.split('.').pop()?.toLowerCase();
-      
-      const parsed = await new Promise<any[]>((resolve, reject) => {
-        if (ext === 'csv') {
-          Papa.parse(fConfig.file, {
-            header: true, skipEmptyLines: true,
-            complete: (results) => resolve(results.data),
-            error: reject
-          });
-        } else {
-          const reader = new FileReader();
-          reader.onload = (e) => {
-            const data = new Uint8Array(e.target?.result as ArrayBuffer);
-            const workbook = XLSX.read(data, { type: 'array' });
-            const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-            resolve(XLSX.utils.sheet_to_json(worksheet));
-          };
-          reader.readAsArrayBuffer(fConfig.file);
-        }
-      });
-
-      const validData = parsed.filter(row => Object.keys(row).length > 0 && (row['Ad name'] || row['Ad Name'] || row['Ad Group Name']));
-      const missingAdIds = validData.filter(row => !String(row['Ad ID'] || row['Ad ID (Shop)'] || row['Ad Id'] || '').trim());
-      
-      if (missingAdIds.length > 0) {
-        alert(`BLOKIR: File ${fConfig.file.name} memiliki ${missingAdIds.length} baris tanpa Ad ID. Harap perbaiki.`);
-        hasMissingAdId = true;
-        break;
-      }
-      
-      fConfig.parsedData = validData;
-      allValidData.push(...validData);
-    }
-
-    if (hasMissingAdId) {
-      setLoading(false);
-      return;
-    }
-
-    setFiles(newFilesWithData);
-
-    // Detect missing mappings
-    const { data: dbMappings } = await supabase.from('ad_name_mapping').select('*');
-    const knownMappingMap: Record<string, number> = {};
-    dbMappings?.forEach(m => knownMappingMap[m.ad_name] = m.creator_id);
-
-    let unknownAdsMap = new Map<string, string>(); 
-    for (const row of allValidData) {
-      const adName = row['Ad name'] || row['Ad Name'] || row['Ad Group Name'] || '';
-      const adId = String(row['Ad ID'] || row['Ad ID (Shop)'] || row['Ad Id'] || '').trim();
-      if (adName && !knownMappingMap[adName]) {
-        unknownAdsMap.set(adName, adId);
-      }
-    }
-
-    setMappings(knownMappingMap);
-    const unknownAdsList = Array.from(unknownAdsMap.entries()).map(([name, id]) => ({ adName: name, adId: id }));
-    setUnmappedAds(unknownAdsList);
-    
-    setStep(unknownAdsList.length > 0 ? 2 : 3);
-    setLoading(false);
-  };
-
   const executeImport = async () => {
     setLoading(true);
-    setStep(4);
+    setStep(5);
 
     try {
       let successCount = 0;
       let errors: string[] = [];
 
-      // Save mappings
-      const newMappings = unmappedAds.filter(ad => mappings[ad.adName]).map(ad => ({ ad_name: ad.adName, creator_id: mappings[ad.adName] }));
-      for (const mapping of newMappings) {
+      // Save new mappings globally
+      const newMappingsToSave = Object.entries(mappings).map(([name, creatorId]) => ({ ad_name: name, creator_id: creatorId }));
+      for (const mapping of newMappingsToSave) {
         await supabase.from('ad_name_mapping').upsert(mapping, { onConflict: 'ad_name' });
       }
 
@@ -250,11 +243,13 @@ export default function AdsImport() {
             const purchases = safeParseNum(row['Purchases (Shop)'] || row['Purchases'] || row['Conversions']);
             const impressions = safeParseNum(row['Impressions']);
             const clicks = safeParseNum(row['Clicks (destination)'] || row['Clicks']);
+            const ppv = safeParseNum(row['Product page views'] || row['Product Page Views']);
+            const checkouts = safeParseNum(row['Checkouts initiated'] || row['Checkouts Initiated']);
+            const itemsPurchased = safeParseNum(row['Items purchased'] || row['Items Purchased']);
             
-            // NEW RAW ARCHITECTURE: Insert raw values directly!
             return {
-              campaign_id: fConfig.campaignId,
-              campaign_ads_name: fConfig.campaignAdsName,
+              campaign_id: globalCampaignId,
+              campaign_ads_name: globalCampaignAdsName,
               tanggal: fConfig.tanggal,
               kurs: fConfig.kurs,
               ad_name: adName,
@@ -271,8 +266,7 @@ export default function AdsImport() {
             };
           });
 
-          // Insert or Update the snapshot for that ad_id and tanggal
-          // Deleting purely by tanggal and ad_id ensures we overwrite old mistakes (even if they were mapped to the wrong campaign)
+          // Uniqueness based on ad_id and tanggal
           const adIds = rawInserts.map(r => r.ad_id);
           await supabase.from('ads_performance').delete()
             .eq('tanggal', fConfig.tanggal)
@@ -289,7 +283,7 @@ export default function AdsImport() {
       }
 
       setResult({ success: successCount, errors });
-      setStep(5);
+      setStep(6);
       
       if (successCount > 0) {
         const { fetchData } = useDatabaseStore.getState();
@@ -298,165 +292,259 @@ export default function AdsImport() {
     } catch (err: any) {
       alert("Terjadi kesalahan sistem saat import: " + err.message);
       console.error(err);
+      setStep(4);
     } finally {
       setLoading(false);
     }
   };
 
-  return (
-    <Card>
-      <CardContent className="p-6 space-y-6">
-        {step === 1 && (
-          <div className="space-y-6 animate-in fade-in duration-300">
-            <div className="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center bg-slate-50 hover:bg-slate-100 transition-colors">
-              <Upload className="w-10 h-10 text-slate-400 mx-auto mb-4" />
-              <p className="font-bold text-slate-700 mb-1">Batch Upload File TikTok Ads</p>
-              <p className="text-sm text-slate-500 mb-4">Anda bisa memilih banyak file sekaligus (.xlsx, .csv)</p>
-              <input type="file" multiple accept=".csv, .xlsx, .xls" className="hidden" id="ads-upload" onChange={handleFileUpload} />
-              <Button variant="outline" className="rounded-xl border-slate-300" onClick={() => document.getElementById('ads-upload')?.click()}>
-                Browse Files
-              </Button>
-            </div>
+  const handleNextSlide = () => {
+    if (currentFileIndex < unmappedAdsByFile.length - 1) {
+      setCurrentFileIndex(i => i + 1);
+    } else {
+      setStep(3); // move to global config
+    }
+  };
+  
+  const handlePrevSlide = () => {
+    if (currentFileIndex > 0) {
+      setCurrentFileIndex(i => i - 1);
+    }
+  };
 
-            {files.length > 0 && (
-              <div className="space-y-4">
-                <h3 className="font-bold text-lg">Daftar File ({files.length})</h3>
-                <div className="border rounded-xl overflow-hidden overflow-x-auto">
+  return (
+    <Card className="border-0 shadow-sm ring-1 ring-slate-200">
+      <CardContent className="p-0">
+        
+        {/* STEP PROGRESS INDICATOR */}
+        <div className="flex bg-slate-50 border-b border-slate-200 p-4 text-sm font-medium text-slate-500 overflow-x-auto whitespace-nowrap">
+          <div className={`flex items-center ${step >= 1 ? 'text-indigo-600' : ''}`}>
+            <span className={`w-6 h-6 rounded-full flex items-center justify-center mr-2 text-xs ${step >= 1 ? 'bg-indigo-600 text-white' : 'bg-slate-200'}`}>1</span>
+            Upload File
+          </div>
+          <div className="mx-4 text-slate-300">/</div>
+          <div className={`flex items-center ${step >= 2 ? 'text-indigo-600' : ''}`}>
+            <span className={`w-6 h-6 rounded-full flex items-center justify-center mr-2 text-xs ${step >= 2 ? 'bg-indigo-600 text-white' : 'bg-slate-200'}`}>2</span>
+            Mapping
+          </div>
+          <div className="mx-4 text-slate-300">/</div>
+          <div className={`flex items-center ${step >= 3 ? 'text-indigo-600' : ''}`}>
+            <span className={`w-6 h-6 rounded-full flex items-center justify-center mr-2 text-xs ${step >= 3 ? 'bg-indigo-600 text-white' : 'bg-slate-200'}`}>3</span>
+            Set Campaign
+          </div>
+          <div className="mx-4 text-slate-300">/</div>
+          <div className={`flex items-center ${step >= 4 ? 'text-indigo-600' : ''}`}>
+            <span className={`w-6 h-6 rounded-full flex items-center justify-center mr-2 text-xs ${step >= 4 ? 'bg-indigo-600 text-white' : 'bg-slate-200'}`}>4</span>
+            Set Tanggal & Kurs
+          </div>
+        </div>
+
+        <div className="p-8">
+          {step === 1 && (
+            <div className="space-y-6 animate-in fade-in duration-300">
+              <div className="border-2 border-dashed border-indigo-200 rounded-2xl p-12 text-center bg-indigo-50/50 hover:bg-indigo-50 transition-colors">
+                <Upload className="w-12 h-12 text-indigo-400 mx-auto mb-4" />
+                <h3 className="text-xl font-bold text-slate-800 mb-2">Upload File Excel/CSV TikTok Ads</h3>
+                <p className="text-slate-500 mb-6 max-w-md mx-auto">Tarik & lepas banyak file sekaligus ke area ini, atau klik tombol di bawah untuk memilih file dari komputer Anda.</p>
+                <input type="file" multiple accept=".csv, .xlsx, .xls" className="hidden" id="ads-upload" onChange={handleFileUpload} disabled={loading} />
+                <Button className="rounded-xl h-12 px-8 bg-indigo-600 hover:bg-indigo-700" disabled={loading} onClick={() => document.getElementById('ads-upload')?.click()}>
+                  {loading ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : null}
+                  {loading ? "Memproses File..." : "Pilih File Sekarang"}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {step === 2 && unmappedAdsByFile.length > 0 && (
+            <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-xl font-bold text-slate-800">Mapping Kreator</h3>
+                  <p className="text-slate-500">Terdapat Iklan yang tidak dikenali sistem. Silakan petakan ke kreator yang tepat.</p>
+                </div>
+                <div className="bg-amber-100 text-amber-800 px-4 py-2 rounded-lg font-bold flex items-center gap-2">
+                  <AlertCircle className="w-5 h-5" />
+                  File {currentFileIndex + 1} dari {unmappedAdsByFile.length}
+                </div>
+              </div>
+
+              <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 font-semibold text-slate-700">
+                  📄 {unmappedAdsByFile[currentFileIndex].fileName}
+                </div>
+                <div className="max-h-[400px] overflow-y-auto p-0">
                   <table className="w-full text-sm">
-                    <thead className="bg-slate-50">
+                    <thead className="bg-white sticky top-0 z-10 shadow-sm">
                       <tr>
-                        <th className="px-3 py-2 text-left">Nama File</th>
-                        <th className="px-3 py-2 text-left">Tanggal</th>
-                        <th className="px-3 py-2 text-left">Campaign Sistem</th>
-                        <th className="px-3 py-2 text-left">Campaign Ads</th>
-                        <th className="px-3 py-2 text-left">Kurs USD</th>
-                        <th className="px-3 py-2"></th>
+                        <th className="px-6 py-3 text-left font-semibold text-slate-500 uppercase text-xs tracking-wider">Ad Name (Dari File)</th>
+                        <th className="px-6 py-3 text-left font-semibold text-slate-500 uppercase text-xs tracking-wider w-1/2">Pilih Kreator</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {files.map(f => (
-                        <tr key={f.id} className="hover:bg-slate-50">
-                          <td className="px-3 py-2 max-w-[150px] truncate" title={f.file.name}>{f.file.name}</td>
-                          <td className="px-3 py-2">
-                            <input type="date" className="p-1.5 border rounded w-[130px]" value={f.tanggal} onChange={(e) => updateFileConfig(f.id, 'tanggal', e.target.value)} />
-                          </td>
-                          <td className="px-3 py-2">
-                            <select className="p-1.5 border rounded w-[150px]" value={f.campaignId} onChange={(e) => updateFileConfig(f.id, 'campaignId', Number(e.target.value))}>
-                              <option value="">Pilih...</option>
-                              {campaigns.map(c => <option key={c.id} value={c.id}>{c.nama}</option>)}
-                            </select>
-                          </td>
-                          <td className="px-3 py-2">
-                            <div className="w-[180px]">
-                              <StringCombobox 
-                                value={f.campaignAdsName} 
-                                onChange={(val) => updateFileConfig(f.id, 'campaignAdsName', val)} 
-                                options={globalCampaignAdsOptions} 
-                                placeholder="Cth: QAHIRA" 
-                                className="w-full"
-                              />
-                            </div>
-                          </td>
-                          <td className="px-3 py-2">
-                            <input type="number" className="p-1.5 border rounded w-[90px]" value={f.kurs} onChange={(e) => updateFileConfig(f.id, 'kurs', e.target.value)} />
-                          </td>
-                          <td className="px-3 py-2 text-center">
-                            <button onClick={() => removeFile(f.id)} className="text-red-500 hover:text-red-700 p-1"><Trash2 className="w-4 h-4" /></button>
+                      {unmappedAdsByFile[currentFileIndex].unmapped.map((ad, i) => (
+                        <tr key={i} className="hover:bg-slate-50">
+                          <td className="px-6 py-4 font-medium text-slate-700">{ad.adName}</td>
+                          <td className="px-6 py-4">
+                            <SearchableSelect 
+                              value={mappings[ad.adName] || ''} 
+                              initialLabel={mappings[ad.adName] ? `@${creators.find(c => c.id === mappings[ad.adName])?.username}` : ''} 
+                              onChange={(val) => setMappings({...mappings, [ad.adName]: val as number})} 
+                              placeholder="Cari username kreator..." 
+                            />
                           </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
-                <Button className="w-full h-12 text-md rounded-xl bg-indigo-600 hover:bg-indigo-700" disabled={loading} onClick={handleScanFiles}>
-                  {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Pindai & Proses Semua File"}
+              </div>
+
+              <div className="flex items-center justify-between pt-4">
+                <Button variant="outline" className="h-12 px-6 rounded-xl" onClick={handlePrevSlide} disabled={currentFileIndex === 0}>
+                  <ArrowLeft className="w-4 h-4 mr-2" /> Sebelumnya
+                </Button>
+                
+                <Button className="h-12 px-8 rounded-xl bg-indigo-600 hover:bg-indigo-700" onClick={handleNextSlide}>
+                  {currentFileIndex === unmappedAdsByFile.length - 1 ? (
+                    <>Selesai Mapping <CheckCircle2 className="w-4 h-4 ml-2" /></>
+                  ) : (
+                    <>Selanjutnya <ArrowRight className="w-4 h-4 ml-2" /></>
+                  )}
                 </Button>
               </div>
-            )}
-          </div>
-        )}
-
-        {step === 2 && (
-          <div className="space-y-4 animate-in slide-in-from-right-4 duration-300">
-            <div className="bg-amber-50 p-4 rounded-xl border border-amber-200">
-              <div className="flex items-center gap-2 text-amber-800 font-bold mb-2">
-                <AlertCircle className="w-5 h-5" />
-                Meja Verifikasi: {unmappedAds.length} Iklan Belum Dikenali
-              </div>
-              <p className="text-sm text-amber-700">Silakan pilih kreator yang tepat agar sistem mengingatnya (Permanent Mapping).</p>
             </div>
-            
-            <div className="border border-slate-200 rounded-xl overflow-hidden max-h-[400px] overflow-y-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-slate-50 sticky top-0 z-10 border-b border-slate-200">
-                  <tr>
-                    <th className="px-4 py-3 text-left font-semibold text-slate-600">Ad Name (Dari CSV)</th>
-                    <th className="px-4 py-3 text-left font-semibold text-slate-600 w-1/2">Kreator Tujuan</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {unmappedAds.map((ad, i) => (
-                    <tr key={i} className="hover:bg-slate-50">
-                      <td className="px-4 py-3 font-medium text-slate-700 max-w-[200px] truncate" title={ad.adName}>{ad.adName}</td>
-                      <td className="px-4 py-3">
-                        <SearchableSelect value={mappings[ad.adName] || ''} initialLabel={mappings[ad.adName] ? `@${creators.find(c => c.id === mappings[ad.adName])?.username}` : ''} onChange={(val) => setMappings({...mappings, [ad.adName]: val as number})} placeholder="Ketik username kreator..." />
-                      </td>
+          )}
+
+          {step === 3 && (
+            <div className="max-w-xl mx-auto space-y-6 animate-in zoom-in-95 duration-300 py-10">
+              <div className="text-center mb-8">
+                <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <CheckCircle2 className="w-8 h-8 text-indigo-600" />
+                </div>
+                <h3 className="text-2xl font-bold text-slate-800">Pengaturan Campaign Global</h3>
+                <p className="text-slate-500 mt-2">Semua file yang Anda upload akan dimasukkan ke Campaign di bawah ini.</p>
+              </div>
+
+              <div className="space-y-4 bg-slate-50 p-6 rounded-2xl border border-slate-200">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">Campaign di Sistem</label>
+                  <select className="w-full p-3 border border-slate-300 rounded-xl bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" value={globalCampaignId} onChange={(e) => setGlobalCampaignId(Number(e.target.value))}>
+                    <option value="">-- Pilih Campaign --</option>
+                    {campaigns.map(c => <option key={c.id} value={c.id}>{c.nama}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">Campaign Ads (Nama Group Ads)</label>
+                  <div className="bg-white rounded-xl">
+                    <StringCombobox 
+                      value={globalCampaignAdsName} 
+                      onChange={(val) => setGlobalCampaignAdsName(val)} 
+                      options={globalCampaignAdsOptions} 
+                      placeholder="Contoh: QAHIRA" 
+                      className="w-full h-12"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-4">
+                <Button 
+                  className="w-full h-12 text-md rounded-xl bg-indigo-600 hover:bg-indigo-700" 
+                  disabled={!globalCampaignId || !globalCampaignAdsName} 
+                  onClick={() => setStep(4)}
+                >
+                  Lanjut ke Pengaturan Tanggal & Kurs <ArrowRight className="w-5 h-5 ml-2" />
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {step === 4 && (
+            <div className="space-y-6 animate-in fade-in duration-300">
+              <div>
+                <h3 className="text-xl font-bold text-slate-800">Finalisasi Tanggal & Kurs</h3>
+                <p className="text-slate-500">Tentukan tanggal data dan kurs USD untuk masing-masing file sebelum di-import.</p>
+              </div>
+
+              <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                <table className="w-full text-sm">
+                  <thead className="bg-slate-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left font-semibold text-slate-500 uppercase text-xs tracking-wider">Nama File</th>
+                      <th className="px-6 py-3 text-left font-semibold text-slate-500 uppercase text-xs tracking-wider">Tanggal Data</th>
+                      <th className="px-6 py-3 text-left font-semibold text-slate-500 uppercase text-xs tracking-wider">Kurs (IDR/USD)</th>
+                      <th className="px-6 py-3"></th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div className="flex gap-3 pt-4">
-              <Button variant="outline" className="w-1/3 h-12 rounded-xl" onClick={() => setStep(1)}>Kembali</Button>
-              <Button className="w-2/3 h-12 rounded-xl bg-indigo-600" onClick={() => setStep(3)}>Simpan Mapping & Lanjut</Button>
-            </div>
-          </div>
-        )}
-
-        {step === 3 && (
-          <div className="space-y-4 animate-in zoom-in-95 duration-300">
-            <div className="text-center py-10">
-              <CheckCircle2 className="w-16 h-16 text-green-500 mx-auto mb-4" />
-              <h3 className="text-2xl font-bold text-slate-800">Semua File Siap Di-import!</h3>
-              <p className="text-slate-500 mt-2">Data raw akan disimpan sesuai tanggal masing-masing file.</p>
-            </div>
-            <div className="flex gap-3">
-              <Button variant="outline" className="w-1/3 h-12 rounded-xl" onClick={() => setStep(1)}>Batal</Button>
-              <Button className="w-2/3 h-12 rounded-xl bg-indigo-600" onClick={executeImport}>Mulai Import ke Database</Button>
-            </div>
-          </div>
-        )}
-
-        {step === 4 && (
-          <div className="text-center py-20 animate-in zoom-in-95 duration-500">
-            <Loader2 className="w-16 h-16 text-indigo-500 animate-spin mx-auto mb-6" />
-            <h3 className="text-2xl font-bold text-slate-800 mb-2">Sedang Memasukkan Data...</h3>
-            <p className="text-slate-500">Mohon jangan tutup halaman ini.</p>
-          </div>
-        )}
-
-        {step === 5 && result && (
-          <div className="text-center py-10 animate-in slide-in-from-bottom-8 duration-500">
-            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-              <CheckCircle2 className="w-10 h-10 text-green-500" />
-            </div>
-            <h3 className="text-3xl font-bold text-slate-800 mb-2">Import Selesai!</h3>
-            <p className="text-slate-600 mb-8">Berhasil memasukkan <strong>{result.success}</strong> baris data raw ke database.</p>
-            
-            {result.errors.length > 0 && (
-              <div className="bg-red-50 text-red-700 p-4 rounded-xl text-left text-sm max-h-40 overflow-y-auto mb-8 border border-red-100">
-                <p className="font-bold mb-2">Beberapa baris gagal diimport:</p>
-                <ul className="list-disc pl-5 space-y-1">
-                  {result.errors.map((err, i) => <li key={i}>{err}</li>)}
-                </ul>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {files.map((f, index) => (
+                      <tr key={f.id} className="hover:bg-slate-50">
+                        <td className="px-6 py-4 font-medium text-slate-700">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded bg-green-100 text-green-600 flex items-center justify-center font-bold text-xs">{index + 1}</div>
+                            <span className="truncate max-w-[250px]" title={f.file.name}>{f.file.name}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <input type="date" className="p-2 border border-slate-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-lg w-[150px]" value={f.tanggal} onChange={(e) => updateFileConfig(f.id, 'tanggal', e.target.value)} />
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="relative">
+                            <span className="absolute left-3 top-2.5 text-slate-400">Rp</span>
+                            <input type="number" className="p-2 pl-8 border border-slate-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-lg w-[130px]" value={f.kurs} onChange={(e) => updateFileConfig(f.id, 'kurs', e.target.value)} />
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <button onClick={() => setFiles(files.filter(file => file.id !== f.id))} className="text-red-400 hover:text-red-600 p-2 rounded-lg hover:bg-red-50 transition-colors">
+                            <Trash2 className="w-5 h-5" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-            )}
+              
+              <div className="flex gap-4 pt-4">
+                <Button variant="outline" className="w-1/4 h-12 rounded-xl" onClick={() => setStep(3)}>Kembali</Button>
+                <Button className="w-3/4 h-12 text-md rounded-xl bg-indigo-600 hover:bg-indigo-700" onClick={executeImport}>
+                  <Upload className="w-5 h-5 mr-2" /> Mulai Import ke Database
+                </Button>
+              </div>
+            </div>
+          )}
 
-            <Button className="h-12 px-8 rounded-xl bg-indigo-600 hover:bg-indigo-700" onClick={() => { setStep(1); setFiles([]); }}>
-              Import File Lain
-            </Button>
-          </div>
-        )}
+          {step === 5 && (
+            <div className="text-center py-24 animate-in zoom-in-95 duration-500">
+              <Loader2 className="w-20 h-20 text-indigo-600 animate-spin mx-auto mb-8" />
+              <h3 className="text-3xl font-bold text-slate-800 mb-3">Menyimpan Data...</h3>
+              <p className="text-slate-500 text-lg">Proses ini memakan waktu beberapa detik. Jangan tutup halaman ini.</p>
+            </div>
+          )}
+
+          {step === 6 && result && (
+            <div className="text-center py-16 animate-in slide-in-from-bottom-8 duration-500">
+              <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-8 shadow-sm">
+                <CheckCircle2 className="w-12 h-12 text-green-500" />
+              </div>
+              <h3 className="text-4xl font-black text-slate-800 mb-3">Selesai!</h3>
+              <p className="text-slate-600 mb-10 text-lg">Berhasil meng-import <strong className="text-indigo-600">{result.success}</strong> baris data.</p>
+              
+              {result.errors.length > 0 && (
+                <div className="bg-red-50 text-red-700 p-6 rounded-2xl text-left text-sm max-h-60 overflow-y-auto mb-10 border border-red-100 max-w-2xl mx-auto shadow-inner">
+                  <p className="font-bold mb-3 flex items-center gap-2"><AlertCircle className="w-5 h-5" /> Beberapa baris gagal:</p>
+                  <ul className="list-disc pl-5 space-y-2">
+                    {result.errors.map((err, i) => <li key={i}>{err}</li>)}
+                  </ul>
+                </div>
+              )}
+
+              <Button className="h-14 px-10 rounded-xl bg-slate-900 hover:bg-slate-800 text-lg font-semibold" onClick={() => { setStep(1); setFiles([]); }}>
+                Import File Lainnya
+              </Button>
+            </div>
+          )}
+        </div>
       </CardContent>
     </Card>
   );
