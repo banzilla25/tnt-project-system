@@ -1228,6 +1228,63 @@ function CampaignListingContent() {
     );
   };
 
+  let displayData = showUnsavedFirst
+    ? [...listingData].sort((a, b) => {
+        const aHas = pendingChanges.has(a.id) ? 0 : 1;
+        const bHas = pendingChanges.has(b.id) ? 0 : 1;
+        return aHas - bHas;
+      })
+    : [...listingData];
+  
+  // Apply Global Creator Filter
+  displayData = displayData.filter((c: any) => isCreatorVisible(c.creators?.username));
+  
+  displayData = Array.from(new Map(displayData.map(c => [c.creators?.username?.toLowerCase() || c.id, c])).values());
+
+  // Pre-calculate snapshots to prevent severe O(N log N) performance degradation during sorting
+  displayData = displayData.map((c: any) => {
+      c._cachedSnapshot = c._cachedSnapshot || extractLatestSnapshot(c.creators);
+      return c;
+  });
+
+  // Frontend Sorting for 100% accuracy on all columns
+  if (sortConfig.key !== 'id') {
+    displayData.sort((a: any, b: any) => {
+      let valA: any = 0;
+      let valB: any = 0;
+      
+      if (sortConfig.key === 'username') {
+        valA = a.creators?.username?.toLowerCase() || '';
+        valB = b.creators?.username?.toLowerCase() || '';
+      } else if (sortConfig.key === 'price') {
+        valA = Number(a.price) || 0;
+        valB = Number(b.price) || 0;
+      } else if (sortConfig.key === 'qty_vt') {
+        valA = Number(a.qty_vt) || 0;
+        valB = Number(b.qty_vt) || 0;
+      } else if (sortConfig.key === 'qty_live') {
+        valA = Number(a.qty_live) || 0;
+        valB = Number(b.qty_live) || 0;
+      } else if (sortConfig.key === 'approval') {
+        valA = a.approval || '';
+        valB = b.approval || '';
+      } else if (sortConfig.key === 'followers') {
+        valA = Number(a._cachedSnapshot?.followers) || 0;
+        valB = Number(b._cachedSnapshot?.followers) || 0;
+      } else if (sortConfig.key === 'tier') {
+        valA = a._cachedSnapshot?.tier || a.tier || '';
+        valB = b._cachedSnapshot?.tier || b.tier || '';
+      } else if (sortConfig.key === 'level') {
+        valA = Number(a._cachedSnapshot?.level) || 0;
+        valB = Number(b._cachedSnapshot?.level) || 0;
+      }
+
+      if (valA < valB) return sortConfig.dir === 'asc' ? -1 : 1;
+      if (valA > valB) return sortConfig.dir === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }
+
   const toggleSelectAll = () => {
     if (selectedCreators.size === displayData.length && displayData.length > 0) {
       setSelectedCreators(new Set());
@@ -1964,63 +2021,6 @@ function CampaignListingContent() {
           </thead>
           <tbody>
             {(() => {
-              let displayData = showUnsavedFirst
-                ? [...listingData].sort((a, b) => {
-                    const aHas = pendingChanges.has(a.id) ? 0 : 1;
-                    const bHas = pendingChanges.has(b.id) ? 0 : 1;
-                    return aHas - bHas;
-                  })
-                : [...listingData];
-              
-              // Apply Global Creator Filter
-              displayData = displayData.filter((c: any) => isCreatorVisible(c.creators?.username));
-              
-              displayData = Array.from(new Map(displayData.map(c => [c.creators?.username?.toLowerCase() || c.id, c])).values());
-
-              // Pre-calculate snapshots to prevent severe O(N log N) performance degradation during sorting
-              displayData = displayData.map((c: any) => {
-                 c._cachedSnapshot = c._cachedSnapshot || extractLatestSnapshot(c.creators);
-                 return c;
-              });
-
-              // Frontend Sorting for 100% accuracy on all columns
-              if (sortConfig.key !== 'id') {
-                displayData.sort((a: any, b: any) => {
-                  let valA: any = 0;
-                  let valB: any = 0;
-                  
-                  if (sortConfig.key === 'username') {
-                    valA = a.creators?.username?.toLowerCase() || '';
-                    valB = b.creators?.username?.toLowerCase() || '';
-                  } else if (sortConfig.key === 'price') {
-                    valA = Number(a.price) || 0;
-                    valB = Number(b.price) || 0;
-                  } else if (sortConfig.key === 'qty_vt') {
-                    valA = Number(a.qty_vt) || 0;
-                    valB = Number(b.qty_vt) || 0;
-                  } else if (sortConfig.key === 'qty_live') {
-                    valA = Number(a.qty_live) || 0;
-                    valB = Number(b.qty_live) || 0;
-                  } else if (sortConfig.key === 'approval') {
-                    valA = a.approval || '';
-                    valB = b.approval || '';
-                  } else if (sortConfig.key === 'followers') {
-                    valA = Number(a._cachedSnapshot?.followers) || 0;
-                    valB = Number(b._cachedSnapshot?.followers) || 0;
-                  } else if (sortConfig.key === 'tier') {
-                    valA = a._cachedSnapshot?.tier || a.tier || '';
-                    valB = b._cachedSnapshot?.tier || b.tier || '';
-                  } else if (sortConfig.key === 'level') {
-                    valA = Number(a._cachedSnapshot?.level) || 0;
-                    valB = Number(b._cachedSnapshot?.level) || 0;
-                  }
-
-                  if (valA < valB) return sortConfig.dir === 'asc' ? -1 : 1;
-                  if (valA > valB) return sortConfig.dir === 'asc' ? 1 : -1;
-                  return 0;
-                });
-              }
-
               return displayData.length === 0 && !isLoading ? (
               <tr>
                 <td colSpan={isClientApprovalRequired ? 13 : 12} className="text-center py-[32px] text-text-soft">
