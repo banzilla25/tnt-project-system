@@ -612,10 +612,10 @@ export default function OrganicImport({ mode = 'sales' }: { mode?: 'sales' | 'vi
         const assignments: Record<number, Record<number, Set<number>>> = {};
         for (const item of uniquePayload) {
           const cId = creatorMap.get(item.creator_username);
-          if (cId && item.campaign_id && item.sku_id) {
+          if (cId && item.campaign_id) {
             if (!assignments[item.campaign_id]) assignments[item.campaign_id] = {};
             if (!assignments[item.campaign_id][cId]) assignments[item.campaign_id][cId] = new Set();
-            assignments[item.campaign_id][cId].add(item.sku_id);
+            if (item.sku_id) assignments[item.campaign_id][cId].add(item.sku_id);
           }
         }
 
@@ -649,6 +649,7 @@ export default function OrganicImport({ mode = 'sales' }: { mode?: 'sales' | 'vi
               newCcsToInsert.push({
                 campaign_id: campId,
                 creator_id: cId,
+                tier: 'Auto-Detect',
                 assigned_sku_ids: newSkus,
                 approval: 'pending',
                 client_approval: 'not_required',
@@ -663,8 +664,51 @@ export default function OrganicImport({ mode = 'sales' }: { mode?: 'sales' | 'vi
           }
         }
       }
+      
+      // 5. Auto Populate Videos Table (So they appear in Pending ber-Video)
+      const uniqueVideos = Array.from(new Set(uniquePayload.map(p => p.content_uid).filter(Boolean)));
+      if (uniqueVideos.length > 0) {
+        const { data: existingVideos } = await supabase.from('videos').select('content_uid').in('content_uid', uniqueVideos);
+        const existingUids = new Set(existingVideos?.map(v => v.content_uid) || []);
+        const missingVideos = uniquePayload.filter(p => p.content_uid && !existingUids.has(p.content_uid) && p.campaign_id);
+        
+        if (missingVideos.length > 0) {
+          const campIds = Array.from(new Set(missingVideos.map(m => m.campaign_id)));
+          const { data: ccs } = await supabase.from('campaign_creators')
+            .select('id, campaign_id, creators!inner(username)')
+            .in('campaign_id', campIds);
+            
+          const ccMapping: Record<string, number> = {};
+          ccs?.forEach((cc: any) => {
+            const key = `${cc.campaign_id}_${cc.creators.username.toLowerCase()}`;
+            ccMapping[key] = cc.id;
+          });
+          
+          const newVideosToInsert: any[] = [];
+          const seenVids = new Set();
+          
+          for (const missing of missingVideos) {
+            const key = `${missing.campaign_id}_${missing.creator_username.toLowerCase()}`;
+            const ccId = ccMapping[key];
+            if (ccId && !seenVids.has(missing.content_uid)) {
+              seenVids.add(missing.content_uid);
+              newVideosToInsert.push({
+                campaign_creator_id: ccId,
+                content_uid: missing.content_uid,
+                link_video: `https://www.tiktok.com/@${missing.creator_username}/video/${missing.content_uid}`,
+                vt_approval: 'pending',
+                urutan: 1,
+                concept: 'Auto-detected from Awareness Import',
+              });
+            }
+          }
+          if (newVideosToInsert.length > 0) {
+            await supabase.from('videos').insert(newVideosToInsert);
+          }
+        }
+      }
     } catch (autoAssignErr: any) {
-      errors.push(`Gagal Auto-Assign Produk: ${autoAssignErr.message}`);
+      errors.push(`Gagal Auto-Assign Produk/Video: ${autoAssignErr.message}`);
     }
     // ==============================
     

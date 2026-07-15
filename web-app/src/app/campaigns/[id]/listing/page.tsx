@@ -352,6 +352,8 @@ function CampaignListingContent() {
   const [filterPendingWithVideo, setFilterPendingWithVideo] = useState(false);
   const [duplicateGroups, setDuplicateGroups] = useState<any[]>([]);
   const [isDuplicateModalOpen, setIsDuplicateModalOpen] = useState(false);
+  const [selectedCreators, setSelectedCreators] = useState<Set<number>>(new Set());
+  const [bulkActionProcessing, setBulkActionProcessing] = useState(false);
 
   // Add Creator Modal State
   type DynamicRow = { id: string; username: string; price: string; qtyVt: string; qtyLive: string; contentType: string };
@@ -1226,6 +1228,66 @@ function CampaignListingContent() {
     );
   };
 
+  const toggleSelectAll = () => {
+    if (selectedCreators.size === displayData.length && displayData.length > 0) {
+      setSelectedCreators(new Set());
+    } else {
+      setSelectedCreators(new Set(displayData.map((c: any) => c.id).filter(Boolean)));
+    }
+  };
+
+  const toggleSelectCreator = (id: number) => {
+    setSelectedCreators(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleBulkApproval = async (status: 'approved' | 'pending' | 'alternate' | 'not_approved') => {
+    if (selectedCreators.size === 0) return;
+    setBulkActionProcessing(true);
+    try {
+      const creatorIds = Array.from(selectedCreators);
+      const { error } = await supabase.from('campaign_creators').update({ approval: status }).in('id', creatorIds);
+      if (error) throw error;
+      
+      setListingData(prev => prev.map(c => {
+         if (creatorIds.includes(c.id)) {
+            return { ...c, approval: status };
+         }
+         return c;
+      }));
+      
+      setSelectedCreators(new Set());
+      fetchListing();
+    } catch (err: any) {
+      alert('Gagal melakukan aksi massal: ' + err.message);
+    } finally {
+      setBulkActionProcessing(false);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedCreators.size === 0) return;
+    if (!window.confirm(`Yakin ingin menghapus ${selectedCreators.size} kreator ini dari campaign?`)) return;
+    setBulkActionProcessing(true);
+    try {
+      const creatorIds = Array.from(selectedCreators);
+      const { error } = await supabase.from('campaign_creators').delete().in('id', creatorIds);
+      if (error) throw error;
+      
+      setListingData(prev => prev.filter(c => !creatorIds.includes(c.id)));
+      setSelectedCreators(new Set());
+      fetchListing();
+    } catch (err: any) {
+      alert('Gagal menghapus massal: ' + err.message);
+    } finally {
+      setBulkActionProcessing(false);
+    }
+  };
+
   return (
     <div className="space-y-[32px]">
       <div className="flex justify-between items-start mb-[24px] gap-[16px] flex-wrap">
@@ -1838,6 +1900,16 @@ function CampaignListingContent() {
         <table className="w-full">
           <thead>
             <tr>
+              <th className="w-10 text-center">
+                {hasAccess && (
+                  <input 
+                    type="checkbox" 
+                    className="rounded border-slate-300 text-p300 focus:ring-p300 cursor-pointer w-4 h-4"
+                    checked={displayData.length > 0 && selectedCreators.size === displayData.length}
+                    onChange={toggleSelectAll}
+                  />
+                )}
+              </th>
               <th className="w-10"></th>
               <th className="w-12 text-center text-text-soft">No.</th>
               <th>
@@ -1970,6 +2042,16 @@ function CampaignListingContent() {
                 return (
                   <React.Fragment key={cc.id}>
                     <tr className={`group transition-colors ${hasPending ? 'bg-amber-50/70 hover:bg-amber-50' : 'hover:bg-[#f8fafc]'}`}>
+                      <td className="text-center">
+                        {hasAccess && (
+                          <input 
+                            type="checkbox" 
+                            className="rounded border-slate-300 text-p300 focus:ring-p300 cursor-pointer w-4 h-4"
+                            checked={selectedCreators.has(cc.id)}
+                            onChange={() => toggleSelectCreator(cc.id)}
+                          />
+                        )}
+                      </td>
                       <td>
                         <button onClick={() => toggleExpand(cc.id)} className="p-[4px] hover:bg-slate-200 rounded">
                           {isExpanded ? <ChevronDown className="w-4 h-4 text-text-soft" /> : <ChevronRight className="w-4 h-4 text-text-soft" />}
@@ -2593,6 +2675,55 @@ function CampaignListingContent() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Floating Bulk Action Toolbar */}
+      {hasAccess && selectedCreators.size > 0 && (
+        <div className="fixed bottom-[24px] left-1/2 -translate-x-1/2 bg-white rounded-full shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-slate-200 p-2 pr-4 flex items-center gap-4 z-50 animate-in slide-in-from-bottom-10 fade-in duration-300">
+          <div className="bg-p300 text-white w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shadow-inner">
+            {selectedCreators.size}
+          </div>
+          <span className="text-sm font-semibold text-slate-700 whitespace-nowrap">Creator Terpilih</span>
+          <div className="w-[1px] h-[24px] bg-slate-200 mx-2"></div>
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={() => handleBulkApproval('approved')}
+              disabled={bulkActionProcessing}
+              className="px-3 py-1.5 text-xs font-semibold rounded-full bg-green-50 text-green-700 hover:bg-green-100 transition-colors flex items-center gap-1"
+            >
+              {bulkActionProcessing ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Set Approved'}
+            </button>
+            <button 
+              onClick={() => handleBulkApproval('alternate')}
+              disabled={bulkActionProcessing}
+              className="px-3 py-1.5 text-xs font-semibold rounded-full bg-purple-50 text-purple-700 hover:bg-purple-100 transition-colors flex items-center gap-1"
+            >
+              {bulkActionProcessing ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Set Alternate'}
+            </button>
+            <button 
+              onClick={() => handleBulkApproval('not_approved')}
+              disabled={bulkActionProcessing}
+              className="px-3 py-1.5 text-xs font-semibold rounded-full bg-red-50 text-red-700 hover:bg-red-100 transition-colors flex items-center gap-1"
+            >
+              {bulkActionProcessing ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Set Not Approved'}
+            </button>
+            <button 
+              onClick={() => handleBulkApproval('pending')}
+              disabled={bulkActionProcessing}
+              className="px-3 py-1.5 text-xs font-semibold rounded-full bg-orange-50 text-orange-700 hover:bg-orange-100 transition-colors flex items-center gap-1"
+            >
+              {bulkActionProcessing ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Set Pending'}
+            </button>
+            <div className="w-[1px] h-[24px] bg-slate-200 mx-1"></div>
+            <button 
+              onClick={handleBulkDelete}
+              disabled={bulkActionProcessing}
+              className="px-3 py-1.5 text-xs font-semibold rounded-full bg-slate-100 text-slate-700 hover:bg-red-50 hover:text-red-700 transition-colors flex items-center gap-1"
+            >
+              {bulkActionProcessing ? <Loader2 className="w-3 h-3 animate-spin" /> : <><Trash2 className="w-3 h-3" /> Hapus</>}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

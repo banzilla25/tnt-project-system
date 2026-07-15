@@ -37,6 +37,11 @@ export default function CampaignVideoPage() {
   const [localVideos, setLocalVideos] = useDraftLocalStorage<any[]>(`draft_videos_campaign_${campaignId}`, []);
   const [listingData, setListingData] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [expandingLinks, setExpandingLinks] = useState<Record<string, boolean>>({});
+  const [bulkImportOpen, setBulkImportOpen] = useState(false);
+  const [bulkInput, setBulkInput] = useState('');
+  const [bulkProcessing, setBulkProcessing] = useState(false);
+  const [bulkResults, setBulkResults] = useState<any[]>([]);
 
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewUrl, setPreviewUrl] = useState('');
@@ -299,6 +304,39 @@ export default function CampaignVideoPage() {
     return link && (link.includes('vt.tiktok.com') || link.includes('vm.tiktok.com'));
   };
 
+  const convertShortLink = async (ccId: number, urutan: number, shortUrl: string, expectedUsername: string) => {
+    if (!isShortLink(shortUrl)) return;
+    
+    const key = `${ccId}_${urutan}`;
+    setExpandingLinks(prev => ({ ...prev, [key]: true }));
+    
+    try {
+      const res = await fetch('/api/expand-tiktok', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shortUrl })
+      });
+      const data = await res.json();
+      
+      if (res.ok && data.expandedUrl) {
+        const expanded = data.expandedUrl;
+        const usernameMatch = expanded.match(/@([^\/]+)/);
+        if (usernameMatch && usernameMatch[1].toLowerCase() !== expectedUsername.toLowerCase()) {
+           alert(`Peringatan: Video ini milik kreator @${usernameMatch[1]}, bukan @${expectedUsername}!\nLink tidak akan disimpan untuk mencegah salah input.`);
+           handleVideoChange(ccId, urutan, 'link_video', '');
+        } else {
+           handleVideoChange(ccId, urutan, 'link_video', expanded);
+        }
+      } else {
+        alert('Gagal mengekspansi link: ' + (data.error || 'Unknown error'));
+      }
+    } catch (e: any) {
+       alert('Gagal menghubungi server untuk ekspansi link');
+    } finally {
+       setExpandingLinks(prev => ({ ...prev, [key]: false }));
+    }
+  };
+
   const handleSaveVT = async (ccId: number) => {
     setSaving(prev => ({ ...prev, [ccId]: true }));
     try {
@@ -381,6 +419,150 @@ export default function CampaignVideoPage() {
         vt_approval: 'pending'
       }];
     });
+  };
+
+  const handleProcessBulk = async () => {
+    if (!bulkInput.trim()) return;
+    setBulkProcessing(true);
+    setBulkResults([]);
+    
+    const lines = bulkInput.split('\n').map(l => l.trim()).filter(Boolean);
+    const results = [];
+    
+    const assignedLinks = new Set(localVideos.map(v => v.link_video).filter(Boolean));
+    const assignedVids = new Set(localVideos.map(v => v.content_uid).filter(Boolean));
+    
+    for (const link of lines) {
+      if (assignedLinks.has(link)) {
+        results.push({ original: link, status: 'duplicate', message: 'Link sudah terdaftar di sistem' });
+        continue;
+      }
+      
+      let finalLink = link;
+      let isShort = isShortLink(link);
+      
+      if (isShort) {
+        try {
+          const res = await fetch('/api/expand-tiktok', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ shortUrl: link })
+          });
+          const data = await res.json();
+          if (res.ok && data.expandedUrl) {
+            finalLink = data.expandedUrl;
+          } else {
+            results.push({ original: link, status: 'error', message: 'Gagal konversi link pendek' });
+            continue;
+          }
+        } catch (e) {
+          results.push({ original: link, status: 'error', message: 'Koneksi gagal saat konversi' });
+          continue;
+        }
+      }
+
+      if (assignedLinks.has(finalLink)) {
+        results.push({ original: link, expanded: finalLink, status: 'duplicate', message: 'Link sudah terdaftar di sistem' });
+        continue;
+      }
+      
+      const usernameMatch = finalLink.match(/@([^\/]+)/);
+      const videoIdMatch = finalLink.match(/video\/(\d+)/);
+      
+      if (!usernameMatch || !videoIdMatch) {
+        results.push({ original: link, expanded: finalLink, status: 'error', message: 'Format link panjang tidak valid' });
+        continue;
+      }
+      
+      const username = usernameMatch[1].toLowerCase();
+      const videoId = videoIdMatch[1];
+      
+      if (assignedVids.has(videoId)) {
+        results.push({ original: link, expanded: finalLink, username, videoId, status: 'duplicate', message: 'Video ID sudah terdaftar di sistem' });
+        continue;
+      }
+      
+      const creatorMatch = finalListingData.find((cc: any) => cc.creators?.username.toLowerCase() === username);
+      
+      if (creatorMatch) {
+        results.push({ 
+          original: link, 
+          expanded: finalLink, 
+          username, 
+          videoId, 
+          status: 'valid', 
+          ccId: creatorMatch.id,
+          message: 'Siap ditambahkan' 
+        });
+      } else {
+        results.push({ 
+          original: link, 
+          expanded: finalLink, 
+          username, 
+          videoId, 
+          status: 'invalid_creator', 
+          message: 'Kreator belum di-approve di campaign ini' 
+        });
+      }
+    }
+    
+    setBulkResults(results);
+    setBulkProcessing(false);
+  };
+
+  const handleSaveBulk = async () => {
+    const validResults = bulkResults.filter(r => r.status === 'valid');
+    if (validResults.length === 0) return;
+    
+    setBulkProcessing(true);
+    const newDbEntries: any[] = [];
+    
+    const ccIdGroups: Record<number, any[]> = {};
+    validResults.forEach(r => {
+       if (!ccIdGroups[r.ccId]) ccIdGroups[r.ccId] = [];
+       ccIdGroups[r.ccId].push(r);
+    });
+    
+    for (const ccIdStr of Object.keys(ccIdGroups)) {
+       const ccId = Number(ccIdStr);
+       const creatorVideos = localVideos.filter(v => v.campaign_creator_id === ccId);
+       let nextUrutan = creatorVideos.length > 0 ? Math.max(...creatorVideos.map(v => v.urutan)) + 1 : 1;
+       
+       for (const r of ccIdGroups[ccId]) {
+          newDbEntries.push({
+            campaign_creator_id: ccId,
+            urutan: nextUrutan,
+            concept: '',
+            link_video: r.expanded,
+            content_uid: r.videoId,
+            vt_approval: 'approved' // Sesuai requirement, kalau di bulk import artinya sudah confirmed
+          });
+          nextUrutan++;
+       }
+    }
+    
+    try {
+      if (newDbEntries.length > 0) {
+        await supabase.from('videos').insert(newDbEntries);
+        await fetchData();
+        const ccIds = Object.keys(ccIdGroups).map(Number);
+        const { data: updatedDbVideos } = await supabase.from('videos').select('*').in('campaign_creator_id', ccIds);
+        
+        setLocalVideos((prev: any[]) => {
+           const others = prev.filter(v => !ccIds.includes(v.campaign_creator_id));
+           return [...others, ...(updatedDbVideos || [])];
+        });
+        
+        alert(`Berhasil menyimpan ${newDbEntries.length} video baru!`);
+        setBulkImportOpen(false);
+        setBulkInput('');
+        setBulkResults([]);
+      }
+    } catch (err: any) {
+      alert('Gagal menyimpan massal: ' + err.message);
+    } finally {
+      setBulkProcessing(false);
+    }
   };
 
   const handleResetSearch = () => {
@@ -628,20 +810,27 @@ export default function CampaignVideoPage() {
         </div>
         <div>
           <div className="flex flex-col gap-4 bg-slate-50 p-4 border border-line rounded-lg">
-             <div className="flex bg-white rounded-md border border-slate-200 overflow-hidden w-fit">
-                <button 
-                  onClick={() => setViewMode('creator')}
-                  className={`px-4 py-2 text-sm font-semibold transition-colors ${viewMode === 'creator' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-50'}`}
-                >
-                  Tampilan: Per Kreator
-                </button>
-                <div className="w-[1px] bg-slate-200"></div>
-                <button 
-                  onClick={() => setViewMode('video')}
-                  className={`px-4 py-2 text-sm font-semibold transition-colors ${viewMode === 'video' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-50'}`}
-                >
-                  Tampilan: Semua Video
-                </button>
+             <div className="flex justify-between items-start gap-4">
+               <div className="flex bg-white rounded-md border border-slate-200 overflow-hidden w-fit h-fit">
+                  <button 
+                    onClick={() => setViewMode('creator')}
+                    className={`px-4 py-2 text-sm font-semibold transition-colors ${viewMode === 'creator' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-50'}`}
+                  >
+                    Tampilan: Per Kreator
+                  </button>
+                  <div className="w-[1px] bg-slate-200"></div>
+                  <button 
+                    onClick={() => setViewMode('video')}
+                    className={`px-4 py-2 text-sm font-semibold transition-colors ${viewMode === 'video' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-50'}`}
+                  >
+                    Tampilan: Semua Video
+                  </button>
+               </div>
+               {hasAccess && (
+                 <button onClick={() => setBulkImportOpen(true)} className="btn btn-primary flex items-center gap-2 whitespace-nowrap h-fit">
+                    <Plus className="w-4 h-4" /> Bulk Import Link
+                 </button>
+               )}
              </div>
              <div className="flex flex-wrap gap-4 items-end">
                 <div className="space-y-2 flex-1 min-w-[200px]">
@@ -885,9 +1074,16 @@ export default function CampaignVideoPage() {
                                           className={`input !pl-[34px] ${warningShortLink ? 'border-amber-400 bg-amber-50' : ''}`}
                                           placeholder={isAwareness ? "https://..." : "https://www.tiktok.com/@..."}
                                           value={v.link_video || ''}
-                                          onChange={(e) => handleVideoChange(cc.id, v.urutan, 'link_video', e.target.value)}
-                                          disabled={!hasAccess}
+                                          onChange={(e) => {
+                                            const val = e.target.value;
+                                            handleVideoChange(cc.id, v.urutan, 'link_video', val);
+                                            if (isShortLink(val)) {
+                                              convertShortLink(cc.id, v.urutan, val, cc.creators.username);
+                                            }
+                                          }}
+                                          disabled={!hasAccess || expandingLinks[`${cc.id}_${v.urutan}`]}
                                         />
+                                        {expandingLinks[`${cc.id}_${v.urutan}`] && <Loader2 className="w-4 h-4 absolute right-[10px] top-[10px] animate-spin text-indigo-500" />}
                                       </div>
                                     </div>
                                     {warningShortLink && (
@@ -1020,9 +1216,16 @@ export default function CampaignVideoPage() {
                                   className={`input !pl-[34px] w-full text-[13px] ${warningShortLink ? 'border-amber-400 bg-amber-50' : ''}`}
                                   placeholder="https://www.tiktok.com/@..."
                                   value={v.link_video || ''}
-                                  onChange={(e) => handleVideoChange(v.ccId, v.urutan, 'link_video', e.target.value)}
-                                  disabled={!hasAccess}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    handleVideoChange(v.ccId, v.urutan, 'link_video', val);
+                                    if (isShortLink(val)) {
+                                      convertShortLink(v.ccId, v.urutan, val, v.creatorUsername);
+                                    }
+                                  }}
+                                  disabled={!hasAccess || expandingLinks[`${v.ccId}_${v.urutan}`]}
                                 />
+                                {expandingLinks[`${v.ccId}_${v.urutan}`] && <Loader2 className="w-4 h-4 absolute right-[10px] top-[10px] animate-spin text-indigo-500" />}
                               </div>
                            </div>
                            {warningShortLink && (
@@ -1112,6 +1315,102 @@ export default function CampaignVideoPage() {
                 );
               })()}
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={bulkImportOpen} onOpenChange={setBulkImportOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col p-0">
+          <div className="p-6 border-b border-line shrink-0">
+            <h2 className="text-xl font-bold">Bulk Import Link Video</h2>
+            <p className="text-sm text-text-soft mt-1">Paste puluhan link video (termasuk vt.tiktok.com) dari Excel. Sistem akan otomatis konversi dan deteksi pemilik video.</p>
+          </div>
+          
+          <div className="p-6 overflow-y-auto flex-1 bg-slate-50 space-y-6">
+            <div className="space-y-2">
+              <label className="text-sm font-semibold">Paste Link di Sini (Satu baris per link)</label>
+              <textarea 
+                className="input w-full min-h-[150px] font-mono text-sm leading-relaxed" 
+                placeholder="https://vt.tiktok.com/ZSxxxx/&#10;https://www.tiktok.com/@creator/video/123456789"
+                value={bulkInput}
+                onChange={e => setBulkInput(e.target.value)}
+                disabled={bulkProcessing}
+              />
+            </div>
+            
+            <div className="flex justify-end">
+              <button 
+                onClick={handleProcessBulk} 
+                disabled={!bulkInput.trim() || bulkProcessing}
+                className="btn btn-primary"
+              >
+                {bulkProcessing && bulkResults.length === 0 ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                Proses {bulkInput.split('\n').filter(l => l.trim()).length} Link
+              </button>
+            </div>
+            
+            {bulkResults.length > 0 && (
+              <div className="ccard !p-0 overflow-hidden bg-white border border-slate-200">
+                <div className="p-4 border-b border-line flex justify-between items-center bg-slate-100">
+                  <h3 className="font-semibold text-sm">Hasil Verifikasi</h3>
+                  <div className="flex gap-4 text-xs font-medium">
+                    <span className="text-emerald-600">✅ {bulkResults.filter(r => r.status === 'valid').length} Valid</span>
+                    <span className="text-red-600">❌ {bulkResults.filter(r => r.status !== 'valid').length} Invalid/Duplikat</span>
+                  </div>
+                </div>
+                <div className="max-h-[300px] overflow-y-auto">
+                  <table className="w-full text-left text-sm">
+                    <thead className="bg-slate-50 sticky top-0 shadow-sm">
+                      <tr>
+                        <th className="p-3 font-semibold w-[40%]">Original Link</th>
+                        <th className="p-3 font-semibold">Kreator</th>
+                        <th className="p-3 font-semibold">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-line">
+                      {bulkResults.map((r, i) => (
+                        <tr key={i} className={r.status === 'valid' ? 'bg-emerald-50/30' : 'bg-red-50/30'}>
+                          <td className="p-3">
+                            <div className="font-mono text-[11px] truncate max-w-[300px] text-slate-700" title={r.original}>{r.original}</div>
+                            {r.expanded && r.expanded !== r.original && (
+                              <div className="font-mono text-[10px] text-text-soft truncate max-w-[300px] mt-1" title={r.expanded}>→ {r.expanded}</div>
+                            )}
+                          </td>
+                          <td className="p-3">
+                            {r.username ? <span className="font-medium text-[12px] text-slate-700">@{r.username}</span> : <span className="text-slate-400 italic text-[12px]">-</span>}
+                          </td>
+                          <td className="p-3">
+                            {r.status === 'valid' ? (
+                              <span className="text-emerald-600 font-medium text-[11px] flex items-center gap-1">
+                                ✅ Siap ditambahkan
+                              </span>
+                            ) : (
+                              <span className="text-red-600 font-medium text-[11px] flex items-center gap-1">
+                                ❌ {r.message}
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+          
+          <div className="p-6 border-t border-line flex justify-between items-center bg-white shrink-0">
+             <button onClick={() => setBulkImportOpen(false)} className="btn btn-outline">Tutup</button>
+             {bulkResults.filter(r => r.status === 'valid').length > 0 && (
+               <button 
+                  onClick={handleSaveBulk} 
+                  disabled={bulkProcessing}
+                  className="btn btn-primary"
+               >
+                 {bulkProcessing ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                 Simpan {bulkResults.filter(r => r.status === 'valid').length} Link ke Database
+               </button>
+             )}
           </div>
         </DialogContent>
       </Dialog>
