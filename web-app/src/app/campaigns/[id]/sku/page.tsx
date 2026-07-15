@@ -51,6 +51,17 @@ export default function SkuPage() {
       link_tap: newSku.link_tap || null
     });
     
+    // Trigger Auto-Sync Raw Data
+    try {
+      await fetch('/api/sync-unmapped', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productId: newSku.product_id, campaignId })
+      });
+    } catch (e) {
+      console.error('Failed to sync unmapped data', e);
+    }
+    
     setIsAdding(false);
     setNewSku({ nama_produk: '', product_id: '', satuan_bundle: '', commission: '', link_gmv_max: '', link_tap: '' });
     fetchData(); // Refresh data
@@ -88,6 +99,17 @@ export default function SkuPage() {
       link_gmv_max: editSkuData.link_gmv_max || null,
       link_tap: editSkuData.link_tap || null
     }).eq('id', editingSkuId);
+
+    // Trigger Auto-Sync Raw Data
+    try {
+      await fetch('/api/sync-unmapped', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productId: editSkuData.product_id, campaignId })
+      });
+    } catch (e) {
+      console.error('Failed to sync unmapped data', e);
+    }
 
     setEditingSkuId(null);
     fetchData();

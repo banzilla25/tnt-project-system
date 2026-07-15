@@ -118,12 +118,12 @@ export async function uploadOrganik(jsonData: any[]) {
         followers = parseInt(followersStr.replace(/[^0-9]/g, '')) || 0;
       }
 
-      const campaignId = skuMapping[rawProductId];
+      const campaignId = skuMapping[rawProductId] || null;
 
-      // Jika Product ID tidak ada di tabel SKU kita, lewati baris ini
+      // Jika Product ID tidak ada di tabel SKU kita, simpan sebagai Unmapped (campaign_id = null)
       if (!campaignId) {
         skippedUnknownSkuCount++;
-        continue;
+        // We no longer 'continue' to skip. We keep it as Unmapped raw data.
       }
 
       payload.push({

@@ -394,41 +394,22 @@ export default function OrganicImport({ mode = 'sales' }: { mode?: 'sales' | 'vi
         videoProductRpm = Math.round(parseFloat(rpmStr.replace(/[^0-9.-]+/g, '')) || 0);
       }
 
-      // SMART ROUTING: Hierarchy 1: Campaign ID -> Hierarchy 2: Product ID
+      // SMART ROUTING: Hierarchy 1: Product ID (Absolute Priority) -> Hierarchy 2: Campaign ID Fallback
       let mappedCampaignId = null;
 
-      if (tiktokCampaignId && tiktokToCampaigns[tiktokCampaignId]) {
-        const possibleCampaigns = tiktokToCampaigns[tiktokCampaignId];
-        if (possibleCampaigns.length === 1) {
-           mappedCampaignId = possibleCampaigns[0]; // Priority 1: Safe Campaign ID fallback
-        } else if (possibleCampaigns.length > 1) {
-           // Disambiguate by SKU if possible
-           if (rawProductId && skuMapping[rawProductId] && possibleCampaigns.includes(skuMapping[rawProductId])) {
-               mappedCampaignId = skuMapping[rawProductId];
-           } else {
-               mappedCampaignId = possibleCampaigns[0];
-           }
-        }
+      // Priority 1: SKU Match (Absolute Priority, tidak peduli tiktok_campaign_ids cocok atau tidak)
+      if (rawProductId && skuMapping[rawProductId]) {
+         mappedCampaignId = skuMapping[rawProductId];
       }
       
-      // Fallback to Priority 2: SKU (TETAP HARUS PUNYA TIKTOK CAMPAIGN ID YANG COCOK)
-      if (!mappedCampaignId && rawProductId && skuMapping[rawProductId]) {
-         const potentialCampaignId = skuMapping[rawProductId];
-         const c = campaigns?.find(c => c.id === potentialCampaignId);
-         const hasRequiredCampaignIds = c?.tiktok_campaign_ids && c.tiktok_campaign_ids.length > 0;
-         
-         // WAJIB: Campaign HARUS di-setting tiktok_campaign_ids-nya. 
-         // Jika tidak disetting, maka produknya tidak akan terbaca/masuk.
-         if (hasRequiredCampaignIds) {
-             if (tiktokCampaignId && c.tiktok_campaign_ids.includes(tiktokCampaignId)) {
-                 mappedCampaignId = potentialCampaignId;
-             } else {
-                 mappedCampaignId = null; // Tolak baris ini (Campaign ID CSV tidak cocok)
-             }
-         } else {
-             // Jika campaign di web tidak di-setting tiktok_campaign_ids-nya, TOLAK SEMUA DATA
-             mappedCampaignId = null; 
-         }
+      // Priority 2: Fallback to TikTok Campaign ID if SKU is not mapped
+      if (!mappedCampaignId && tiktokCampaignId && tiktokToCampaigns[tiktokCampaignId]) {
+        const possibleCampaigns = tiktokToCampaigns[tiktokCampaignId];
+        if (possibleCampaigns.length === 1) {
+           mappedCampaignId = possibleCampaigns[0]; 
+        } else if (possibleCampaigns.length > 1) {
+           mappedCampaignId = possibleCampaigns[0];
+        }
       }
 
       if (!mappedCampaignId) {

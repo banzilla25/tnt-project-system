@@ -15,6 +15,7 @@ import { useRouter } from "next/navigation";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/Dialog";
 import { MultiSelect } from "@/components/MultiSelect";
 import { useCampaignFilter } from "@/providers/CampaignFilterProvider";
+import { NotesTimeline } from "@/components/NotesTimeline";
 
 const supabase = createClient();
 const PAGE_SIZE = 100;
@@ -698,7 +699,7 @@ function CampaignListingContent() {
     setIsLoading(true);
     try {
       let selectQuery = `
-        id, creator_id, price, qty_vt, content_type, approval, client_approval, tier,
+        id, creator_id, price, qty_vt, qty_live, content_type, approval, client_approval, tier,
         sample_progress, status_bayar, notes_manager, notes_pic,
         created_at,
         added_by_profile:profiles!campaign_creators_added_by_fkey ( nama ),
@@ -2273,9 +2274,6 @@ function CampaignListingContent() {
                       <td className="text-right">
                         {hasAccess ? (
                           <div className="flex justify-end gap-[4px] transition-opacity">
-                            <button onClick={() => startEdit(cc)} className="p-[6px] hover:bg-p50 rounded" title="Edit Notes & Detail">
-                              <Edit2 className="w-4 h-4 text-text-soft hover:text-p300" />
-                            </button>
                             <button onClick={() => handleDeleteCreator(cc.id)} className="p-[6px] hover:bg-red-50 rounded" title="Hapus Creator">
                               <Trash2 className="w-4 h-4 text-text-soft hover:text-red-600" />
                             </button>
@@ -2339,8 +2337,15 @@ function CampaignListingContent() {
                                     </div>
                                     <div className="bg-slate-50 border border-line rounded-[8px] p-[12px]">
                                       <h5 className="text-[11px] font-bold text-text-soft uppercase mb-[4px]">Progress Sample</h5>
-                                      {isEditing ? (
-                                        <select value={editSampleProgress} onChange={e=>setEditSampleProgress(e.target.value)} className="select !p-[4px]">
+                                      {hasAccess ? (
+                                        <select 
+                                          value={cc.sample_progress || 'Done Req Sample'} 
+                                          onChange={async (e) => {
+                                            await updateCampaignCreator(cc.id, { sample_progress: e.target.value }, profile?.nama || 'System');
+                                            fetchListing(page, true);
+                                          }} 
+                                          className="select !p-[4px]"
+                                        >
                                           <option value="Done Req Sample">Done Req Sample</option>
                                           <option value="Sudah Proses Pengiriman">Sudah Proses Pengiriman</option>
                                           <option value="Sampai">Sampai</option>
@@ -2357,30 +2362,26 @@ function CampaignListingContent() {
                                       )}
                                     </div>
                                     <div className="bg-slate-50 border border-line rounded-[8px] p-[12px] md:col-span-2">
-                                      <div className="flex justify-between items-center mb-[4px]">
-                                        <h5 className="text-[11px] font-bold text-text-soft uppercase">Notes Manager</h5>
-                                        {!isEditing && hasAccess && (
-                                          <button onClick={() => startEdit(cc)} className="text-p300 hover:text-p400 flex items-center gap-1 text-[10px] font-medium"><Edit2 className="w-3 h-3"/> Edit</button>
-                                        )}
-                                      </div>
-                                      {isEditing ? (
-                                        <textarea value={editNotesManager} onChange={e=>setEditNotesManager(e.target.value)} className="input h-16" placeholder="Catatan Manager..." />
-                                      ) : (
-                                        <p className="text-[13px] font-medium text-text whitespace-pre-wrap">{cc.notes_manager || <span className="text-text-soft italic text-[11px]">(Klik Edit untuk menambah catatan)</span>}</p>
-                                      )}
+                                      <NotesTimeline 
+                                        title="Notes Manager" 
+                                        rawNotes={cc.notes_manager} 
+                                        hasAccess={hasAccess}
+                                        onSave={async (val) => {
+                                          await updateCampaignCreator(cc.id, { notes_manager: val }, profile?.nama || 'System');
+                                          fetchListing(page, true); // reload to show changes
+                                        }}
+                                      />
                                     </div>
                                     <div className="bg-slate-50 border border-line rounded-[8px] p-[12px] md:col-span-4">
-                                      <div className="flex justify-between items-center mb-[4px]">
-                                        <h5 className="text-[11px] font-bold text-text-soft uppercase">Notes PIC ({cc.pic_assist || 'Belum di-assign'})</h5>
-                                        {!isEditing && hasAccess && (
-                                          <button onClick={() => startEdit(cc)} className="text-p300 hover:text-p400 flex items-center gap-1 text-[10px] font-medium"><Edit2 className="w-3 h-3"/> Edit</button>
-                                        )}
-                                      </div>
-                                      {isEditing ? (
-                                        <textarea value={editNotesPic} onChange={e=>setEditNotesPic(e.target.value)} className="input h-16" placeholder="Catatan PIC..." />
-                                      ) : (
-                                        <p className="text-[13px] font-medium text-text whitespace-pre-wrap">{cc.notes_pic || <span className="text-text-soft italic text-[11px]">(Klik Edit untuk menambah catatan)</span>}</p>
-                                      )}
+                                      <NotesTimeline 
+                                        title={`Notes PIC (${cc.pic_assist || 'Belum di-assign'})`} 
+                                        rawNotes={cc.notes_pic} 
+                                        hasAccess={hasAccess}
+                                        onSave={async (val) => {
+                                          await updateCampaignCreator(cc.id, { notes_pic: val }, profile?.nama || 'System');
+                                          fetchListing(page, true);
+                                        }}
+                                      />
                                     </div>
                                     <div className="bg-slate-50 border border-line rounded-[8px] p-[12px] md:col-span-4">
                                       <h5 className="text-[11px] font-bold text-text-soft uppercase mb-[8px]">Informasi Tracking</h5>

@@ -313,7 +313,15 @@ function CampaignPerformaContent() {
     if (sortField === 'username') comparison = a.username.localeCompare(b.username);
     else if (sortField === 'gmvOrganic') comparison = a.gmvOrganic - b.gmvOrganic;
     else if (sortField === 'gmvAds') comparison = a.gmvAds - b.gmvAds;
-    else if (sortField === 'totalGmv') comparison = a.totalGmv - b.totalGmv;
+    else if (sortField === 'totalGmv') {
+       comparison = a.totalGmv - b.totalGmv;
+       if (comparison === 0) {
+          comparison = a.totalVt - b.totalVt;
+          if (comparison === 0) {
+             comparison = a.totalLive - b.totalLive;
+          }
+       }
+    }
     else if (sortField === 'totalVt') comparison = a.totalVt - b.totalVt;
     else if (sortField === 'totalLive') comparison = a.totalLive - b.totalLive;
     else if (sortField === 'videoViews') comparison = a.videoViews - b.videoViews;

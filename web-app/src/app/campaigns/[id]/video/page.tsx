@@ -351,8 +351,14 @@ export default function CampaignVideoPage() {
       
       await fetchData(); 
       
-      // Update local storage to remove this creator's drafted items
-      setLocalVideos((prev: any[]) => prev.filter(v => v.campaign_creator_id !== ccId));
+      // Ambil ulang data video dari DB untuk kreator ini agar ID terupdate
+      const { data: updatedDbVideos } = await supabase.from('videos').select('*').eq('campaign_creator_id', ccId);
+      
+      // Update local storage dengan data segar dari DB (termasuk ID asli dari auto-detect yang baru disave)
+      setLocalVideos((prev: any[]) => {
+         const others = prev.filter(v => v.campaign_creator_id !== ccId);
+         return [...others, ...(updatedDbVideos || [])];
+      });
       
       alert('Perubahan berhasil disimpan');
     } catch (error) {
@@ -413,9 +419,26 @@ export default function CampaignVideoPage() {
        const ccOrganic = cc._localOrganicVideos || [];
        let totalViews = 0;
        let totalLikes = 0;
+       
+       // Hanya ambil views/likes dari video yang benar-benar ada di tabel videos (terhubung ke campaign)
+       const validContentUids = new Set(
+           creatorVideos
+               .map(v => {
+                   if (v.content_uid) return v.content_uid;
+                   if (v.link_video) {
+                       const match = v.link_video.match(/video\/(\d+)/);
+                       if (match) return match[1];
+                   }
+                   return null;
+               })
+               .filter(Boolean)
+       );
+
        ccOrganic.forEach((o: any) => {
-          totalViews += (o.views || 0);
-          totalLikes += (o.likes || 0);
+          if (validContentUids.has(o.vt_code) || validContentUids.has(o.content_uid) || validContentUids.has(o.video_id)) {
+             totalViews += (o.views || 0);
+             totalLikes += (o.likes || 0);
+          }
        });
 
        metricsMap.set(cc.id, {

@@ -369,7 +369,23 @@ export default function AlamatPage() {
                       </td>
                       <td className="px-3 py-3 whitespace-normal">
                         {isEditing ? (
-                          <textarea className="input w-full min-w-[200px] h-20" value={formData.nama_jalan || ''} onChange={e => setFormData({ ...formData, nama_jalan: e.target.value })} />
+                          <div className="flex flex-col gap-2">
+                            {addressBook.length > 0 && (
+                              <select 
+                                className="input w-full min-w-[200px] bg-blue-50 border-blue-200 text-blue-800 text-[12px] font-semibold"
+                                value={selectedBookId}
+                                onChange={e => handleSelectBook(e.target.value)}
+                              >
+                                <option value="">+ Ketik Manual</option>
+                                {addressBook.map(b => (
+                                  <option key={b.id} value={b.id}>
+                                    📖 {b.label || 'Alamat Utama'} ({b.alamat_jalan?.substring(0, 20)}...)
+                                  </option>
+                                ))}
+                              </select>
+                            )}
+                            <textarea className="input w-full min-w-[200px] h-20" placeholder="Alamat lengkap..." value={formData.nama_jalan || ''} onChange={e => setFormData({ ...formData, nama_jalan: e.target.value })} />
+                          </div>
                         ) : (
                           addr?.nama_jalan || '-'
                         )}

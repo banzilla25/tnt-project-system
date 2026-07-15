@@ -20,7 +20,8 @@ export default function CampaignLiveStreamPage() {
   const [liveMetrics, setLiveMetrics] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState('gmv');
+  const [sortBy, setSortBy] = useState('sesi');
+  const [statusFilter, setStatusFilter] = useState('all');
   
   const { isCreatorVisible } = useCampaignFilter();
 
@@ -49,8 +50,7 @@ export default function CampaignLiveStreamPage() {
         const ccData = await fetchAll(supabase
           .from('campaign_creators')
           .select('*, creators!inner(*)')
-          .eq('campaign_id', campaignId)
-          .eq('approval', 'approved'));
+          .eq('campaign_id', campaignId));
 
         
 
@@ -121,20 +121,32 @@ export default function CampaignLiveStreamPage() {
       };
     });
 
+    if (statusFilter !== 'all') {
+      data = data.filter(d => d.approval === statusFilter);
+    }
+
     if (searchQuery) {
       data = data.filter(d => d.creators.username.toLowerCase().includes(searchQuery.toLowerCase()));
     }
 
     if (sortBy === 'gmv') {
-      data.sort((a, b) => b.totalGmv - a.totalGmv);
+      data.sort((a, b) => {
+        if (b.totalGmv !== a.totalGmv) return b.totalGmv - a.totalGmv;
+        return b.liveCount - a.liveCount;
+      });
     } else if (sortBy === 'views') {
       data.sort((a, b) => b.totalViews - a.totalViews);
     } else if (sortBy === 'orders') {
       data.sort((a, b) => b.totalOrders - a.totalOrders);
+    } else if (sortBy === 'sesi') {
+      data.sort((a, b) => {
+        if (b.liveCount !== a.liveCount) return b.liveCount - a.liveCount;
+        return b.totalGmv - a.totalGmv;
+      });
     }
 
     return data;
-  }, [creators, salesData, liveMetrics, searchQuery, sortBy, isCreatorVisible]);
+  }, [creators, salesData, liveMetrics, searchQuery, sortBy, statusFilter, isCreatorVisible]);
 
   if (isLoading) {
     return (
@@ -167,11 +179,23 @@ export default function CampaignLiveStreamPage() {
         <div className="flex gap-2">
           <select 
             className="px-3 py-2 border rounded-lg text-[13px] outline-none"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+          >
+            <option value="all">Semua Status</option>
+            <option value="approved">Approved</option>
+            <option value="alternate">Alternate</option>
+            <option value="not_approved">Not Approved</option>
+            <option value="pending">Pending</option>
+          </select>
+          <select 
+            className="px-3 py-2 border rounded-lg text-[13px] outline-none"
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value)}
           >
             <option value="none">Urutkan</option>
             <option value="gmv">GMV Tertinggi</option>
+            <option value="sesi">Sesi Terbanyak</option>
             <option value="views">Views Terbanyak</option>
             <option value="orders">Order Terbanyak</option>
           </select>
