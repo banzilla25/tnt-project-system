@@ -265,14 +265,9 @@ function CampaignPerformaContent() {
       if (cc.approval === 'pending') {
           pendingVtCount = Math.max(trackedVideos, uniqueVideoIds.size);
       } else {
-          let mapApproved = 0;
-          let mapPending = 0;
-          uniqueVideoIds.forEach((status) => {
-             if (status === 'pending') mapPending++;
-             else mapApproved++;
-          });
-          approvedVtCount = Math.max(trackedVideos, mapApproved);
-          pendingVtCount = mapPending;
+          // Jika kreator sudah Approved, semua videonya dianggap Approved untuk metrik Pencapaian Video
+          approvedVtCount = Math.max(trackedVideos, uniqueVideoIds.size);
+          pendingVtCount = 0;
       }
 
       const totalVt = approvedVtCount + pendingVtCount;
@@ -446,10 +441,15 @@ function CampaignPerformaContent() {
               <div className="flex justify-between items-start">
                 <div>
                   <p className="text-[13px] font-medium text-text-soft">Pencapaian Target Creator</p>
-                  <h3 className="text-[24px] font-bold mt-[8px] text-text">{localCreators.length} <span className="text-[13px] text-text-soft font-normal">kreator</span></h3>
-                  <div className="flex items-center gap-3 text-[11px] mt-[4px]">
-                    <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>{totalApprovedCreators} appv</span>
-                    <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>{totalPendingCreators} pend</span>
+                  <h3 className="text-[24px] font-bold mt-[8px] text-text flex items-center gap-2">
+                    {totalApprovedCreators} 
+                    <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200">kreator approved</span>
+                  </h3>
+                  <div className="flex items-center gap-3 text-[12px] mt-[6px] text-text-soft">
+                    <span className="flex items-center gap-2">
+                      {totalPendingCreators}
+                      <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200">kreator pending</span>
+                    </span>
                   </div>
                 </div>
                 <div className="p-[8px] bg-orange-50 rounded-[8px] text-orange-600"><Users className="w-5 h-5" /></div>
