@@ -593,18 +593,27 @@ export default function OrganicImport({ mode = 'sales' }: { mode?: 'sales' | 'vi
     try {
       const uniqueUsernames = Array.from(new Set(uniquePayload.map(p => p.creator_username).filter(Boolean)));
       if (uniqueUsernames.length > 0) {
-        // 1. Fetch existing creators
-        const { data: existingCreators } = await supabase.from('creators').select('id, username').in('username', uniqueUsernames);
-        const creatorMap = new Map(existingCreators?.map(c => [c.username, c.id]) || []);
+        // 1. Fetch existing creators in chunks
+        const creatorMap = new Map();
+        for (let i = 0; i < uniqueUsernames.length; i += 200) {
+          const chunk = uniqueUsernames.slice(i, i + 200);
+          const { data: chunkExisting } = await supabase.from('creators').select('id, username').in('username', chunk);
+          if (chunkExisting) {
+            chunkExisting.forEach(c => creatorMap.set(c.username, c.id));
+          }
+        }
         
-        // 2. Insert missing creators
+        // 2. Insert missing creators in chunks
         const missingUsernames = uniqueUsernames.filter(u => !creatorMap.has(u));
         if (missingUsernames.length > 0) {
-          const { data: newCreators, error: errInsert } = await supabase.from('creators').insert(
-            missingUsernames.map(u => ({ username: u, added_by: 'system' }))
-          ).select('id, username');
-          if (!errInsert && newCreators) {
-            newCreators.forEach(c => creatorMap.set(c.username, c.id));
+          for (let i = 0; i < missingUsernames.length; i += 500) {
+            const chunk = missingUsernames.slice(i, i + 500);
+            const { data: newCreators, error: errInsert } = await supabase.from('creators').insert(
+              chunk.map(u => ({ username: u, added_by: 'system' }))
+            ).select('id, username');
+            if (!errInsert && newCreators) {
+              newCreators.forEach(c => creatorMap.set(c.username, c.id));
+            }
           }
         }
 
@@ -626,12 +635,17 @@ export default function OrganicImport({ mode = 'sales' }: { mode?: 'sales' | 'vi
           
           if (creatorIds.length === 0) continue;
 
-          const { data: existingCc } = await supabase.from('campaign_creators')
-            .select('id, creator_id, assigned_sku_ids')
-            .eq('campaign_id', campId)
-            .in('creator_id', creatorIds);
-            
-          const ccMap = new Map(existingCc?.map(cc => [cc.creator_id, cc]) || []);
+          const ccMap = new Map();
+          for (let i = 0; i < creatorIds.length; i += 200) {
+            const chunk = creatorIds.slice(i, i + 200);
+            const { data: existingCc } = await supabase.from('campaign_creators')
+              .select('id, creator_id, assigned_sku_ids')
+              .eq('campaign_id', campId)
+              .in('creator_id', chunk);
+            if (existingCc) {
+              existingCc.forEach(cc => ccMap.set(cc.creator_id, cc));
+            }
+          }
           
           const newCcsToInsert = [];
 
