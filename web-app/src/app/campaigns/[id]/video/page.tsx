@@ -618,8 +618,8 @@ export default function CampaignVideoPage() {
 
        ccOrganic.forEach((o: any) => {
           if (validContentUids.has(o.vt_code) || validContentUids.has(o.content_uid) || validContentUids.has(o.video_id)) {
-             totalViews += (o.views || 0);
-             totalLikes += (o.likes || 0);
+             totalViews += (o.video_views || 0);
+             totalLikes += (o.video_likes || 0);
           }
        });
 
@@ -712,8 +712,8 @@ export default function CampaignVideoPage() {
           });
           ccOrganic.forEach((o: any) => {
              if (o.video_id === dynamicContentUid) {
-                vidViews += (o.views || 0);
-                vidLikes += (o.likes || 0);
+                vidViews += (o.video_views || 0);
+                vidLikes += (o.video_likes || 0);
              }
           });
        }
@@ -1031,8 +1031,8 @@ export default function CampaignVideoPage() {
                                const ccOrganic = cc._localOrganicVideos || [];
                                ccOrganic.forEach((o: any) => {
                                   if (o.vt_code === dynamicContentUid || o.content_uid === dynamicContentUid) {
-                                     vidViews += (o.views || 0);
-                                     vidLikes += (o.likes || 0);
+                                     vidViews += (o.video_views || 0);
+                                     vidLikes += (o.video_likes || 0);
                                   }
                                });
                             }
