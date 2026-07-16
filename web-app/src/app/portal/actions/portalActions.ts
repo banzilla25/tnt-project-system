@@ -133,31 +133,14 @@ export async function getPortalData(campaignId: number) {
 
   if (rpcError) console.error("RPC Error:", rpcError);
 
-  // Fetch sales for videos (hanya VT, jauh lebih ringan)
-  let salesForVideos: any[] = [];
-  let svStart = 0;
-  while (true) {
-    const { data: pageSv } = await supabase
-      .from('sales')
-      .select('content_uid, gmv, creator_username, content_type, product_id, quantity')
-      .eq('campaign_id', campaignId)
-      .not('content_uid', 'is', null)
-      .range(svStart, svStart + 999);
-      
-    if (!pageSv || pageSv.length === 0) break;
-    salesForVideos = salesForVideos.concat(pageSv);
-    if (pageSv.length < 1000) break;
-    svStart += 1000;
-  }
-
+  // Fetch sales for videos via new RPC (much faster than fetching all sales rows)
+  const { data: videoGmvData } = await supabase
+    .rpc('get_campaign_video_gmv', { p_campaign_id: campaignId });
+    
   const videoGmvMap = new Map();
-  salesForVideos?.forEach(s => {
-    let vid = s.content_uid;
-    if (vid && vid.startsWith('video_')) {
-       vid = vid.split('_')[1];
-    }
-    if (vid) {
-      videoGmvMap.set(vid, (videoGmvMap.get(vid) || 0) + s.gmv);
+  videoGmvData?.forEach((s: any) => {
+    if (s.content_uid) {
+      videoGmvMap.set(s.content_uid, s.total_gmv);
     }
   });
 
@@ -269,26 +252,24 @@ export async function getPortalData(campaignId: number) {
   const videoLikesMap = new Map();
   const organicVideoMap = new Map();
 
-  // Ambil hanya organic_videos untuk Video tab
+  // Ambil hanya organic_videos untuk Video tab (filter strict menggunakan campaign_id)
   let organicVideos: any[] = [];
   if (validUsernames.length > 0) {
-    const startD = campaign.start_date;
-    const endD = campaign.end_date;
-    for (let i = 0; i < validUsernames.length; i += 100) {
-      const chunk = validUsernames.slice(i, i + 100);
-      let ovStart = 0;
-      while(true) {
-        let query = supabase.from('organic_videos')
-          .select('content_uid, creator_username, video_views, video_likes, duration_str, post_time')
-          .in('creator_username', chunk);
-        if (startD) query = query.gte('post_time', startD);
-        if (endD) query = query.lte('post_time', `${endD}T23:59:59Z`);
-        const { data: ovs } = await query.range(ovStart, ovStart + 999);
-        if (!ovs || ovs.length === 0) break;
-        organicVideos = organicVideos.concat(ovs);
-        if (ovs.length < 1000) break;
-        ovStart += 1000;
-      }
+    let query = supabase.from('organic_videos')
+      .select('content_uid, creator_username, video_views, video_likes, duration_str, post_time')
+      .eq('campaign_id', campaignId);
+      
+    if (campaign.start_date) query = query.gte('post_time', campaign.start_date);
+    if (campaign.end_date) query = query.lte('post_time', `${campaign.end_date}T23:59:59Z`);
+    
+    // Pagination is usually not needed for a single campaign's organic videos, 
+    // but just in case, PostgREST will return up to 1000 rows.
+    // If a campaign has > 1000 organic videos, we might need pagination, but this is much safer than the N+1 chunk loop.
+    const { data: ovs } = await query.limit(5000);
+    
+    // Filter by validUsernames in memory to ensure no leakage from unapproved creators
+    if (ovs) {
+      organicVideos = ovs.filter(v => validUsernames.includes(v.creator_username));
     }
   }
 
@@ -335,15 +316,13 @@ export async function getPortalData(campaignId: number) {
     }
 
     // 2. Add Auto-detected videos from organic_videos and sales
-    const creatorSales = salesForVideos?.filter((s: any) => s.creator_username === username && s.content_uid) || [];
+    const creatorSales = videoGmvData?.filter((s: any) => s.creator_username === username && s.content_uid) || [];
     const creatorOrganics = organicVideos?.filter((v: any) => v.creator_username === username) || [];
     
     const uniqueContentUids = new Set<string>();
     
     creatorSales.forEach((s: any) => {
-       let vid = s.content_uid;
-       if (vid && vid.startsWith('video_')) vid = vid.split('_')[1];
-       if (vid) uniqueContentUids.add(vid);
+       if (s.content_uid) uniqueContentUids.add(s.content_uid);
        // Livestream sales tidak perlu diproses di sini — sudah ditangani oleh RPC get_campaign_live_stats
     });
     
@@ -354,7 +333,7 @@ export async function getPortalData(campaignId: number) {
     uniqueContentUids.forEach(vid => {
         const exists = creatorVideos.some(v => v.content_uid === vid || v.vt_code === vid);
         if (!exists) {
-           const sObj = creatorSales.find((s: any) => s.content_uid === vid || s.content_uid === `video_${vid}`);
+           const sObj = creatorSales.find((s: any) => s.content_uid === vid);
            const ovObj = organicVideoMap.get(vid);
            
            const isLive = ovObj ? !!ovObj.isLive : (sObj ? sObj.content_type === 'Livestream' : false);
@@ -394,29 +373,32 @@ export async function getPortalData(campaignId: number) {
      finalSummary.target_creator = campaign.target_creator;
   }
 
-  // Aggregate sales per product_id for Top 5 SKU insight (scoped to campaign SKUs only)
-  const productGmvMap = new Map<string, { product_id: string; nama_produk: string; gmv: number; items_sold: number; }>();
-  const validProductIds = new Set((skusData || []).map((s: any) => s.product_id));
+  // Aggregate sales per product_id for Top 5 SKU insight via RPC
+  const { data: topSkusData } = await supabase
+    .rpc('get_campaign_top_skus', { p_campaign_id: campaignId });
+    
+  const salesPerProduct = topSkusData || [];
+  const totalItemsSold = salesPerProduct.reduce((sum: number, p: any) => sum + Number(p.items_sold || 0), 0);
+
+  // Fallback if rpcPerformance fails or returns empty (e.g. database function issue)
+  let finalRpcPerf = Array.isArray(rpcPerformance) ? rpcPerformance[0] : rpcPerformance;
   
-  // Use salesForVideos which already contains all sales for this campaign
-  salesForVideos?.forEach((s: any) => {
-    if (s.product_id && validProductIds.has(s.product_id)) {
-      const existing = productGmvMap.get(s.product_id) || { 
-        product_id: s.product_id, 
-        nama_produk: (skusData || []).find((sk: any) => sk.product_id === s.product_id)?.nama_produk || s.product_id,
-        gmv: 0, 
-        items_sold: 0 
-      };
-      existing.gmv += (s.gmv || 0);
-      existing.items_sold += (s.quantity || 0);
-      productGmvMap.set(s.product_id, existing);
-    }
-  });
-  
-  const salesPerProduct = Array.from(productGmvMap.values())
-    .sort((a, b) => b.gmv - a.gmv);
-  
-  const totalItemsSold = salesPerProduct.reduce((sum, p) => sum + p.items_sold, 0);
+  if (!finalRpcPerf || Object.keys(finalRpcPerf || {}).length === 0 || !finalRpcPerf.totalAllGmv) {
+    const totalGmv = (creatorPerformance || []).reduce((sum: number, c: any) => sum + (Number(c.gmv_organic) || 0) + (Number(c.gmv_ads) || 0), 0);
+    const totalViews = (creatorPerformance || []).reduce((sum: number, c: any) => sum + (Number(c.video_views) || 0), 0);
+    const totalVideos = (creatorPerformance || []).reduce((sum: number, c: any) => sum + (Number(c.tracked_videos) || 0), 0);
+    const totalLivestreams = (creatorPerformance || []).reduce((sum: number, c: any) => sum + (Number(c.tracked_livestreams) || 0), 0);
+    
+    finalRpcPerf = {
+      totalAllGmv: totalGmv,
+      totalViews: totalViews,
+      totalVideos: totalVideos,
+      totalLivestreams: totalLivestreams,
+      creatorsWithVideo: (creatorPerformance || []).filter((c: any) => (Number(c.tracked_videos) || 0) > 0).length,
+      creatorsWithLive: (creatorPerformance || []).filter((c: any) => (Number(c.tracked_livestreams) || 0) > 0).length,
+      approvedCreators: (creatorPerformance || []).filter((c: any) => c.client_approval === 'approved' || c.approval === 'approved').length
+    };
+  }
 
   return { 
     authenticated: true, 
@@ -431,7 +413,7 @@ export async function getPortalData(campaignId: number) {
     videos: portalVideos,
     skus: skusData || [],
     liveHistory: [],
-    rpcPerformance,
+    rpcPerformance: finalRpcPerf,
     topSkus: salesPerProduct,
     actualLives,
     salesPerProduct,
