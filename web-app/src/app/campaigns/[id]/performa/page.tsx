@@ -358,6 +358,13 @@ function CampaignPerformaContent() {
   const targetCreator = campaign.target_creator || 0;
   const percentCapaiCreator = targetCreator > 0 ? Math.round((localCreators.length / targetCreator) * 100) : 0;
 
+  // Render format currency
+  const formatCompactNumber = (num: number) => {
+    if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+    if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+    return num.toLocaleString();
+  };
+
   return (
     <div className="space-y-[32px]">
       <div className="flex justify-between items-center mb-[24px] gap-[16px] flex-wrap">
