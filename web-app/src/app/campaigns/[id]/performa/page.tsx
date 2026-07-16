@@ -102,7 +102,7 @@ function CampaignPerformaContent() {
       while (hasMore) {
         let query = supabase
           .from('campaign_creators')
-          .select('*, creators(*), videos(id, content_uid, vt_code, vt_approval)')
+          .select('*, creators(*), videos(id, content_uid, vt_approval)')
           .eq('campaign_id', campaignId)
           .in('approval', ['approved', 'pending']);
 
