@@ -361,7 +361,7 @@ function CampaignPerformaContent() {
     
     fbApprovedVideos += c.approvedVtCount || 0;
     fbPendingVideos += c.pendingVtCount || 0;
-    if (c.pendingVtCount > 0 && c.isPendingCreator) pendingCreatorsWithVideosCount++;
+    if (c.pendingVtCount > 0) pendingCreatorsWithVideosCount++;
   });
 
   const isFiltered = appliedFilterType !== 'none' && appliedFilterUsernames.length > 0;
