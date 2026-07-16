@@ -671,7 +671,7 @@ export default function OrganicImport({ mode = 'sales' }: { mode?: 'sales' | 'vi
                 creator_id: cId,
                 tier: 'Auto-Detect',
                 assigned_sku_ids: newSkus,
-                approval: 'pending',
+                approval: 'approved',
                 client_approval: 'not_required',
                 status_bayar: 'belum',
                 qty_vt: 1,
