@@ -14,10 +14,29 @@ export async function POST(request: Request) {
       redirect: 'follow', // Fetch will automatically follow redirects and populate response.url
     });
 
-    const finalUrl = response.url;
+    let finalUrl = response.url;
 
     if (!finalUrl || finalUrl === shortUrl) {
        return NextResponse.json({ error: 'Gagal mendapatkan link asli' }, { status: 400 });
+    }
+
+    if (finalUrl.includes('/@/video/')) {
+        try {
+            const videoIdMatch = finalUrl.match(/video\/(\d+)/);
+            if (videoIdMatch && videoIdMatch[1]) {
+                const videoId = videoIdMatch[1];
+                const oembedUrl = `https://www.tiktok.com/oembed?url=https://www.tiktok.com/video/${videoId}`;
+                const oembedRes = await fetch(oembedUrl);
+                if (oembedRes.ok) {
+                    const oembedData = await oembedRes.json();
+                    if (oembedData && oembedData.author_unique_id) {
+                        finalUrl = `https://www.tiktok.com/@${oembedData.author_unique_id}/video/${videoId}`;
+                    }
+                }
+            }
+        } catch (err) {
+            console.error('Failed to fetch oEmbed for username:', err);
+        }
     }
 
     return NextResponse.json({ 
