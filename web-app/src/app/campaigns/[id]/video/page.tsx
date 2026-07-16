@@ -610,7 +610,7 @@ export default function CampaignVideoPage() {
             concept: '',
             link_video: r.expanded,
             content_uid: r.videoId,
-            vt_approval: 'approved'
+            vt_approval: 'pending' // Default to pending as requested by user
           });
           nextUrutan++;
        }
