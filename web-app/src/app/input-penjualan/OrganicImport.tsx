@@ -660,7 +660,10 @@ export default function OrganicImport({ mode = 'sales' }: { mode?: 'sales' | 'vi
             }
           }
           if (newCcsToInsert.length > 0) {
-            await supabase.from('campaign_creators').insert(newCcsToInsert);
+            for (let i = 0; i < newCcsToInsert.length; i += 500) {
+              const chunk = newCcsToInsert.slice(i, i + 500);
+              await supabase.from('campaign_creators').insert(chunk);
+            }
           }
         }
       }
@@ -668,8 +671,14 @@ export default function OrganicImport({ mode = 'sales' }: { mode?: 'sales' | 'vi
       // 5. Auto Populate Videos Table (So they appear in Pending ber-Video)
       const uniqueVideos = Array.from(new Set(uniquePayload.map(p => p.content_uid).filter(Boolean)));
       if (uniqueVideos.length > 0) {
-        const { data: existingVideos } = await supabase.from('videos').select('content_uid').in('content_uid', uniqueVideos);
-        const existingUids = new Set(existingVideos?.map(v => v.content_uid) || []);
+        const existingUids = new Set<string>();
+        for (let i = 0; i < uniqueVideos.length; i += 200) {
+          const chunk = uniqueVideos.slice(i, i + 200);
+          const { data: chunkExisting } = await supabase.from('videos').select('content_uid').in('content_uid', chunk);
+          if (chunkExisting) {
+            chunkExisting.forEach(v => existingUids.add(v.content_uid));
+          }
+        }
         const missingVideos = uniquePayload.filter(p => p.content_uid && !existingUids.has(p.content_uid) && p.campaign_id);
         
         if (missingVideos.length > 0) {
@@ -703,7 +712,10 @@ export default function OrganicImport({ mode = 'sales' }: { mode?: 'sales' | 'vi
             }
           }
           if (newVideosToInsert.length > 0) {
-            await supabase.from('videos').insert(newVideosToInsert);
+            for (let i = 0; i < newVideosToInsert.length; i += 500) {
+              const chunk = newVideosToInsert.slice(i, i + 500);
+              await supabase.from('videos').insert(chunk);
+            }
           }
         }
       }
