@@ -44,34 +44,16 @@ export async function getAdsReportData(params: {
   }
 
   // 2. Apply Search Query Filter in memory
-  let filteredData = rawFilteredData;
+  let breakdownData = rawFilteredData;
   if (params.searchQuery) {
     const q = params.searchQuery.toLowerCase();
-    filteredData = filteredData.filter(r => 
+    breakdownData = breakdownData.filter(r => 
       (r.ad_name && r.ad_name.toLowerCase().includes(q)) || 
       (r.ad_id && r.ad_id.toLowerCase().includes(q))
     );
   }
 
-  // 3. Calculate Global Summary
-  let sumSpend = 0; let sumGmv = 0; let sumImpr = 0; let sumSpendUsd = 0;
-  for (const ad of filteredData) {
-    const kurs = ad.kurs || 16000;
-    sumSpend += (ad.delta_cost_usd || 0) * kurs;
-    sumSpendUsd += (ad.delta_cost_usd || 0);
-    sumGmv += (ad.delta_gross_revenue_usd || 0) * kurs;
-    sumImpr += (ad.delta_impressions || 0);
-  }
-  const summary = {
-    totalSpend: sumSpend,
-    totalSpendUsd: sumSpendUsd,
-    totalGmv: sumGmv,
-    totalImpressions: sumImpr,
-    roas: sumSpend > 0 ? sumGmv / sumSpend : 0,
-    cpm: sumImpr > 0 ? sumSpend / (sumImpr / 1000) : 0,
-  };
-
-  // Fetch campaigns to map names
+  // Fetch campaigns to map names (Move this up so we can use it for breakdown)
   const { data: campaignsData } = await supabase.from('campaigns').select('id, nama');
   const campaignNames: Record<number, string> = {};
   if (campaignsData) {
@@ -80,10 +62,10 @@ export async function getAdsReportData(params: {
     });
   }
 
-  // 4. Calculate Campaign Breakdown
+  // 3. Calculate Campaign Breakdown (using ALL campaigns matching date/search)
   const campaignBreakdown: Record<number, any> = {};
   let globalUnmappedCampaigns = 0;
-  for (const ad of filteredData) {
+  for (const ad of breakdownData) {
     const kurs = ad.kurs || 16000;
     const cId = ad.campaign_id;
     if (!cId) {
@@ -107,8 +89,32 @@ export async function getAdsReportData(params: {
   const list = Object.entries(campaignBreakdown).map(([id, data]: any) => ({ id: Number(id), ...data }));
   list.sort((a, b) => b.gmv - a.gmv);
 
-  // 5. Sort
-  filteredData.sort((a, b) => {
+  // 4. Apply Campaign ID filter for Table and Summary
+  let tableData = breakdownData;
+  if (params.campaignId !== null && params.campaignId !== undefined) {
+    tableData = tableData.filter(r => r.campaign_id === params.campaignId);
+  }
+
+  // 5. Calculate Global Summary (using filtered tableData)
+  let sumSpend = 0; let sumGmv = 0; let sumImpr = 0; let sumSpendUsd = 0;
+  for (const ad of tableData) {
+    const kurs = ad.kurs || 16000;
+    sumSpend += (ad.delta_cost_usd || 0) * kurs;
+    sumSpendUsd += (ad.delta_cost_usd || 0);
+    sumGmv += (ad.delta_gross_revenue_usd || 0) * kurs;
+    sumImpr += (ad.delta_impressions || 0);
+  }
+  const summary = {
+    totalSpend: sumSpend,
+    totalSpendUsd: sumSpendUsd,
+    totalGmv: sumGmv,
+    totalImpressions: sumImpr,
+    roas: sumSpend > 0 ? sumGmv / sumSpend : 0,
+    cpm: sumImpr > 0 ? sumSpend / (sumImpr / 1000) : 0,
+  };
+
+  // 6. Sort
+  tableData.sort((a, b) => {
     let valA = a[params.sortKey];
     let valB = b[params.sortKey];
     if (params.sortKey === 'tanggal') {
