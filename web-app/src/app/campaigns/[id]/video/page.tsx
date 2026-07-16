@@ -188,7 +188,20 @@ export default function CampaignVideoPage() {
         }
       }
 
-      const allVideosFromDb = results.flatMap((cc: any) => cc.videos || []);
+      const allVideosFromDb = results.flatMap((cc: any) => cc.videos || []).map((v: any) => {
+        if (!v.sku_id && v.content_uid) {
+           const matchingSale = localSalesData.find(s => 
+              (s.content_uid === v.content_uid || s.content_uid === `video_${v.content_uid}`) && s.product_id
+           );
+           if (matchingSale) {
+              const matchingSku = skus.find(sku => sku.product_id === matchingSale.product_id && sku.campaign_id === campaignId);
+              if (matchingSku) {
+                 return { ...v, sku_id: matchingSku.id };
+              }
+           }
+        }
+        return v;
+      });
       
       // Auto-detect videos from sales
       const autoVideos: any[] = [];
