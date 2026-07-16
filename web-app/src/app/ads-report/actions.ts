@@ -148,6 +148,6 @@ export async function getAdsReportData(params: {
     summary,
     campaignBreakdown: { list, globalUnmappedCampaigns },
     budgetBalances,
-    data: filteredData
+    data: tableData
   };
 }
