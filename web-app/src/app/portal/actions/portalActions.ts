@@ -112,7 +112,7 @@ export async function getPortalData(campaignId: number) {
         videos(id, link_video, content_uid, vt_approval, urutan)
       `)
       .eq('campaign_id', campaignId)
-      .in('approval', ['approved', 'alternate'])
+      .in('approval', ['approved', 'pending'])
       .range(start, start + pageSize - 1);
 
     if (error || !data || data.length === 0) break;
@@ -384,19 +384,54 @@ export async function getPortalData(campaignId: number) {
   let finalRpcPerf = Array.isArray(rpcPerformance) ? rpcPerformance[0] : rpcPerformance;
   
   if (!finalRpcPerf || Object.keys(finalRpcPerf || {}).length === 0 || !finalRpcPerf.totalAllGmv) {
-    const totalGmv = (creatorPerformance || []).reduce((sum: number, c: any) => sum + (Number(c.gmv_organic) || 0) + (Number(c.gmv_ads) || 0), 0);
-    const totalViews = (creatorPerformance || []).reduce((sum: number, c: any) => sum + (Number(c.video_views) || 0), 0);
-    const totalVideos = portalVideos.reduce((sum: number, pv: any) => sum + (pv.total_videos || 0), 0);
-    const totalLivestreams = actualLives.length;
-    
+    let fbViews = 0, fbVideos = 0, fbLivestreams = 0, fbAllGmv = 0, fbWithVideo = 0, fbWithLive = 0, fbApprovedCreators = 0;
+
+    enrichedCcData.forEach((cc: any) => {
+      if (campaign?.require_client_approval && cc.client_approval !== 'approved') return;
+      if (cc.approval !== 'approved' && cc.approval !== 'pending') return;
+      
+      if (cc.approval === 'approved') fbApprovedCreators++;
+      
+      fbAllGmv += (Number(cc.gmv_organic) || 0) + (Number(cc.gmv_ads) || 0);
+      fbViews += Number(cc.video_views) || 0;
+      
+      const trackedVideos = cc.total_vt || 0;
+      const dbVideos = cc.videos || [];
+      const uniqueVideoIds = new Set<string>();
+      const uniqueLiveIds = new Set<string>();
+      
+      dbVideos.forEach((v: any) => {
+        const id = v.vt_code || v.content_uid;
+        if (id) uniqueVideoIds.add(id);
+      });
+      
+      const creatorSales = videoGmvData?.filter((s: any) => s.creator_username === (cc.creators?.username || '') && s.content_uid) || [];
+      creatorSales.forEach((s: any) => {
+         let vid = s.content_uid;
+         if (vid && vid.startsWith('video_')) vid = vid.split('_')[1] || vid;
+         if (vid) {
+            if (s.content_type === 'Livestream') uniqueLiveIds.add(vid);
+            else uniqueVideoIds.add(vid);
+         }
+      });
+      
+      const totalVt = Math.max(trackedVideos, uniqueVideoIds.size);
+      const totalLive = uniqueLiveIds.size;
+      
+      fbVideos += totalVt;
+      fbLivestreams += totalLive;
+      if (totalVt > 0) fbWithVideo++;
+      if (totalLive > 0) fbWithLive++;
+    });
+
     finalRpcPerf = {
-      totalAllGmv: totalGmv,
-      totalViews: totalViews,
-      totalVideos: totalVideos,
-      totalLivestreams: totalLivestreams,
-      creatorsWithVideo: portalVideos.length,
-      creatorsWithLive: new Set(actualLives.map((l: any) => l.creator_username)).size,
-      approvedCreators: (creatorPerformance || []).filter((c: any) => c.client_approval === 'approved' || c.approval === 'approved').length
+      totalAllGmv: fbAllGmv,
+      totalViews: fbViews,
+      totalVideos: fbVideos,
+      totalLivestreams: fbLivestreams,
+      creatorsWithVideo: fbWithVideo,
+      creatorsWithLive: fbWithLive,
+      approvedCreators: fbApprovedCreators
     };
   }
 
