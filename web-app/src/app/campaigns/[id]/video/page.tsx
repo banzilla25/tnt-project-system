@@ -547,6 +547,7 @@ export default function CampaignVideoPage() {
     if (validExisting.length === 0 && validNewCreator.length === 0) return;
     
     setBulkProcessing(true);
+    const supabaseClient = createClient();
     const newDbEntries: any[] = [];
     const ccIdGroups: Record<number, any[]> = {};
     
