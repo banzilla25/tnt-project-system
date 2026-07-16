@@ -118,7 +118,7 @@ function CampaignPerformaContent() {
         }
 
         if (ccData && ccData.length > 0) {
-          allFound = [...allFound, ...ccData];
+          allApproved = [...allApproved, ...ccData];
           if (ccData.length < 500) {
             hasMore = false;
           } else {
@@ -129,7 +129,7 @@ function CampaignPerformaContent() {
           hasMore = false;
         }
       }
-      setLocalCreators(allFound);
+      setLocalCreators(allApproved);
 
     } catch (error) {
       console.error("Error fetching performance data", error);
