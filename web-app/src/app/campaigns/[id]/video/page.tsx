@@ -452,7 +452,10 @@ export default function CampaignVideoPage() {
     const assignedVids = new Set(localVideos.map(v => v.content_uid).filter(Boolean));
     
     let currentProgress = 0;
-    const BATCH_SIZE = 10;
+    const BATCH_SIZE = 3; // Kurangi dari 10 jadi 3 biar ga kena rate limit TikTok
+    
+    // Fungsi pembantu untuk jeda
+    const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
     for (let i = 0; i < lines.length; i += BATCH_SIZE) {
       const chunk = lines.slice(i, i + BATCH_SIZE);
@@ -526,6 +529,11 @@ export default function CampaignVideoPage() {
       
       currentProgress += chunk.length;
       setBulkProgress(currentProgress);
+      
+      // Kasih jeda 1 detik tiap batch biar TikTok ga nge-block IP server (Error 429)
+      if (i + BATCH_SIZE < lines.length) {
+         await delay(1000);
+      }
     }
     
     setBulkResults(results);
