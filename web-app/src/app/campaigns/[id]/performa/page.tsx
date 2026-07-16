@@ -96,7 +96,7 @@ function CampaignPerformaContent() {
       // 2. Fetch Approved Creators (Paginated to handle >500 limits on joins)
       let allApproved: any[] = [];
       let from = 0;
-      let to = 499; // Reduced from 999 to avoid PostgREST silent truncation on inner joins
+      let to = 499; 
       let hasMore = true;
 
       while (hasMore) {
@@ -104,7 +104,7 @@ function CampaignPerformaContent() {
           .from('campaign_creators')
           .select('*, creators(*), videos(id)')
           .eq('campaign_id', campaignId)
-          .eq('approval', 'approved');
+          .in('approval', ['approved', 'pending']);
 
         if (campaign?.require_client_approval) {
           query = query.eq('client_approval', 'approved');
@@ -118,7 +118,7 @@ function CampaignPerformaContent() {
         }
 
         if (ccData && ccData.length > 0) {
-          allApproved = [...allApproved, ...ccData];
+          allFound = [...allFound, ...ccData];
           if (ccData.length < 500) {
             hasMore = false;
           } else {
@@ -129,7 +129,7 @@ function CampaignPerformaContent() {
           hasMore = false;
         }
       }
-      setLocalCreators(allApproved);
+      setLocalCreators(allFound);
 
     } catch (error) {
       console.error("Error fetching performance data", error);
@@ -195,10 +195,11 @@ function CampaignPerformaContent() {
   if (!campaign) return null;
 
   const isAwareness = campaign.tipe_campaign === 'awareness' || campaign.tipe_campaign === 'gmv_awareness';
+  const totalApprovedCreators = localCreators.filter(c => c.approval === 'approved').length;
+  const totalPendingCreators = localCreators.filter(c => c.approval === 'pending').length;
 
   // Aggregate per creator using SQL VIEW data
   const baseCreatorStats = React.useMemo(() => {
-    // salesSummary now contains the SQL View data (campaign_creators_performance)
     const perfMap = new Map();
     salesSummary.forEach((p: any) => perfMap.set(p.campaign_creator_id, p));
 
@@ -232,13 +233,11 @@ function CampaignPerformaContent() {
       const uniqueVideoIds = new Set<string>();
       const uniqueLiveIds = new Set<string>();
       
-      // Add db videos to set
       dbVideos.forEach((v: any) => {
         if (v.vt_code) uniqueVideoIds.add(v.vt_code);
         else if (v.content_uid) uniqueVideoIds.add(v.content_uid);
       });
 
-      // Parse sales videos
       autoSalesVideos.forEach((s: any) => {
          let vid = s.content_uid;
          if (vid && vid.startsWith('video_')) {
@@ -297,15 +296,6 @@ function CampaignPerformaContent() {
     setCurrentPage(1);
   }, [searchQuery, sortField, sortOrder]);
 
-  const handleSort = (field: 'username' | 'gmvOrganic' | 'gmvAds' | 'totalGmv' | 'totalVt' | 'totalLive' | 'videoViews') => {
-    if (sortField === field) {
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortOrder('desc');
-    }
-  };
-
   let filteredCreatorStats = creatorStats.filter(c => c.username.toLowerCase().includes(searchQuery.toLowerCase()));
 
   filteredCreatorStats = filteredCreatorStats.sort((a, b) => {
@@ -332,7 +322,6 @@ function CampaignPerformaContent() {
   const totalPages = Math.ceil(filteredCreatorStats.length / pageSize);
   const paginatedStats = filteredCreatorStats.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
-  // Fallback aggregations in case RPC times out (especially for huge campaigns)
   let fbViews = 0, fbLikes = 0, fbVideos = 0, fbLivestreams = 0, fbOrganic = 0, fbAds = 0, fbAllGmv = 0, fbWithVideo = 0, fbWithLive = 0;
   creatorStats.forEach(c => {
     fbViews += c.videoViews || 0;
@@ -348,7 +337,6 @@ function CampaignPerformaContent() {
 
   const isFiltered = appliedFilterType !== 'none' && appliedFilterUsernames.length > 0;
 
-  // Sales Metrics from RPC (or fallback)
   const totalOrganic = isFiltered ? fbOrganic : (totalSales?.totalOrganic || fbOrganic);
   const totalAdsGmv = isFiltered ? fbAds : (totalSales?.totalAdsGmv || fbAds);
   const totalAllGmv = isFiltered ? fbAllGmv : (totalSales?.totalAllGmv || fbAllGmv);
@@ -357,7 +345,6 @@ function CampaignPerformaContent() {
   const attributionGap = isFiltered ? 0 : (totalSales?.attributionGap || 0);
   const gapPercentage = totalOrganic > 0 ? Math.round((attributionGap / totalOrganic) * 100) : 0;
 
-  // Awareness Metrics from RPC (or fallback)
   const totalCampaignViews = isFiltered ? fbViews : Number(totalSales?.totalViews || fbViews);
   const totalCampaignLikes = isFiltered ? fbLikes : Number(totalSales?.totalLikes || fbLikes);
   const totalCampaignVideos = isFiltered ? fbVideos : Number(totalSales?.totalVideos || fbVideos);
@@ -369,16 +356,7 @@ function CampaignPerformaContent() {
   const percentCapaiVideo = targetVideo > 0 ? Math.round((totalCampaignVideos / targetVideo) * 100) : 0;
   
   const targetCreator = campaign.target_creator || 0;
-  // Make sure we use creatorStats.length as fallback for target creator if approvedCreators is missing
-  const approvedCreatorsCount = isFiltered ? creatorStats.length : Number(totalSales?.approvedCreators || creatorStats.length);
-  const percentCapaiCreator = targetCreator > 0 ? Math.round((approvedCreatorsCount / targetCreator) * 100) : 0;
-
-  // Render format currency
-  const formatCompactNumber = (num: number) => {
-    if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
-    if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
-    return num.toLocaleString();
-  };
+  const percentCapaiCreator = targetCreator > 0 ? Math.round((localCreators.length / targetCreator) * 100) : 0;
 
   return (
     <div className="space-y-[32px]">
@@ -432,10 +410,10 @@ function CampaignPerformaContent() {
               <div className="flex justify-between items-start">
                 <div>
                   <p className="text-[13px] font-medium text-text-soft">Pencapaian Target Creator</p>
-                  <h3 className="text-[24px] font-bold mt-[8px] text-text">{creatorStats.length} <span className="text-[13px] text-text-soft font-normal">kreator</span></h3>
-                  <div className="flex gap-[12px] mt-[4px]">
-                    <p className="text-[11px] font-semibold text-text-soft">{creatorsWithVideo} <span className="font-normal">w/ video</span></p>
-                    <p className="text-[11px] font-semibold text-text-soft">{creatorsWithLive} <span className="font-normal">w/ livestream</span></p>
+                  <h3 className="text-[24px] font-bold mt-[8px] text-text">{localCreators.length} <span className="text-[13px] text-text-soft font-normal">kreator</span></h3>
+                  <div className="flex items-center gap-3 text-[11px] mt-[4px]">
+                    <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>{totalApprovedCreators} appv</span>
+                    <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>{totalPendingCreators} pend</span>
                   </div>
                 </div>
                 <div className="p-[8px] bg-orange-50 rounded-[8px] text-orange-600"><Users className="w-5 h-5" /></div>
