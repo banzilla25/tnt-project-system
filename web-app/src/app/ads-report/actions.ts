@@ -25,9 +25,6 @@ export async function getAdsReportData(params: {
   if (params.endDate) {
     query = query.lte('tanggal', params.endDate);
   }
-  if (params.campaignId !== null && params.campaignId !== undefined) {
-    query = query.eq('campaign_id', params.campaignId);
-  }
   if (params.campaignAdsName) {
     query = query.eq('campaign_ads_name', params.campaignAdsName);
   }
