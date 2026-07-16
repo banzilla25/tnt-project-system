@@ -386,16 +386,16 @@ export async function getPortalData(campaignId: number) {
   if (!finalRpcPerf || Object.keys(finalRpcPerf || {}).length === 0 || !finalRpcPerf.totalAllGmv) {
     const totalGmv = (creatorPerformance || []).reduce((sum: number, c: any) => sum + (Number(c.gmv_organic) || 0) + (Number(c.gmv_ads) || 0), 0);
     const totalViews = (creatorPerformance || []).reduce((sum: number, c: any) => sum + (Number(c.video_views) || 0), 0);
-    const totalVideos = (creatorPerformance || []).reduce((sum: number, c: any) => sum + (Number(c.tracked_videos) || 0), 0);
-    const totalLivestreams = (creatorPerformance || []).reduce((sum: number, c: any) => sum + (Number(c.tracked_livestreams) || 0), 0);
+    const totalVideos = portalVideos.reduce((sum: number, pv: any) => sum + (pv.total_videos || 0), 0);
+    const totalLivestreams = actualLives.length;
     
     finalRpcPerf = {
       totalAllGmv: totalGmv,
       totalViews: totalViews,
       totalVideos: totalVideos,
       totalLivestreams: totalLivestreams,
-      creatorsWithVideo: (creatorPerformance || []).filter((c: any) => (Number(c.tracked_videos) || 0) > 0).length,
-      creatorsWithLive: (creatorPerformance || []).filter((c: any) => (Number(c.tracked_livestreams) || 0) > 0).length,
+      creatorsWithVideo: portalVideos.length,
+      creatorsWithLive: new Set(actualLives.map((l: any) => l.creator_username)).size,
       approvedCreators: (creatorPerformance || []).filter((c: any) => c.client_approval === 'approved' || c.approval === 'approved').length
     };
   }
