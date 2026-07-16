@@ -102,7 +102,7 @@ function CampaignPerformaContent() {
       while (hasMore) {
         let query = supabase
           .from('campaign_creators')
-          .select('*, creators(*), videos(id, content_uid)')
+          .select('*, creators(*), videos(id, content_uid, vt_code, vt_approval)')
           .eq('campaign_id', campaignId)
           .in('approval', ['approved', 'pending']);
 
@@ -230,12 +230,14 @@ function CampaignPerformaContent() {
       
       const dbVideos = cc.videos || [];
       const autoSalesVideos = autoSalesMap.get(username) || [];
-      const uniqueVideoIds = new Set<string>();
+      const uniqueVideoIds = new Map<string, string>(); // content_uid -> status
       const uniqueLiveIds = new Set<string>();
       
       dbVideos.forEach((v: any) => {
-        if (v.vt_code) uniqueVideoIds.add(v.vt_code);
-        else if (v.content_uid) uniqueVideoIds.add(v.content_uid);
+        const id = v.vt_code || v.content_uid;
+        if (id) {
+            uniqueVideoIds.set(id, v.vt_approval || 'approved');
+        }
       });
 
       autoSalesVideos.forEach((s: any) => {
@@ -250,12 +252,30 @@ function CampaignPerformaContent() {
            if (s.content_type === 'Livestream') {
              uniqueLiveIds.add(vid);
            } else {
-             uniqueVideoIds.add(vid);
+             if (!uniqueVideoIds.has(vid)) {
+                 uniqueVideoIds.set(vid, 'approved');
+             }
            }
          }
       });
       
-      const totalVt = Math.max(trackedVideos, uniqueVideoIds.size);
+      let approvedVtCount = 0;
+      let pendingVtCount = 0;
+      
+      if (cc.approval === 'pending') {
+          pendingVtCount = Math.max(trackedVideos, uniqueVideoIds.size);
+      } else {
+          let mapApproved = 0;
+          let mapPending = 0;
+          uniqueVideoIds.forEach((status) => {
+             if (status === 'pending') mapPending++;
+             else mapApproved++;
+          });
+          approvedVtCount = Math.max(trackedVideos, mapApproved);
+          pendingVtCount = mapPending;
+      }
+
+      const totalVt = approvedVtCount + pendingVtCount;
       const totalLive = uniqueLiveIds.size;
 
       return {
@@ -274,7 +294,10 @@ function CampaignPerformaContent() {
         costAds,
         roas,
         totalVt,
-        totalLive
+        approvedVtCount,
+        pendingVtCount,
+        totalLive,
+        isPendingCreator: cc.approval === 'pending'
       };
     });
   }, [localCreators, salesSummary, awarenessSummary, adsPerf, salesDataForVt]);
@@ -323,6 +346,8 @@ function CampaignPerformaContent() {
   const paginatedStats = filteredCreatorStats.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   let fbViews = 0, fbLikes = 0, fbVideos = 0, fbLivestreams = 0, fbOrganic = 0, fbAds = 0, fbAllGmv = 0, fbWithVideo = 0, fbWithLive = 0;
+  let fbApprovedVideos = 0, fbPendingVideos = 0, pendingCreatorsWithVideosCount = 0;
+
   creatorStats.forEach(c => {
     fbViews += c.videoViews || 0;
     fbLikes += c.videoLikes || 0;
@@ -333,6 +358,10 @@ function CampaignPerformaContent() {
     fbAllGmv += c.totalGmv || 0;
     if (c.totalVt > 0) fbWithVideo++;
     if (c.totalLive > 0) fbWithLive++;
+    
+    fbApprovedVideos += c.approvedVtCount || 0;
+    fbPendingVideos += c.pendingVtCount || 0;
+    if (c.pendingVtCount > 0 && c.isPendingCreator) pendingCreatorsWithVideosCount++;
   });
 
   const isFiltered = appliedFilterType !== 'none' && appliedFilterUsernames.length > 0;
@@ -444,7 +473,10 @@ function CampaignPerformaContent() {
               <div className="flex justify-between items-start">
                 <div>
                   <p className="text-[13px] font-medium text-text-soft">Pencapaian Target Video</p>
-                  <h3 className="text-[24px] font-bold mt-[8px] text-text">{totalCampaignVideos} <span className="text-[13px] text-text-soft font-normal">video</span></h3>
+                  <h3 className="text-[24px] font-bold mt-[8px] text-text">{fbApprovedVideos} <span className="text-[13px] text-text-soft font-normal">video approved</span></h3>
+                  <div className="flex items-center gap-3 text-[11px] mt-[4px] text-text-soft">
+                    <span>{fbPendingVideos} video pending dari {pendingCreatorsWithVideosCount} kreator</span>
+                  </div>
                   <p className="text-[11px] font-semibold text-text-soft mt-[4px]">{totalCampaignLivestreams} <span className="font-normal">livestream</span></p>
                 </div>
                 <div className="p-[8px] bg-rose-50 rounded-[8px] text-rose-600"><PlaySquare className="w-5 h-5" /></div>
