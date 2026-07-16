@@ -441,8 +441,9 @@ export default function CampaignVideoPage() {
     setBulkProcessing(true);
     setBulkResults([]);
     
-    const lines = bulkInput.split('\n').map(l => l.trim()).filter(Boolean);
-    const results = [];
+    // Deduplicate input lines first
+    const lines = Array.from(new Set(bulkInput.split('\n').map(l => l.trim()).filter(Boolean)));
+    const results: any[] = [];
     
     setBulkTotal(lines.length);
     setBulkProgress(0);
@@ -451,92 +452,80 @@ export default function CampaignVideoPage() {
     const assignedVids = new Set(localVideos.map(v => v.content_uid).filter(Boolean));
     
     let currentProgress = 0;
+    const BATCH_SIZE = 10;
 
-    for (const link of lines) {
-      currentProgress++;
-      setBulkProgress(currentProgress);
-
-      const usernameMatchInitial = link.match(/@([^\/]+)/);
-      const videoIdMatchInitial = link.match(/video\/(\d+)/);
-      let initialUsername = usernameMatchInitial ? usernameMatchInitial[1].toLowerCase() : undefined;
-      let initialVideoId = videoIdMatchInitial ? videoIdMatchInitial[1] : undefined;
-
-      if (assignedLinks.has(link)) {
-        results.push({ 
-           original: link, 
-           username: initialUsername, 
-           videoId: initialVideoId, 
-           status: 'duplicate', 
-           message: 'Link sudah terdaftar di sistem' 
-        });
-        continue;
-      }
+    for (let i = 0; i < lines.length; i += BATCH_SIZE) {
+      const chunk = lines.slice(i, i + BATCH_SIZE);
       
-      let finalLink = link;
-      let isShort = isShortLink(link);
-      
-      if (isShort) {
-        try {
-          const res = await fetch('/api/expand-tiktok', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ shortUrl: link })
-          });
-          const data = await res.json();
-          if (res.ok && data.expandedUrl) {
-            finalLink = data.expandedUrl;
-          } else {
-            results.push({ original: link, status: 'error', message: 'Gagal konversi link pendek' });
-            continue;
-          }
-        } catch (e) {
-          results.push({ original: link, status: 'error', message: 'Koneksi gagal saat konversi' });
-          continue;
+      const chunkPromises = chunk.map(async (link) => {
+        const usernameMatchInitial = link.match(/@([^\/]+)/);
+        const videoIdMatchInitial = link.match(/video\/(\d+)/);
+        let initialUsername = usernameMatchInitial ? usernameMatchInitial[1].toLowerCase() : undefined;
+        let initialVideoId = videoIdMatchInitial ? videoIdMatchInitial[1] : undefined;
+
+        if (assignedLinks.has(link)) {
+          return { original: link, username: initialUsername, videoId: initialVideoId, status: 'duplicate', message: 'Link sudah terdaftar di sistem' };
         }
-      }
+        
+        let finalLink = link;
+        let isShort = isShortLink(link);
+        
+        if (isShort) {
+          try {
+            const res = await fetch('/api/expand-tiktok', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ shortUrl: link })
+            });
+            const data = await res.json();
+            if (res.ok && data.expandedUrl) {
+              finalLink = data.expandedUrl;
+            } else {
+              return { original: link, status: 'error', message: 'Gagal konversi link pendek' };
+            }
+          } catch (e) {
+            return { original: link, status: 'error', message: 'Koneksi gagal saat konversi' };
+          }
+        }
 
-      const usernameMatch = finalLink.match(/@([^\/]+)/);
-      const videoIdMatch = finalLink.match(/video\/(\d+)/);
-      const username = usernameMatch ? usernameMatch[1].toLowerCase() : undefined;
-      const videoId = videoIdMatch ? videoIdMatch[1] : undefined;
+        const usernameMatch = finalLink.match(/@([^\/]+)/);
+        const videoIdMatch = finalLink.match(/video\/(\d+)/);
+        const username = usernameMatch ? usernameMatch[1].toLowerCase() : undefined;
+        const videoId = videoIdMatch ? videoIdMatch[1] : undefined;
 
-      if (assignedLinks.has(finalLink)) {
-        results.push({ original: link, expanded: finalLink, username, videoId, status: 'duplicate', message: 'Link sudah terdaftar di sistem' });
-        continue;
+        if (assignedLinks.has(finalLink)) {
+          return { original: link, expanded: finalLink, username, videoId, status: 'duplicate', message: 'Link sudah terdaftar di sistem' };
+        }
+        
+        if (!username || !videoId) {
+          return { original: link, expanded: finalLink, status: 'error', message: 'Format link panjang tidak valid' };
+        }
+        
+        if (assignedVids.has(videoId)) {
+          return { original: link, expanded: finalLink, username, videoId, status: 'duplicate', message: 'Video ID sudah terdaftar di sistem' };
+        }
+        
+        const creatorMatch = finalListingData.find((cc: any) => cc.creators?.username.toLowerCase() === username);
+        
+        if (creatorMatch) {
+          return { original: link, expanded: finalLink, username, videoId, status: 'valid', ccId: creatorMatch.id, message: 'Siap ditambahkan' };
+        } else {
+          return { original: link, expanded: finalLink, username, videoId, status: 'valid_new_creator', message: 'Otomatis Ditambah (Auto-Detect)' };
+        }
+      });
+      
+      const chunkResults = await Promise.all(chunkPromises);
+      
+      for (const res of chunkResults) {
+        if (res.status === 'valid' || res.status === 'valid_new_creator') {
+          if (res.expanded) assignedLinks.add(res.expanded);
+          if (res.videoId) assignedVids.add(res.videoId);
+        }
+        results.push(res);
       }
       
-      if (!username || !videoId) {
-        results.push({ original: link, expanded: finalLink, status: 'error', message: 'Format link panjang tidak valid' });
-        continue;
-      }
-      
-      if (assignedVids.has(videoId)) {
-        results.push({ original: link, expanded: finalLink, username, videoId, status: 'duplicate', message: 'Video ID sudah terdaftar di sistem' });
-        continue;
-      }
-      
-      const creatorMatch = finalListingData.find((cc: any) => cc.creators?.username.toLowerCase() === username);
-      
-      if (creatorMatch) {
-        results.push({ 
-          original: link, 
-          expanded: finalLink, 
-          username, 
-          videoId, 
-          status: 'valid', 
-          ccId: creatorMatch.id,
-          message: 'Siap ditambahkan' 
-        });
-      } else {
-        results.push({ 
-          original: link, 
-          expanded: finalLink, 
-          username, 
-          videoId, 
-          status: 'valid_new_creator', 
-          message: 'Otomatis Ditambah (Auto-Detect)' 
-        });
-      }
+      currentProgress += chunk.length;
+      setBulkProgress(currentProgress);
     }
     
     setBulkResults(results);
