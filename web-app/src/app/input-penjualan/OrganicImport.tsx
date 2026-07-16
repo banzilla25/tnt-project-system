@@ -693,56 +693,36 @@ export default function OrganicImport({ mode = 'sales' }: { mode?: 'sales' | 'vi
             chunkExisting.forEach(v => existingUids.add(v.content_uid));
           }
         }
-        const missingVideos = uniquePayload.filter(p => p.content_uid && !existingUids.has(p.content_uid));
+        const missingVideos = uniquePayload.filter(p => p.content_uid && !existingUids.has(p.content_uid) && p.campaign_id);
         
         if (missingVideos.length > 0) {
-          const creatorUsernames = Array.from(new Set(missingVideos.map(m => m.creator_username)));
-          
-          const allCcs: any[] = [];
-          for (let i = 0; i < creatorUsernames.length; i += 200) {
-            const chunk = creatorUsernames.slice(i, i + 200);
-            const { data: ccs } = await supabase.from('campaign_creators')
-              .select('id, campaign_id, creators!inner(username)')
-              .in('creators.username', chunk);
-            if (ccs) allCcs.push(...ccs);
-          }
+          const campIds = Array.from(new Set(missingVideos.map(m => m.campaign_id)));
+          const { data: ccs } = await supabase.from('campaign_creators')
+            .select('id, campaign_id, creators!inner(username)')
+            .in('campaign_id', campIds);
             
-          const userToCcMapping: Record<string, number[]> = {};
-          allCcs.forEach((cc: any) => {
-            const uname = cc.creators?.username?.toLowerCase();
-            if (uname) {
-              if (!userToCcMapping[uname]) userToCcMapping[uname] = [];
-              userToCcMapping[uname].push(cc.id);
-            }
+          const ccMapping: Record<string, number> = {};
+          ccs?.forEach((cc: any) => {
+            const key = `${cc.campaign_id}_${cc.creators.username.toLowerCase()}`;
+            ccMapping[key] = cc.id;
           });
           
           const newVideosToInsert: any[] = [];
           const seenVids = new Set();
           
           for (const missing of missingVideos) {
-            const uname = missing.creator_username.toLowerCase();
-            let targetCcIds = userToCcMapping[uname] || [];
-            
-            if (missing.campaign_id) {
-              const specificCc = allCcs.find(c => c.creators?.username?.toLowerCase() === uname && c.campaign_id === missing.campaign_id);
-              if (specificCc) {
-                targetCcIds = [specificCc.id];
-              }
-            }
-            
-            for (const ccId of targetCcIds) {
-              const uniqueKey = `${ccId}_${missing.content_uid}`;
-              if (!seenVids.has(uniqueKey)) {
-                seenVids.add(uniqueKey);
-                newVideosToInsert.push({
-                  campaign_creator_id: ccId,
-                  content_uid: missing.content_uid,
-                  link_video: `https://www.tiktok.com/@${missing.creator_username}/video/${missing.content_uid}`,
-                  vt_approval: 'pending',
-                  urutan: 1,
-                  concept: 'Auto-detected from Organic Import'
-                });
-              }
+            const key = `${missing.campaign_id}_${missing.creator_username.toLowerCase()}`;
+            const ccId = ccMapping[key];
+            if (ccId && !seenVids.has(missing.content_uid)) {
+              seenVids.add(missing.content_uid);
+              newVideosToInsert.push({
+                campaign_creator_id: ccId,
+                content_uid: missing.content_uid,
+                link_video: `https://www.tiktok.com/@${missing.creator_username}/video/${missing.content_uid}`,
+                vt_approval: 'pending',
+                urutan: 1,
+                concept: 'Auto-detected from Awareness Import',
+              });
             }
           }
           if (newVideosToInsert.length > 0) {
