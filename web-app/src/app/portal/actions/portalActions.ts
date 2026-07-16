@@ -121,11 +121,22 @@ export async function getPortalData(campaignId: number) {
     start += pageSize;
   }
   
-  // Fetch performa summary dari SQL View
-  const { data: creatorPerformance } = await supabase
-    .from('campaign_creators_performance')
-    .select('*')
-    .eq('campaign_id', campaignId);
+  // Fetch performa summary dari SQL View (Paginated to avoid timeout)
+  let creatorPerformance: any[] = [];
+  let cpStart = 0;
+  const cpPageSize = 500;
+  while (true) {
+    const { data, error } = await supabase
+      .from('campaign_creators_performance')
+      .select('*')
+      .eq('campaign_id', campaignId)
+      .range(cpStart, cpStart + cpPageSize - 1);
+    
+    if (error || !data || data.length === 0) break;
+    creatorPerformance = creatorPerformance.concat(data);
+    if (data.length < cpPageSize) break;
+    cpStart += cpPageSize;
+  }
 
   // Fetch RPC untuk Global Cards
   const { data: rpcPerformance, error: rpcError } = await supabase
@@ -174,8 +185,8 @@ export async function getPortalData(campaignId: number) {
       gmv_ads: perf?.gmv_ads || 0,
       video_views: perf?.video_views || 0,
       video_likes: perf?.video_likes || 0,
-      total_vt: perf?.tracked_videos_only || 0,
-      total_livestreams: perf?.tracked_livestreams || 0
+      total_vt: perf?.tracked_videos || 0,
+      total_livestreams: 0
     };
   }) || [];
 
