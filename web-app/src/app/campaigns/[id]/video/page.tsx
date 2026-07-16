@@ -41,6 +41,8 @@ export default function CampaignVideoPage() {
   const [bulkImportOpen, setBulkImportOpen] = useState(false);
   const [bulkInput, setBulkInput] = useState('');
   const [bulkProcessing, setBulkProcessing] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState(0);
+  const [bulkTotal, setBulkTotal] = useState(0);
   const [bulkResults, setBulkResults] = useState<any[]>([]);
 
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -442,12 +444,31 @@ export default function CampaignVideoPage() {
     const lines = bulkInput.split('\n').map(l => l.trim()).filter(Boolean);
     const results = [];
     
+    setBulkTotal(lines.length);
+    setBulkProgress(0);
+
     const assignedLinks = new Set(localVideos.map(v => v.link_video).filter(Boolean));
     const assignedVids = new Set(localVideos.map(v => v.content_uid).filter(Boolean));
     
+    let currentProgress = 0;
+
     for (const link of lines) {
+      currentProgress++;
+      setBulkProgress(currentProgress);
+
+      const usernameMatchInitial = link.match(/@([^\/]+)/);
+      const videoIdMatchInitial = link.match(/video\/(\d+)/);
+      let initialUsername = usernameMatchInitial ? usernameMatchInitial[1].toLowerCase() : undefined;
+      let initialVideoId = videoIdMatchInitial ? videoIdMatchInitial[1] : undefined;
+
       if (assignedLinks.has(link)) {
-        results.push({ original: link, status: 'duplicate', message: 'Link sudah terdaftar di sistem' });
+        results.push({ 
+           original: link, 
+           username: initialUsername, 
+           videoId: initialVideoId, 
+           status: 'duplicate', 
+           message: 'Link sudah terdaftar di sistem' 
+        });
         continue;
       }
       
@@ -474,21 +495,20 @@ export default function CampaignVideoPage() {
         }
       }
 
+      const usernameMatch = finalLink.match(/@([^\/]+)/);
+      const videoIdMatch = finalLink.match(/video\/(\d+)/);
+      const username = usernameMatch ? usernameMatch[1].toLowerCase() : undefined;
+      const videoId = videoIdMatch ? videoIdMatch[1] : undefined;
+
       if (assignedLinks.has(finalLink)) {
-        results.push({ original: link, expanded: finalLink, status: 'duplicate', message: 'Link sudah terdaftar di sistem' });
+        results.push({ original: link, expanded: finalLink, username, videoId, status: 'duplicate', message: 'Link sudah terdaftar di sistem' });
         continue;
       }
       
-      const usernameMatch = finalLink.match(/@([^\/]+)/);
-      const videoIdMatch = finalLink.match(/video\/(\d+)/);
-      
-      if (!usernameMatch || !videoIdMatch) {
+      if (!username || !videoId) {
         results.push({ original: link, expanded: finalLink, status: 'error', message: 'Format link panjang tidak valid' });
         continue;
       }
-      
-      const username = usernameMatch[1].toLowerCase();
-      const videoId = videoIdMatch[1];
       
       if (assignedVids.has(videoId)) {
         results.push({ original: link, expanded: finalLink, username, videoId, status: 'duplicate', message: 'Video ID sudah terdaftar di sistem' });
@@ -1400,7 +1420,7 @@ export default function CampaignVideoPage() {
                 className="btn btn-primary"
               >
                 {bulkProcessing && bulkResults.length === 0 ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                Proses {bulkInput.split('\n').filter(l => l.trim()).length} Link
+                {bulkProcessing ? `Memproses ${bulkProgress}/${bulkTotal} Link...` : `Proses ${bulkInput.split('\n').filter(l => l.trim()).length} Link`}
               </button>
             </div>
             
