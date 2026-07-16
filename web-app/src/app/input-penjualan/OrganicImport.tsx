@@ -537,6 +537,12 @@ export default function OrganicImport({ mode = 'sales' }: { mode?: 'sales' | 'vi
         // Engagement Route (Custom Report)
         if (!videoMap.has(item.content_uid)) {
           videoMap.set(item.content_uid, { ...item });
+        } else {
+          // If the existing entry doesn't have a campaign_id but the new one does, prioritize the new one
+          const existing = videoMap.get(item.content_uid);
+          if (!existing.campaign_id && item.campaign_id) {
+            videoMap.set(item.content_uid, { ...item });
+          }
         }
       }
     }
@@ -697,12 +703,20 @@ export default function OrganicImport({ mode = 'sales' }: { mode?: 'sales' | 'vi
         
         if (missingVideos.length > 0) {
           const campIds = Array.from(new Set(missingVideos.map(m => m.campaign_id)));
-          const { data: ccs } = await supabase.from('campaign_creators')
-            .select('id, campaign_id, creators!inner(username)')
-            .in('campaign_id', campIds);
+          const creatorUsernames = Array.from(new Set(missingVideos.map(m => m.creator_username)));
+          
+          const allCcs: any[] = [];
+          for (let i = 0; i < creatorUsernames.length; i += 200) {
+            const chunk = creatorUsernames.slice(i, i + 200);
+            const { data: ccs } = await supabase.from('campaign_creators')
+              .select('id, campaign_id, creators!inner(username)')
+              .in('campaign_id', campIds)
+              .in('creators.username', chunk);
+            if (ccs) allCcs.push(...ccs);
+          }
             
           const ccMapping: Record<string, number> = {};
-          ccs?.forEach((cc: any) => {
+          allCcs.forEach((cc: any) => {
             const key = `${cc.campaign_id}_${cc.creators.username.toLowerCase()}`;
             ccMapping[key] = cc.id;
           });
