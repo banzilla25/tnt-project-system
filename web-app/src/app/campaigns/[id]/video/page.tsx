@@ -513,8 +513,8 @@ export default function CampaignVideoPage() {
           expanded: finalLink, 
           username, 
           videoId, 
-          status: 'invalid_creator', 
-          message: 'Kreator belum di-approve di campaign ini' 
+          status: 'valid_new_creator', 
+          message: 'Otomatis Ditambah (Auto-Detect)' 
         });
       }
     }
@@ -524,17 +524,59 @@ export default function CampaignVideoPage() {
   };
 
   const handleSaveBulk = async () => {
-    const validResults = bulkResults.filter(r => r.status === 'valid');
-    if (validResults.length === 0) return;
+    const validExisting = bulkResults.filter(r => r.status === 'valid');
+    const validNewCreator = bulkResults.filter(r => r.status === 'valid_new_creator');
+    
+    if (validExisting.length === 0 && validNewCreator.length === 0) return;
     
     setBulkProcessing(true);
     const newDbEntries: any[] = [];
-    
     const ccIdGroups: Record<number, any[]> = {};
-    validResults.forEach(r => {
+    
+    validExisting.forEach(r => {
        if (!ccIdGroups[r.ccId]) ccIdGroups[r.ccId] = [];
        ccIdGroups[r.ccId].push(r);
     });
+
+    if (validNewCreator.length > 0) {
+      try {
+        const newUsernames = Array.from(new Set(validNewCreator.map(r => r.username)));
+        for (const username of newUsernames) {
+           let creatorId = null;
+           const { data: existingCreator } = await supabaseClient.from('creators').select('id').eq('username', username).maybeSingle();
+           
+           if (existingCreator) {
+              creatorId = existingCreator.id;
+           } else {
+              const { data: insertedCreator } = await supabaseClient.from('creators').insert({
+                 username: username,
+                 source: 'Bulk Import Video'
+              }).select('id').single();
+              if (insertedCreator) creatorId = insertedCreator.id;
+           }
+           
+           if (creatorId) {
+             const { data: newCc } = await supabaseClient.from('campaign_creators').insert({
+                campaign_id: campaignId,
+                creator_id: creatorId,
+                tier: 'Auto-Detect',
+                approval: 'pending',
+                client_approval: 'not_required',
+                status_bayar: 'belum',
+                qty_vt: validNewCreator.filter(r => r.username === username).length,
+                price: 0
+             }).select('id').single();
+             
+             if (newCc) {
+                const newCcId = newCc.id;
+                ccIdGroups[newCcId] = validNewCreator.filter(r => r.username === username);
+             }
+           }
+        }
+      } catch (err) {
+        console.error('Error creating new creators:', err);
+      }
+    }
     
     for (const ccIdStr of Object.keys(ccIdGroups)) {
        const ccId = Number(ccIdStr);
@@ -548,7 +590,7 @@ export default function CampaignVideoPage() {
             concept: '',
             link_video: r.expanded,
             content_uid: r.videoId,
-            vt_approval: 'approved' // Sesuai requirement, kalau di bulk import artinya sudah confirmed
+            vt_approval: 'approved'
           });
           nextUrutan++;
        }
@@ -556,10 +598,10 @@ export default function CampaignVideoPage() {
     
     try {
       if (newDbEntries.length > 0) {
-        await supabase.from('videos').insert(newDbEntries);
+        await supabaseClient.from('videos').insert(newDbEntries);
         await fetchData();
         const ccIds = Object.keys(ccIdGroups).map(Number);
-        const { data: updatedDbVideos } = await supabase.from('videos').select('*').in('campaign_creator_id', ccIds);
+        const { data: updatedDbVideos } = await supabaseClient.from('videos').select('*').in('campaign_creator_id', ccIds);
         
         setLocalVideos((prev: any[]) => {
            const others = prev.filter(v => !ccIds.includes(v.campaign_creator_id));
