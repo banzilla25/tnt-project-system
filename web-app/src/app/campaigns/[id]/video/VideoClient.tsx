@@ -43,7 +43,7 @@ export default function CampaignVideoPage({
   const [saving, setSaving] = useState<Record<number, boolean>>({});
   const [localVideos, setLocalVideos] = useDraftLocalStorage<any[]>(`draft_videos_campaign_${campaignId}`, initialVideos || []);
   const [listingData, setListingData] = useState<any[]>(initialListingData || []);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [expandingLinks, setExpandingLinks] = useState<Record<string, boolean>>({});
   const [bulkImportOpen, setBulkImportOpen] = useState(false);
   const [bulkInput, setBulkInput] = useState('');
@@ -72,7 +72,7 @@ export default function CampaignVideoPage({
   const supabase = createClient();
 
   const [page, setPage] = useState(0);
-  const [hasMore, setHasMore] = useState(true);
+  const [hasMore, setHasMore] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   
