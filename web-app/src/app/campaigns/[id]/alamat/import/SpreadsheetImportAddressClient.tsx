@@ -271,6 +271,23 @@ export default function SpreadsheetImportAddressClient() {
             } else if (cleanedVal.startsWith('8')) {
               cleanedVal = '0' + cleanedVal;
             }
+          } else if (targetColName === 'proses' && cleanedVal) {
+            const lowerVal = cleanedVal.toLowerCase();
+            if (lowerVal.includes('belum') || lowerVal.includes('blum')) {
+              cleanedVal = 'Belum diproses';
+            } else if (lowerVal.includes('batal')) {
+              cleanedVal = 'Batal';
+            } else if (lowerVal.includes('kendala') || lowerVal.includes('fui')) {
+              cleanedVal = 'Kendala [FUI]';
+            } else if (lowerVal.includes('terima') || lowerVal.includes('sampai') || lowerVal.includes('done')) {
+              cleanedVal = 'Diterima';
+            } else if (lowerVal.includes('kirim')) {
+              cleanedVal = 'Dikirim';
+            } else if (lowerVal.includes('proses')) {
+              cleanedVal = 'Diproses';
+            } else {
+              cleanedVal = 'Belum diproses';
+            }
           }
 
           (newRows[targetRowIndex] as any)[targetColName] = cleanedVal;
@@ -559,9 +576,15 @@ export default function SpreadsheetImportAddressClient() {
           <div>
             <h1 className="text-lg font-bold text-slate-800">Import Alamat Massal</h1>
             <p className="text-xs text-slate-500">Paste data dari Excel ke tabel di bawah ini.</p>
-            <div className="mt-2 bg-amber-50 border border-amber-200 text-amber-800 text-xs px-3 py-1.5 rounded-md flex items-center gap-1.5 font-medium">
-              <AlertCircle className="w-3.5 h-3.5" />
-              Peringatan: Pastikan format Tanggal Kirim adalah <b>DD/MM/YYYY</b> atau <b>DD Bulan YYYY</b> (contoh: 12 Juni 2026 atau 12/06/2026).
+            <div className="mt-2 flex flex-col gap-1.5">
+              <div className="bg-amber-50 border border-amber-200 text-amber-800 text-xs px-3 py-1.5 rounded-md flex items-center gap-1.5 font-medium">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                <span>Peringatan: Pastikan format Tanggal Kirim adalah <b>DD/MM/YYYY</b> atau <b>DD Bulan YYYY</b> (contoh: 12 Juni 2026 atau 12/06/2026).</span>
+              </div>
+              <div className="bg-amber-50 border border-amber-200 text-amber-800 text-xs px-3 py-1.5 rounded-md flex items-center gap-1.5 font-medium">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                <span>Peringatan: Kolom <b>Status Dikirim</b> usahakan diisi sesuai dropdown: <b>Belum diproses, Diproses, Dikirim, Diterima, Batal, Kendala [FUI]</b>. Sistem akan mencoba mendeteksi isian lain secara otomatis (misal "udh dikirim" otomatis menjadi "Dikirim").</span>
+              </div>
             </div>
           </div>
         </div>
