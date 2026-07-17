@@ -37,7 +37,7 @@ export async function getInternalPerformaData(campaignId: number) {
       .select(`
         *,
         creators(username, nama_asli, link_account, creator_snapshots(followers, level, tier)),
-        videos(id, link_video, content_uid, vt_code, vt_approval, urutan)
+        videos(id, link_video, content_uid, vt_approval, urutan)
       `)
       .eq('campaign_id', campaignId)
       .in('approval', ['approved', 'pending'])
@@ -97,7 +97,7 @@ export async function getInternalPerformaData(campaignId: number) {
     const uniqueLiveIds = new Set<string>();
 
     dbVideos.forEach((v: any) => {
-      const id = v.vt_code || v.content_uid;
+      const id = v.content_uid;
       if (id) {
           uniqueVideoIds.set(id, v.vt_approval || 'approved');
       }
