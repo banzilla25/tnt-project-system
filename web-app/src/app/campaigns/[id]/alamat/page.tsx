@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { useDatabaseStore } from "@/store/useDatabaseStore";
 import { CreatorAddress } from "@/types/database";
@@ -12,6 +12,7 @@ import { MultiSelect } from "@/components/MultiSelect";
 import { useCampaignFilter } from "@/providers/CampaignFilterProvider";
 
 const supabase = createClient();
+const PAGE_SIZE = 50;
 
 export default function AlamatPage() {
   const { id } = useParams();
@@ -44,6 +45,17 @@ export default function AlamatPage() {
   const [localCreators, setLocalCreators] = useState<any[]>([]);
   const [isFetchingCC, setIsFetchingCC] = useState(true);
   const [sortConfig, setSortConfig] = useState<{ key: string; dir: 'asc' | 'desc' }>({ key: 'username', dir: 'asc' });
+  const [currentPage, setCurrentPage] = useState(0);
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  // Debounce search input
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+      setCurrentPage(0);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
 
   const toggleSort = (key: string) => {
     setSortConfig(prev => prev.key === key ? { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' });
@@ -95,30 +107,47 @@ export default function AlamatPage() {
     fetchCCs();
   }, [campaignId, campaign?.require_client_approval]);
 
-  const approvedCCs = localCreators
-    .filter(cc => {
+  // Memoize address lookup map for O(1) access instead of O(n) per row
+  const addressMap = useMemo(() => {
+    const map = new Map<number, typeof creator_addresses[0]>();
+    creator_addresses.forEach(a => map.set(a.campaign_creator_id, a));
+    return map;
+  }, [creator_addresses]);
+
+  const approvedCCs = useMemo(() => {
+    const filtered = localCreators.filter(cc => {
       if (!isCreatorVisible(cc.creators?.username)) return false;
-      if (searchQuery) {
-        if (!cc.creators?.username.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+      if (debouncedSearch) {
+        if (!cc.creators?.username.toLowerCase().includes(debouncedSearch.toLowerCase())) return false;
       }
       return true;
-    })
-    .sort((a, b) => {
+    });
+
+    filtered.sort((a: any, b: any) => {
       const dir = sortConfig.dir === 'asc' ? 1 : -1;
       if (sortConfig.key === 'username') {
         return (a.creators?.username || '').localeCompare(b.creators?.username || '') * dir;
       }
       if (sortConfig.key === 'status') {
-        const addrA = creator_addresses.find(x => x.campaign_creator_id === a.id)?.proses || '';
-        const addrB = creator_addresses.find(x => x.campaign_creator_id === b.id)?.proses || '';
+        const addrA = addressMap.get(a.id)?.proses || '';
+        const addrB = addressMap.get(b.id)?.proses || '';
         return addrA.localeCompare(addrB) * dir;
       }
       return 0;
     });
 
+    return filtered;
+  }, [localCreators, debouncedSearch, sortConfig, addressMap, isCreatorVisible]);
+
+  const totalPages = Math.ceil(approvedCCs.length / PAGE_SIZE);
+  const paginatedCCs = useMemo(() => {
+    const start = currentPage * PAGE_SIZE;
+    return approvedCCs.slice(start, start + PAGE_SIZE);
+  }, [approvedCCs, currentPage]);
+
   const handleExport = () => {
     const exportData = approvedCCs.map((cc, idx) => {
-      const addr = creator_addresses.find(a => a.campaign_creator_id === cc.id);
+      const addr = addressMap.get(cc.id);
       const contacts = Array.isArray(cc.creators?.creator_contacts) ? cc.creators.creator_contacts : (cc.creators?.creator_contacts ? [cc.creators.creator_contacts] : []);
       const activeContact = contacts.find((c: any) => c.status === 'aktif') || contacts[0];
       const noWhatsapp = activeContact?.nomor || '';
@@ -166,7 +195,7 @@ export default function AlamatPage() {
     }
     setSelectedBookId('');
 
-    const existing = creator_addresses.find(a => a.campaign_creator_id === ccId);
+    const existing = addressMap.get(ccId);
     if (existing) {
       setFormData(existing);
       setEditId(existing.id);
@@ -195,7 +224,7 @@ export default function AlamatPage() {
 
   const handleSave = async (ccId: number) => {
     setIsSaving(true);
-    const existing = creator_addresses.find(a => a.campaign_creator_id === ccId);
+    const existing = addressMap.get(ccId);
     const cc = localCreators.find(c => c.id === ccId);
     
     // Check if anything actually changed before proceeding
@@ -373,9 +402,9 @@ export default function AlamatPage() {
                   </td>
                 </tr>
               ) : (
-                approvedCCs.map((cc, idx) => {
+                paginatedCCs.map((cc, idx) => {
                   const creator = cc.creators;
-                  const addr = creator_addresses.find(a => a.campaign_creator_id === cc.id);
+                  const addr = addressMap.get(cc.id);
                   const isEditing = editId === addr?.id || editId === -cc.id;
                   
                   const contacts = Array.isArray(creator?.creator_contacts) ? creator.creator_contacts : (creator?.creator_contacts ? [creator.creator_contacts] : []);
@@ -393,7 +422,7 @@ export default function AlamatPage() {
                         }
                       }}
                     >
-                      <td className="px-3 py-3 text-center sticky left-0 z-10 bg-white group-hover:bg-slate-50 transition-colors min-w-[50px] max-w-[50px]">{idx + 1}</td>
+                      <td className="px-3 py-3 text-center sticky left-0 z-10 bg-white group-hover:bg-slate-50 transition-colors min-w-[50px] max-w-[50px]">{currentPage * PAGE_SIZE + idx + 1}</td>
                       <td className="px-3 py-3 whitespace-normal sticky left-[50px] z-10 bg-white group-hover:bg-slate-50 transition-colors min-w-[150px] max-w-[150px]">
                         {isEditing ? (
                           <div className="w-[200px]">
@@ -562,6 +591,55 @@ export default function AlamatPage() {
             </tbody>
           </table>
         </div>
+        {/* Pagination Controls */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between px-4 py-3 border-t border-line bg-slate-50">
+            <span className="text-xs text-slate-500">
+              Menampilkan {currentPage * PAGE_SIZE + 1}-{Math.min((currentPage + 1) * PAGE_SIZE, approvedCCs.length)} dari {approvedCCs.length} kreator
+            </span>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setCurrentPage(p => Math.max(0, p - 1))}
+                disabled={currentPage === 0}
+                className="px-3 py-1 text-xs rounded border border-slate-300 bg-white hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                ← Prev
+              </button>
+              {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
+                let pageNum: number;
+                if (totalPages <= 7) {
+                  pageNum = i;
+                } else if (currentPage < 3) {
+                  pageNum = i;
+                } else if (currentPage > totalPages - 4) {
+                  pageNum = totalPages - 7 + i;
+                } else {
+                  pageNum = currentPage - 3 + i;
+                }
+                return (
+                  <button
+                    key={pageNum}
+                    onClick={() => setCurrentPage(pageNum)}
+                    className={`px-3 py-1 text-xs rounded border ${
+                      currentPage === pageNum 
+                        ? 'bg-blue-600 text-white border-blue-600' 
+                        : 'border-slate-300 bg-white hover:bg-slate-100'
+                    }`}
+                  >
+                    {pageNum + 1}
+                  </button>
+                );
+              })}
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages - 1, p + 1))}
+                disabled={currentPage >= totalPages - 1}
+                className="px-3 py-1 text-xs rounded border border-slate-300 bg-white hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Next →
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
