@@ -211,13 +211,13 @@ function CampaignListingContent() {
         await updateCampaignCreator(ccId, updates, profile?.nama || 'System');
       }
 
-      // Handle creator snapshot updates
-      if (change.followers !== undefined || change.level !== undefined || change.gmv_30d !== undefined || change.price !== undefined) {
+      // Handle creator snapshot updates (excluding price which is now campaign-specific)
+      if (change.followers !== undefined || change.level !== undefined || change.gmv_30d !== undefined) {
         if (change.original.creator_id) {
           const newFollowers = change.followers !== undefined ? change.followers : change.original.followers;
           const newLevel = change.level !== undefined ? change.level : change.original.level;
           const newGmv = change.gmv_30d !== undefined ? change.gmv_30d : change.original.gmv_30d;
-          const newRatecard = change.price !== undefined ? change.price : change.original.ratecard;
+          const newRatecard = change.original.ratecard;
           
           let newTier = change.original.tier;
           if (change.followers !== undefined) {
@@ -236,7 +236,8 @@ function CampaignListingContent() {
             gmv_30d: newGmv,
             tier: newTier, // inherit or recalculated
             audience_age: change.original.audience_age, // inherit
-            ratecard: newRatecard, // updated if price changed
+            ratecard: newRatecard, // inherit
+
             updated_by: profile?.nama || null
           });
         }
@@ -1100,29 +1101,7 @@ function CampaignListingContent() {
         const { error: ccErr } = await supabase.from('campaign_creators').insert(newCampaignPayloads);
         if (ccErr) throw ccErr;
         
-        // 5. Auto-update ratecard snapshot if changed
-        const newSnapshots: any[] = [];
-        for (const c of allCreators) {
-          const snaps = creator_snapshots.filter(s => s.creator_id === c.id).sort((a,b) => b.id - a.id);
-          const mergedRatecard = snaps.reduce((acc, curr) => acc ?? curr.ratecard, null as any);
-          const newPrice = Number(c.price);
-          if (mergedRatecard !== newPrice && c.id) {
-            newSnapshots.push({
-              creator_id: c.id,
-              tanggal_update: new Date().toISOString().split('T')[0],
-              followers: null,
-              tier: null,
-              audience_age: null,
-              level: null,
-              ratecard: newPrice,
-              gmv_30d: null,
-              updated_by: profile?.nama || null
-            });
-          }
-        }
-        if (newSnapshots.length > 0) {
-          await supabase.from('creator_snapshots').insert(newSnapshots);
-        }
+
       }
 
       // Refresh to show changes immediately

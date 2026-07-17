@@ -760,6 +760,29 @@ export default function CreatorProfilePage() {
                 </div>
               </div>
 
+              <div className="mt-4 border-t border-slate-100 pt-4">
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Riwayat Nego Campaign</p>
+                {localData?.ccs && localData.ccs.length > 0 ? (
+                  <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                    {localData.ccs
+                      .sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
+                      .map((cc: any) => {
+                      const campaign = campaigns.find(c => c.id === cc.campaign_id);
+                      return (
+                        <div key={cc.id} className="flex justify-between items-center text-sm p-2 border border-slate-100 rounded-lg bg-slate-50">
+                          <span className="font-medium text-slate-700">{campaign?.nama || `Campaign #${cc.campaign_id}`}</span>
+                          <span className="font-bold text-slate-900">
+                            {cc.price === 0 ? 'Barter' : (cc.price ? `Rp ${Number(cc.price).toLocaleString()}` : 'Belum Set')}
+                          </span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-400">Belum ada histori campaign</p>
+                )}
+              </div>
+
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Niche</p>
