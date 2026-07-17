@@ -174,6 +174,51 @@ export async function getPortalData(campaignId: number) {
 
     const perf = creatorPerformance?.find(p => p.campaign_creator_id === cc.id);
 
+    // Calculate Total VT and Total Live mimicking the Internal Dashboard logic
+    const autoSalesVideos = videoGmvData?.filter((v: any) => v.creator_username === username) || [];
+    const dbVideos = cc.campaign_creators_videos || [];
+    const uniqueVideoIds = new Map<string, string>(); 
+    const uniqueLiveIds = new Set<string>();
+
+    dbVideos.forEach((v: any) => {
+      const id = v.vt_code || v.content_uid;
+      if (id) {
+          uniqueVideoIds.set(id, v.vt_approval || 'approved');
+      }
+    });
+
+    autoSalesVideos.forEach((s: any) => {
+       let vid = s.content_uid;
+       if (vid && vid.startsWith('video_')) {
+         const parts = vid.split('_');
+         if (parts.length >= 2) {
+           vid = parts[1];
+         }
+       }
+       if (vid) {
+         if (s.content_type === 'Livestream') {
+           uniqueLiveIds.add(vid);
+         } else {
+           if (!uniqueVideoIds.has(vid)) {
+               uniqueVideoIds.set(vid, 'approved');
+           }
+         }
+       }
+    });
+
+    let approvedVtCount = 0;
+    let pendingVtCount = 0;
+    
+    if (cc.approval === 'pending') {
+        pendingVtCount = Math.max(perf?.tracked_videos || 0, uniqueVideoIds.size);
+    } else {
+        approvedVtCount = Math.max(perf?.tracked_videos || 0, uniqueVideoIds.size);
+        pendingVtCount = 0;
+    }
+
+    const totalVt = approvedVtCount + pendingVtCount;
+    const totalLive = uniqueLiveIds.size;
+
     return {
       ...cc,
       followers: snap?.followers || 0,
@@ -185,8 +230,8 @@ export async function getPortalData(campaignId: number) {
       gmv_ads: perf?.gmv_ads || 0,
       video_views: perf?.video_views || 0,
       video_likes: perf?.video_likes || 0,
-      total_vt: perf?.tracked_videos || 0,
-      total_livestreams: 0
+      total_vt: totalVt,
+      total_livestreams: totalLive
     };
   }) || [];
 
