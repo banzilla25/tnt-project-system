@@ -1386,9 +1386,7 @@ function CampaignListingContent() {
 
           {hasAccess && (
             <button className="btn btn-primary" onClick={() => {
-              setIsAddModalOpen(true);
-              setModalStep(1);
-              setDynamicRows([{ id: Math.random().toString(36).substring(2, 9), username: '', price: '0', qtyVt: '1', qtyLive: '0', contentType: 'Video' }]);
+              router.push(`/campaigns/${campaignId}/listing/import-creator`);
             }}>
               + Tambah Creator
             </button>
