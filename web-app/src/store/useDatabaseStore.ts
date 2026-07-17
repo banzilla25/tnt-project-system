@@ -653,10 +653,13 @@ export const useDatabaseStore = create<DatabaseState>((set, get) => ({
 
   updateCreatorAddress: async (id, address) => {
     try {
+      const payload = { ...address };
+      delete (payload as any).campaign_creators;
+
       if (id) {
         const { data, error } = await supabase
           .from('creator_addresses')
-          .update(address)
+          .update(payload)
           .eq('id', id)
           .select()
           .single();
@@ -668,7 +671,7 @@ export const useDatabaseStore = create<DatabaseState>((set, get) => ({
       } else {
         const { data, error } = await supabase
           .from('creator_addresses')
-          .insert([address])
+          .insert([payload])
           .select()
           .single();
         if (error) throw error;

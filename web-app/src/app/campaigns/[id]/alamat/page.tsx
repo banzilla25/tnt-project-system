@@ -37,6 +37,7 @@ export default function AlamatPage() {
 
   const [editId, setEditId] = useState<number | null>(null);
   const [formData, setFormData] = useState<Partial<CreatorAddress>>({});
+  const [editWhatsapp, setEditWhatsapp] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -185,6 +186,10 @@ export default function AlamatPage() {
       setEditId(-ccId); // Temp ID for new records
     }
     setEditAssignedSkus(cc?.assigned_sku_ids || []);
+
+    const contacts = Array.isArray(creator?.creator_contacts) ? creator.creator_contacts : (creator?.creator_contacts ? [creator.creator_contacts] : []);
+    const activeContact = contacts.find((c: any) => c.status === 'aktif') || contacts[0];
+    setEditWhatsapp(activeContact?.nomor || '');
   };
 
   const handleSave = async (ccId: number) => {
@@ -230,6 +235,22 @@ export default function AlamatPage() {
       await updateCampaignCreator(ccId, { assigned_sku_ids: editAssignedSkus }, 'System');
       // Update local state so it immediately reflects
       setLocalCreators(prev => prev.map(c => c.id === ccId ? { ...c, assigned_sku_ids: editAssignedSkus } : c));
+    }
+    
+    // Save Whatsapp to creator_contacts
+    if (cc && cc.creator_id && editWhatsapp) {
+      const contacts = Array.isArray(cc.creators?.creator_contacts) ? cc.creators.creator_contacts : (cc.creators?.creator_contacts ? [cc.creators.creator_contacts] : []);
+      const activeContact = contacts.find((c: any) => c.status === 'aktif') || contacts[0];
+      const cleanWa = editWhatsapp.replace(/\D/g, '');
+      const formattedWa = editWhatsapp.startsWith('0') ? editWhatsapp : `0${cleanWa}`;
+
+      if (cleanWa && (!activeContact || activeContact.nomor !== formattedWa)) {
+        await supabase.from('creator_contacts').insert({
+          creator_id: cc.creator_id,
+          nomor: formattedWa,
+          status: 'aktif'
+        });
+      }
     }
     
     // Auto-save to address book if not selected from book
@@ -283,6 +304,14 @@ export default function AlamatPage() {
         <div className="p-[16px] border-b border-line flex flex-col md:flex-row items-start md:items-center justify-between gap-[16px] bg-slate-50">
           <h3 className="font-semibold text-text text-[16px]">Data Alamat Pengiriman Sampel</h3>
           <div className="flex gap-[8px]">
+            {hasAccess && (
+              <button
+                onClick={() => window.open(`/campaigns/${campaignId}/alamat/import`, '_blank')}
+                className="btn btn-primary flex items-center gap-[8px] !py-[6px] !text-[13px]"
+              >
+                Import Massal
+              </button>
+            )}
             <button
               onClick={handleExport}
               className="btn btn-outline flex items-center gap-[8px] !py-[6px] !text-[13px]"
@@ -383,7 +412,13 @@ export default function AlamatPage() {
                         )}
                       </td>
                       <td className="px-3 py-3 font-medium sticky left-[200px] z-10 bg-white group-hover:bg-slate-50 transition-colors min-w-[150px] max-w-[150px] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">@{creator?.username}</td>
-                      <td className="px-3 py-3">{noWhatsapp || '-'}</td>
+                      <td className="px-3 py-3">
+                        {isEditing ? (
+                          <input type="text" className="input w-full w-28 text-xs" value={editWhatsapp} onChange={e => setEditWhatsapp(e.target.value)} placeholder="08..." />
+                        ) : (
+                          noWhatsapp || '-'
+                        )}
+                      </td>
                       
                       <td className="px-3 py-3">
                         {isEditing ? (
