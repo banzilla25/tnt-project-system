@@ -92,7 +92,8 @@ export async function getInternalPerformaData(campaignId: number) {
       if (!adsStatsByCreator[ad.creator_id]) {
         adsStatsByCreator[ad.creator_id] = { gmvAds: 0, costAds: 0 };
       }
-      const kurs = ad.kurs || 16000;
+      let kurs = ad.kurs || 16000;
+      if (kurs < 1000) kurs = kurs * 1000;
       adsStatsByCreator[ad.creator_id].gmvAds += (ad.gross_revenue_usd || 0) * kurs;
       adsStatsByCreator[ad.creator_id].costAds += (ad.cost_usd || 0) * kurs;
     }

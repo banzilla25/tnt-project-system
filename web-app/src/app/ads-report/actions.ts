@@ -70,7 +70,8 @@ export async function getAdsReportData(params: {
   const campaignBreakdown: Record<number, any> = {};
   let globalUnmappedCampaigns = 0;
   for (const ad of breakdownData) {
-    const kurs = ad.kurs || 16000;
+    let kurs = ad.kurs || 16000;
+    if (kurs < 1000) kurs = kurs * 1000;
     const cId = ad.campaign_id;
     if (!cId) {
        globalUnmappedCampaigns++;
@@ -102,7 +103,8 @@ export async function getAdsReportData(params: {
   // 6. Calculate Global Summary (using filtered tableData)
   let sumSpend = 0; let sumGmv = 0; let sumImpr = 0; let sumSpendUsd = 0;
   for (const ad of tableData) {
-    const kurs = ad.kurs || 16000;
+    let kurs = ad.kurs || 16000;
+    if (kurs < 1000) kurs = kurs * 1000;
     sumSpend += (ad.cost_usd || 0) * kurs;
     sumSpendUsd += (ad.cost_usd || 0);
     sumGmv += (ad.gross_revenue_usd || 0) * kurs;
