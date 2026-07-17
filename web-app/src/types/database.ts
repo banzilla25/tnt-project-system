@@ -254,6 +254,7 @@ export type CreatorAddress = {
   proses: string | null;
   tanggal_kirim: string | null;
   resi: string | null;
+  ekspedisi: string | null;
   notes: string | null;
   is_cancel: boolean;
   created_at: string;

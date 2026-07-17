@@ -33,6 +33,7 @@ export function AddressSyncModal({ campaignId: initialCampaignId, onComplete }: 
     provinsi: '',
     kode_pos: '',
     resi: '',
+    ekspedisi: '',
     proses: '',
     produk: '',
     tanggal_kirim: '',
@@ -84,6 +85,7 @@ export function AddressSyncModal({ campaignId: initialCampaignId, onComplete }: 
         if (lh === 'provinsi' || lh === 'prov') guessMapping.provinsi = h;
         if (lh === 'kode pos' || lh === 'kodepos') guessMapping.kode_pos = h;
         if (lh === 'resi' || lh === 'no resi' || lh.includes('resi')) guessMapping.resi = h;
+        if (lh === 'ekspedisi' || lh === 'kurir' || lh.includes('ekspedisi')) guessMapping.ekspedisi = h;
         if (lh === 'status' || lh === 'status pengiriman' || lh === 'proses') guessMapping.proses = h;
         if (lh === 'produk' || lh === 'produk dikirim' || lh === 'product' || lh.includes('produk')) guessMapping.produk = h;
         if (lh === 'tanggal kirim' || lh === 'tgl kirim' || lh.includes('tanggal')) guessMapping.tanggal_kirim = h;
@@ -239,6 +241,8 @@ export function AddressSyncModal({ campaignId: initialCampaignId, onComplete }: 
             ...(row.resi && { resi: row.resi }),
             ...(row.proses && { proses: row.proses }),
             ...(row.tanggal_kirim && { tanggal_kirim: row.tanggal_kirim }),
+            ...(row.resi && { resi: row.resi }),
+            ...(row.ekspedisi && { ekspedisi: row.ekspedisi }),
             ...(row.notes && { notes: row.notes }),
           };
 
@@ -470,9 +474,10 @@ export function AddressSyncModal({ campaignId: initialCampaignId, onComplete }: 
                             <th className="p-2 font-medium">Username</th>
                             <th className="p-2 font-medium">Nama Penerima</th>
                             <th className="p-2 font-medium">Alamat</th>
-                            <th className="p-2 font-medium">Produk</th>
+                            <th className="p-2 font-medium">Tgl Kirim</th>
                             <th className="p-2 font-medium">Resi</th>
-                            <th className="p-2 font-medium">Status</th>
+                            <th className="p-2 font-medium">Ekspedisi</th>
+                            <th className="p-2 font-medium min-w-[150px]">Notes</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y">
@@ -517,13 +522,10 @@ export function AddressSyncModal({ campaignId: initialCampaignId, onComplete }: 
                               </td>
                               <td className="p-2 align-top font-medium max-w-[150px] truncate">{row.nama_penerima || '-'}</td>
                               <td className="p-2 align-top text-xs max-w-[200px] truncate">{row.nama_jalan || '-'}</td>
-                              <td className="p-2 align-top text-xs max-w-[150px] truncate">{row.produk || '-'}</td>
-                              <td className="p-2 align-top text-xs max-w-[100px] truncate">{row.kabupaten_kota || '-'}</td>
-                              <td className="p-2 align-top">
-                                <span className={`px-2 py-1 text-xs rounded-full bg-slate-100 text-slate-700`}>
-                                  {row.proses}
-                                </span>
-                              </td>
+                              <td className="p-2 align-top text-xs max-w-[150px] truncate">{row.tanggal_kirim || '-'}</td>
+                              <td className="p-2 align-top text-xs max-w-[100px] truncate">{row.resi || '-'}</td>
+                              <td className="p-2 align-top text-xs max-w-[100px] truncate">{row.ekspedisi || '-'}</td>
+                              <td className="p-2 align-top text-xs max-w-[150px] truncate">{row.notes || '-'}</td>
                             </tr>
                           ))}
                         </tbody>

@@ -269,6 +269,7 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
         'Kode Pos': addr.kode_pos || '',
         'Tanggal Kirim': addr.tanggal_kirim ? new Date(addr.tanggal_kirim).toLocaleDateString('id-ID') : '',
         'Resi': addr.resi || '',
+        'Ekspedisi': addr.ekspedisi || '',
         'Notes': addr.notes || '',
         'Status': addr.proses || 'Belum diproses'
       };
@@ -949,6 +950,7 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                         <SortableHeader label="Proses" sortKey="proses" currentSort={sampleSort} onSort={(k) => handleSort('sample', k)} className="px-3 min-w-[120px]" />
                         <SortableHeader label="Tanggal Kirim" sortKey="tanggal_kirim" currentSort={sampleSort} onSort={(k) => handleSort('sample', k)} className="px-3" />
                         <SortableHeader label="Resi" sortKey="resi" currentSort={sampleSort} onSort={(k) => handleSort('sample', k)} className="px-3" />
+                        <SortableHeader label="Ekspedisi" sortKey="ekspedisi" currentSort={sampleSort} onSort={(k) => handleSort('sample', k)} className="px-3" />
                         <TableHead className="py-[16px] px-3 min-w-[150px]">Notes</TableHead>
                         <TableHead className="py-[16px] px-3">Status</TableHead>
                       </TableRow>
@@ -1029,6 +1031,16 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                                     </span>
                                   )}
                                 </div>
+                              </TableCell>
+                              <TableCell className="px-3 py-3">
+                                <input 
+                                  type="text" 
+                                  className="w-full text-[12px] p-1 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none bg-white min-w-[100px]" 
+                                  placeholder="Ekspedisi..." 
+                                  value={editedSamples[addr.id]?.ekspedisi ?? (addr.ekspedisi || '')} 
+                                  onChange={e => handleQueueUpdate(addr.id, 'ekspedisi', e.target.value)}
+                                  onBlur={e => handleAutoSave(addr.id, 'ekspedisi', e.target.value)} 
+                                />
                               </TableCell>
                               <TableCell className="px-3 py-3 whitespace-normal">
                                 <input 

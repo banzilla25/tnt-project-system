@@ -143,6 +143,7 @@ export default function AlamatPage() {
         'Proses': addr?.proses || 'Diproses',
         'Tanggal Kirim': addr?.tanggal_kirim || '',
         'Resi': addr?.resi || '',
+        'Ekspedisi': addr?.ekspedisi || '',
         'Notes': addr?.notes || '',
         'Status': cc.approval || 'pending',
       };
@@ -211,6 +212,7 @@ export default function AlamatPage() {
         (existing.kode_pos || '') !== (formData.kode_pos || '') ||
         (existing.proses || '') !== (formData.proses || '') ||
         (existing.resi || '') !== (formData.resi || '') ||
+        (existing.ekspedisi || '') !== (formData.ekspedisi || '') ||
         (existing.notes || '') !== (formData.notes || '') ||
         (existing.tanggal_kirim || '') !== (formData.tanggal_kirim || '')
       );
@@ -357,6 +359,7 @@ export default function AlamatPage() {
                 </th>
                 <th className="py-[16px] px-3">Tanggal Kirim</th>
                 <th className="py-[16px] px-3">Resi</th>
+                <th className="py-[16px] px-3">Ekspedisi</th>
                 <th className="py-[16px] px-3 min-w-[150px]">Notes</th>
                 <th className="py-[16px] px-3">Status</th>
                 {hasAccess && <th className="text-center py-[16px] px-3 sticky right-0 bg-slate-50 shadow-[-4px_0_10px_-4px_rgba(0,0,0,0.1)]">Aksi</th>}
@@ -524,6 +527,13 @@ export default function AlamatPage() {
                               </span>
                             )}
                           </div>
+                        )}
+                      </td>
+                      <td className="px-3 py-3">
+                        {isEditing ? (
+                          <input type="text" className="input w-full min-w-[120px]" value={formData.ekspedisi || ''} onChange={e => setFormData({ ...formData, ekspedisi: e.target.value })} />
+                        ) : (
+                          addr?.ekspedisi || '-'
                         )}
                       </td>
                       <td className="px-3 py-3 whitespace-normal">

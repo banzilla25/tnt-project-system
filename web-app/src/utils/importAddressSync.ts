@@ -11,6 +11,7 @@ export type AddressColumnMapping = {
   provinsi: string;
   kode_pos: string;
   resi: string;
+  ekspedisi: string;
   proses: string;
   produk: string;
   tanggal_kirim: string;
@@ -27,6 +28,7 @@ export type ParsedAddressRow = {
   provinsi: string | null;
   kode_pos: string | null;
   resi: string | null;
+  ekspedisi: string | null;
   proses: string | null;
   produk: string | null;
   tanggal_kirim: string | null;
@@ -119,6 +121,8 @@ export const parseAddressSyncFile = async (file: File, mapping: AddressColumnMap
       proses = (row[mapping.proses] || '').toString().trim(); // If unknown status, just pass it or default to Diproses
     }
 
+    let ekspedisi: string | null = mapping.ekspedisi && row[mapping.ekspedisi] ? String(row[mapping.ekspedisi]).trim() : null;
+
     validData.push({
       username,
       nama_penerima,
@@ -129,6 +133,7 @@ export const parseAddressSyncFile = async (file: File, mapping: AddressColumnMap
       provinsi,
       kode_pos,
       resi,
+      ekspedisi,
       proses,
       produk,
       tanggal_kirim,
@@ -142,9 +147,9 @@ export const parseAddressSyncFile = async (file: File, mapping: AddressColumnMap
 
 export const downloadAddressSyncTemplate = () => {
   const BOM = '\uFEFF';
-  const csvContent = BOM + 'No,Product,Username,No Whatsapp,Nama Penerima,Nama Jalan,Provinsi,Kabupaten/Kota,Kecamatan,Kelurahan,Kode Pos,Proses,Tanggal Kirim,Resi,Notes,Status\n' +
-    '1,Lipstik,johndoe,08123456789,John Doe,Jl. Merdeka No 1,DKI Jakarta,Jakarta Pusat,Gambir,Gambir,10110,Dikirim,2026-06-25,JP12345678,Titip di satpam,Approved\n' +
-    '2,Bedak,janedoe,08987654321,Jane Doe,Jl. Sudirman 2,,,,,,,Diproses,,,,,';
+  const csvContent = BOM + 'No,Product,Username,No Whatsapp,Nama Penerima,Nama Jalan,Provinsi,Kabupaten/Kota,Kecamatan,Kelurahan,Kode Pos,Proses,Tanggal Kirim,Resi,Ekspedisi,Notes,Status\n' +
+    '1,Lipstik,johndoe,08123456789,John Doe,Jl. Merdeka No 1,DKI Jakarta,Jakarta Pusat,Gambir,Gambir,10110,Dikirim,2026-06-25,JP12345678,JNT,Titip di satpam,Approved\n' +
+    '2,Bedak,janedoe,08987654321,Jane Doe,Jl. Sudirman 2,,,,,,,Diproses,,,,,,';
 
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);

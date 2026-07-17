@@ -19,6 +19,11 @@ type SpreadsheetRow = {
   kecamatan: string;
   kelurahan: string;
   kode_pos: string;
+  tanggal_kirim: string;
+  resi: string;
+  ekspedisi: string;
+  notes: string;
+  proses: string;
   
   status?: 'baru' | 'update' | 'error';
   errorMsg?: string;
@@ -45,6 +50,11 @@ const getEmptyRow = (): SpreadsheetRow => ({
   kecamatan: '',
   kelurahan: '',
   kode_pos: '',
+  tanggal_kirim: '',
+  resi: '',
+  ekspedisi: '',
+  notes: '',
+  proses: '',
 });
 
 export default function SpreadsheetImportAddressClient() {
@@ -190,7 +200,7 @@ export default function SpreadsheetImportAddressClient() {
       parsedRows.push(currentRowData);
     }
 
-    const columns = ['username', 'whatsapp', 'nama_penerima', 'nama_jalan', 'provinsi', 'kabupaten_kota', 'kecamatan', 'kelurahan', 'kode_pos'];
+    const columns = ['username', 'whatsapp', 'nama_penerima', 'nama_jalan', 'provinsi', 'kabupaten_kota', 'kecamatan', 'kelurahan', 'kode_pos', 'tanggal_kirim', 'resi', 'ekspedisi', 'notes', 'proses'];
     const startColIndex = columns.indexOf(startColName as string);
     if (startColIndex === -1) return;
 
@@ -209,7 +219,53 @@ export default function SpreadsheetImportAddressClient() {
         const targetColName = columns[startColIndex + j] as keyof SpreadsheetRow;
         if (targetColName) {
           let cleanedVal = val.trim();
-          if (targetColName === 'username') cleanedVal = cleanedVal.replace(/^@/, '');
+          if (targetColName === 'username') {
+            cleanedVal = cleanedVal.replace(/^@/, '');
+          } else if (targetColName === 'tanggal_kirim' && cleanedVal) {
+            // Coba parsing tanggal ke YYYY-MM-DD
+            const bulanMap: {[key:string]: string} = {
+              'januari': '01', 'jan': '01',
+              'februari': '02', 'feb': '02',
+              'maret': '03', 'mar': '03',
+              'april': '04', 'apr': '04',
+              'mei': '05',
+              'juni': '06', 'jun': '06',
+              'juli': '07', 'jul': '07',
+              'agustus': '08', 'agu': '08', 'agus': '08',
+              'september': '09', 'sep': '09', 'sept': '09',
+              'oktober': '10', 'okt': '10',
+              'november': '11', 'nov': '11',
+              'desember': '12', 'des': '12'
+            };
+
+            // Format 1: DD/MM/YYYY atau DD-MM-YYYY
+            const regexNumeric = /^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/;
+            // Format 2: DD NamaBulan YYYY
+            const regexAlpha = /^(\d{1,2})\s+([a-zA-Z]+)\s+(\d{4})$/;
+
+            const matchNum = cleanedVal.match(regexNumeric);
+            const matchAlpha = cleanedVal.match(regexAlpha);
+
+            if (matchNum) {
+              const d = matchNum[1].padStart(2, '0');
+              const m = matchNum[2].padStart(2, '0');
+              const y = matchNum[3];
+              cleanedVal = `${y}-${m}-${d}`;
+            } else if (matchAlpha) {
+              const d = matchAlpha[1].padStart(2, '0');
+              const mName = matchAlpha[2].toLowerCase();
+              const m = bulanMap[mName] || '01';
+              const y = matchAlpha[3];
+              cleanedVal = `${y}-${m}-${d}`;
+            } else {
+              // Coba via Date parse native
+              const d = new Date(cleanedVal);
+              if (!isNaN(d.getTime())) {
+                cleanedVal = d.toISOString().split('T')[0];
+              }
+            }
+          }
+
           (newRows[targetRowIndex] as any)[targetColName] = cleanedVal;
           if (targetColName === 'username' && cleanedVal) {
             usernamesToDetect.push(cleanedVal);
@@ -361,7 +417,12 @@ export default function SpreadsheetImportAddressClient() {
           kabupaten_kota: row.kabupaten_kota,
           kecamatan: row.kecamatan,
           kelurahan: row.kelurahan,
-          kode_pos: row.kode_pos
+          kode_pos: row.kode_pos,
+          ...(row.tanggal_kirim && { tanggal_kirim: row.tanggal_kirim }),
+          ...(row.resi && { resi: row.resi }),
+          ...(row.ekspedisi && { ekspedisi: row.ekspedisi }),
+          ...(row.notes && { notes: row.notes }),
+          ...(row.proses && { proses: row.proses }),
         };
 
         if (existingAddr) {
@@ -491,6 +552,10 @@ export default function SpreadsheetImportAddressClient() {
           <div>
             <h1 className="text-lg font-bold text-slate-800">Import Alamat Massal</h1>
             <p className="text-xs text-slate-500">Paste data dari Excel ke tabel di bawah ini.</p>
+            <div className="mt-2 bg-amber-50 border border-amber-200 text-amber-800 text-xs px-3 py-1.5 rounded-md flex items-center gap-1.5 font-medium">
+              <AlertCircle className="w-3.5 h-3.5" />
+              Peringatan: Pastikan format Tanggal Kirim adalah <b>DD/MM/YYYY</b> atau <b>DD Bulan YYYY</b> (contoh: 12 Juni 2026 atau 12/06/2026).
+            </div>
           </div>
         </div>
         
@@ -527,6 +592,11 @@ export default function SpreadsheetImportAddressClient() {
                   <TableHeader title="Kecamatan" width="w-40" />
                   <TableHeader title="Kelurahan" width="w-40" />
                   <TableHeader title="Kode Pos" width="w-32" />
+                  <TableHeader title="Tgl Kirim" width="w-32" />
+                  <TableHeader title="Resi" width="w-40" />
+                  <TableHeader title="Ekspedisi" width="w-40" />
+                  <TableHeader title="Notes" width="w-48" />
+                  <TableHeader title="Status Dikirim" width="w-40" />
                   <TableHeader title="Status" width="w-48" />
                 </tr>
               </thead>
@@ -554,6 +624,11 @@ export default function SpreadsheetImportAddressClient() {
                     <TableCell idx={idx} field="kecamatan" width="w-40" />
                     <TableCell idx={idx} field="kelurahan" width="w-40" />
                     <TableCell idx={idx} field="kode_pos" width="w-32" />
+                    <TableCell idx={idx} field="tanggal_kirim" width="w-32" />
+                    <TableCell idx={idx} field="resi" width="w-40" />
+                    <TableCell idx={idx} field="ekspedisi" width="w-40" />
+                    <TableCell idx={idx} field="notes" width="w-48" />
+                    <TableCell idx={idx} field="proses" width="w-40" />
                     <td className={`p-3 border-b border-slate-300 text-xs w-48 truncate
                       ${row.status === 'error' ? 'text-red-600 font-medium' : ''}
                       ${row.status === 'update' ? 'text-blue-600' : ''}

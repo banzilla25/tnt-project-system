@@ -545,7 +545,7 @@ export async function submitClientApproval(campaignId: number, campaignCreatorId
   return { success: true };
 }
 
-export async function updateResiByClient(campaignId: number, addressId: number, resi: string, proses: string, produk_dikirim?: string, notes?: string) {
+export async function updateResiByClient(campaignId: number, addressId: number, resi: string, proses: string, produk_dikirim?: string, notes?: string, ekspedisi?: string) {
   const cookieStore = await cookies();
   const pin = cookieStore.get(`portal_pin_${campaignId}`)?.value;
   if (!pin) throw new Error('Not authenticated');
@@ -580,6 +580,9 @@ export async function updateResiByClient(campaignId: number, addressId: number, 
   if (notes !== undefined) {
     updatePayload.notes = notes;
   }
+  if (ekspedisi !== undefined) {
+    updatePayload.ekspedisi = ekspedisi;
+  }
 
   // Update
   const { error } = await supabase
@@ -597,6 +600,7 @@ export type BatchUpdateData = {
   proses?: string;
   produk_dikirim?: string;
   notes?: string;
+  ekspedisi?: string;
 };
 
 export async function batchUpdateResiByClient(campaignId: number, updates: BatchUpdateData[]) {
@@ -639,6 +643,9 @@ export async function batchUpdateResiByClient(campaignId: number, updates: Batch
       if (update.proses === 'Dikirim') {
         updatePayload.tanggal_kirim = new Date().toISOString();
       }
+    }
+    if (update.ekspedisi !== undefined) {
+      updatePayload.ekspedisi = update.ekspedisi;
     }
     if (update.produk_dikirim !== undefined) updatePayload.produk_dikirim = update.produk_dikirim;
     if (update.notes !== undefined) updatePayload.notes = update.notes;
