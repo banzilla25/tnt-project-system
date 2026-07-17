@@ -110,7 +110,7 @@ export function CampaignFilterProvider({ children, initialFilterType = 'none', i
                       value={filterUsernames}
                       onChange={e => setFilterUsernames(e.target.value)}
                     ></textarea>
-                    <div className="text-right text-xs text-slate-400 mt-1">{filterUsernames.split('\n').filter(n => n.trim()).length} usernames detected</div>
+                    <div className="text-right text-xs text-slate-400 mt-1">{filterUsernames.split(/[\s,]+/).filter(n => n.trim()).length} usernames detected</div>
                   </div>
                 </>
               )}

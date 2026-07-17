@@ -123,7 +123,7 @@ export async function getPortalData(campaignId: number) {
   
   // Apply Global Creator Filter from Database
   if (campaign.creator_filter_type === 'include' || campaign.creator_filter_type === 'exclude') {
-    const filteredUsernames = (campaign.creator_filter_usernames || '').split('\n').map((u: string) => u.trim().toLowerCase()).filter((u: string) => u);
+    const filteredUsernames = (campaign.creator_filter_usernames || '').split(/[\s,]+/).map((u: string) => u.trim().toLowerCase()).filter((u: string) => u);
     if (filteredUsernames.length > 0) {
       ccData = ccData.filter((cc: any) => {
         const creator = Array.isArray(cc.creators) ? cc.creators[0] : cc.creators;
