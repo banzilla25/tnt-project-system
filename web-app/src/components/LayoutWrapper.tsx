@@ -12,7 +12,7 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
   return (
     <AuthProvider>
       {!isAuthPage && <Sidebar />}
-      <main className={`flex-1 min-w-0 flex flex-col h-screen overflow-y-auto bg-bg text-text ${isAuthPage ? "" : "ml-[240px]"}`}>
+      <main className={`flex-1 min-w-0 flex flex-col h-screen overflow-y-auto bg-bg text-text`}>
         <div className={isAuthPage ? "w-full h-full" : "py-8 mx-auto w-full px-4 lg:px-8"}>
           {children}
         </div>

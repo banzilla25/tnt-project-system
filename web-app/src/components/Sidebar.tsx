@@ -1,7 +1,7 @@
 "use client";
 
 import Link from 'next/link';
-import { LayoutDashboard, Users, FolderKanban, Receipt, Wallet, Settings, Package, LogOut, Shield, Activity, Puzzle } from 'lucide-react';
+import { LayoutDashboard, Users, FolderKanban, Receipt, Wallet, Settings, Package, LogOut, Shield, Activity, Puzzle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/utils/cn';
 import { useState, useEffect } from 'react';
@@ -23,6 +23,8 @@ const navItems = [
 export function Sidebar() {
   const pathname = usePathname();
   const [profile, setProfile] = useState<any>(null);
+  // Default to false (collapsed) per user request
+  const [isExpanded, setIsExpanded] = useState(false);
   const supabase = createClient();
 
   useEffect(() => {
@@ -34,7 +36,19 @@ export function Sidebar() {
       }
     };
     fetchProfile();
+    
+    // Optional: Load state from local storage if desired, but defaults to false
+    const savedState = localStorage.getItem('sidebar_expanded');
+    if (savedState) {
+      setIsExpanded(savedState === 'true');
+    }
   }, []);
+
+  const toggleSidebar = () => {
+    const newState = !isExpanded;
+    setIsExpanded(newState);
+    localStorage.setItem('sidebar_expanded', String(newState));
+  };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -42,30 +56,48 @@ export function Sidebar() {
   };
 
   return (
-    <div className="navdemo">
-      <div className="navbrand">
-        TNT App
-        <small>Campaign Management</small>
+    <div className={cn("navdemo", isExpanded ? "expanded" : "collapsed")}>
+      <div className={cn("navbrand", !isExpanded && "flex-col gap-2 pt-6 pb-2")}>
+        {isExpanded ? (
+          <div>
+            TNT App
+            <small>Campaign Management</small>
+          </div>
+        ) : (
+          <div className="bg-p300 text-white w-8 h-8 rounded-full flex items-center justify-center font-bold text-lg mb-2">
+            T
+          </div>
+        )}
+        
+        <button 
+          onClick={toggleSidebar}
+          className="bg-white text-n300 p-1.5 rounded-md hover:bg-gray-200 transition-colors"
+          title={isExpanded ? "Collapse Sidebar" : "Expand Sidebar"}
+        >
+          {isExpanded ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
+        </button>
       </div>
       
       {/* Profil User */}
       {profile && (
-        <div className="flex items-center gap-[11px] px-[12px] py-[8px] mb-[4px]">
-          <div className="avatar bg-p300 shadow-sm border border-white/10 text-[13px]">
+        <div className={cn("flex items-center gap-[11px] py-[8px] mb-[4px]", isExpanded ? "px-[12px]" : "justify-center px-0")}>
+          <div className="avatar bg-p300 shadow-sm border border-white/10 text-[13px] shrink-0">
             {profile.avatar_url ? (
               <img src={profile.avatar_url} alt={profile.nama} className="w-full h-full object-cover rounded-full" />
             ) : (
               profile.nama?.charAt(0).toUpperCase()
             )}
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-[13px] font-bold text-white truncate">{profile.nama}</p>
-            <p className="text-[11px] text-white/50 capitalize font-medium">{profile.role}</p>
-          </div>
+          {isExpanded && (
+            <div className="flex-1 min-w-0">
+              <p className="text-[13px] font-bold text-white truncate">{profile.nama}</p>
+              <p className="text-[11px] text-white/50 capitalize font-medium">{profile.role}</p>
+            </div>
+          )}
         </div>
       )}
 
-      <nav className="flex-1 flex flex-col overflow-y-auto">
+      <nav className="flex-1 flex flex-col overflow-y-auto mt-2">
         {navItems.map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
           const Icon = item.icon;
@@ -86,9 +118,15 @@ export function Sidebar() {
               }}
             >
               <Icon className="ico" />
-              {item.name}
-              {!item.activePhase && (
+              {isExpanded && <span>{item.name}</span>}
+              {!item.activePhase && isExpanded && (
                 <span className="ml-auto text-[10px] bg-white/10 text-white/40 px-1.5 py-0.5 rounded">Lock</span>
+              )}
+              
+              {!isExpanded && (
+                <div className="navtooltip">
+                  {item.name} {!item.activePhase && "(Lock)"}
+                </div>
               )}
             </Link>
           );
@@ -106,7 +144,8 @@ export function Sidebar() {
               )}
             >
               <Shield className="ico" />
-              Manajemen Akun
+              {isExpanded && <span>Manajemen Akun</span>}
+              {!isExpanded && <div className="navtooltip">Manajemen Akun</div>}
             </Link>
             <Link
               href="/activity-log"
@@ -116,23 +155,27 @@ export function Sidebar() {
               )}
             >
               <Activity className="ico" />
-              Activity Log
+              {isExpanded && <span>Activity Log</span>}
+              {!isExpanded && <div className="navtooltip">Activity Log</div>}
             </Link>
           </div>
         )}
       </nav>
       
-      <div className="mt-4 pt-4 border-t border-white/10">
+      <div className="mt-4 pt-4 border-t border-white/10 mb-4">
         <button 
           onClick={handleLogout}
           className="navitem w-full"
         >
           <LogOut className="ico" />
-          Logout
+          {isExpanded && <span>Logout</span>}
+          {!isExpanded && <div className="navtooltip">Logout</div>}
         </button>
-        <p className="text-[10px] text-center text-white/30 mt-4 font-medium tracking-wide">
-          TNT Agency &copy; {new Date().getFullYear()}
-        </p>
+        {isExpanded && (
+          <p className="text-[10px] text-center text-white/30 mt-4 font-medium tracking-wide">
+            TNT Agency &copy; {new Date().getFullYear()}
+          </p>
+        )}
       </div>
     </div>
   );

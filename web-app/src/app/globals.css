@@ -227,14 +227,38 @@
   }
 
   /* ===== SIDEBAR NAV ===== */
-  .navdemo { @apply bg-n300 w-[240px] flex flex-col h-screen fixed left-0 top-0 overflow-y-auto; }
-  .navbrand { @apply text-white font-extrabold text-[17px] px-[12px] pt-[24px] pb-[4px]; }
-  .navbrand small { @apply block text-[11px] text-white/50 font-medium; }
-  .navitem { @apply flex items-center gap-[11px] px-[13px] py-[11px] rounded-md text-white/70 text-[14px] font-medium mt-[4px] cursor-pointer transition-colors; }
+  .navdemo { 
+    @apply bg-n300 flex flex-col h-screen sticky top-0 shrink-0 transition-[width] duration-300 ease-in-out overflow-y-auto overflow-x-hidden; 
+    z-index: 50; 
+  }
+  .navdemo::-webkit-scrollbar { display: none; }
+  .navdemo.expanded { @apply w-[240px]; }
+  .navdemo.collapsed { @apply w-[72px]; }
+
+  .navbrand { @apply text-white font-extrabold text-[17px] px-[12px] pt-[24px] pb-[4px] flex items-center justify-between; }
+  .navbrand small { @apply block text-[11px] text-white/50 font-medium whitespace-nowrap; }
+  
+  .navitem { 
+    @apply relative flex items-center gap-[11px] px-[13px] py-[11px] rounded-md text-white/70 text-[14px] font-medium mt-[4px] cursor-pointer transition-colors whitespace-nowrap; 
+  }
+  .navdemo.collapsed .navitem { @apply justify-center px-0 mx-[12px]; }
+  .navdemo.expanded .navitem { @apply mx-[12px]; }
+  
   .navitem:hover { @apply bg-white/5 text-white; }
   .navitem.active { @apply bg-p300 text-white font-semibold; }
-  .navitem .ico { @apply stroke-current; }
-  .navsection { @apply text-[11px] font-bold text-white/35 uppercase tracking-[0.08em] px-[13px] pt-[18px] pb-[4px]; }
+  .navitem .ico { @apply stroke-current shrink-0; }
+  
+  /* Tooltip for collapsed sidebar */
+  .navtooltip {
+    @apply absolute left-[calc(100%+8px)] top-1/2 -translate-y-1/2 bg-gray-800 text-white text-[12px] font-semibold px-3 py-1.5 rounded shadow-md pointer-events-none opacity-0 transition-opacity whitespace-nowrap z-50;
+  }
+  .navdemo.collapsed .navitem:hover .navtooltip {
+    @apply opacity-100;
+  }
+
+  .navsection { @apply text-[11px] font-bold text-white/35 uppercase tracking-[0.08em] px-[13px] pt-[18px] pb-[4px] whitespace-nowrap overflow-hidden; }
+  .navdemo.collapsed .navsection { @apply text-center px-0 opacity-0 h-0 pt-0 pb-0 overflow-hidden; }
+  
   .navitem.tool { @apply text-o300; }
   .navitem.tool:hover { @apply text-o300 bg-white/5; }
   .navitem.tool.active { @apply bg-o300 text-white; }
