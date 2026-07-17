@@ -440,8 +440,12 @@ export default function CampaignPerformaClient({
                 <tbody>
                   {adsPerf.map((ad, i) => {
                     const creatorUsername = ad.creators?.username;
-                    const costIdr = ad.cost_usd * ad.kurs;
-                    const revenueIdr = ad.gross_revenue_usd * ad.kurs;
+                    const kurs = ad.kurs || 16000;
+                    const costUsd = ad.cost_usd || 0;
+                    const revenueUsd = ad.gross_revenue_usd || 0;
+                    
+                    const costIdr = costUsd * kurs;
+                    const revenueIdr = revenueUsd * kurs;
                     const roas = costIdr > 0 ? (revenueIdr / costIdr).toFixed(2) : '-';
                     const isEditing = editingKursId === ad.id;
 
@@ -452,8 +456,8 @@ export default function CampaignPerformaClient({
                         <td>
                           {creatorUsername ? <span className="font-medium text-indigo-600">@{creatorUsername}</span> : <span className="text-amber-500 italic text-[12px]">Belum di-map</span>}
                         </td>
-                        <td className="text-right text-red-600 font-medium">${ad.cost_usd.toFixed(2)}</td>
-                        <td className="text-right text-emerald-600 font-bold">${ad.gross_revenue_usd.toFixed(2)}</td>
+                        <td className="text-right text-red-600 font-medium">${costUsd.toFixed(2)}</td>
+                        <td className="text-right text-emerald-600 font-bold">${revenueUsd.toFixed(2)}</td>
                         <td className="text-center">
                           {isEditing ? (
                             <div className="flex items-center justify-center gap-[4px]">
@@ -473,10 +477,10 @@ export default function CampaignPerformaClient({
                             </div>
                           ) : (
                             <div className="flex items-center justify-center gap-[8px] group">
-                              <span className="font-medium">Rp {ad.kurs.toLocaleString()}</span>
+                              <span className="font-medium">Rp {kurs.toLocaleString()}</span>
                               {hasAccess && (
                                 <button 
-                                  onClick={() => { setEditingKursId(ad.id); setEditKursValue(ad.kurs.toString()); }}
+                                  onClick={() => { setEditingKursId(ad.id); setEditKursValue(kurs.toString()); }}
                                   className="opacity-0 group-hover:opacity-100 transition-opacity text-text-soft hover:text-indigo-600"
                                 >
                                   <Edit2 className="w-3 h-3" />
