@@ -26,6 +26,8 @@ export default async function CampaignPerformaPage({
       rpcPerformance={data.rpcPerformance}
       baseCreatorStats={data.baseCreatorStats}
       localCreators={data.baseCreatorStats} // Reused for length calculations
+      initialTotalAdsGmv={data.totalAdsGmv}
+      initialTotalAdsSpend={data.totalAdsSpend}
     />
   );
 }

@@ -76,7 +76,7 @@ export default function BudgetingAdsPage() {
   const idleFundsUsd = totalTopupUsd - totalAllocatedUsd;
 
   // -- Kalkulasi Per Campaign --
-  const campaignBalances = campaigns.filter(c => c.status === "aktif").map(camp => {
+  const campaignBalances = campaigns.map(camp => {
     // total alokasi ke campaign ini
     const campAllocations = allocations.filter(a => a.campaign_id === camp.id);
     const allocatedUsd = campAllocations.reduce((acc, curr) => acc + Number(curr.alokasi_usd), 0);
@@ -503,8 +503,8 @@ export default function BudgetingAdsPage() {
                     <label className="block text-xs text-slate-500 mb-1">Campaign Penerima</label>
                     <select value={allocCampaignId} onChange={e => setAllocCampaignId(e.target.value)} className="w-full p-2 text-sm border rounded focus:ring-2 focus:ring-emerald-500 outline-none bg-white" required>
                       <option value="">-- Pilih Campaign --</option>
-                      {campaigns.filter(c => c.status === "aktif").map(c => (
-                        <option key={c.id} value={c.id}>{c.nama}</option>
+                      {campaigns.map(c => (
+                        <option key={c.id} value={c.id}>{c.nama} {c.status !== 'aktif' ? `(${c.status})` : ''}</option>
                       ))}
                     </select>
                   </div>

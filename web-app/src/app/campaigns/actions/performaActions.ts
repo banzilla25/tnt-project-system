@@ -36,7 +36,7 @@ export async function getInternalPerformaData(campaignId: number) {
       .from('campaign_creators')
       .select(`
         *,
-        creators(username, nama_asli, link_account, creator_snapshots(followers, level, tier)),
+        creators(id, username, nama_asli, link_account, creator_snapshots(followers, level, tier)),
         videos(id, link_video, content_uid, vt_approval, urutan)
       `)
       .eq('campaign_id', campaignId)
@@ -85,15 +85,22 @@ export async function getInternalPerformaData(campaignId: number) {
     }
   }
   
-  // Aggregate cost and gmv per creator_id
+  // Aggregate cost and gmv per creator_id and global
   const adsStatsByCreator: Record<number, { gmvAds: number, costAds: number }> = {};
+  let globalAdsGmv = 0;
+  let globalAdsSpend = 0;
+
   for (const ad of latestAdsMap.values()) {
+    let kurs = ad.kurs || 16000;
+    if (kurs < 1000) kurs = kurs * 1000;
+    
+    globalAdsGmv += (ad.gross_revenue_usd || 0) * kurs;
+    globalAdsSpend += (ad.cost_usd || 0);
+
     if (ad.creator_id) {
       if (!adsStatsByCreator[ad.creator_id]) {
         adsStatsByCreator[ad.creator_id] = { gmvAds: 0, costAds: 0 };
       }
-      let kurs = ad.kurs || 16000;
-      if (kurs < 1000) kurs = kurs * 1000;
       adsStatsByCreator[ad.creator_id].gmvAds += (ad.gross_revenue_usd || 0) * kurs;
       adsStatsByCreator[ad.creator_id].costAds += (ad.cost_usd || 0) * kurs;
     }
@@ -188,6 +195,8 @@ export async function getInternalPerformaData(campaignId: number) {
   return {
     campaign,
     rpcPerformance: Array.isArray(rpcPerformance) ? rpcPerformance[0] : rpcPerformance,
-    baseCreatorStats
+    baseCreatorStats,
+    totalAdsGmv: globalAdsGmv,
+    totalAdsSpend: globalAdsSpend,
   };
 }
