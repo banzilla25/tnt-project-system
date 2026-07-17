@@ -189,7 +189,7 @@ export async function getPortalData(campaignId: number) {
 
     // Calculate Total VT and Total Live mimicking the Internal Dashboard logic
     const autoSalesVideos = videoGmvData?.filter((v: any) => v.creator_username === username) || [];
-    const dbVideos = cc.campaign_creators_videos || [];
+    const dbVideos = cc.videos || [];
     const uniqueVideoIds = new Map<string, string>(); 
     const uniqueLiveIds = new Set<string>();
 
