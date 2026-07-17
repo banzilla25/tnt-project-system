@@ -141,18 +141,64 @@ export default function SpreadsheetImportAddressClient() {
     const pastedData = e.clipboardData.getData('Text');
     if (!pastedData) return;
 
-    const rowStrings = pastedData.split(/\r\n|\n|\r/);
+    const text = pastedData;
+    if (!text.includes('\n') && !text.includes('\t')) return;
+    
+    // Robust TSV parser for Excel (handles newlines inside quotes)
+    const parsedRows: string[][] = [];
+    let currentRowData: string[] = [];
+    let currentCell = '';
+    let inQuotes = false;
+    
+    for (let i = 0; i < text.length; i++) {
+      const char = text[i];
+      const nextChar = text[i + 1];
+      
+      if (inQuotes) {
+        if (char === '"' && nextChar === '"') {
+          currentCell += '"';
+          i++;
+        } else if (char === '"') {
+          inQuotes = false;
+        } else {
+          currentCell += char;
+        }
+      } else {
+        if (char === '"' && currentCell === '') {
+          inQuotes = true;
+        } else if (char === '\t') {
+          currentRowData.push(currentCell);
+          currentCell = '';
+        } else if (char === '\r' && nextChar === '\n') {
+          currentRowData.push(currentCell);
+          parsedRows.push(currentRowData);
+          currentRowData = [];
+          currentCell = '';
+          i++;
+        } else if (char === '\n' || char === '\r') {
+          currentRowData.push(currentCell);
+          parsedRows.push(currentRowData);
+          currentRowData = [];
+          currentCell = '';
+        } else {
+          currentCell += char;
+        }
+      }
+    }
+    if (currentCell || currentRowData.length > 0) {
+      currentRowData.push(currentCell);
+      parsedRows.push(currentRowData);
+    }
+
     const columns = ['username', 'whatsapp', 'nama_penerima', 'nama_jalan', 'provinsi', 'kabupaten_kota', 'kecamatan', 'kelurahan', 'kode_pos'];
     const startColIndex = columns.indexOf(startColName as string);
     if (startColIndex === -1) return;
 
     const newRows = [...rows];
-    let addedCount = 0;
     const usernamesToDetect: string[] = [];
 
-    rowStrings.forEach((rowString, i) => {
-      const cellValues = rowString.split('\t');
-      if (cellValues.length === 1 && !cellValues[0]) return;
+    parsedRows.forEach((cellValues, i) => {
+      if (cellValues.length === 1 && !cellValues[0].trim()) return;
 
       const targetRowIndex = startRowIndex + i;
       while (targetRowIndex >= newRows.length) {
@@ -162,7 +208,7 @@ export default function SpreadsheetImportAddressClient() {
       cellValues.forEach((val, j) => {
         const targetColName = columns[startColIndex + j] as keyof SpreadsheetRow;
         if (targetColName) {
-          let cleanedVal = val.replace(/^"|"$/g, '').trim();
+          let cleanedVal = val.trim();
           if (targetColName === 'username') cleanedVal = cleanedVal.replace(/^@/, '');
           (newRows[targetRowIndex] as any)[targetColName] = cleanedVal;
           if (targetColName === 'username' && cleanedVal) {
@@ -172,7 +218,6 @@ export default function SpreadsheetImportAddressClient() {
       });
       newRows[targetRowIndex].status = undefined;
       newRows[targetRowIndex].errorMsg = undefined;
-      addedCount++;
     });
 
     setRows(newRows);

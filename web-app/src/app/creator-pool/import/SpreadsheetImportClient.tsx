@@ -248,8 +248,54 @@ export default function SpreadsheetImportClient() {
     if (!text.includes('\n') && !text.includes('\t')) return;
 
     e.preventDefault();
-    const lines = text.split(/\r?\n/).filter(line => line.trim());
-    if (lines.length === 0) return;
+    
+    // Robust TSV parser
+    const parsedRows: string[][] = [];
+    let currentRowData: string[] = [];
+    let currentCell = '';
+    let inQuotes = false;
+    
+    for (let i = 0; i < text.length; i++) {
+      const char = text[i];
+      const nextChar = text[i + 1];
+      
+      if (inQuotes) {
+        if (char === '"' && nextChar === '"') {
+          currentCell += '"';
+          i++;
+        } else if (char === '"') {
+          inQuotes = false;
+        } else {
+          currentCell += char;
+        }
+      } else {
+        if (char === '"' && currentCell === '') {
+          inQuotes = true;
+        } else if (char === '\t') {
+          currentRowData.push(currentCell);
+          currentCell = '';
+        } else if (char === '\r' && nextChar === '\n') {
+          currentRowData.push(currentCell);
+          parsedRows.push(currentRowData);
+          currentRowData = [];
+          currentCell = '';
+          i++;
+        } else if (char === '\n' || char === '\r') {
+          currentRowData.push(currentCell);
+          parsedRows.push(currentRowData);
+          currentRowData = [];
+          currentCell = '';
+        } else {
+          currentCell += char;
+        }
+      }
+    }
+    if (currentCell || currentRowData.length > 0) {
+      currentRowData.push(currentCell);
+      parsedRows.push(currentRowData);
+    }
+    
+    if (parsedRows.length === 0) return;
 
     setRows(prevRows => {
       const newRows = [...prevRows];
@@ -258,8 +304,7 @@ export default function SpreadsheetImportClient() {
 
       const pastedUsernames: string[] = [];
 
-      lines.forEach((line, lineIdx) => {
-        const rawCols = line.split('\t');
+      parsedRows.forEach((rawCols, lineIdx) => {
         let cols = rawCols;
         
         const tierRawIndex = 3 - startColIdx;
