@@ -2040,6 +2040,7 @@ function CampaignListingContent() {
                 const isEditing = editingId === cc.id;
                 const creatorVideos = cc.videos || [];
 
+                return (
                   <CreatorRow 
                     key={cc.id}
                     cc={cc}
@@ -2071,6 +2072,7 @@ function CampaignListingContent() {
                     fetchListing={fetchListing}
                     page={page}
                   />
+                );
               })
             );
             })()}
