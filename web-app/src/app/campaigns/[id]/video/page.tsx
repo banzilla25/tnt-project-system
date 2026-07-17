@@ -112,7 +112,7 @@ export default function CampaignVideoPage() {
         .eq('approval', 'approved');
 
       if (campaign?.require_client_approval) {
-        query = query.eq('client_approval', 'approved');
+        query = query.in('client_approval', ['approved', 'not_required']);
       }
 
       if (debouncedSearch) {
@@ -135,7 +135,7 @@ export default function CampaignVideoPage() {
             .eq('approval', 'approved');
             
          if (campaign?.require_client_approval) {
-           pageQuery = pageQuery.eq('client_approval', 'approved');
+           pageQuery = pageQuery.in('client_approval', ['approved', 'not_required']);
          }
          if (debouncedSearch) {
            pageQuery = pageQuery.ilike('creators.username', `%${debouncedSearch}%`);

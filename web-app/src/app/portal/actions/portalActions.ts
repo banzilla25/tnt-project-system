@@ -398,7 +398,7 @@ export async function getPortalData(campaignId: number) {
     let fbViews = 0, fbVideos = 0, fbLivestreams = 0, fbAllGmv = 0, fbWithVideo = 0, fbWithLive = 0, fbApprovedCreators = 0;
 
     enrichedCcData.forEach((cc: any) => {
-      if (campaign?.require_client_approval && cc.client_approval !== 'approved') return;
+      if (campaign?.require_client_approval && cc.client_approval !== 'approved' && cc.client_approval !== 'not_required') return;
       if (cc.approval !== 'approved' && cc.approval !== 'pending') return;
       
       if (cc.approval === 'approved') fbApprovedCreators++;

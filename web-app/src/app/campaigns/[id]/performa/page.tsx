@@ -107,7 +107,7 @@ function CampaignPerformaContent() {
           .in('approval', ['approved', 'pending']);
 
         if (campaign?.require_client_approval) {
-          query = query.eq('client_approval', 'approved');
+          query = query.in('client_approval', ['approved', 'not_required']);
         }
 
         const { data: ccData, error } = await query.range(from, to);
