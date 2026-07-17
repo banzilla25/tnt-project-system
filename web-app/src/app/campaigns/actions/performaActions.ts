@@ -122,6 +122,7 @@ export async function getInternalPerformaData(campaignId: number) {
     const itemsSold = perf?.items_sold || 0;
     const videoViews = perf?.video_views || 0;
     const videoLikes = perf?.video_likes || 0;
+    const trackedVideos = perf?.video_count || 0;
     
     // Use the correctly aggregated Ads Stats instead of the SQL View's inaccurate sum
     const aggregatedAds = adsStatsByCreator[creator?.id] || { gmvAds: 0, costAds: 0 };
