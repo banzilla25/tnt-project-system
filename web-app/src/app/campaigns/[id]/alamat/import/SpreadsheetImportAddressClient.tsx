@@ -80,8 +80,9 @@ export default function SpreadsheetImportAddressClient() {
   });
   
   const [isVerifying, setIsVerifying] = useState(false);
-  const [isImporting, setIsImporting] = useState(false);
   const [isAutoDetecting, setIsAutoDetecting] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const [saveProgress, setSaveProgress] = useState({ current: 0, total: 0 });
   const [dragFill, setDragFill] = useState<DragFillState | null>(null);
 
   const runBulkAutoDetect = async (usernamesToDetect: string[]) => {
@@ -422,12 +423,18 @@ export default function SpreadsheetImportAddressClient() {
     }
 
     setIsImporting(true);
+    setSaveProgress({ current: 0, total: validRows.length });
     let successCount = 0;
     let failCount = 0;
 
-    for (const row of validRows) {
-      try {
-        // 1. Dapatkan creator_addresses yang existing untuk update
+    const BATCH_SIZE = 25; // 25 data secara paralel agar cepat namun tidak menembus batas limit koneksi DB
+    
+    for (let i = 0; i < validRows.length; i += BATCH_SIZE) {
+      const batch = validRows.slice(i, i + BATCH_SIZE);
+      
+      await Promise.all(batch.map(async (row) => {
+        try {
+          // 1. Dapatkan creator_addresses yang existing untuk update
         const { data: existingAddr } = await supabase.from('creator_addresses')
           .select('id, resi')
           .eq('campaign_creator_id', row.ccId)
@@ -510,9 +517,13 @@ export default function SpreadsheetImportAddressClient() {
         setRows(prev => prev.map(r => r.id === row.id ? { ...r, status: 'error', errorMsg: err.message } : r));
         failCount++;
       }
+      }));
+      
+      setSaveProgress(prev => ({ ...prev, current: Math.min(prev.current + BATCH_SIZE, prev.total) }));
     }
 
     setIsImporting(false);
+    setSaveProgress({ current: 0, total: 0 });
     alert(`Import selesai!\nBerhasil: ${successCount}\nGagal: ${failCount}`);
     if (failCount === 0) {
       localStorage.removeItem(`tnt_import_alamat_${campaignId}`);
@@ -597,7 +608,7 @@ export default function SpreadsheetImportAddressClient() {
             {isVerifying ? 'Memeriksa...' : isAutoDetecting ? 'Mendeteksi...' : 'Cek Data'}
           </Button>
           <Button onClick={saveToDatabase} disabled={isImporting} className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm min-w-[140px]">
-            {isImporting ? 'Menyimpan...' : (
+            {isImporting ? `Menyimpan ${saveProgress.current}/${saveProgress.total}...` : (
               <><Save className="w-4 h-4 mr-2" /> Simpan Ke Database</>
             )}
           </Button>
