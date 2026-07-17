@@ -270,7 +270,7 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
         'Tanggal Kirim': addr.tanggal_kirim ? new Date(addr.tanggal_kirim).toLocaleDateString('id-ID') : '',
         'Resi': addr.resi || '',
         'Notes': addr.notes || '',
-        'Status': addr.proses || 'Diproses'
+        'Status': addr.proses || 'Belum diproses'
       };
     });
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sampleRows.length > 0 ? sampleRows : [{ 'Info': 'Tidak ada data sampel' }]), 'Sampel & Resi');
@@ -356,7 +356,7 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
 
     const username = cc?.creators?.username || '';
     const resiStr = (editedSamples[addr.id]?.resi ?? addr.resi) || '';
-    const prosesStr = (editedSamples[addr.id]?.proses ?? addr.proses) || 'Diproses';
+    const prosesStr = (editedSamples[addr.id]?.proses ?? addr.proses) || 'Belum diproses';
 
     if (sampleSearch && !username.toLowerCase().includes(sampleSearch.toLowerCase()) && !resiStr.toLowerCase().includes(sampleSearch.toLowerCase())) return false;
     
@@ -917,6 +917,7 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                       onChange={(e) => { setSampleStatusFilter(e.target.value); setSamplePage(0); }}
                     >
                       <option value="all">Semua Status</option>
+                      <option value="belum diproses">Belum diproses</option>
                       <option value="diproses">Diproses</option>
                       <option value="dikirim">Dikirim</option>
                       <option value="diterima">Diterima</option>
@@ -992,9 +993,10 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                               <TableCell className="px-3 py-3">
                                 <select 
                                   className="w-full text-[12px] p-1 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none bg-white" 
-                                  value={editedSamples[addr.id]?.proses ?? (addr.proses || 'Diproses')} 
+                                  value={editedSamples[addr.id]?.proses ?? (addr.proses || 'Belum diproses')} 
                                   onChange={e => handleAutoSave(addr.id, 'proses', e.target.value)}
                                 >
+                                  <option value="Belum diproses">Belum diproses</option>
                                   <option value="Diproses">Diproses</option>
                                   <option value="Dikirim">Dikirim</option>
                                   <option value="Diterima">Diterima</option>

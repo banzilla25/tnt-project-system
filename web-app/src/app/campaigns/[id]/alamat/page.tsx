@@ -180,7 +180,7 @@ export default function AlamatPage() {
         kabupaten_kota: creator?.alamat_kota || '',
         provinsi: creator?.alamat_provinsi || '',
         kode_pos: creator?.alamat_kodepos || '',
-        proses: 'Diproses'
+        proses: 'Belum diproses'
       });
       setEditId(-ccId); // Temp ID for new records
     }
@@ -190,9 +190,35 @@ export default function AlamatPage() {
   const handleSave = async (ccId: number) => {
     setIsSaving(true);
     const existing = creator_addresses.find(a => a.campaign_creator_id === ccId);
+    const cc = localCreators.find(c => c.id === ccId);
     
+    // Check if anything actually changed before proceeding
+    const isSkusChanged = JSON.stringify(cc?.assigned_sku_ids || []) !== JSON.stringify(editAssignedSkus);
+    
+    let isDataChanged = true;
+    if (existing) {
+      isDataChanged = (
+        (existing.nama_penerima || '') !== (formData.nama_penerima || '') ||
+        (existing.nama_jalan || '') !== (formData.nama_jalan || '') ||
+        (existing.kecamatan || '') !== (formData.kecamatan || '') ||
+        (existing.kabupaten_kota || '') !== (formData.kabupaten_kota || '') ||
+        (existing.provinsi || '') !== (formData.provinsi || '') ||
+        (existing.kode_pos || '') !== (formData.kode_pos || '') ||
+        (existing.proses || '') !== (formData.proses || '') ||
+        (existing.resi || '') !== (formData.resi || '') ||
+        (existing.notes || '') !== (formData.notes || '') ||
+        (existing.tanggal_kirim || '') !== (formData.tanggal_kirim || '')
+      );
+    }
+    
+    if (!isDataChanged && !isSkusChanged) {
+      setEditId(null);
+      setIsSaving(false);
+      return;
+    }
+
     const payload = { ...formData };
-    if (existing?.resi !== payload.resi) {
+    if ((existing?.resi || '') !== (payload.resi || '')) {
       (payload as any).resi_updated_at = new Date().toISOString();
       (payload as any).resi_updated_by = 'Internal TNT';
     }
@@ -427,7 +453,8 @@ export default function AlamatPage() {
                       </td>
                       <td className="px-3 py-3">
                         {isEditing ? (
-                          <select className="input w-full min-w-[120px]" value={formData.proses || 'Diproses'} onChange={e => setFormData({ ...formData, proses: e.target.value })}>
+                          <select className="input w-full min-w-[120px]" value={formData.proses || 'Belum diproses'} onChange={e => setFormData({ ...formData, proses: e.target.value })}>
+                            <option value="Belum diproses">Belum diproses</option>
                             <option value="Diproses">Diproses</option>
                             <option value="Dikirim">Dikirim</option>
                             <option value="Diterima">Diterima</option>
@@ -435,7 +462,7 @@ export default function AlamatPage() {
                           </select>
                         ) : (
                           <span className={`inline-block px-[8px] py-[4px] rounded-[6px] text-[11px] font-bold ${(addr?.proses === 'Dikirim' || addr?.proses === 'Diterima') ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-700'}`}>
-                            {addr?.proses || 'Diproses'}
+                            {addr?.proses || 'Belum diproses'}
                           </span>
                         )}
                       </td>
