@@ -80,9 +80,9 @@ export function Sidebar() {
               <small>Campaign Management</small>
             </div>
           ) : (
-            <div className="bg-p300 text-white w-8 h-8 rounded-full flex items-center justify-center font-bold text-lg mb-2">
-              T
-            </div>
+            <div className="flex items-center justify-center mb-2">
+            <img src="/icon-tnt-rounded.png" alt="TNT Logo" className="w-8 h-8 object-cover rounded-md" />
+          </div>
           )}
           
           <button 
