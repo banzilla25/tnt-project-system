@@ -13,15 +13,12 @@ export async function getAdsReportData(params: {
 }) {
   const supabase = await createClient();
   
-  // 1. Fetch data directly from the new PostgreSQL View `ads_performance_delta`
-  // This view automatically computes delta_cost_usd, delta_gross_revenue_usd, etc. using LAG()
+  // 1. Fetch data directly from `ads_performance`
   let query = supabase
-    .from('ads_performance_delta')
+    .from('ads_performance')
     .select('*, creators(username)');
     
-  if (params.startDate) {
-    query = query.gte('tanggal', params.startDate);
-  }
+  // We ignore startDate because the user explicitly wants the LATEST cumulative lifetime record up to the endDate.
   if (params.endDate) {
     query = query.lte('tanggal', params.endDate);
   }
@@ -40,8 +37,18 @@ export async function getAdsReportData(params: {
     return { summary: { totalSpend: 0, totalGmv: 0, totalImpressions: 0, roas: 0, cpm: 0 }, data: [], campaignBreakdown: { list: [], globalUnmappedCampaigns: 0 }, budgetBalances: {} };
   }
 
-  // 2. Apply Search Query Filter in memory
-  let breakdownData = rawFilteredData;
+  // 2. Aggregate to find the latest record for each ad_id
+  const latestMap = new Map();
+  for (const row of rawFilteredData) {
+    const existing = latestMap.get(row.ad_id);
+    if (!existing || new Date(row.tanggal) > new Date(existing.tanggal)) {
+      latestMap.set(row.ad_id, row);
+    }
+  }
+  let latestData = Array.from(latestMap.values());
+
+  // 3. Apply Search Query Filter in memory
+  let breakdownData = latestData;
   if (params.searchQuery) {
     const q = params.searchQuery.toLowerCase();
     breakdownData = breakdownData.filter(r => 
@@ -59,7 +66,7 @@ export async function getAdsReportData(params: {
     });
   }
 
-  // 3. Calculate Campaign Breakdown (using ALL campaigns matching date/search)
+  // 4. Calculate Campaign Breakdown (using ALL campaigns matching date/search)
   const campaignBreakdown: Record<number, any> = {};
   let globalUnmappedCampaigns = 0;
   for (const ad of breakdownData) {
@@ -72,12 +79,12 @@ export async function getAdsReportData(params: {
     if (!campaignBreakdown[cId]) {
       campaignBreakdown[cId] = { name: campaignNames[cId] || 'Unknown Campaign', spend: 0, gmv: 0, impressions: 0, clicks: 0, purchases: 0, unmapped: 0, spend_usd: 0 };
     }
-    campaignBreakdown[cId].spend += (ad.delta_cost_usd || 0) * kurs;
-    campaignBreakdown[cId].spend_usd += (ad.delta_cost_usd || 0);
-    campaignBreakdown[cId].gmv += (ad.delta_gross_revenue_usd || 0) * kurs;
-    campaignBreakdown[cId].impressions += (ad.delta_impressions || 0);
-    campaignBreakdown[cId].clicks += (ad.delta_clicks || 0);
-    campaignBreakdown[cId].purchases += (ad.delta_purchases || 0);
+    campaignBreakdown[cId].spend += (ad.cost_usd || 0) * kurs;
+    campaignBreakdown[cId].spend_usd += (ad.cost_usd || 0);
+    campaignBreakdown[cId].gmv += (ad.gross_revenue_usd || 0) * kurs;
+    campaignBreakdown[cId].impressions += (ad.impressions || 0);
+    campaignBreakdown[cId].clicks += (ad.clicks || 0);
+    campaignBreakdown[cId].purchases += (ad.purchases || 0);
     if (!ad.creator_id || !ad.campaign_ads_name) {
       campaignBreakdown[cId].unmapped++;
     }
@@ -92,14 +99,14 @@ export async function getAdsReportData(params: {
     tableData = tableData.filter(r => r.campaign_id === params.campaignId);
   }
 
-  // 5. Calculate Global Summary (using filtered tableData)
+  // 6. Calculate Global Summary (using filtered tableData)
   let sumSpend = 0; let sumGmv = 0; let sumImpr = 0; let sumSpendUsd = 0;
   for (const ad of tableData) {
     const kurs = ad.kurs || 16000;
-    sumSpend += (ad.delta_cost_usd || 0) * kurs;
-    sumSpendUsd += (ad.delta_cost_usd || 0);
-    sumGmv += (ad.delta_gross_revenue_usd || 0) * kurs;
-    sumImpr += (ad.delta_impressions || 0);
+    sumSpend += (ad.cost_usd || 0) * kurs;
+    sumSpendUsd += (ad.cost_usd || 0);
+    sumGmv += (ad.gross_revenue_usd || 0) * kurs;
+    sumImpr += (ad.impressions || 0);
   }
   const summary = {
     totalSpend: sumSpend,

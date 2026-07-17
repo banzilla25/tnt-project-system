@@ -32,14 +32,14 @@ const MemoizedTableRow = React.memo(({
   const hasPending = !!pendingChange;
 
   const creatorUsername = ad.creators?.username;
-const cost = isParent && groupStats ? groupStats.cost_usd : (ad.delta_cost_usd || 0);
-    const impr = isParent && groupStats ? groupStats.impressions : (ad.delta_impressions || 0);
-    const clicks = isParent && groupStats ? groupStats.clicks : (ad.delta_clicks || 0);
-    const ppv = isParent && groupStats ? groupStats.product_page_views : (ad.delta_product_page_views || 0);
-    const checkouts = isParent && groupStats ? groupStats.checkouts_initiated : (ad.delta_checkouts_initiated || 0);
-    const purchases = isParent && groupStats ? groupStats.purchases : (ad.delta_purchases || 0);
-    const items = isParent && groupStats ? groupStats.items_purchased : (ad.delta_items_purchased || 0);
-    const rev = isParent && groupStats ? groupStats.gross_revenue_usd : (ad.delta_gross_revenue_usd || 0);
+const cost = isParent && groupStats ? groupStats.cost_usd : (ad.cost_usd || 0);
+    const impr = isParent && groupStats ? groupStats.impressions : (ad.impressions || 0);
+    const clicks = isParent && groupStats ? groupStats.clicks : (ad.clicks || 0);
+    const ppv = isParent && groupStats ? groupStats.product_page_views : (ad.product_page_views || 0);
+    const checkouts = isParent && groupStats ? groupStats.checkouts_initiated : (ad.checkouts_initiated || 0);
+    const purchases = isParent && groupStats ? groupStats.purchases : (ad.purchases || 0);
+    const items = isParent && groupStats ? groupStats.items_purchased : (ad.items_purchased || 0);
+    const rev = isParent && groupStats ? groupStats.gross_revenue_usd : (ad.gross_revenue_usd || 0);
 
     const ppvRate = clicks > 0 ? (ppv / clicks) * 100 : 0;
     const roas = cost > 0 ? (rev / cost) : 0;
@@ -633,14 +633,14 @@ export default function AdsReportPage() {
         };
       }
       
-      groups[key].cost_usd += Number(ad.delta_cost_usd || 0);
-      groups[key].impressions += Number(ad.delta_impressions || 0);
-      groups[key].clicks += Number(ad.delta_clicks || 0);
-      groups[key].product_page_views += Number(ad.delta_product_page_views || 0);
-      groups[key].checkouts_initiated += Number(ad.delta_checkouts_initiated || 0);
-      groups[key].purchases += Number(ad.delta_purchases || 0);
-      groups[key].items_purchased += Number(ad.delta_items_purchased || 0);
-      groups[key].gross_revenue_usd += Number(ad.delta_gross_revenue_usd || 0);
+      groups[key].cost_usd += Number(ad.cost_usd || 0);
+      groups[key].impressions += Number(ad.impressions || 0);
+      groups[key].clicks += Number(ad.clicks || 0);
+      groups[key].product_page_views += Number(ad.product_page_views || 0);
+      groups[key].checkouts_initiated += Number(ad.checkouts_initiated || 0);
+      groups[key].purchases += Number(ad.purchases || 0);
+      groups[key].items_purchased += Number(ad.items_purchased || 0);
+      groups[key].gross_revenue_usd += Number(ad.gross_revenue_usd || 0);
       
       // Update metadata to latest (chronological)
       groups[key].ad_id = ad.ad_id;
