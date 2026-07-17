@@ -5,9 +5,10 @@ import CampaignVideoClient from "./VideoClient";
 export default async function CampaignVideoPage({
   params
 }: {
-  params: { id: string }
+  params: Promise<{ id: string }>
 }) {
-  const campaignId = Number(params.id);
+  const resolvedParams = await params;
+  const campaignId = Number(resolvedParams.id);
   
   if (isNaN(campaignId)) {
     return <div>Invalid Campaign ID</div>;

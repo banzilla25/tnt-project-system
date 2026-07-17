@@ -5,9 +5,10 @@ import CampaignPerformaClient from "./PerformaClient";
 export default async function CampaignPerformaPage({
   params
 }: {
-  params: { id: string }
+  params: Promise<{ id: string }>
 }) {
-  const campaignId = Number(params.id);
+  const resolvedParams = await params;
+  const campaignId = Number(resolvedParams.id);
   
   if (isNaN(campaignId)) {
     return <div>Invalid Campaign ID</div>;
