@@ -537,8 +537,8 @@ export default function BudgetingAdsPage() {
                     <input type="date" value={filterAllocEnd} onChange={e => setFilterAllocEnd(e.target.value)} className="w-1/3 p-1.5 text-xs border rounded outline-none text-slate-600" title="End Date" />
                     <select value={filterAllocCampaign} onChange={e => setFilterAllocCampaign(e.target.value)} className="w-1/3 p-1.5 text-xs border rounded outline-none bg-white text-slate-600">
                       <option value="">Semua Campaign</option>
-                      {campaigns.filter(c => c.status === "aktif").map(c => (
-                        <option key={c.id} value={c.id}>{c.nama}</option>
+                      {campaigns.map(c => (
+                        <option key={c.id} value={c.id}>{c.nama} {c.status !== 'aktif' ? `(${c.status})` : ''}</option>
                       ))}
                     </select>
                     {(filterAllocStart || filterAllocEnd || filterAllocCampaign) && (

@@ -72,7 +72,7 @@ export async function getInternalPerformaData(campaignId: number) {
   // 5.5 Fetch Ads Performance and aggregate by latest date per ad_id
   const { data: rawAdsData } = await supabase
     .from('ads_performance')
-    .select('*')
+    .select('*, creators(username)')
     .eq('campaign_id', campaignId);
     
   const latestAdsMap = new Map();
@@ -200,5 +200,6 @@ export async function getInternalPerformaData(campaignId: number) {
     totalAdsGmv: globalAdsGmv,
     totalAdsGmvUsd: globalAdsGmvUsd,
     totalAdsSpend: globalAdsSpend,
+    adsData: Array.from(latestAdsMap.values()),
   };
 }

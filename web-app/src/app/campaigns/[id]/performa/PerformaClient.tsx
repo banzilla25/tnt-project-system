@@ -18,7 +18,8 @@ export default function CampaignPerformaClient({
   localCreators,
   initialTotalAdsGmv = 0,
   initialTotalAdsGmvUsd = 0,
-  initialTotalAdsSpend = 0
+  initialTotalAdsSpend = 0,
+  initialAdsData = []
 }: { 
   campaign: any, 
   rpcPerformance: any,
@@ -26,7 +27,8 @@ export default function CampaignPerformaClient({
   localCreators: any[],
   initialTotalAdsGmv?: number,
   initialTotalAdsGmvUsd?: number,
-  initialTotalAdsSpend?: number
+  initialTotalAdsSpend?: number,
+  initialAdsData?: any[]
 }) {
   const campaignId = campaign.id;
   const router = useRouter();
@@ -34,7 +36,7 @@ export default function CampaignPerformaClient({
   const { canEditCampaign } = useAuth();
   const hasAccess = canEditCampaign(campaignId);
 
-  const [adsPerf, setAdsPerf] = useState<any[]>([]);
+  const [adsPerf, setAdsPerf] = useState<any[]>(initialAdsData || []);
   const [searchQuery, setSearchQuery] = useState('');
   const [showAdsDetail, setShowAdsDetail] = useState(false);
   const [editingKursId, setEditingKursId] = useState<number | null>(null);

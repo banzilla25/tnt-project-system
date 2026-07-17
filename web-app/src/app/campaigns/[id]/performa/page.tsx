@@ -29,6 +29,7 @@ export default async function CampaignPerformaPage({
       initialTotalAdsGmv={data.totalAdsGmv}
       initialTotalAdsGmvUsd={data.totalAdsGmvUsd}
       initialTotalAdsSpend={data.totalAdsSpend}
+      initialAdsData={data.adsData}
     />
   );
 }
