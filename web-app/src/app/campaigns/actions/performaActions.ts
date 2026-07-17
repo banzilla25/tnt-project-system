@@ -88,6 +88,7 @@ export async function getInternalPerformaData(campaignId: number) {
   // Aggregate cost and gmv per creator_id and global
   const adsStatsByCreator: Record<number, { gmvAds: number, costAds: number }> = {};
   let globalAdsGmv = 0;
+  let globalAdsGmvUsd = 0;
   let globalAdsSpend = 0;
 
   for (const ad of latestAdsMap.values()) {
@@ -95,6 +96,7 @@ export async function getInternalPerformaData(campaignId: number) {
     if (kurs < 1000) kurs = kurs * 1000;
     
     globalAdsGmv += (ad.gross_revenue_usd || 0) * kurs;
+    globalAdsGmvUsd += (ad.gross_revenue_usd || 0);
     globalAdsSpend += (ad.cost_usd || 0);
 
     if (ad.creator_id) {
@@ -120,7 +122,6 @@ export async function getInternalPerformaData(campaignId: number) {
     const itemsSold = perf?.items_sold || 0;
     const videoViews = perf?.video_views || 0;
     const videoLikes = perf?.video_likes || 0;
-    const trackedVideos = perf?.tracked_videos || 0;
     
     // Use the correctly aggregated Ads Stats instead of the SQL View's inaccurate sum
     const aggregatedAds = adsStatsByCreator[creator?.id] || { gmvAds: 0, costAds: 0 };
@@ -156,7 +157,7 @@ export async function getInternalPerformaData(campaignId: number) {
            uniqueLiveIds.add(vid);
          } else {
            if (!uniqueVideoIds.has(vid)) {
-               uniqueVideoIds.set(vid, 'approved');
+             uniqueVideoIds.set(vid, 'approved');
            }
          }
        }
@@ -166,9 +167,9 @@ export async function getInternalPerformaData(campaignId: number) {
     let pendingVtCount = 0;
     
     if (cc.approval === 'pending') {
-        pendingVtCount = Math.max(trackedVideos, uniqueVideoIds.size);
+        pendingVtCount = Math.max(trackedVideos || 0, uniqueVideoIds.size);
     } else {
-        approvedVtCount = Math.max(trackedVideos, uniqueVideoIds.size);
+        approvedVtCount = Math.max(trackedVideos || 0, uniqueVideoIds.size);
         pendingVtCount = 0;
     }
 
@@ -197,6 +198,7 @@ export async function getInternalPerformaData(campaignId: number) {
     rpcPerformance: Array.isArray(rpcPerformance) ? rpcPerformance[0] : rpcPerformance,
     baseCreatorStats,
     totalAdsGmv: globalAdsGmv,
+    totalAdsGmvUsd: globalAdsGmvUsd,
     totalAdsSpend: globalAdsSpend,
   };
 }

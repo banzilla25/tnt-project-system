@@ -17,6 +17,7 @@ export default function CampaignPerformaClient({
   baseCreatorStats,
   localCreators,
   initialTotalAdsGmv = 0,
+  initialTotalAdsGmvUsd = 0,
   initialTotalAdsSpend = 0
 }: { 
   campaign: any, 
@@ -24,6 +25,7 @@ export default function CampaignPerformaClient({
   baseCreatorStats: any[],
   localCreators: any[],
   initialTotalAdsGmv?: number,
+  initialTotalAdsGmvUsd?: number,
   initialTotalAdsSpend?: number
 }) {
   const campaignId = campaign.id;
@@ -360,7 +362,10 @@ export default function CampaignPerformaClient({
                   <p className="text-[13px] font-medium text-text-soft">GMV Ads</p>
                   <h3 className="text-[24px] font-bold mt-[8px] text-text">Rp {(totalAdsGmv / 1000000).toFixed(1)}M</h3>
                   <p className="text-[11px] font-semibold text-text-soft mt-[4px]">Rp {totalAdsGmv.toLocaleString()}</p>
-                  <p className="text-[10px] font-semibold text-indigo-600 mt-[2px] bg-indigo-50 inline-block px-1.5 py-0.5 rounded">Spend: ${initialTotalAdsSpend.toFixed(2)}</p>
+                  <div className="flex gap-2 mt-[2px]">
+                    <p className="text-[10px] font-semibold text-indigo-600 bg-indigo-50 inline-block px-1.5 py-0.5 rounded">Spend: ${initialTotalAdsSpend.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                    <p className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 inline-block px-1.5 py-0.5 rounded">GMV: ${initialTotalAdsGmvUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                  </div>
                   <p className="text-[11px] text-text-soft mt-[4px]">Total dari Impor Iklan</p>
                 </div>
                 <div className="p-[8px] bg-purple-50 rounded-[8px] text-purple-600"><BarChart3 className="w-5 h-5" /></div>
