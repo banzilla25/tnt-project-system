@@ -348,8 +348,14 @@ export default function SpreadsheetImportAddressClient() {
 
         // 3. Tambahkan ke creator_contacts jika whatsapp diisi dan belum ada
         if (row.whatsapp && row.creatorId) {
-          // bersihkan 0 pertama atau karakter non angka
-          const cleanWa = row.whatsapp.replace(/\D/g, '');
+          // bersihkan karakter non angka
+          let cleanWa = row.whatsapp.replace(/\D/g, '');
+          if (cleanWa.startsWith('62')) {
+            cleanWa = '0' + cleanWa.substring(2);
+          } else if (cleanWa.startsWith('8')) {
+            cleanWa = '0' + cleanWa;
+          }
+
           if (cleanWa) {
             const { data: contacts } = await supabase.from('creator_contacts')
               .select('id')
@@ -359,7 +365,7 @@ export default function SpreadsheetImportAddressClient() {
             if (!contacts || contacts.length === 0) {
               await supabase.from('creator_contacts').insert({
                 creator_id: row.creatorId,
-                nomor: row.whatsapp.startsWith('0') ? row.whatsapp : `0${cleanWa}`,
+                nomor: cleanWa,
                 status: 'aktif'
               });
             }

@@ -241,13 +241,17 @@ export default function AlamatPage() {
     if (cc && cc.creator_id && editWhatsapp) {
       const contacts = Array.isArray(cc.creators?.creator_contacts) ? cc.creators.creator_contacts : (cc.creators?.creator_contacts ? [cc.creators.creator_contacts] : []);
       const activeContact = contacts.find((c: any) => c.status === 'aktif') || contacts[0];
-      const cleanWa = editWhatsapp.replace(/\D/g, '');
-      const formattedWa = editWhatsapp.startsWith('0') ? editWhatsapp : `0${cleanWa}`;
+      let cleanWa = editWhatsapp.replace(/\D/g, '');
+      if (cleanWa.startsWith('62')) {
+        cleanWa = '0' + cleanWa.substring(2);
+      } else if (cleanWa.startsWith('8')) {
+        cleanWa = '0' + cleanWa;
+      }
 
-      if (cleanWa && (!activeContact || activeContact.nomor !== formattedWa)) {
+      if (cleanWa && (!activeContact || activeContact.nomor !== cleanWa)) {
         await supabase.from('creator_contacts').insert({
           creator_id: cc.creator_id,
-          nomor: formattedWa,
+          nomor: cleanWa,
           status: 'aktif'
         });
       }
