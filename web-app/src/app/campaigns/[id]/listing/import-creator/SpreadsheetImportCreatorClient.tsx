@@ -451,7 +451,13 @@ export default function SpreadsheetImportCreatorClient() {
             cid = newCreator.id;
           }
           
-          // 2. Upsert snapshot (since followers/gmv is required now)
+          // 3. Campaign Creators Insert/Update
+          if (row.status === 'duplicate_campaign' && row.action === 'skip') {
+            // Skip everything for this row
+            return;
+          }
+          
+          // 2. Upsert snapshot (only if we are actually adding/updating this row)
           const { data: existingSnaps } = await supabase.from('creator_snapshots')
             .select('id, followers, gmv_30_days, ratecard')
             .eq('creator_id', cid)
@@ -475,10 +481,7 @@ export default function SpreadsheetImportCreatorClient() {
             });
           }
 
-          // 3. Campaign Creators Insert/Update
-          if (row.status === 'duplicate_campaign' && row.action === 'skip') {
-            // Skip
-          } else if (row.status === 'duplicate_campaign' && row.action === 'update' && row.existingData) {
+          if (row.status === 'duplicate_campaign' && row.action === 'update' && row.existingData) {
             // Update
             await supabase.from('campaign_creators').update({
               price: newRateCard,
