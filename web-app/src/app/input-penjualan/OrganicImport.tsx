@@ -721,6 +721,26 @@ export default function OrganicImport({ mode = 'sales' }: { mode?: 'sales' | 'vi
             ccMapping[key] = cc.id;
           });
           
+          // Fetch existing videos to get current max urutan for each creator
+          const maxUrutanMap: Record<number, number> = {};
+          const ccIdsArray = Object.values(ccMapping);
+          if (ccIdsArray.length > 0) {
+            for (let i = 0; i < ccIdsArray.length; i += 200) {
+              const chunk = ccIdsArray.slice(i, i + 200);
+              const { data: existingVids } = await supabase.from('videos')
+                .select('campaign_creator_id, urutan')
+                .in('campaign_creator_id', chunk);
+              if (existingVids) {
+                existingVids.forEach((v: any) => {
+                  const currentMax = maxUrutanMap[v.campaign_creator_id] || 0;
+                  if (v.urutan > currentMax) {
+                    maxUrutanMap[v.campaign_creator_id] = v.urutan;
+                  }
+                });
+              }
+            }
+          }
+          
           const newVideosToInsert: any[] = [];
           const seenVids = new Set();
           
@@ -729,12 +749,14 @@ export default function OrganicImport({ mode = 'sales' }: { mode?: 'sales' | 'vi
             const ccId = ccMapping[key];
             if (ccId && !seenVids.has(missing.content_uid)) {
               seenVids.add(missing.content_uid);
+              const nextUrutan = (maxUrutanMap[ccId] || 0) + 1;
+              maxUrutanMap[ccId] = nextUrutan;
               newVideosToInsert.push({
                 campaign_creator_id: ccId,
                 content_uid: missing.content_uid,
                 link_video: `https://www.tiktok.com/@${missing.creator_username}/video/${missing.content_uid}`,
                 vt_approval: 'pending',
-                urutan: 1,
+                urutan: nextUrutan,
                 concept: 'Auto-detected from Awareness Import',
               });
             }
