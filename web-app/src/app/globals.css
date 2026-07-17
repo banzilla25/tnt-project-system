@@ -247,14 +247,6 @@
   .navitem:hover { @apply bg-white/5 text-white; }
   .navitem.active { @apply bg-p300 text-white font-semibold; }
   .navitem .ico { @apply stroke-current shrink-0; }
-  
-  /* Tooltip for collapsed sidebar */
-  .navtooltip {
-    @apply absolute left-[calc(100%+8px)] top-1/2 -translate-y-1/2 bg-gray-800 text-white text-[12px] font-semibold px-3 py-1.5 rounded shadow-md pointer-events-none opacity-0 transition-opacity whitespace-nowrap z-50;
-  }
-  .navdemo.collapsed .navitem:hover .navtooltip {
-    @apply opacity-100;
-  }
 
   .navsection { @apply text-[11px] font-bold text-white/35 uppercase tracking-[0.08em] px-[13px] pt-[18px] pb-[4px] whitespace-nowrap overflow-hidden; }
   .navdemo.collapsed .navsection { @apply text-center px-0 opacity-0 h-0 pt-0 pb-0 overflow-hidden; }
