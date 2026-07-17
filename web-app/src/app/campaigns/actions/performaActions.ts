@@ -68,7 +68,36 @@ export async function getInternalPerformaData(campaignId: number) {
   // 5. Fetch video GMV for accurate VT/Live count
   const { data: videoGmvData } = await supabase
     .rpc('get_campaign_video_gmv', { p_campaign_id: campaignId });
+
+  // 5.5 Fetch Ads Performance and aggregate by latest date per ad_id
+  const { data: rawAdsData } = await supabase
+    .from('ads_performance')
+    .select('*')
+    .eq('campaign_id', campaignId);
     
+  const latestAdsMap = new Map();
+  if (rawAdsData) {
+    for (const row of rawAdsData) {
+      const existing = latestAdsMap.get(row.ad_id);
+      if (!existing || new Date(row.tanggal) > new Date(existing.tanggal)) {
+        latestAdsMap.set(row.ad_id, row);
+      }
+    }
+  }
+  
+  // Aggregate cost and gmv per creator_id
+  const adsStatsByCreator: Record<number, { gmvAds: number, costAds: number }> = {};
+  for (const ad of latestAdsMap.values()) {
+    if (ad.creator_id) {
+      if (!adsStatsByCreator[ad.creator_id]) {
+        adsStatsByCreator[ad.creator_id] = { gmvAds: 0, costAds: 0 };
+      }
+      const kurs = ad.kurs || 16000;
+      adsStatsByCreator[ad.creator_id].gmvAds += (ad.gross_revenue_usd || 0) * kurs;
+      adsStatsByCreator[ad.creator_id].costAds += (ad.cost_usd || 0) * kurs;
+    }
+  }
+
   // 6. Enrichment
   const baseCreatorStats = ccData.map((cc: any) => {
     const creator = Array.isArray(cc.creators) ? cc.creators[0] : cc.creators;
@@ -84,8 +113,11 @@ export async function getInternalPerformaData(campaignId: number) {
     const videoViews = perf?.video_views || 0;
     const videoLikes = perf?.video_likes || 0;
     const trackedVideos = perf?.tracked_videos || 0;
-    const gmvAds = perf?.gmv_ads || 0;
-    const costAds = perf?.cost_ads || 0;
+    
+    // Use the correctly aggregated Ads Stats instead of the SQL View's inaccurate sum
+    const aggregatedAds = adsStatsByCreator[creator?.id] || { gmvAds: 0, costAds: 0 };
+    const gmvAds = aggregatedAds.gmvAds;
+    const costAds = aggregatedAds.costAds;
     
     const totalGmv = gmvOrganic + gmvAds;
     const roas = costAds > 0 ? (gmvAds / costAds).toFixed(2) : '-';

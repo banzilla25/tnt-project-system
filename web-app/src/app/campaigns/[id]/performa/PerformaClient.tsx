@@ -170,8 +170,9 @@ export default function CampaignPerformaClient({
   const totalSales = initialRpcPerformance || {};
 
   const totalOrganic = isFiltered ? fbOrganic : (totalSales?.totalOrganic || fbOrganic);
-  const totalAdsGmv = isFiltered ? fbAds : (totalSales?.totalAdsGmv || fbAds);
-  const totalAllGmv = isFiltered ? fbAllGmv : (totalSales?.totalAllGmv || fbAllGmv);
+  // Always use fbAds (from our new deduplicated logic) instead of the RPC for ads
+  const totalAdsGmv = fbAds; 
+  const totalAllGmv = totalOrganic + totalAdsGmv;
   const percentCapai = campaign?.target_gmv ? Math.round((totalAllGmv / campaign.target_gmv) * 100) : 0;
   const trackedOrganic = isFiltered ? fbOrganic : (totalSales?.trackedOrganic || fbOrganic);
   const attributionGap = isFiltered ? 0 : (totalSales?.attributionGap || 0);
