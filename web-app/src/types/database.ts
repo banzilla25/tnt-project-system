@@ -27,6 +27,8 @@ export type Campaign = {
   status: 'aktif' | 'selesai';
   pin: string | null;
   require_client_approval: boolean;
+  creator_filter_type?: string | null;
+  creator_filter_usernames?: string | null;
   created_at: string;
 };
 

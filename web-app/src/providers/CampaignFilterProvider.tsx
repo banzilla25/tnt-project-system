@@ -23,13 +23,31 @@ interface CampaignFilterContextType {
 
 const CampaignFilterContext = createContext<CampaignFilterContextType | undefined>(undefined);
 
-export function CampaignFilterProvider({ children }: { children: ReactNode }) {
+interface CampaignFilterProviderProps {
+  children: ReactNode;
+  initialFilterType?: FilterType;
+  initialFilterUsernames?: string;
+  onSaveFilter?: (type: FilterType, usernames: string) => Promise<void>;
+}
+
+export function CampaignFilterProvider({ children, initialFilterType = 'none', initialFilterUsernames = '', onSaveFilter }: CampaignFilterProviderProps) {
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
-  const [filterType, setFilterType] = useState<FilterType>('none');
-  const [filterUsernames, setFilterUsernames] = useState('');
+  const [filterType, setFilterType] = useState<FilterType>(initialFilterType);
+  const [filterUsernames, setFilterUsernames] = useState(initialFilterUsernames);
   
-  const [appliedFilterType, setAppliedFilterType] = useState<FilterType>('none');
-  const [appliedFilterUsernames, setAppliedFilterUsernames] = useState<string[]>([]);
+  const [appliedFilterType, setAppliedFilterType] = useState<FilterType>(initialFilterType);
+  
+  // parse initial usernames to array
+  const initialNames = initialFilterUsernames.split('\n').map(n => n.trim().toLowerCase()).filter(n => n);
+  const [appliedFilterUsernames, setAppliedFilterUsernames] = useState<string[]>(initialNames);
+
+  // Sync when props change (e.g. data loaded asynchronously)
+  React.useEffect(() => {
+    setFilterType(initialFilterType);
+    setFilterUsernames(initialFilterUsernames);
+    setAppliedFilterType(initialFilterType);
+    setAppliedFilterUsernames(initialFilterUsernames.split('\n').map(n => n.trim().toLowerCase()).filter(n => n));
+  }, [initialFilterType, initialFilterUsernames]);
 
   const isCreatorVisible = (username: string | null | undefined) => {
     if (appliedFilterType === 'none' || appliedFilterUsernames.length === 0) return true;
@@ -104,10 +122,15 @@ export function CampaignFilterProvider({ children }: { children: ReactNode }) {
               </button>
               <button 
                 className="px-5 py-2 text-sm font-bold text-white bg-[#0e9f85] hover:bg-[#0c8a73] rounded-lg transition-colors shadow-sm"
-                onClick={() => {
+                onClick={async () => {
                   setAppliedFilterType(filterType);
                   const names = filterUsernames.split('\n').map(n => n.trim().toLowerCase()).filter(n => n);
                   setAppliedFilterUsernames(names);
+                  
+                  if (onSaveFilter) {
+                    await onSaveFilter(filterType, filterUsernames);
+                  }
+                  
                   setIsFilterModalOpen(false);
                 }}
               >

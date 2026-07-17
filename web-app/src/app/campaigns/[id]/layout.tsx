@@ -19,8 +19,25 @@ export default function CampaignLayout({ children }: { children: React.ReactNode
 }
 
 function CampaignFilterContextWrapper({ children }: { children: React.ReactNode }) {
+  const { id } = useParams();
+  const campaignId = Number(id);
+  const { campaigns, updateCampaign } = useDatabaseStore();
+  const campaign = campaigns.find(c => c.id === campaignId);
+
+  const handleSaveFilter = async (type: any, usernames: string) => {
+    if (!campaignId) return;
+    await updateCampaign(campaignId, {
+      creator_filter_type: type,
+      creator_filter_usernames: usernames
+    });
+  };
+
   return (
-    <CampaignFilterProvider>
+    <CampaignFilterProvider 
+      initialFilterType={(campaign?.creator_filter_type as any) || 'none'}
+      initialFilterUsernames={campaign?.creator_filter_usernames || ''}
+      onSaveFilter={handleSaveFilter}
+    >
       <CampaignLayoutInner>{children}</CampaignLayoutInner>
     </CampaignFilterProvider>
   );
