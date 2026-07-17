@@ -264,6 +264,13 @@ export default function SpreadsheetImportAddressClient() {
                 cleanedVal = d.toISOString().split('T')[0];
               }
             }
+          } else if (targetColName === 'whatsapp' && cleanedVal) {
+            cleanedVal = cleanedVal.replace(/\D/g, '');
+            if (cleanedVal.startsWith('62')) {
+              cleanedVal = '0' + cleanedVal.substring(2);
+            } else if (cleanedVal.startsWith('8')) {
+              cleanedVal = '0' + cleanedVal;
+            }
           }
 
           (newRows[targetRowIndex] as any)[targetColName] = cleanedVal;
