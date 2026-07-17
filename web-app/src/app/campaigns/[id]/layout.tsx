@@ -304,6 +304,7 @@ function CampaignLayoutInner({ children }: { children: React.ReactNode }) {
               <Link
                 key={tab.name}
                 href={tab.disabled ? '#' : tab.href}
+                prefetch={true}
                 className={cn(
                   "whitespace-nowrap py-[16px] px-[4px] border-b-[2px] font-semibold text-[14px] transition-colors",
                   isActive
