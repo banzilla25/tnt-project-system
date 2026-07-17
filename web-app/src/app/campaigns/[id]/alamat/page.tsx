@@ -226,7 +226,6 @@ export default function AlamatPage() {
     await updateCreatorAddress(existing?.id || null, payload);
     
     // Save assigned_sku_ids
-    const cc = localCreators.find(c => c.id === ccId);
     if (cc && JSON.stringify(cc.assigned_sku_ids || []) !== JSON.stringify(editAssignedSkus)) {
       await updateCampaignCreator(ccId, { assigned_sku_ids: editAssignedSkus }, 'System');
       // Update local state so it immediately reflects
