@@ -65,7 +65,7 @@ export async function getDailyData(campaignId: number) {
     while (hasMore) {
       const { data: ccData, error } = await supabase
         .from('campaign_creators')
-        .select('id, creators(username), videos(id, created_at, link_video)')
+        .select('id, approved_at, creators(username), videos(id, created_at, link_video)')
         .eq('campaign_id', campaignId)
         .range(from, to);
 
@@ -121,10 +121,29 @@ export async function getDailyData(campaignId: number) {
   if ((isAwareness || isHybrid) && allVideosFromCreators.length > 0) {
     allVideosFromCreators.forEach(cc => {
       const username = cc.creators?.username || 'unknown';
+      
+      // Hitung Creator berdasarkan approved_at
+      if (cc.approved_at) {
+        const approvedDateStr = cc.approved_at.substring(0, 10);
+        
+        let countCreator = true;
+        if (campaignStartStr && approvedDateStr < campaignStartStr) countCreator = false;
+        if (campaignEndStr && approvedDateStr > campaignEndStr) countCreator = false;
+        
+        if (countCreator) {
+          if (!grouped[approvedDateStr]) grouped[approvedDateStr] = { gmv: 0, creators: new Set(), videos: new Set() };
+          grouped[approvedDateStr].creators.add(username);
+
+          const monthStr = cc.approved_at.substring(0, 7);
+          if (!monthlyGrouped[monthStr]) monthlyGrouped[monthStr] = { gmv: 0, creators: new Set(), videos: new Set() };
+          monthlyGrouped[monthStr].creators.add(username);
+        }
+      }
+
+      // Hitung Video berdasarkan created_at (custom report post date)
       if (!cc.videos || cc.videos.length === 0) return;
       
       cc.videos.forEach((v: any) => {
-        // Kita hanya hitung video yang benar-benar ada linknya
         if (!v.created_at || !v.link_video) return; 
         
         const dateStr = v.created_at.substring(0, 10);
@@ -133,12 +152,10 @@ export async function getDailyData(campaignId: number) {
         if (campaignEndStr && dateStr > campaignEndStr) return;
         
         if (!grouped[dateStr]) grouped[dateStr] = { gmv: 0, creators: new Set(), videos: new Set() };
-        grouped[dateStr].creators.add(username);
         grouped[dateStr].videos.add(v.id.toString());
 
         const monthStr = v.created_at.substring(0, 7);
         if (!monthlyGrouped[monthStr]) monthlyGrouped[monthStr] = { gmv: 0, creators: new Set(), videos: new Set() };
-        monthlyGrouped[monthStr].creators.add(username);
         monthlyGrouped[monthStr].videos.add(v.id.toString());
       });
     });
