@@ -323,7 +323,7 @@ export default function SpreadsheetImportCreatorClient() {
     for (let i = 0; i < uniqueUsernames.length; i += 50) {
       const batch = uniqueUsernames.slice(i, i + 50);
       const { data } = await supabase.from('creators')
-        .select('id, username, creator_snapshots(id, ratecard, followers, gmv_30_days)')
+        .select('id, username, creator_snapshots(id, ratecard, followers, gmv_30d)')
         .in('username', batch);
       if (data) allExistingCreators.push(...data);
       
@@ -332,7 +332,7 @@ export default function SpreadsheetImportCreatorClient() {
       const notFound = batch.filter(u => !foundUsernames.has(u));
       for (const u of notFound) {
         const { data: ilikeData } = await supabase.from('creators')
-          .select('id, username, creator_snapshots(id, ratecard, followers, gmv_30_days)')
+          .select('id, username, creator_snapshots(id, ratecard, followers, gmv_30d)')
           .ilike('username', u)
           .limit(1);
         if (ilikeData && ilikeData.length > 0) allExistingCreators.push(...ilikeData);
@@ -389,7 +389,7 @@ export default function SpreadsheetImportCreatorClient() {
         const lastSnap = snaps[0] || {};
         
         if (!row.followers && lastSnap.followers) currentFollowers = lastSnap.followers.toString();
-        if (!row.gmv_30_days && lastSnap.gmv_30_days) currentGmv = lastSnap.gmv_30_days.toString();
+        if (!row.gmv_30_days && lastSnap.gmv_30d) currentGmv = lastSnap.gmv_30d.toString();
         
         row.followers = currentFollowers;
         row.gmv_30_days = currentGmv;
@@ -523,7 +523,7 @@ export default function SpreadsheetImportCreatorClient() {
           
           // 2. Upsert snapshot (only if we are actually adding/updating this row)
           const { data: existingSnaps } = await supabase.from('creator_snapshots')
-            .select('id, followers, gmv_30_days, ratecard')
+            .select('id, followers, gmv_30d, ratecard')
             .eq('creator_id', cid)
             .order('id', { ascending: false })
             .limit(1);
@@ -533,11 +533,11 @@ export default function SpreadsheetImportCreatorClient() {
           const newGmv = Number(row.gmv_30_days) || 0;
           const newRateCard = Number(row.rate_card) || 0;
           
-          if (!lastSnap || lastSnap.followers !== newFollowers || lastSnap.gmv_30_days !== newGmv || lastSnap.ratecard !== newRateCard) {
+          if (!lastSnap || lastSnap.followers !== newFollowers || lastSnap.gmv_30d !== newGmv || lastSnap.ratecard !== newRateCard) {
             await supabase.from('creator_snapshots').insert({
               creator_id: cid,
               followers: newFollowers,
-              gmv_30_days: newGmv,
+              gmv_30d: newGmv,
               ratecard: newRateCard,
               likes: lastSnap?.likes || 0,
               avg_views: lastSnap?.avg_views || 0,
