@@ -168,7 +168,7 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
       }
       
       // Scroll to that item
-      const itemWidth = 320; // approximate width of a node including margin
+      const itemWidth = 216; // width 200 + gap 16
       scrollRef.current.scrollTo({
         left: Math.max(0, closestIdx * itemWidth - scrollRef.current.clientWidth / 2),
         behavior: 'smooth'
@@ -262,8 +262,8 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
                         )}
                       </div>
                     ) : isTop ? (
-                      <div className={`rounded-lg p-3 w-[180px] shadow-sm relative z-20 ${isToday ? 'bg-amber-50 border border-amber-200' : 'bg-white border border-slate-200'}`}>
-                         <div className={`absolute bottom-[-6px] left-1/2 -translate-x-1/2 w-3 h-3 border-b border-r rotate-45 ${isToday ? 'bg-amber-50 border-amber-200' : 'bg-white border-slate-200'}`}></div>
+                      <div className={`rounded-lg p-3 w-[180px] shadow-sm relative z-20 ${isToday ? 'bg-rose-50 border border-rose-200' : 'bg-white border border-slate-200'}`}>
+                         <div className={`absolute bottom-[-6px] left-1/2 -translate-x-1/2 w-3 h-3 border-b border-r rotate-45 ${isToday ? 'bg-rose-50 border-rose-200' : 'bg-white border-slate-200'}`}></div>
                          <h4 className="text-[10px] font-bold text-slate-700 mb-1">
                            {day.date.toLocaleDateString('id-ID', { weekday: 'long' })} 
                            {day.isPastEndDate && <span className="text-rose-500 ml-1">(Overdue)</span>}
@@ -309,8 +309,8 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
                   <div className="h-[120px] w-full flex items-start justify-center pt-[32px] gap-2">
                     
                     {!isTop && (
-                      <div className={`rounded-lg p-3 w-[180px] shadow-sm relative z-20 ${isToday ? 'bg-amber-50 border border-amber-200' : 'bg-white border border-slate-200'}`}>
-                         <div className={`absolute top-[-6px] left-1/2 -translate-x-1/2 w-3 h-3 border-t border-l rotate-45 ${isToday ? 'bg-amber-50 border-amber-200' : 'bg-white border-slate-200'}`}></div>
+                      <div className={`rounded-lg p-3 w-[180px] shadow-sm relative z-20 ${isToday ? 'bg-rose-50 border border-rose-200' : 'bg-white border border-slate-200'}`}>
+                         <div className={`absolute top-[-6px] left-1/2 -translate-x-1/2 w-3 h-3 border-t border-l rotate-45 ${isToday ? 'bg-rose-50 border-rose-200' : 'bg-white border-slate-200'}`}></div>
                          <h4 className="text-[10px] font-bold text-slate-700 mb-1">
                            {day.date.toLocaleDateString('id-ID', { weekday: 'long' })} 
                            {day.isPastEndDate && <span className="text-rose-500 ml-1">(Overdue)</span>}
