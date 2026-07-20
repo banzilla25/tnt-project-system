@@ -220,18 +220,18 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
           {/* Main timeline line */}
           <div className="absolute top-[50%] left-0 right-0 h-[2px] border-t-2 border-dashed border-slate-300 -translate-y-1/2 z-0"></div>
           
-          <div className="flex items-center gap-[40px] relative z-10 min-h-[300px]">
+          <div className="flex items-center gap-[16px] relative z-10 min-h-[300px]">
             {timelineData.map((day, idx) => {
               const isToday = day.date.getTime() === new Date().setHours(0, 0, 0, 0);
               const showWeekly = !!day.weeklySummary;
-              const hasWeeklyAbove = showWeekly && (idx % 2 === 0);
+              const isTop = !showWeekly && (idx % 2 === 0);
               
               return (
-                <div key={idx} className="relative flex flex-col items-center min-w-[280px]">
+                <div key={idx} className="relative flex flex-col items-center min-w-[200px]">
                   
-                  {/* Top Area (For weekly blocks) */}
-                  <div className="h-[120px] w-full flex items-end justify-center pb-[20px]">
-                    {hasWeeklyAbove && day.weeklySummary && (
+                  {/* Top Area (For weekly blocks or alternate daily blocks) */}
+                  <div className="h-[120px] w-full flex items-end justify-center pb-[24px]">
+                    {showWeekly && day.weeklySummary ? (
                       <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 w-full shadow-sm text-center relative z-20">
                         <div className="absolute bottom-[-6px] left-1/2 -translate-x-1/2 w-3 h-3 bg-blue-50 border-b border-r border-blue-200 rotate-45"></div>
                         <h4 className="text-xs font-bold text-blue-900 mb-1">Target Minggu Ini</h4>
@@ -261,7 +261,40 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
                           </div>
                         )}
                       </div>
-                    )}
+                    ) : isTop ? (
+                      <div className={`rounded-lg p-3 w-[180px] shadow-sm relative z-20 ${isToday ? 'bg-amber-50 border border-amber-200' : 'bg-white border border-slate-200'}`}>
+                         <div className={`absolute bottom-[-6px] left-1/2 -translate-x-1/2 w-3 h-3 border-b border-r rotate-45 ${isToday ? 'bg-amber-50 border-amber-200' : 'bg-white border-slate-200'}`}></div>
+                         <h4 className="text-[10px] font-bold text-slate-700 mb-1">
+                           {day.date.toLocaleDateString('id-ID', { weekday: 'long' })} 
+                           {day.isPastEndDate && <span className="text-rose-500 ml-1">(Overdue)</span>}
+                         </h4>
+                         
+                         {(isSales || isHybrid) && targetGmv > 0 && (
+                           <div className="text-[10px] text-slate-600 flex justify-between border-t border-slate-100 pt-1 mt-1">
+                             <span>GMV:</span>
+                             <span className={day.achievedGmv >= day.targetGmv ? 'text-emerald-600 font-bold' : ''}>
+                               {Math.round(day.achievedGmv).toLocaleString()} / {Math.round(day.targetGmv).toLocaleString()}
+                             </span>
+                           </div>
+                         )}
+                         {(isAwareness || isHybrid) && targetVideo > 0 && (
+                           <div className="text-[10px] text-slate-600 flex justify-between border-t border-slate-100 pt-1 mt-1">
+                             <span>VT:</span>
+                             <span className={day.achievedVideo >= day.targetVideo ? 'text-emerald-600 font-bold' : ''}>
+                               {Math.round(day.achievedVideo)} / {Math.round(day.targetVideo)}
+                             </span>
+                           </div>
+                         )}
+                         {(isAwareness || isHybrid) && targetCreator > 0 && (
+                           <div className="text-[10px] text-slate-600 flex justify-between border-t border-slate-100 pt-1 mt-1">
+                             <span>Kreator:</span>
+                             <span className={day.achievedCreator >= day.targetCreator ? 'text-emerald-600 font-bold' : ''}>
+                               {Math.round(day.achievedCreator)} / {Math.round(day.targetCreator)}
+                             </span>
+                           </div>
+                         )}
+                      </div>
+                    ) : null}
                   </div>
 
                   {/* Center Dot */}
@@ -272,73 +305,41 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
                     </div>
                   </div>
 
-                  {/* Bottom Area (For daily blocks and alternate weekly blocks) */}
+                  {/* Bottom Area (For alternate daily blocks) */}
                   <div className="h-[120px] w-full flex items-start justify-center pt-[32px] gap-2">
                     
-                    {/* Daily Block */}
-                    <div className={`rounded-lg p-3 w-[180px] shadow-sm relative z-20 ${isToday ? 'bg-amber-50 border border-amber-200' : 'bg-white border border-slate-200'}`}>
-                       <div className={`absolute top-[-6px] left-1/2 -translate-x-1/2 w-3 h-3 border-t border-l rotate-45 ${isToday ? 'bg-amber-50 border-amber-200' : 'bg-white border-slate-200'}`}></div>
-                       <h4 className="text-[10px] font-bold text-slate-700 mb-1">
-                         {day.date.toLocaleDateString('id-ID', { weekday: 'long' })} 
-                         {day.isPastEndDate && <span className="text-rose-500 ml-1">(Overdue)</span>}
-                       </h4>
-                       
-                       {(isSales || isHybrid) && targetGmv > 0 && (
-                         <div className="text-[10px] text-slate-600 flex justify-between border-t border-slate-100 pt-1 mt-1">
-                           <span>GMV:</span>
-                           <span className={day.achievedGmv >= day.targetGmv ? 'text-emerald-600 font-bold' : ''}>
-                             {Math.round(day.achievedGmv).toLocaleString()} / {Math.round(day.targetGmv).toLocaleString()}
-                           </span>
-                         </div>
-                       )}
-                       {(isAwareness || isHybrid) && targetVideo > 0 && (
-                         <div className="text-[10px] text-slate-600 flex justify-between border-t border-slate-100 pt-1 mt-1">
-                           <span>VT:</span>
-                           <span className={day.achievedVideo >= day.targetVideo ? 'text-emerald-600 font-bold' : ''}>
-                             {Math.round(day.achievedVideo)} / {Math.round(day.targetVideo)}
-                           </span>
-                         </div>
-                       )}
-                       {(isAwareness || isHybrid) && targetCreator > 0 && (
-                         <div className="text-[10px] text-slate-600 flex justify-between border-t border-slate-100 pt-1 mt-1">
-                           <span>Kreator:</span>
-                           <span className={day.achievedCreator >= day.targetCreator ? 'text-emerald-600 font-bold' : ''}>
-                             {Math.round(day.achievedCreator)} / {Math.round(day.targetCreator)}
-                           </span>
-                         </div>
-                       )}
-                    </div>
-
-                    {/* Alternate Weekly Block */}
-                    {!hasWeeklyAbove && showWeekly && (
-                      <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 w-[180px] shadow-sm text-center relative z-20">
-                        <div className="absolute top-[-6px] left-1/2 -translate-x-1/2 w-3 h-3 bg-purple-50 border-t border-l border-purple-200 rotate-45"></div>
-                        <h4 className="text-xs font-bold text-purple-900 mb-1">Target Minggu Ini</h4>
-                        
-                        {(isSales || isHybrid) && targetGmv > 0 && (
-                          <div className="text-[10px] text-purple-800 flex justify-between px-1">
-                            <span>GMV:</span>
-                            <span className={day.weeklySummary.achievedGmv >= day.weeklySummary.targetGmv ? 'text-emerald-700 font-bold' : ''}>
-                              Rp {Math.round(day.weeklySummary.achievedGmv).toLocaleString()} / Rp {Math.round(day.weeklySummary.targetGmv).toLocaleString()}
-                            </span>
-                          </div>
-                        )}
-                        {(isAwareness || isHybrid) && targetVideo > 0 && (
-                          <div className="text-[10px] text-purple-800 flex justify-between px-1">
-                            <span>Video:</span>
-                            <span className={day.weeklySummary.achievedVideo >= day.weeklySummary.targetVideo ? 'text-emerald-700 font-bold' : ''}>
-                              {Math.round(day.weeklySummary.achievedVideo)} / {Math.round(day.weeklySummary.targetVideo)}
-                            </span>
-                          </div>
-                        )}
-                        {(isAwareness || isHybrid) && targetCreator > 0 && (
-                          <div className="text-[10px] text-purple-800 flex justify-between px-1">
-                            <span>Kreator:</span>
-                            <span className={day.weeklySummary.achievedCreator >= day.weeklySummary.targetCreator ? 'text-emerald-700 font-bold' : ''}>
-                              {Math.round(day.weeklySummary.achievedCreator)} / {Math.round(day.weeklySummary.targetCreator)}
-                            </span>
-                          </div>
-                        )}
+                    {!isTop && (
+                      <div className={`rounded-lg p-3 w-[180px] shadow-sm relative z-20 ${isToday ? 'bg-amber-50 border border-amber-200' : 'bg-white border border-slate-200'}`}>
+                         <div className={`absolute top-[-6px] left-1/2 -translate-x-1/2 w-3 h-3 border-t border-l rotate-45 ${isToday ? 'bg-amber-50 border-amber-200' : 'bg-white border-slate-200'}`}></div>
+                         <h4 className="text-[10px] font-bold text-slate-700 mb-1">
+                           {day.date.toLocaleDateString('id-ID', { weekday: 'long' })} 
+                           {day.isPastEndDate && <span className="text-rose-500 ml-1">(Overdue)</span>}
+                         </h4>
+                         
+                         {(isSales || isHybrid) && targetGmv > 0 && (
+                           <div className="text-[10px] text-slate-600 flex justify-between border-t border-slate-100 pt-1 mt-1">
+                             <span>GMV:</span>
+                             <span className={day.achievedGmv >= day.targetGmv ? 'text-emerald-600 font-bold' : ''}>
+                               {Math.round(day.achievedGmv).toLocaleString()} / {Math.round(day.targetGmv).toLocaleString()}
+                             </span>
+                           </div>
+                         )}
+                         {(isAwareness || isHybrid) && targetVideo > 0 && (
+                           <div className="text-[10px] text-slate-600 flex justify-between border-t border-slate-100 pt-1 mt-1">
+                             <span>VT:</span>
+                             <span className={day.achievedVideo >= day.targetVideo ? 'text-emerald-600 font-bold' : ''}>
+                               {Math.round(day.achievedVideo)} / {Math.round(day.targetVideo)}
+                             </span>
+                           </div>
+                         )}
+                         {(isAwareness || isHybrid) && targetCreator > 0 && (
+                           <div className="text-[10px] text-slate-600 flex justify-between border-t border-slate-100 pt-1 mt-1">
+                             <span>Kreator:</span>
+                             <span className={day.achievedCreator >= day.targetCreator ? 'text-emerald-600 font-bold' : ''}>
+                               {Math.round(day.achievedCreator)} / {Math.round(day.targetCreator)}
+                             </span>
+                           </div>
+                         )}
                       </div>
                     )}
                   </div>
