@@ -87,6 +87,7 @@ export default function SpreadsheetImportCreatorClient() {
   const [showConfirmPopup, setShowConfirmPopup] = useState(false);
   const [duplicateRows, setDuplicateRows] = useState<SpreadsheetRow[]>([]);
   const [incompleteRows, setIncompleteRows] = useState<SpreadsheetRow[]>([]);
+  const [selectedDuplicateIds, setSelectedDuplicateIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     localStorage.setItem(`tnt_import_creator_${campaignId}`, JSON.stringify(rows));
@@ -311,6 +312,7 @@ export default function SpreadsheetImportCreatorClient() {
 
   const verifyData = async () => {
     setIsVerifying(true);
+    setSelectedDuplicateIds(new Set());
     
     const validated = [...rows];
     const toCheckUsernames = validated.filter(r => r.username.trim()).map(r => r.username.trim());
@@ -419,6 +421,12 @@ export default function SpreadsheetImportCreatorClient() {
   const handleUpdateAction = (id: string, action: 'update' | 'skip') => {
     setDuplicateRows(prev => prev.map(r => r.id === id ? { ...r, action } : r));
     setRows(prev => prev.map(r => r.id === id ? { ...r, action } : r));
+  };
+
+  const handleUpdateSelectedAction = (action: 'update' | 'skip') => {
+    setDuplicateRows(prev => prev.map(r => selectedDuplicateIds.has(r.id) ? { ...r, action } : r));
+    setRows(prev => prev.map(r => selectedDuplicateIds.has(r.id) ? { ...r, action } : r));
+    setSelectedDuplicateIds(new Set());
   };
 
   const handleUpdateAllAction = (action: 'update' | 'skip') => {
@@ -712,14 +720,39 @@ export default function SpreadsheetImportCreatorClient() {
                       <AlertCircle className="w-4 h-4" /> Kreator Sudah Ada di Listing ({duplicateRows.length} kreator)
                     </h3>
                     <div className="flex gap-2">
-                      <button onClick={() => handleUpdateAllAction('update')} className="text-xs font-medium px-3 py-1.5 bg-white border border-rose-200 text-rose-700 rounded shadow-sm hover:bg-rose-100 transition">Update Semua</button>
-                      <button onClick={() => handleUpdateAllAction('skip')} className="text-xs font-medium px-3 py-1.5 bg-white border border-slate-200 text-slate-700 rounded shadow-sm hover:bg-slate-100 transition">Lewati Semua</button>
+                      {selectedDuplicateIds.size > 0 ? (
+                        <>
+                          <button onClick={() => handleUpdateSelectedAction('update')} className="text-xs font-medium px-3 py-1.5 bg-blue-600 text-white rounded shadow-sm hover:bg-blue-700 transition">Update Terpilih ({selectedDuplicateIds.size})</button>
+                          <button onClick={() => handleUpdateSelectedAction('skip')} className="text-xs font-medium px-3 py-1.5 bg-slate-600 text-white rounded shadow-sm hover:bg-slate-700 transition">Lewati Terpilih ({selectedDuplicateIds.size})</button>
+                        </>
+                      ) : (
+                        <>
+                          <button onClick={() => handleUpdateAllAction('update')} className="text-xs font-medium px-3 py-1.5 bg-white border border-rose-200 text-rose-700 rounded shadow-sm hover:bg-rose-100 transition">Update Semua</button>
+                          <button onClick={() => handleUpdateAllAction('skip')} className="text-xs font-medium px-3 py-1.5 bg-white border border-slate-200 text-slate-700 rounded shadow-sm hover:bg-slate-100 transition">Lewati Semua</button>
+                        </>
+                      )}
                     </div>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm text-left">
                       <thead className="bg-white border-b border-slate-100 text-slate-500 text-xs">
                         <tr>
+                          <th className="px-4 py-3 w-10 text-center">
+                            <input 
+                              type="checkbox" 
+                              className="rounded border-slate-300 text-rose-600 focus:ring-rose-500"
+                              checked={duplicateRows.length > 0 && selectedDuplicateIds.size === duplicateRows.length}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  const newSet = new Set(selectedDuplicateIds);
+                                  duplicateRows.forEach(r => newSet.add(r.id));
+                                  setSelectedDuplicateIds(newSet);
+                                } else {
+                                  setSelectedDuplicateIds(new Set());
+                                }
+                              }}
+                            />
+                          </th>
                           <th className="px-4 py-3 font-medium">Username</th>
                           <th className="px-4 py-3 font-medium">Rate Card (Lama → Baru)</th>
                           <th className="px-4 py-3 font-medium">Qty VT (Lama → Baru)</th>
@@ -738,8 +771,21 @@ export default function SpreadsheetImportCreatorClient() {
                           const liveDiff = oldLive !== r.qty_live;
                           
                           return (
-                            <tr key={`dup_${r.id}`} className="hover:bg-slate-50">
-                              <td className="px-4 py-3 font-medium text-slate-700">@{r.username}</td>
+                            <tr key={r.id} className="hover:bg-slate-50 transition-colors">
+                              <td className="px-4 py-3 text-center">
+                                <input 
+                                  type="checkbox" 
+                                  className="rounded border-slate-300 text-rose-600 focus:ring-rose-500"
+                                  checked={selectedDuplicateIds.has(r.id)}
+                                  onChange={(e) => {
+                                    const newSet = new Set(selectedDuplicateIds);
+                                    if (e.target.checked) newSet.add(r.id);
+                                    else newSet.delete(r.id);
+                                    setSelectedDuplicateIds(newSet);
+                                  }}
+                                />
+                              </td>
+                              <td className="px-4 py-3 font-medium text-slate-800">@{r.username}</td>
                               <td className={`px-4 py-3 ${rateDiff ? 'bg-amber-50 text-amber-800' : 'text-slate-600'}`}>Rp {Number(oldRate).toLocaleString()} → <b>Rp {Number(r.rate_card).toLocaleString()}</b></td>
                               <td className={`px-4 py-3 ${vtDiff ? 'bg-amber-50 text-amber-800' : 'text-slate-600'}`}>{oldVt} → <b>{r.qty_vt}</b></td>
                               <td className={`px-4 py-3 ${liveDiff ? 'bg-amber-50 text-amber-800' : 'text-slate-600'}`}>{oldLive} → <b>{r.qty_live}</b></td>
