@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import { useDatabaseStore } from "@/store/useDatabaseStore";
+import TimelineTarget from "./TimelineTarget";
 
 export default function CampaignDailyPerformanceClient({
   campaign,
@@ -80,6 +81,8 @@ export default function CampaignDailyPerformanceClient({
           })}
         </div>
       )}
+
+      <TimelineTarget campaign={campaign} dailyData={dailyData} />
 
       <div className="ccard !p-0 overflow-hidden">
         <div className="p-[16px] border-b border-line bg-slate-50/50">
