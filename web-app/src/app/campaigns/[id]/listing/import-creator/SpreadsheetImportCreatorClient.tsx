@@ -440,6 +440,7 @@ export default function SpreadsheetImportCreatorClient() {
 
     const BATCH_SIZE = 25;
     let successCount = 0;
+    let hasErrors = false;
     
     for (let i = 0; i < dataToSave.length; i += BATCH_SIZE) {
       const batch = dataToSave.slice(i, i + BATCH_SIZE);
@@ -462,6 +463,7 @@ export default function SpreadsheetImportCreatorClient() {
           // 3. Campaign Creators Insert/Update
           if (row.status === 'duplicate_campaign' && row.action === 'skip') {
             // Skip everything for this row
+            setRows(prev => prev.map(r => r.id === row.id ? { ...r, status: 'berhasil' } : r));
             return;
           }
           
@@ -517,9 +519,10 @@ export default function SpreadsheetImportCreatorClient() {
             successCount++;
           }
           
-          setRows(prev => prev.map(r => r.id === row.id ? { ...r, status: 'baru' } : r));
+          setRows(prev => prev.map(r => r.id === row.id ? { ...r, status: 'berhasil' } : r));
         } catch (err: any) {
           console.error(err);
+          hasErrors = true;
           setRows(prev => prev.map(r => r.id === row.id ? { ...r, status: 'error', errorMsg: err.message } : r));
         }
       }));
@@ -530,13 +533,6 @@ export default function SpreadsheetImportCreatorClient() {
     setIsImporting(false);
     setSaveProgress({ current: 0, total: 0 });
     alert(`Import selesai!\nBerhasil memproses ${successCount} kreator.`);
-    
-    // if all success, clear and go back
-    const remainingErrors = rows.filter(r => r.status === 'error');
-    if (remainingErrors.length === 0) {
-      localStorage.removeItem(`tnt_import_creator_${campaignId}`);
-      router.back();
-    }
   };
 
   const TableHeader = ({ title, width }: { title: string, width?: string }) => (
@@ -658,6 +654,9 @@ export default function SpreadsheetImportCreatorClient() {
                         )}
                         {row.status === 'baru' && (
                           <div className="text-emerald-600 flex items-center gap-1 font-medium bg-emerald-50 p-1.5 rounded"><CheckCircle2 className="w-3.5 h-3.5" /> Siap ditambahkan</div>
+                        )}
+                        {row.status === 'berhasil' && (
+                          <div className="text-blue-600 flex items-center gap-1 font-medium bg-blue-50 p-1.5 rounded"><CheckCircle2 className="w-3.5 h-3.5" /> Data berhasil tersimpan</div>
                         )}
                         {row.status === 'duplicate_campaign' && (
                           <div className="text-rose-600 flex flex-col gap-1.5 font-medium bg-rose-50 p-2 rounded border border-rose-100">
