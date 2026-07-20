@@ -152,13 +152,11 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
     return data;
   }, [campaign, dailyData, targetGmv, targetVideo, targetCreator, hasAnyTarget]);
 
-  // Auto-scroll to current day or end
-  useEffect(() => {
+  const scrollToToday = () => {
     if (scrollRef.current) {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       
-      // Find index of today or closest past date
       let closestIdx = timelineData.length - 1;
       for (let i = 0; i < timelineData.length; i++) {
         if (timelineData[i].date.getTime() === today.getTime()) {
@@ -167,22 +165,40 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
         }
       }
       
-      // Scroll to that item
       const itemWidth = 216; // width 200 + gap 16
+      const targetLeft = Math.max(0, closestIdx * itemWidth - scrollRef.current.clientWidth / 2 + 100);
+      
       scrollRef.current.scrollTo({
-        left: Math.max(0, closestIdx * itemWidth - scrollRef.current.clientWidth / 2),
+        left: targetLeft,
         behavior: 'smooth'
       });
     }
+  };
+
+  // Auto-scroll to current day or end
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      scrollToToday();
+    }, 300); // Give it a bit of time to render the DOM width correctly
+
+    return () => clearTimeout(timer);
   }, [timelineData]);
 
   if (!hasAnyTarget || timelineData.length === 0) return null;
 
   return (
     <div className="ccard mb-[24px]">
-      <div className="p-[16px] border-b border-line">
-        <h3 className="text-[16px] font-bold text-text">Timeline Target Harian</h3>
-        <p className="text-[13px] text-text-soft">Target otomatis disesuaikan secara dinamis (sisa target dibagi sisa hari kerja).</p>
+      <div className="p-[16px] border-b border-line flex justify-between items-center">
+        <div>
+          <h3 className="text-[16px] font-bold text-text">Timeline Target Harian</h3>
+          <p className="text-[13px] text-text-soft">Target otomatis disesuaikan secara dinamis (sisa target dibagi sisa hari kerja).</p>
+        </div>
+        <button 
+          onClick={scrollToToday}
+          className="px-3 py-1.5 text-xs font-semibold bg-rose-50 text-rose-600 border border-rose-200 rounded-md hover:bg-rose-100 transition-colors shadow-sm whitespace-nowrap"
+        >
+          Hari Ini
+        </button>
       </div>
       
       <div 
@@ -229,6 +245,11 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
               return (
                 <div key={idx} className="relative flex flex-col items-center min-w-[200px]">
                   
+                  {/* Highlight Block for Today */}
+                  {isToday && (
+                    <div className="absolute inset-y-[-24px] left-[-8px] right-[-8px] bg-rose-50/50 border border-rose-100 rounded-xl z-0 shadow-sm pointer-events-none"></div>
+                  )}
+
                   {/* Top Area (For weekly blocks or alternate daily blocks) */}
                   <div className="h-[120px] w-full flex items-end justify-center pb-[24px]">
                     {showWeekly && day.weeklySummary ? (
