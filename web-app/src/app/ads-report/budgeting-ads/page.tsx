@@ -101,7 +101,9 @@ export default function BudgetingAdsPage() {
     let spentIdr = 0;
     for (const [, latestRow] of adIdMap) {
       const costUsd = Number(latestRow.cost_usd || 0);
-      const kurs = Number(latestRow.kurs || 0);
+      let kurs = Number(latestRow.kurs || 16000);
+      if (kurs < 1000) kurs = kurs * 1000;
+      
       spentUsd += costUsd;
       spentIdr += costUsd * kurs;
     }
