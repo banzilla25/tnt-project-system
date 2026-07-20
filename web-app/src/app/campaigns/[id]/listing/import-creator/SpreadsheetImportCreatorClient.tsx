@@ -315,12 +315,29 @@ export default function SpreadsheetImportCreatorClient() {
     setSelectedDuplicateIds(new Set());
     
     const validated = [...rows];
-    const toCheckUsernames = validated.filter(r => r.username.trim()).map(r => r.username.trim());
+    const toCheckUsernames = validated.filter(r => r.username.trim()).map(r => r.username.trim().toLowerCase());
+    const uniqueUsernames = [...new Set(toCheckUsernames)];
     
-    // Fetch central creators DB for snapshot data
-    const { data: existingData } = await supabase.from('creators')
-      .select('id, username, creator_snapshots(id, ratecard, followers, gmv_30_days)')
-      .in('username', toCheckUsernames);
+    // Fetch central creators DB for snapshot data (case-insensitive)
+    let allExistingCreators: any[] = [];
+    for (let i = 0; i < uniqueUsernames.length; i += 50) {
+      const batch = uniqueUsernames.slice(i, i + 50);
+      const { data } = await supabase.from('creators')
+        .select('id, username, creator_snapshots(id, ratecard, followers, gmv_30_days)')
+        .in('username', batch);
+      if (data) allExistingCreators.push(...data);
+      
+      // Also try case variations - fetch by ilike for ones not found
+      const foundUsernames = new Set((data || []).map((c: any) => c.username.toLowerCase()));
+      const notFound = batch.filter(u => !foundUsernames.has(u));
+      for (const u of notFound) {
+        const { data: ilikeData } = await supabase.from('creators')
+          .select('id, username, creator_snapshots(id, ratecard, followers, gmv_30_days)')
+          .ilike('username', u)
+          .limit(1);
+        if (ilikeData && ilikeData.length > 0) allExistingCreators.push(...ilikeData);
+      }
+    }
       
     // Fetch existing campaign_creators for dup check
     const { data: campaignCreatorsData } = await supabase.from('campaign_creators')
@@ -328,10 +345,13 @@ export default function SpreadsheetImportCreatorClient() {
       .eq('campaign_id', campaignId);
       
     const campaignMap = new Map((campaignCreatorsData || []).map(cc => [cc.creators?.username?.toLowerCase(), cc]));
-    const existingMap = new Map((existingData || []).map(c => [c.username.toLowerCase(), c]));
+    const existingMap = new Map(allExistingCreators.map(c => [c.username.toLowerCase(), c]));
 
     let hasDuplicates = false;
     let hasIncompletes = false;
+    
+    // Track usernames seen within the spreadsheet to detect in-spreadsheet duplicates
+    const seenInSpreadsheet = new Set<string>();
 
     for (let i = 0; i < validated.length; i++) {
       const row = validated[i];
@@ -348,6 +368,15 @@ export default function SpreadsheetImportCreatorClient() {
       
       const uname = row.username.trim();
       const unameLower = uname.toLowerCase();
+      
+      // Check if same username already appears earlier in this spreadsheet
+      if (seenInSpreadsheet.has(unameLower)) {
+        row.status = 'error';
+        row.errorMsg = `Username duplikat di spreadsheet (sudah ada di baris sebelumnya)`;
+        continue;
+      }
+      seenInSpreadsheet.add(unameLower);
+      
       const dbCreator = existingMap.get(unameLower);
       const campaignCreator = campaignMap.get(unameLower);
       
@@ -526,21 +555,34 @@ export default function SpreadsheetImportCreatorClient() {
             }).eq('campaign_id', campaignId).eq('creator_id', cid);
             successCount++;
           } else {
-            // Insert new
-            await supabase.from('campaign_creators').insert({
-              campaign_id: campaignId,
-              creator_id: cid,
-              tier: 'NANO',
-              price: newRateCard,
-              qty_vt: Number(row.qty_vt) || 0,
-              qty_live: Number(row.qty_live) || 0,
-              content_type: row.content_type,
-              approval: 'pending',
-              pic_assist: profile?.nama || '-',
-              status_bayar: 'belum',
-              client_approval: isClientApprovalRequired ? 'pending' : 'not_required',
-              added_by: profile?.id
-            });
+            // Insert new - check if already exists first (race condition safety)
+            const { data: existingCC } = await supabase.from('campaign_creators')
+              .select('id').eq('campaign_id', campaignId).eq('creator_id', cid).limit(1);
+            
+            if (existingCC && existingCC.length > 0) {
+              // Already exists - update instead
+              await supabase.from('campaign_creators').update({
+                price: newRateCard,
+                qty_vt: Number(row.qty_vt) || 0,
+                qty_live: Number(row.qty_live) || 0,
+                content_type: row.content_type
+              }).eq('campaign_id', campaignId).eq('creator_id', cid);
+            } else {
+              await supabase.from('campaign_creators').insert({
+                campaign_id: campaignId,
+                creator_id: cid,
+                tier: 'NANO',
+                price: newRateCard,
+                qty_vt: Number(row.qty_vt) || 0,
+                qty_live: Number(row.qty_live) || 0,
+                content_type: row.content_type,
+                approval: 'pending',
+                pic_assist: profile?.nama || '-',
+                status_bayar: 'belum',
+                client_approval: isClientApprovalRequired ? 'pending' : 'not_required',
+                added_by: profile?.id
+              });
+            }
             successCount++;
           }
           
