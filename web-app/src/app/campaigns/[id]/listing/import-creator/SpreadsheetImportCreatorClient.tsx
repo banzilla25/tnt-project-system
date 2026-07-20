@@ -385,8 +385,16 @@ export default function SpreadsheetImportCreatorClient() {
       setDuplicateRows(validated.filter(r => r.status === 'duplicate_campaign'));
       setIncompleteRows(validated.filter(r => r.status === 'incomplete'));
       setShowConfirmPopup(true);
+      return false;
     } else {
-      // If everything is perfectly fine and 'baru', maybe auto prompt to save, but let's wait for user to click Save
+      return true;
+    }
+  };
+
+  const handleSimpan = async () => {
+    const isReady = await verifyData();
+    if (isReady) {
+      executeSaveToDatabase();
     }
   };
 
@@ -564,7 +572,7 @@ export default function SpreadsheetImportCreatorClient() {
           <Button onClick={verifyData} disabled={isVerifying || isAutoDetecting} className="bg-slate-800 hover:bg-slate-900 text-white shadow-sm min-w-[120px]">
             {isVerifying ? 'Memeriksa...' : 'Cek Data'}
           </Button>
-          <Button onClick={verifyData} disabled={isImporting} className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm min-w-[140px]">
+          <Button onClick={handleSimpan} disabled={isImporting} className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm min-w-[140px]">
             {isImporting ? `Menyimpan ${saveProgress.current}/${saveProgress.total}...` : (
               <><Save className="w-4 h-4 mr-2" /> Simpan Ke Database</>
             )}
