@@ -347,8 +347,9 @@ export default function SpreadsheetImportCreatorClient() {
       }
       
       const uname = row.username.trim();
-      const dbCreator = existingMap.get(uname);
-      const campaignCreator = campaignMap.get(uname);
+      const unameLower = uname.toLowerCase();
+      const dbCreator = existingMap.get(unameLower);
+      const campaignCreator = campaignMap.get(unameLower);
       
       let currentFollowers = row.followers;
       let currentGmv = row.gmv_30_days;
@@ -460,12 +461,28 @@ export default function SpreadsheetImportCreatorClient() {
           // 1. Create creator if doesn't exist
           if (!cid) {
             const { data: newCreator, error: insErr } = await supabase.from('creators').insert({
-              username: row.username,
-              link_account: `https://www.tiktok.com/@${row.username}`,
+              username: row.username.trim(),
+              link_account: `https://www.tiktok.com/@${row.username.trim()}`,
               added_by: profile?.id
             }).select('id').single();
-            if (insErr) throw insErr;
-            cid = newCreator.id;
+            
+            if (insErr) {
+              if (insErr.code === '23505') {
+                // Already exists (maybe another row just inserted it)
+                const { data: existingCreator, error: fetchErr } = await supabase.from('creators')
+                  .select('id').ilike('username', row.username.trim()).single();
+                  
+                if (existingCreator) {
+                  cid = existingCreator.id;
+                } else {
+                  throw insErr;
+                }
+              } else {
+                throw insErr;
+              }
+            } else {
+              cid = newCreator.id;
+            }
           }
           
           // 3. Campaign Creators Insert/Update
