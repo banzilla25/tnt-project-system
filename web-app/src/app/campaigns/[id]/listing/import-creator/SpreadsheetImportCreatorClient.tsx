@@ -496,15 +496,15 @@ export default function SpreadsheetImportCreatorClient() {
             }).select('id').single();
             
             if (insErr) {
-              if (insErr.code === '23505') {
-                // Already exists (maybe another row just inserted it)
-                const { data: existingCreator, error: fetchErr } = await supabase.from('creators')
-                  .select('id').ilike('username', row.username.trim()).single();
+              if (insErr.code === '23505' || (insErr.message && insErr.message.includes('violates unique constraint'))) {
+                // Already exists (maybe another row just inserted it, or case differences)
+                const { data: existingCreator } = await supabase.from('creators')
+                  .select('id').ilike('username', row.username.trim()).limit(1);
                   
-                if (existingCreator) {
-                  cid = existingCreator.id;
+                if (existingCreator && existingCreator.length > 0) {
+                  cid = existingCreator[0].id;
                 } else {
-                  throw insErr;
+                  throw new Error(`Username @${row.username.trim()} terdeteksi duplikat di database, namun gagal disinkronkan. Mohon coba "Simpan" sekali lagi.`);
                 }
               } else {
                 throw insErr;
