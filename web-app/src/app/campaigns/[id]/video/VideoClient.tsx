@@ -56,6 +56,11 @@ export default function CampaignVideoPage({
   const [previewUrl, setPreviewUrl] = useState('');
   const previewRef = React.useRef<HTMLDivElement>(null);
 
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyPage, setHistoryPage] = useState(0);
+  const [selectedHistoryIds, setSelectedHistoryIds] = useState<Set<number>>(new Set());
+  const [deletingHistory, setDeletingHistory] = useState(false);
+
   useEffect(() => {
     if (!previewOpen || !previewUrl) return;
     const existingScript = document.querySelector('script[src="https://www.tiktok.com/embed.js"]');
@@ -493,6 +498,27 @@ export default function CampaignVideoPage({
     }
   };
 
+  const handleDeleteHistoryBatch = async () => {
+    if (selectedHistoryIds.size === 0) return;
+    if (!confirm(`Yakin ingin menghapus ${selectedHistoryIds.size} video dari database? Tindakan ini tidak dapat dibatalkan.`)) return;
+
+    setDeletingHistory(true);
+    try {
+      const idsToDelete = Array.from(selectedHistoryIds);
+      const { error } = await supabase.from('videos').delete().in('id', idsToDelete);
+      
+      if (error) throw error;
+      
+      setLocalVideos(prev => prev.filter(v => !selectedHistoryIds.has(v.id)));
+      setSelectedHistoryIds(new Set());
+      alert(`Berhasil menghapus ${idsToDelete.length} video.`);
+    } catch (err: any) {
+      alert('Gagal menghapus video: ' + err.message);
+    } finally {
+      setDeletingHistory(false);
+    }
+  };
+
   const handleResetSearch = () => {
     setSearchQuery('');
     setPage(0);
@@ -710,6 +736,24 @@ export default function CampaignVideoPage({
   const visibleVideosData = processedVideosData.slice(0, clientPage * CLIENT_PAGE_SIZE);
   const hasMoreVideosClient = processedVideosData.length > visibleVideosData.length;
 
+  const historyVideos = React.useMemo(() => {
+    if (!historyOpen) return [];
+    const videos = localVideos.filter(v => typeof v.id === 'number' && v.created_at);
+    videos.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    
+    return videos.map(v => {
+      const cc = listingData.find(c => c.id === v.campaign_creator_id);
+      return {
+        ...v,
+        creatorUsername: cc?.creators?.username || '-',
+        creatorName: cc?.creators?.nama_asli || '-'
+      };
+    });
+  }, [localVideos, listingData, historyOpen]);
+  const HISTORY_PAGE_SIZE = 15;
+  const paginatedHistoryVideos = historyVideos.slice(historyPage * HISTORY_PAGE_SIZE, (historyPage + 1) * HISTORY_PAGE_SIZE);
+  const totalHistoryPages = Math.ceil(historyVideos.length / HISTORY_PAGE_SIZE);
+
   return (
     <>
       <div className="space-y-[24px]">
@@ -755,9 +799,18 @@ export default function CampaignVideoPage({
                   </button>
                </div>
                {hasAccess && (
-                 <button onClick={() => setBulkImportOpen(true)} className="btn btn-primary flex items-center gap-2 whitespace-nowrap h-fit">
-                    <Plus className="w-4 h-4" /> Bulk Import Link
-                 </button>
+                 <div className="flex items-center gap-2">
+                   <button onClick={() => {
+                     setHistoryOpen(true);
+                     setHistoryPage(0);
+                     setSelectedHistoryIds(new Set());
+                   }} className="btn bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 flex items-center gap-2 whitespace-nowrap h-fit">
+                      Aktivitas Import Terakhir
+                   </button>
+                   <button onClick={() => setBulkImportOpen(true)} className="btn btn-primary flex items-center gap-2 whitespace-nowrap h-fit">
+                      <Plus className="w-4 h-4" /> Bulk Import Link
+                   </button>
+                 </div>
                )}
              </div>
              <div className="flex flex-wrap gap-4 items-end">
@@ -1339,6 +1392,122 @@ export default function CampaignVideoPage({
                  Simpan {bulkResults.filter(r => r.status === 'valid').length} Link ke Database
                </button>
              )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={historyOpen} onOpenChange={setHistoryOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0 overflow-hidden bg-white">
+          <div className="p-6 border-b border-line flex justify-between items-center bg-white shrink-0">
+            <h2 className="text-xl font-bold">Aktivitas Import Video Terbaru</h2>
+            <button onClick={() => setHistoryOpen(false)} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
+              <X className="w-5 h-5 text-slate-500" />
+            </button>
+          </div>
+          
+          <div className="flex-1 overflow-auto bg-slate-50 p-6">
+            <div className="ccard !p-0 overflow-hidden bg-white border border-slate-200">
+              <div className="p-4 border-b border-line flex justify-between items-center bg-slate-100">
+                <div className="flex items-center gap-4">
+                  <h3 className="font-semibold text-sm">Riwayat Upload</h3>
+                  <span className="text-xs text-text-soft">Total: {historyVideos.length} video</span>
+                </div>
+                {selectedHistoryIds.size > 0 && (
+                  <button 
+                    onClick={handleDeleteHistoryBatch}
+                    disabled={deletingHistory}
+                    className="btn bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 text-xs py-1.5 px-3 flex items-center gap-1"
+                  >
+                    {deletingHistory ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+                    Hapus Terpilih & Simpan ({selectedHistoryIds.size})
+                  </button>
+                )}
+              </div>
+              <table className="w-full text-left text-sm">
+                <thead className="bg-slate-50 border-b border-line">
+                  <tr>
+                    <th className="p-3 w-10 text-center">
+                      <input 
+                        type="checkbox" 
+                        className="rounded border-slate-300 text-primary focus:ring-primary"
+                        checked={paginatedHistoryVideos.length > 0 && selectedHistoryIds.size === paginatedHistoryVideos.length}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            const newSet = new Set(selectedHistoryIds);
+                            paginatedHistoryVideos.forEach(v => newSet.add(v.id));
+                            setSelectedHistoryIds(newSet);
+                          } else {
+                            const newSet = new Set(selectedHistoryIds);
+                            paginatedHistoryVideos.forEach(v => newSet.delete(v.id));
+                            setSelectedHistoryIds(newSet);
+                          }
+                        }}
+                      />
+                    </th>
+                    <th className="p-3 font-semibold">Waktu Masuk</th>
+                    <th className="p-3 font-semibold">Kreator</th>
+                    <th className="p-3 font-semibold">Link Video</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-line">
+                  {paginatedHistoryVideos.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="p-8 text-center text-slate-500 italic">Belum ada riwayat video.</td>
+                    </tr>
+                  ) : paginatedHistoryVideos.map((v, i) => (
+                    <tr key={v.id} className="hover:bg-slate-50/50">
+                      <td className="p-3 text-center">
+                        <input 
+                          type="checkbox" 
+                          className="rounded border-slate-300 text-primary focus:ring-primary"
+                          checked={selectedHistoryIds.has(v.id)}
+                          onChange={(e) => {
+                            const newSet = new Set(selectedHistoryIds);
+                            if (e.target.checked) newSet.add(v.id);
+                            else newSet.delete(v.id);
+                            setSelectedHistoryIds(newSet);
+                          }}
+                        />
+                      </td>
+                      <td className="p-3">
+                        <div className="font-medium text-slate-700">{new Date(v.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}</div>
+                        <div className="text-xs text-text-soft">{new Date(v.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB</div>
+                      </td>
+                      <td className="p-3">
+                        <div className="font-medium text-slate-700">{v.creatorName}</div>
+                        <div className="text-xs text-text-soft">@{v.creatorUsername}</div>
+                      </td>
+                      <td className="p-3">
+                        <a href={v.link_video} target="_blank" rel="noopener noreferrer" className="font-mono text-[11px] text-blue-600 hover:underline break-all block max-w-[300px]">
+                          {v.link_video}
+                        </a>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {totalHistoryPages > 1 && (
+                <div className="p-3 border-t border-line flex justify-between items-center bg-slate-50">
+                  <button 
+                    disabled={historyPage === 0}
+                    onClick={() => setHistoryPage(p => p - 1)}
+                    className="btn btn-outline text-xs py-1 px-2"
+                  >
+                    Sebelumnya
+                  </button>
+                  <span className="text-xs text-slate-500">
+                    Halaman {historyPage + 1} dari {totalHistoryPages}
+                  </span>
+                  <button 
+                    disabled={historyPage >= totalHistoryPages - 1}
+                    onClick={() => setHistoryPage(p => p + 1)}
+                    className="btn btn-outline text-xs py-1 px-2"
+                  >
+                    Selanjutnya
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </DialogContent>
       </Dialog>
