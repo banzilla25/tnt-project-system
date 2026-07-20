@@ -48,8 +48,8 @@ export default function BudgetingAdsPage() {
       const [resTopups, resAlloc, resSpend] = await Promise.all([
         supabase.from("ads_topups").select("*").order("tanggal", { ascending: false }),
         supabase.from("ads_allocations").select("*").order("tanggal", { ascending: false }),
-        // get lifetime spend per campaign
-        supabase.from("ads_performance").select("campaign_id, cost_usd")
+        // get spend per campaign - need ad_id, tanggal, cost_usd, kurs to pick latest date per ad
+        supabase.from("ads_performance").select("campaign_id, ad_id, tanggal, cost_usd, kurs")
       ]);
       
       if (resTopups.data) setTopups(resTopups.data);
@@ -82,9 +82,29 @@ export default function BudgetingAdsPage() {
     const allocatedUsd = campAllocations.reduce((acc, curr) => acc + Number(curr.alokasi_usd), 0);
     const allocatedIdr = campAllocations.reduce((acc, curr) => acc + Number(curr.alokasi_idr), 0);
     
-    // total spend campaign ini
+    // total spend campaign ini - ambil HANYA tanggal terakhir per ad_id
     const campSpends = adsSpend.filter(s => s.campaign_id === camp.id);
-    const spentUsd = campSpends.reduce((acc, curr) => acc + Number(curr.cost_usd || 0), 0);
+    
+    // Group by ad_id, lalu ambil baris dengan tanggal terbaru
+    const adIdMap = new Map<string, any>();
+    for (const row of campSpends) {
+      const adId = row.ad_id;
+      if (!adId) continue;
+      const existing = adIdMap.get(adId);
+      if (!existing || (row.tanggal && (!existing.tanggal || row.tanggal > existing.tanggal))) {
+        adIdMap.set(adId, row);
+      }
+    }
+    
+    // Jumlahkan cost_usd dari tanggal terakhir per ad_id
+    let spentUsd = 0;
+    let spentIdr = 0;
+    for (const [, latestRow] of adIdMap) {
+      const costUsd = Number(latestRow.cost_usd || 0);
+      const kurs = Number(latestRow.kurs || 0);
+      spentUsd += costUsd;
+      spentIdr += costUsd * kurs;
+    }
     
     const remainingUsd = allocatedUsd - spentUsd;
     
@@ -96,6 +116,7 @@ export default function BudgetingAdsPage() {
       allocatedUsd,
       allocatedIdr,
       spentUsd,
+      spentIdr,
       remainingUsd,
       plafonIdr,
       sisaPlafonIdr
@@ -320,8 +341,13 @@ export default function BudgetingAdsPage() {
                           <TableCell className="text-right text-slate-600 border-l border-slate-100 bg-slate-50/50 whitespace-nowrap">Rp{(camp.plafonIdr).toLocaleString('id-ID')}</TableCell>
                           <TableCell className="text-right text-slate-600 bg-slate-50/50 whitespace-nowrap">Rp{(camp.allocatedIdr).toLocaleString('id-ID')}</TableCell>
                           <TableCell className="text-right font-medium text-orange-600 bg-slate-50/50 whitespace-nowrap">Rp{(camp.sisaPlafonIdr).toLocaleString('id-ID')}</TableCell>
-                          <TableCell className="text-right text-slate-600 border-l border-slate-200 whitespace-nowrap">${camp.allocatedUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                          <TableCell className="text-right text-red-600 whitespace-nowrap">${camp.spentUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                          <TableCell className="text-right border-l border-slate-200 whitespace-nowrap">
+                            <div className="text-slate-600">${camp.allocatedUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                          </TableCell>
+                          <TableCell className="text-right whitespace-nowrap">
+                            <div className="text-red-600">${camp.spentUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                            {camp.spentIdr > 0 && <div className="text-[10px] text-slate-400">Rp{Math.round(camp.spentIdr).toLocaleString('id-ID')}</div>}
+                          </TableCell>
                           <TableCell className="text-right whitespace-nowrap">
                             <span className={`font-bold ${camp.remainingUsd <= 10 ? 'text-red-600' : 'text-emerald-600'}`}>
                               ${camp.remainingUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
