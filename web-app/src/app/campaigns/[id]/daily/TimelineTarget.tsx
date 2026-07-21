@@ -257,7 +257,7 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
                         <div className="absolute bottom-[-6px] left-1/2 -translate-x-1/2 w-3 h-3 bg-blue-50 border-b border-r border-blue-200 rotate-45"></div>
                         <h4 className="text-xs font-bold text-blue-900 mb-1">Target Minggu Ini</h4>
                         
-                        {(isSales || isHybrid) && targetGmv > 0 && (
+                        {targetGmv > 0 && (
                           <div className="text-[10px] text-blue-800 flex justify-between px-2">
                             <span>GMV:</span>
                             <span className={day.weeklySummary.achievedGmv >= day.weeklySummary.targetGmv ? 'text-emerald-700 font-bold' : ''}>
@@ -265,7 +265,7 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
                             </span>
                           </div>
                         )}
-                        {(isAwareness || isHybrid) && targetVideo > 0 && (
+                        {targetVideo > 0 && (
                           <div className="text-[10px] text-blue-800 flex justify-between px-2">
                             <span>Video:</span>
                             <span className={day.weeklySummary.achievedVideo >= day.weeklySummary.targetVideo ? 'text-emerald-700 font-bold' : ''}>
@@ -273,7 +273,7 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
                             </span>
                           </div>
                         )}
-                        {(isAwareness || isHybrid) && targetCreator > 0 && (
+                        {targetCreator > 0 && (
                           <div className="text-[10px] text-blue-800 flex justify-between px-2">
                             <span>Kreator:</span>
                             <span className={day.weeklySummary.achievedCreator >= day.weeklySummary.targetCreator ? 'text-emerald-700 font-bold' : ''}>
@@ -290,7 +290,7 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
                            {day.isPastEndDate && <span className="text-rose-500 ml-1">(Overdue)</span>}
                          </h4>
                          
-                         {(isSales || isHybrid) && targetGmv > 0 && (
+                         {targetGmv > 0 && (
                            <div className="text-[10px] text-slate-600 flex justify-between border-t border-slate-100 pt-1 mt-1">
                              <span>GMV:</span>
                              <span className={day.achievedGmv >= day.targetGmv ? 'text-emerald-600 font-bold' : ''}>
@@ -298,7 +298,7 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
                              </span>
                            </div>
                          )}
-                         {(isAwareness || isHybrid) && targetVideo > 0 && (
+                         {targetVideo > 0 && (
                            <div className="text-[10px] text-slate-600 flex justify-between border-t border-slate-100 pt-1 mt-1">
                              <span>VT:</span>
                              <span className={day.achievedVideo >= day.targetVideo ? 'text-emerald-600 font-bold' : ''}>
@@ -306,7 +306,7 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
                              </span>
                            </div>
                          )}
-                         {(isAwareness || isHybrid) && targetCreator > 0 && (
+                         {targetCreator > 0 && (
                            <div className="text-[10px] text-slate-600 flex justify-between border-t border-slate-100 pt-1 mt-1">
                              <span>Kreator:</span>
                              <span className={day.achievedCreator >= day.targetCreator ? 'text-emerald-600 font-bold' : ''}>
@@ -337,7 +337,7 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
                            {day.isPastEndDate && <span className="text-rose-500 ml-1">(Overdue)</span>}
                          </h4>
                          
-                         {(isSales || isHybrid) && targetGmv > 0 && (
+                         {targetGmv > 0 && (
                            <div className="text-[10px] text-slate-600 flex justify-between border-t border-slate-100 pt-1 mt-1">
                              <span>GMV:</span>
                              <span className={day.achievedGmv >= day.targetGmv ? 'text-emerald-600 font-bold' : ''}>
@@ -345,7 +345,7 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
                              </span>
                            </div>
                          )}
-                         {(isAwareness || isHybrid) && targetVideo > 0 && (
+                         {targetVideo > 0 && (
                            <div className="text-[10px] text-slate-600 flex justify-between border-t border-slate-100 pt-1 mt-1">
                              <span>VT:</span>
                              <span className={day.achievedVideo >= day.targetVideo ? 'text-emerald-600 font-bold' : ''}>
@@ -353,7 +353,7 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
                              </span>
                            </div>
                          )}
-                         {(isAwareness || isHybrid) && targetCreator > 0 && (
+                         {targetCreator > 0 && (
                            <div className="text-[10px] text-slate-600 flex justify-between border-t border-slate-100 pt-1 mt-1">
                              <span>Kreator:</span>
                              <span className={day.achievedCreator >= day.targetCreator ? 'text-emerald-600 font-bold' : ''}>

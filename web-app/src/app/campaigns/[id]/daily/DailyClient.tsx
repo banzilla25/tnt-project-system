@@ -39,9 +39,7 @@ export default function CampaignDailyPerformanceClient({
         <div>
           <h2 className="text-[20px] font-bold text-text">Performa Harian (Automated)</h2>
           <p className="text-[13px] text-text-soft">
-            {isAwareness 
-              ? "Rekap performa VT harian yang dihitung otomatis dari file CSV."
-              : "Rekap GMV harian yang dihitung otomatis dari file CSV Organik tanpa perlu input manual."}
+            Rekap performa harian yang dihitung otomatis dari data organik dan ads.
           </p>
         </div>
       </div>
@@ -52,29 +50,29 @@ export default function CampaignDailyPerformanceClient({
             const dateObj = new Date(m.month + '-01');
             const monthName = dateObj.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
             return (
-              <div key={idx} className={`ccard bg-gradient-to-br ${isAwareness ? 'from-indigo-50 to-purple-100/50 border-indigo-100' : 'from-blue-50 to-indigo-100/50 border-blue-100'}`}>
+              <div key={idx} className="ccard bg-gradient-to-br from-indigo-50 to-blue-100/50 border-indigo-100">
                 <div className="p-[24px]">
-                  <p className={`text-[11px] font-medium uppercase tracking-wider ${isAwareness ? 'text-indigo-800' : 'text-blue-800'}`}>{monthName}</p>
+                  <p className="text-[11px] font-medium uppercase tracking-wider text-indigo-800">{monthName}</p>
                   
-                  {isAwareness || isHybrid ? (
-                    <div className="mt-[8px] flex gap-[16px]">
-                      <div>
-                        <h3 className={`text-[20px] font-bold ${isAwareness ? 'text-indigo-900' : 'text-blue-900'}`}>{m.totalVideos} <span className="text-[13px] font-normal">VT</span></h3>
-                      </div>
-                      <div>
-                        <h3 className={`text-[20px] font-bold ${isAwareness ? 'text-indigo-900' : 'text-blue-900'}`}>{m.totalCreators} <span className="text-[13px] font-normal">Kreator</span></h3>
-                      </div>
+                  <div className="mt-[12px] flex gap-[16px] pb-3 border-b border-indigo-100/50">
+                    <div>
+                      <h3 className="text-[18px] font-bold text-indigo-900">{m.totalVideos} <span className="text-[11px] font-normal text-indigo-700">VT</span></h3>
                     </div>
-                  ) : null}
+                    <div>
+                      <h3 className="text-[18px] font-bold text-indigo-900">{m.totalCreators} <span className="text-[11px] font-normal text-indigo-700">Kreator</span></h3>
+                    </div>
+                  </div>
 
-                  {!isAwareness && (
-                    <div className="mt-[8px]">
-                      <h3 className="text-[20px] font-bold text-blue-900">Rp {(m.gmvOrganic / 1000000).toFixed(1)}M</h3>
-                      <p className="text-[11px] font-semibold text-blue-800/80 mt-[4px]">Rp {m.gmvOrganic.toLocaleString()}</p>
+                  <div className="mt-[12px] space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-[11px] text-slate-500">GMV Organik</span>
+                      <span className="text-[13px] font-bold text-emerald-600">Rp {(m.gmvOrganic || 0).toLocaleString()}</span>
                     </div>
-                  )}
-                  
-                  <p className={`text-[11px] mt-[8px] ${isAwareness ? 'text-indigo-600' : 'text-blue-600'}`}>Total {isAwareness ? 'Video & Kreator' : 'Penjualan Organik'}</p>
+                    <div className="flex justify-between items-center">
+                      <span className="text-[11px] text-slate-500">GMV Ads</span>
+                      <span className="text-[13px] font-bold text-blue-600">Rp {(m.gmvAds || 0).toLocaleString()}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             );
@@ -86,7 +84,7 @@ export default function CampaignDailyPerformanceClient({
 
       <div className="ccard !p-0 overflow-hidden">
         <div className="p-[16px] border-b border-line bg-slate-50/50">
-          <h3 className="text-[16px] font-bold text-text">{isAwareness ? 'Daily Video Tracker' : 'Organic Daily Performance'}</h3>
+          <h3 className="text-[16px] font-bold text-text">Daily Tracker Performance</h3>
           {campaign.end_date && campaign.status !== 'selesai' && (() => {
             const endDate = new Date(campaign.end_date);
             endDate.setHours(0, 0, 0, 0);
@@ -112,27 +110,22 @@ export default function CampaignDailyPerformanceClient({
             <thead className="border-b border-line">
               <tr>
                 <th className="py-[16px]">Tanggal</th>
-                {isAwareness || isHybrid ? (
-                  <>
-                    <th className="py-[16px] text-center">Video Baru</th>
-                    <th className="py-[16px] text-center">Kreator Aktif</th>
-                  </>
-                ) : null}
-                {!isAwareness && (
-                  <th className="py-[16px] text-right">GMV Organik</th>
-                )}
+                <th className="py-[16px] text-center">Video Baru</th>
+                <th className="py-[16px] text-center">Kreator Aktif</th>
+                <th className="py-[16px] text-right">GMV Organik</th>
+                <th className="py-[16px] text-right pr-6">GMV Ads</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={isHybrid ? 4 : 3} className="text-center py-8 text-text-soft">
+                  <td colSpan={5} className="text-center py-8 text-text-soft">
                     Mengkalkulasi data dari ribuan baris CSV...
                   </td>
                 </tr>
               ) : dailyData.length === 0 ? (
                 <tr>
-                  <td colSpan={isHybrid ? 4 : 3} className="text-center py-8 text-text-soft">
+                  <td colSpan={5} className="text-center py-8 text-text-soft">
                     Belum ada data untuk campaign ini.
                   </td>
                 </tr>
@@ -143,22 +136,18 @@ export default function CampaignDailyPerformanceClient({
                       {new Date(d.date).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
                     </td>
                     
-                    {isAwareness || isHybrid ? (
-                      <>
-                        <td className="text-center font-bold text-indigo-700 bg-indigo-50/30">
-                          {d.totalVideos} VT
-                        </td>
-                        <td className="text-center text-text-soft font-medium">
-                          {d.totalCreators} Kreator
-                        </td>
-                      </>
-                    ) : null}
-
-                    {!isAwareness && (
-                      <td className="text-right font-bold text-text">
-                        Rp {d.gmvOrganic.toLocaleString()}
-                      </td>
-                    )}
+                    <td className="text-center font-bold text-indigo-700 bg-indigo-50/30">
+                      {d.totalVideos} VT
+                    </td>
+                    <td className="text-center text-text-soft font-medium">
+                      {d.totalCreators} Kreator
+                    </td>
+                    <td className="text-right font-bold text-emerald-600">
+                      Rp {(d.gmvOrganic || 0).toLocaleString()}
+                    </td>
+                    <td className="text-right font-bold text-blue-600 pr-6">
+                      Rp {(d.gmvAds || 0).toLocaleString()}
+                    </td>
                   </tr>
                 ))
               )}
