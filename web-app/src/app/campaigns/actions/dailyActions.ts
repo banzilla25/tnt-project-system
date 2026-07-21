@@ -64,7 +64,7 @@ export async function getDailyData(campaignId: number) {
   while (hasMore_v) {
     const { data: ccData, error } = await supabase
       .from('campaign_creators')
-      .select('id, approved_at, creators(username), videos(id, created_at, link_video, content_type)')
+      .select('id, approved_at, creators(username), videos(id, created_at, link_video)')
       .eq('campaign_id', campaignId)
       .range(from_v, to_v);
 
@@ -112,6 +112,10 @@ export async function getDailyData(campaignId: number) {
       adsHasMore = false;
     }
   }
+
+  // 4. Fetch Live Sessions via RPC (for accurate Sesi Live count)
+  const { data: liveStats } = await supabase.rpc('get_campaign_live_stats', { p_campaign_id: campaignId });
+  const allLiveSessions = liveStats || [];
 
   // Group by Date and Month
   const grouped: Record<string, { gmv: number; gmvAds: number; creators: Set<string>; videos: Set<string>; gmvLive: number; gmvVT: number; ordersLive: number; ordersVT: number; liveSessions: Set<string> }> = {};
@@ -186,7 +190,7 @@ export async function getDailyData(campaignId: number) {
         }
       }
 
-      // Hitung Video berdasarkan created_at (custom report post date)
+      // Hitung Video berdasarkan created_at (VT saja)
       if (!cc.videos || cc.videos.length === 0) return;
       
       cc.videos.forEach((v: any) => {
@@ -198,22 +202,32 @@ export async function getDailyData(campaignId: number) {
         if (campaignEndStr && dateStr > campaignEndStr) return;
         
         if (!grouped[dateStr]) grouped[dateStr] = { gmv: 0, gmvAds: 0, creators: new Set(), videos: new Set(), gmvLive: 0, gmvVT: 0, ordersLive: 0, ordersVT: 0, liveSessions: new Set() };
-        
-        const isLive = v.content_type === 'LIVE' || v.content_type === 'Livestream';
-        if (isLive) {
-          grouped[dateStr].liveSessions.add(v.id.toString());
-        } else {
-          grouped[dateStr].videos.add(v.id.toString());
-        }
+        grouped[dateStr].videos.add(v.id.toString());
 
         const monthStr = v.created_at.substring(0, 7);
         if (!monthlyGrouped[monthStr]) monthlyGrouped[monthStr] = { gmv: 0, gmvAds: 0, creators: new Set(), videos: new Set(), gmvLive: 0, gmvVT: 0, ordersLive: 0, ordersVT: 0, liveSessions: new Set() };
-        if (isLive) {
-          monthlyGrouped[monthStr].liveSessions.add(v.id.toString());
-        } else {
-          monthlyGrouped[monthStr].videos.add(v.id.toString());
-        }
+        monthlyGrouped[monthStr].videos.add(v.id.toString());
       });
+    });
+  }
+
+  // Hitung Sesi Live dari RPC
+  if (allLiveSessions.length > 0) {
+    allLiveSessions.forEach((l: any) => {
+      if (!l.start_time) return;
+      
+      // start_time is usually ISO string or timestamp
+      const dateStr = String(l.start_time).substring(0, 10);
+      
+      if (campaignStartStr && dateStr < campaignStartStr) return;
+      if (campaignEndStr && dateStr > campaignEndStr) return;
+      
+      if (!grouped[dateStr]) grouped[dateStr] = { gmv: 0, gmvAds: 0, creators: new Set(), videos: new Set(), gmvLive: 0, gmvVT: 0, ordersLive: 0, ordersVT: 0, liveSessions: new Set() };
+      if (l.content_uid) grouped[dateStr].liveSessions.add(l.content_uid);
+
+      const monthStr = dateStr.substring(0, 7);
+      if (!monthlyGrouped[monthStr]) monthlyGrouped[monthStr] = { gmv: 0, gmvAds: 0, creators: new Set(), videos: new Set(), gmvLive: 0, gmvVT: 0, ordersLive: 0, ordersVT: 0, liveSessions: new Set() };
+      if (l.content_uid) monthlyGrouped[monthStr].liveSessions.add(l.content_uid);
     });
   }
 
