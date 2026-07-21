@@ -56,11 +56,15 @@ export const CreatorRow = React.memo(({
       try {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) {
-          return parsed.map((n: any) => ({ ...n, role }));
+          return parsed.map((n: any) => ({ 
+            isi: n.isi || '', 
+            created_at: n.created_at || null,
+            role
+          })).slice(-3);
         }
-        return [{ isi: raw, role, created_at: '2000-01-01T00:00:00Z', author_name: 'System' }];
-      } catch {
-        return [{ isi: raw, role, created_at: '2000-01-01T00:00:00Z', author_name: 'System' }];
+        return [{ isi: raw, created_at: null, role }];
+      } catch (e) {
+        return [{ isi: raw, created_at: null, role }];
       }
     };
   }, []);
@@ -113,24 +117,24 @@ export const CreatorRow = React.memo(({
             </a>
           </div>
           {(managerNotes.length > 0 || picNotes.length > 0) && (
-            <div className="absolute bottom-1 left-[120px] flex gap-3 w-[480px] text-left z-10 opacity-90 group-hover:opacity-100 transition-opacity">
+            <div className="absolute bottom-1 left-[120px] flex gap-3 max-w-[480px] text-left z-10 opacity-90 group-hover:opacity-100 transition-opacity">
               {managerNotes.length > 0 && (
-                <div className="flex-1 overflow-hidden whitespace-nowrap border border-orange-200 bg-orange-50/90 rounded px-1.5 py-0.5" title="Klik row untuk detail notes Manager">
+                <div className="overflow-hidden whitespace-nowrap border border-orange-200 bg-orange-50/90 rounded px-1.5 py-0.5" title="Klik row untuk detail notes Manager">
                   <div className="animate-marquee inline-block text-[10px] text-orange-700 font-medium">
                     {managerNotes.map((n: any, i: number) => (
                       <span key={i} className="mr-4">
-                        <span className="font-bold">[Manager - {new Date(n.created_at).toLocaleDateString('id-ID', {day:'numeric', month:'numeric'})}]</span> {n.isi}
+                        <span className="font-bold">[Manager{n.created_at ? ` - ${new Date(n.created_at).toLocaleDateString('id-ID', {day:'numeric', month:'numeric'})}` : ''}]</span> {n.isi}
                       </span>
                     ))}
                   </div>
                 </div>
               )}
               {picNotes.length > 0 && (
-                <div className="flex-1 overflow-hidden whitespace-nowrap border border-blue-200 bg-blue-50/90 rounded px-1.5 py-0.5" title="Klik row untuk detail notes PIC">
+                <div className="overflow-hidden whitespace-nowrap border border-blue-200 bg-blue-50/90 rounded px-1.5 py-0.5" title="Klik row untuk detail notes PIC">
                   <div className="animate-marquee inline-block text-[10px] text-blue-700 font-medium">
                     {picNotes.map((n: any, i: number) => (
                       <span key={i} className="mr-4">
-                        <span className="font-bold">[PIC - {new Date(n.created_at).toLocaleDateString('id-ID', {day:'numeric', month:'numeric'})}]</span> {n.isi}
+                        <span className="font-bold">[PIC{n.created_at ? ` - ${new Date(n.created_at).toLocaleDateString('id-ID', {day:'numeric', month:'numeric'})}` : ''}]</span> {n.isi}
                       </span>
                     ))}
                   </div>

@@ -860,8 +860,8 @@ function CampaignListingContent() {
           try {
             const parsed = JSON.parse(raw);
             if (Array.isArray(parsed)) return parsed.filter((n: any) => n.isi && n.isi.trim() !== '');
-            return [];
-          } catch { return []; }
+            return [{ isi: raw, created_at: null }];
+          } catch { return [{ isi: raw, created_at: null }]; }
         };
 
         finalData = finalData.filter(cc => {
@@ -876,8 +876,11 @@ function CampaignListingContent() {
             const pn = parseNotesList(cc.notes_pic);
             const all = [...mn, ...pn];
             if (all.length === 0) return 0;
-            all.sort((x, y) => new Date(y.created_at).getTime() - new Date(x.created_at).getTime());
-            return new Date(all[0].created_at).getTime();
+            const validDates = all.filter(n => n.created_at).map(n => new Date(n.created_at).getTime());
+            if (validDates.length > 0) {
+              return Math.max(...validDates);
+            }
+            return 0; // If no valid dates, treat as old
           };
           return getLatest(b) - getLatest(a);
         });

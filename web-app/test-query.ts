@@ -7,23 +7,12 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 async function run() {
   const { data, error } = await supabase
     .from('campaign_creators')
-    .select('id, notes_manager, notes_pic')
+    .select('id, creators(username), notes_manager, notes_pic')
     .eq('campaign_id', 46)
-    .or('notes_manager.not.is.null,notes_pic.not.is.null')
-    .order('id', { ascending: false });
+    .in('creators.username', ['serbaserbishp', 'dtca244', 'octacagia', 'looksbyaira']);
 
   console.log("Error:", error);
-  console.log("Data length:", data?.length);
-  
-  if (data) {
-    let count = 0;
-    for (const row of data) {
-      const mn = JSON.parse(row.notes_manager || '[]');
-      const pn = JSON.parse(row.notes_pic || '[]');
-      if (mn.length > 0 || pn.length > 0) count++;
-    }
-    console.log("Actual rows with notes:", count);
-  }
+  console.log("Data:", JSON.stringify(data, null, 2));
 }
 
 run();
