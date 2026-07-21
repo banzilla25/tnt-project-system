@@ -86,7 +86,7 @@ export async function getInternalPerformaData(campaignId: number) {
   }
   
   // Aggregate cost and gmv per creator_id and global
-  const adsStatsByCreator: Record<number, { gmvAds: number, costAds: number }> = {};
+  const adsStatsByCreator: Record<number, { gmvAds: number, costAds: number, itemsSoldAds: number }> = {};
   let globalAdsGmv = 0;
   let globalAdsGmvUsd = 0;
   let globalAdsSpend = 0;
@@ -101,10 +101,11 @@ export async function getInternalPerformaData(campaignId: number) {
 
     if (ad.creator_id) {
       if (!adsStatsByCreator[ad.creator_id]) {
-        adsStatsByCreator[ad.creator_id] = { gmvAds: 0, costAds: 0 };
+        adsStatsByCreator[ad.creator_id] = { gmvAds: 0, costAds: 0, itemsSoldAds: 0 };
       }
       adsStatsByCreator[ad.creator_id].gmvAds += (ad.gross_revenue_usd || 0) * kurs;
       adsStatsByCreator[ad.creator_id].costAds += (ad.cost_usd || 0) * kurs;
+      adsStatsByCreator[ad.creator_id].itemsSoldAds += (ad.purchases || 0);
     }
   }
 
@@ -125,9 +126,10 @@ export async function getInternalPerformaData(campaignId: number) {
     const trackedVideos = perf?.video_count || 0;
     
     // Use the correctly aggregated Ads Stats instead of the SQL View's inaccurate sum
-    const aggregatedAds = adsStatsByCreator[creator?.id] || { gmvAds: 0, costAds: 0 };
+    const aggregatedAds = adsStatsByCreator[creator?.id] || { gmvAds: 0, costAds: 0, itemsSoldAds: 0 };
     const gmvAds = aggregatedAds.gmvAds;
     const costAds = aggregatedAds.costAds;
+    const itemsSoldAds = aggregatedAds.itemsSoldAds || 0;
     
     const totalGmv = gmvOrganic + gmvAds;
     const roas = costAds > 0 ? (gmvAds / costAds).toFixed(2) : '-';
@@ -187,6 +189,7 @@ export async function getInternalPerformaData(campaignId: number) {
       roas,
       totalGmv,
       itemsSold,
+      itemsSoldAds,
       videoViews,
       videoLikes,
       totalVt,

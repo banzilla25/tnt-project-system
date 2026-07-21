@@ -532,7 +532,10 @@ export default function CampaignPerformaClient({
                 <th className="py-[16px] text-center cursor-pointer hover:bg-slate-50 transition-colors select-none" onClick={() => handleSort('totalLive')}>Total Live <ArrowUpDown className="w-3 h-3 inline ml-[4px]"/></th>
                 
                 {!isAwareness && (
-                  <th className="py-[16px] text-center cursor-pointer hover:bg-slate-50 transition-colors select-none">Item Sold</th>
+                  <>
+                    <th className="py-[16px] text-center cursor-pointer hover:bg-slate-50 transition-colors select-none">Item Sold (Org)</th>
+                    <th className="py-[16px] text-center cursor-pointer hover:bg-slate-50 transition-colors select-none">Item Sold (Ads)</th>
+                  </>
                 )}
                 
                 <th className="py-[16px] text-right cursor-pointer hover:bg-slate-50 transition-colors select-none" onClick={() => handleSort('gmvOrganic')}>GMV Organik <ArrowUpDown className="w-3 h-3 inline ml-[4px]"/></th>
@@ -544,7 +547,7 @@ export default function CampaignPerformaClient({
             <tbody>
               {filteredCreatorStats.length === 0 ? (
                 <tr>
-                  <td colSpan={isAwareness ? 8 : 7} className="text-center py-[32px] text-text-soft">Belum ada data kreator yang di-approve atau cocok dengan pencarian.</td>
+                  <td colSpan={isAwareness ? 8 : 8} className="text-center py-[32px] text-text-soft">Belum ada data kreator yang di-approve atau cocok dengan pencarian.</td>
                 </tr>
               ) : (
                 paginatedStats.map((c) => (
@@ -569,9 +572,14 @@ export default function CampaignPerformaClient({
                     </td>
                     
                     {!isAwareness && (
-                      <td className="text-center font-bold text-text">
-                        {c.itemsSold} pcs
-                      </td>
+                      <>
+                        <td className="text-center font-bold text-text">
+                          {c.itemsSold} pcs
+                        </td>
+                        <td className="text-center font-bold text-emerald-600">
+                          {c.itemsSoldAds || 0} pcs
+                        </td>
+                      </>
                     )}
                     
                     <td className="text-right text-text-soft">
