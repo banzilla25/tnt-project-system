@@ -344,6 +344,7 @@ export default function AdsReportPage() {
   const { creators, campaigns } = useDatabaseStore();
   const [adsPerformance, setAdsPerformance] = useState<any[]>([]);
   const [globalSummary, setGlobalSummary] = useState<any>({ totalSpend: 0, totalGmv: 0, totalImpressions: 0, roas: 0, cpm: 0 });
+  const [filteredSummary, setFilteredSummary] = useState<any>({ totalSpend: 0, totalGmv: 0, totalImpressions: 0, roas: 0, cpm: 0 });
   const [campaignBreakdown, setCampaignBreakdown] = useState<any>({ list: [], globalUnmappedCampaigns: 0 });
   const [budgetBalances, setBudgetBalances] = useState<Record<number, any>>({});
   
@@ -402,6 +403,7 @@ export default function AdsReportPage() {
         
         setAdsPerformance(result.data || []);
         setGlobalSummary(result.summary);
+        setFilteredSummary(result.filteredSummary);
         setCampaignBreakdown(result.campaignBreakdown);
         setBudgetBalances(result.budgetBalances || {});
       } catch (err) {
@@ -957,8 +959,26 @@ export default function AdsReportPage() {
         )}
 
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mt-6 mb-2">
-          <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
-            <Calendar className="w-4 h-4 text-indigo-600" /> Filter Laporan:
+          <div className="flex flex-col md:flex-row items-start md:items-center gap-4 md:gap-6">
+            <div className="flex items-center gap-2 text-sm font-bold text-slate-700 whitespace-nowrap">
+              <Calendar className="w-4 h-4 text-indigo-600" /> Filter Laporan:
+            </div>
+            
+            {/* Filtered Summary Matrix */}
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs bg-white px-4 py-2 rounded-lg border border-slate-200 shadow-sm">
+              <div className="flex flex-col">
+                <span className="text-slate-500 text-[10px] uppercase font-bold tracking-wider">Spend Filtered</span>
+                <span className="font-bold text-slate-800">${(filteredSummary?.totalSpendUsd || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+              </div>
+              <div className="flex flex-col border-l border-slate-100 pl-4">
+                <span className="text-slate-500 text-[10px] uppercase font-bold tracking-wider">GMV Filtered</span>
+                <span className="font-bold text-emerald-600">Rp {(filteredSummary?.totalGmv || 0).toLocaleString('id-ID')}</span>
+              </div>
+              <div className="flex flex-col border-l border-slate-100 pl-4">
+                <span className="text-slate-500 text-[10px] uppercase font-bold tracking-wider">ROAS Filtered</span>
+                <span className="font-bold text-indigo-600">{(filteredSummary?.roas || 0).toFixed(2)}x</span>
+              </div>
+            </div>
           </div>
           <div className="flex flex-col md:flex-row items-start md:items-center gap-3">
             <div className="flex items-center gap-2">

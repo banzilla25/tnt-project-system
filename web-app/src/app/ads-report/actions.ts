@@ -13,56 +13,74 @@ export async function getAdsReportData(params: {
 }) {
   const supabase = await createClient();
   
-  // 1. Fetch data directly from `ads_performance`
+  // 1. Fetch ALL data directly from `ads_performance` (ignore date filter for DB query to get all-time stats)
   let query = supabase
     .from('ads_performance')
-    .select('*, creators(username)');
+    .select('*, creators(username)')
+    .limit(100000);
     
-  if (params.startDate) {
-    query = query.gte('tanggal', params.startDate);
-  }
-  if (params.endDate) {
-    query = query.lte('tanggal', params.endDate);
-  }
   if (params.campaignAdsName) {
     query = query.eq('campaign_ads_name', params.campaignAdsName);
   }
-  
-  // Note: search query is handled in JS below because filtering by relations/OR across multiple columns 
-  // can sometimes be tricky in PostgREST without specific text search configs.
-  // Since we're only fetching a filtered date range, the row count is small enough for JS.
 
-  const { data: rawFilteredData, error } = await query;
+  const { data: rawAllData, error } = await query;
   if (error) throw error;
   
-  if (!rawFilteredData || rawFilteredData.length === 0) {
-    return { summary: { totalSpend: 0, totalGmv: 0, totalImpressions: 0, roas: 0, cpm: 0 }, data: [], campaignBreakdown: { list: [], globalUnmappedCampaigns: 0 }, budgetBalances: {} };
+  if (!rawAllData || rawAllData.length === 0) {
+    return { 
+      summary: { totalSpend: 0, totalGmv: 0, totalImpressions: 0, roas: 0, cpm: 0 }, 
+      filteredSummary: { totalSpend: 0, totalGmv: 0, totalImpressions: 0, roas: 0, cpm: 0 }, 
+      data: [], 
+      campaignBreakdown: { list: [], globalUnmappedCampaigns: 0 }, 
+      budgetBalances: {} 
+    };
+  }
+
+  // Filter raw data by date in memory
+  let rawFilteredData = rawAllData;
+  if (params.startDate) {
+    rawFilteredData = rawFilteredData.filter(r => r.tanggal >= params.startDate!);
+  }
+  if (params.endDate) {
+    rawFilteredData = rawFilteredData.filter(r => r.tanggal <= params.endDate!);
   }
 
   // 2. Aggregate to find the latest record for each ad_id for summary calculations
-  const latestMap = new Map();
-  for (const row of rawFilteredData) {
-    const existing = latestMap.get(row.ad_id);
+  const allTimeLatestMap = new Map();
+  for (const row of rawAllData) {
+    const existing = allTimeLatestMap.get(row.ad_id);
     if (!existing || new Date(row.tanggal) > new Date(existing.tanggal)) {
-      latestMap.set(row.ad_id, row);
+      allTimeLatestMap.set(row.ad_id, row);
     }
   }
-  let latestData = Array.from(latestMap.values());
+  let allTimeLatestData = Array.from(allTimeLatestMap.values());
 
-  // We want ALL records for the table's grouped accordion view
+  const filteredLatestMap = new Map();
+  for (const row of rawFilteredData) {
+    const existing = filteredLatestMap.get(row.ad_id);
+    if (!existing || new Date(row.tanggal) > new Date(existing.tanggal)) {
+      filteredLatestMap.set(row.ad_id, row);
+    }
+  }
+  let filteredLatestData = Array.from(filteredLatestMap.values());
+
+  // We want the date-filtered records for the table
   let tableData = rawFilteredData;
 
   // 3. Apply Search Query Filter in memory
-  let breakdownData = latestData;
   if (params.searchQuery) {
     const q = params.searchQuery.toLowerCase();
-    breakdownData = breakdownData.filter(r => 
+    allTimeLatestData = allTimeLatestData.filter(r => 
+      (r.ad_name && r.ad_name.toLowerCase().includes(q)) || 
+      (r.ad_id && r.ad_id.toLowerCase().includes(q))
+    );
+    filteredLatestData = filteredLatestData.filter(r => 
       (r.ad_name && r.ad_name.toLowerCase().includes(q)) || 
       (r.ad_id && r.ad_id.toLowerCase().includes(q))
     );
   }
 
-  // Fetch campaigns to map names (Move this up so we can use it for breakdown)
+  // Fetch campaigns to map names
   const { data: campaignsData } = await supabase.from('campaigns').select('id, nama');
   const campaignNames: Record<number, string> = {};
   if (campaignsData) {
@@ -71,10 +89,10 @@ export async function getAdsReportData(params: {
     });
   }
 
-  // 4. Calculate Campaign Breakdown (using ALL campaigns matching date/search)
+  // 4. Calculate Campaign Breakdown (using ALL-TIME campaigns matching search)
   const campaignBreakdown: Record<number, any> = {};
   let globalUnmappedCampaigns = 0;
-  for (const ad of breakdownData) {
+  for (const ad of allTimeLatestData) {
     let kurs = ad.kurs || 16000;
     if (kurs < 1000) kurs = kurs * 1000;
     const cId = ad.campaign_id;
@@ -102,29 +120,35 @@ export async function getAdsReportData(params: {
   // 5. Apply Campaign ID filter for Table and Summary
   if (params.campaignId !== null && params.campaignId !== undefined) {
     tableData = tableData.filter(r => r.campaign_id === params.campaignId);
-    breakdownData = breakdownData.filter(r => r.campaign_id === params.campaignId);
+    allTimeLatestData = allTimeLatestData.filter(r => r.campaign_id === params.campaignId);
+    filteredLatestData = filteredLatestData.filter(r => r.campaign_id === params.campaignId);
   }
 
-  // 6. Calculate Global Summary (using filtered breakdownData which only contains latest records)
-  let sumSpend = 0; let sumGmv = 0; let sumImpr = 0; let sumSpendUsd = 0;
-  for (const ad of breakdownData) {
-    let kurs = ad.kurs || 16000;
-    if (kurs < 1000) kurs = kurs * 1000;
-    sumSpend += (ad.cost_usd || 0) * kurs;
-    sumSpendUsd += (ad.cost_usd || 0);
-    sumGmv += (ad.gross_revenue_usd || 0) * kurs;
-    sumImpr += (ad.impressions || 0);
-  }
-  const summary = {
-    totalSpend: sumSpend,
-    totalSpendUsd: sumSpendUsd,
-    totalGmv: sumGmv,
-    totalImpressions: sumImpr,
-    roas: sumSpend > 0 ? sumGmv / sumSpend : 0,
-    cpm: sumImpr > 0 ? sumSpend / (sumImpr / 1000) : 0,
+  // 6. Calculate Summaries
+  const calcSummary = (dataArr: any[]) => {
+    let sumSpend = 0; let sumGmv = 0; let sumImpr = 0; let sumSpendUsd = 0;
+    for (const ad of dataArr) {
+      let kurs = ad.kurs || 16000;
+      if (kurs < 1000) kurs = kurs * 1000;
+      sumSpend += (ad.cost_usd || 0) * kurs;
+      sumSpendUsd += (ad.cost_usd || 0);
+      sumGmv += (ad.gross_revenue_usd || 0) * kurs;
+      sumImpr += (ad.impressions || 0);
+    }
+    return {
+      totalSpend: sumSpend,
+      totalSpendUsd: sumSpendUsd,
+      totalGmv: sumGmv,
+      totalImpressions: sumImpr,
+      roas: sumSpend > 0 ? sumGmv / sumSpend : 0,
+      cpm: sumImpr > 0 ? sumSpend / (sumImpr / 1000) : 0,
+    };
   };
 
-  // 6. Sort
+  const summary = calcSummary(allTimeLatestData);
+  const filteredSummary = calcSummary(filteredLatestData);
+
+  // 7. Sort Table Data
   tableData.sort((a, b) => {
     let valA = a[params.sortKey];
     let valB = b[params.sortKey];
@@ -157,6 +181,7 @@ export async function getAdsReportData(params: {
 
   return {
     summary,
+    filteredSummary,
     campaignBreakdown: { list, globalUnmappedCampaigns },
     budgetBalances,
     data: tableData
