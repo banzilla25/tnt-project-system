@@ -311,6 +311,7 @@ function CampaignListingContent() {
   const [filterNiche, setFilterNiche] = useState<string>('');
   const [filterAddedBy, setFilterAddedBy] = useState<string>('');
   const [filterActionBy, setFilterActionBy] = useState<string>('');
+  const [filterNotes, setFilterNotes] = useState<string>('');
   const [filterUnattributed, setFilterUnattributed] = useState(false);
   const [staffProfiles, setStaffProfiles] = useState<{id: string, nama: string}[]>([]);
 
@@ -766,6 +767,10 @@ function CampaignListingContent() {
           query = query.or('content_type.eq."Video & Live",and(content_type.in.("-",""),qty_vt.gte.1,qty_live.gte.1),and(content_type.is.null,qty_vt.gte.1,qty_live.gte.1)');
         }
       }
+      
+      if (filterNotes === 'Ada Notes') {
+        query = query.or('notes_manager.not.is.null,notes_pic.not.is.null');
+      }
 
       if (debouncedSearch) {
         query = query.or(`username.ilike.%${debouncedSearch}%,nama_asli.ilike.%${debouncedSearch}%`, { foreignTable: 'creators' });
@@ -776,7 +781,11 @@ function CampaignListingContent() {
       const to = from + PAGE_SIZE - 1;
       
       // Always sort backend by ID desc to get newest first, then sort accurately on frontend
-      query = query.order('id', { ascending: false }).range(from, to);
+      if (filterNotes === 'Ada Notes') {
+        query = query.order('id', { ascending: false }); // Fetch all matching notes to sort properly on frontend
+      } else {
+        query = query.order('id', { ascending: false }).range(from, to);
+      }
 
       const { data, error } = await query;
       if (currentFetchId !== fetchIdRef.current) return; // Ignore stale fetch result
@@ -845,13 +854,46 @@ function CampaignListingContent() {
       }
       finalData = Array.from(uniqueMap.values());
 
+      if (filterNotes === 'Ada Notes') {
+        const parseNotesList = (raw: string) => {
+          if (!raw) return [];
+          try {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) return parsed.filter((n: any) => n.isi && n.isi.trim() !== '');
+            return [];
+          } catch { return []; }
+        };
+
+        finalData = finalData.filter(cc => {
+          const mn = parseNotesList(cc.notes_manager);
+          const pn = parseNotesList(cc.notes_pic);
+          return mn.length > 0 || pn.length > 0;
+        });
+
+        finalData.sort((a, b) => {
+          const getLatest = (cc: any) => {
+            const mn = parseNotesList(cc.notes_manager);
+            const pn = parseNotesList(cc.notes_pic);
+            const all = [...mn, ...pn];
+            if (all.length === 0) return 0;
+            all.sort((x, y) => new Date(y.created_at).getTime() - new Date(x.created_at).getTime());
+            return new Date(all[0].created_at).getTime();
+          };
+          return getLatest(b) - getLatest(a);
+        });
+
+        const sliced = finalData.slice(from, to + 1);
+        setHasMore(finalData.length > (pageNum + 1) * PAGE_SIZE);
+        finalData = sliced;
+      } else {
+        setHasMore((data || []).length === PAGE_SIZE);
+      }
+
       if (isReset) {
         setListingData(finalData);
       } else {
         setListingData(prev => [...prev, ...finalData]);
       }
-
-      setHasMore((data || []).length === PAGE_SIZE);
     } catch (e) {
       if (currentFetchId === fetchIdRef.current) {
          console.error(e);
@@ -861,16 +903,16 @@ function CampaignListingContent() {
          setIsLoading(false);
       }
     }
-  }, [campaignId, filterType, statusFilter, debouncedSearch, sortConfig, filterTier, filterLevel, filterNiche, filterAddedBy, filterActionBy, filterPendingWithVideo, filterUnattributed, filterContentType]);
+  }, [campaignId, filterType, statusFilter, debouncedSearch, sortConfig, filterTier, filterLevel, filterNiche, filterAddedBy, filterActionBy, filterPendingWithVideo, filterUnattributed, filterContentType, filterNotes]);
 
   useEffect(() => {
     fetchListing(page);
-  }, [page, campaignId, filterType, statusFilter, debouncedSearch, sortConfig, filterTier, filterLevel, filterNiche, filterAddedBy, filterActionBy, filterPendingWithVideo, filterUnattributed, filterContentType]);
+  }, [page, campaignId, filterType, statusFilter, debouncedSearch, sortConfig, filterTier, filterLevel, filterNiche, filterAddedBy, filterActionBy, filterPendingWithVideo, filterUnattributed, filterContentType, filterNotes]);
 
   useEffect(() => {
     setPage(0);
     fetchListing(0, true);
-  }, [debouncedSearch, filterType, statusFilter, sortConfig, fetchListing, filterTier, filterLevel, filterNiche, filterAddedBy, filterActionBy, filterPendingWithVideo, filterUnattributed, filterContentType]);
+  }, [debouncedSearch, filterType, statusFilter, sortConfig, fetchListing, filterTier, filterLevel, filterNiche, filterAddedBy, filterActionBy, filterPendingWithVideo, filterUnattributed, filterContentType, filterNotes]);
 
   const handleLoadMore = () => {
     const next = page + 1;
@@ -1465,6 +1507,10 @@ function CampaignListingContent() {
               <option key={p.id} value={p.id}>{p.nama}</option>
             ))}
           </select>
+          <select value={filterNotes} onChange={(e) => setFilterNotes(e.target.value)} className="select !mb-0 min-w-[120px] md:w-auto flex-1 text-sm py-1.5 border-orange-300 bg-orange-50 text-orange-800">
+            <option value="">Semua Notes</option>
+            <option value="Ada Notes">Hanya Ada Notes</option>
+          </select>
           <label className="flex items-center gap-2 text-sm text-slate-700 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors">
             <input 
               type="checkbox" 
@@ -1502,6 +1548,7 @@ function CampaignListingContent() {
                 setFilterAddedBy('');
                 setFilterActionBy('');
                 setFilterContentType('');
+                setFilterNotes('');
                 setFilterPendingWithVideo(false);
                 setFilterUnattributed(false);
               }} 
