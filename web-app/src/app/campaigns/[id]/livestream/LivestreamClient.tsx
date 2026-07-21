@@ -56,7 +56,7 @@ export default function CampaignLiveStreamClient({
   
   actualLives.forEach(l => {
     const u = l.creator_username;
-    if (u) {
+    if (u && isCreatorVisible(u)) {
       creatorGmvMap.set(u,   (creatorGmvMap.get(u)   || 0) + (Number(l.gmv)          || 0));
       creatorLivesMap.set(u, (creatorLivesMap.get(u) || 0) + 1);
       creatorViewsMap.set(u, (creatorViewsMap.get(u) || 0) + (Number(l.video_views)  || 0));
@@ -87,7 +87,7 @@ export default function CampaignLiveStreamClient({
     }));
 
   const top5SessionsByGmv = [...actualLives]
-    .filter(l => (l.gmv || 0) > 0)
+    .filter(l => (l.gmv || 0) > 0 && isCreatorVisible(l.creator_username))
     .sort((a, b) => (b.gmv || 0) - (a.gmv || 0))
     .slice(0, 5);
 
