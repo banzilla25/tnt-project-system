@@ -100,23 +100,25 @@ export default function CampaignLiveStreamClient({
     let data = creators.filter(cc => isCreatorVisible(cc.creators.username)).map(cc => {
       const creatorUsername = cc.creators.username;
       
-      const cSales = salesData.filter(s => s.creator_username === creatorUsername);
-      const uniqueUids = Array.from(new Set(cSales.map(s => s.content_uid).filter(Boolean)));
+      // Use actualLives from the RPC as the single source of truth for sessions, views, likes, and GMV
+      const cLives = actualLives.filter(l => l.creator_username === creatorUsername);
       
-      const cMetrics = liveMetrics.filter(m => uniqueUids.includes(m.content_uid));
+      // Keep using salesData for totalOrders (quantity) since the RPC might not return it
+      const cSales = salesData.filter(s => s.creator_username === creatorUsername);
 
-      let totalGmv = 0;
       let totalOrders = 0;
       cSales.forEach(s => {
-        totalGmv += (s.gmv || 0);
         totalOrders += (s.quantity || 0);
       });
 
+      let totalGmv = 0;
       let totalViews = 0;
       let totalLikes = 0;
-      cMetrics.forEach(m => {
-        totalViews += (m.video_views || m.views || 0);
-        totalLikes += (m.video_likes || m.likes || 0);
+      
+      cLives.forEach(l => {
+        totalGmv += (Number(l.gmv) || 0);
+        totalViews += (Number(l.video_views) || 0);
+        totalLikes += (Number(l.video_likes) || 0);
       });
 
       return {
@@ -125,7 +127,7 @@ export default function CampaignLiveStreamClient({
         totalOrders,
         totalViews,
         totalLikes,
-        liveCount: uniqueUids.length
+        liveCount: cLives.length
       };
     });
 
