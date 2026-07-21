@@ -1154,10 +1154,43 @@ export default function AdsReportPage() {
                         deletingId={deletingId}
                         deleteAd={deleteAd}
                       />
-                      {isExpanded && group.rows.map((childAd) => (
+                      {isExpanded && group.rows.map((childAd, index) => {
+                        const prevAd = index > 0 ? group.rows[index - 1] : null;
+                        
+                        const cost_usd_diff = prevAd ? (childAd.cost_usd - prevAd.cost_usd) : childAd.cost_usd;
+                        const impressions_diff = prevAd ? (childAd.impressions - prevAd.impressions) : childAd.impressions;
+                        const clicks_diff = prevAd ? (childAd.clicks - prevAd.clicks) : childAd.clicks;
+                        const product_page_views_diff = prevAd ? (childAd.product_page_views - prevAd.product_page_views) : childAd.product_page_views;
+                        const checkouts_initiated_diff = prevAd ? (childAd.checkouts_initiated - prevAd.checkouts_initiated) : childAd.checkouts_initiated;
+                        const purchases_diff = prevAd ? (childAd.purchases - prevAd.purchases) : childAd.purchases;
+                        const items_purchased_diff = prevAd ? (childAd.items_purchased - prevAd.items_purchased) : childAd.items_purchased;
+                        const gross_revenue_usd_diff = prevAd ? (childAd.gross_revenue_usd - prevAd.gross_revenue_usd) : childAd.gross_revenue_usd;
+
+                        const modifiedChildAd = {
+                          ...childAd,
+                          cost_usd: cost_usd_diff,
+                          impressions: impressions_diff,
+                          clicks: clicks_diff,
+                          product_page_views: product_page_views_diff,
+                          checkouts_initiated: checkouts_initiated_diff,
+                          purchases: purchases_diff,
+                          items_purchased: items_purchased_diff,
+                          gross_revenue_usd: gross_revenue_usd_diff,
+                          
+                          lifetime_cost_usd: childAd.cost_usd,
+                          lifetime_impressions: childAd.impressions,
+                          lifetime_clicks: childAd.clicks,
+                          lifetime_product_page_views: childAd.product_page_views,
+                          lifetime_checkouts_initiated: childAd.checkouts_initiated,
+                          lifetime_purchases: childAd.purchases,
+                          lifetime_items_purchased: childAd.items_purchased,
+                          lifetime_gross_revenue_usd: childAd.gross_revenue_usd,
+                        };
+
+                        return (
                         <MemoizedTableRow 
                           key={childAd.id}
-                          ad={childAd} 
+                          ad={modifiedChildAd} 
                           isChild={true} 
                           isParent={false} 
                           parentKey="" 
@@ -1174,7 +1207,8 @@ export default function AdsReportPage() {
                           deletingId={deletingId}
                           deleteAd={deleteAd}
                         />
-                      ))}
+                        );
+                      })}
                     </React.Fragment>
                   );
                 })}
