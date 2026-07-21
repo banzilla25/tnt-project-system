@@ -34,7 +34,7 @@ export async function getDailyData(campaignId: number) {
   while (hasMore) {
     const { data: salesData, error } = await supabase
       .from('sales')
-      .select('tanggal, gmv, creator_username, content_uid')
+      .select('tanggal, gmv, creator_username, content_uid, content_type, quantity')
       .eq('campaign_id', campaignId)
       .eq('is_refund', false)
       .range(from, to);
@@ -64,7 +64,7 @@ export async function getDailyData(campaignId: number) {
   while (hasMore_v) {
     const { data: ccData, error } = await supabase
       .from('campaign_creators')
-      .select('id, approved_at, creators(username), videos(id, created_at, link_video)')
+      .select('id, approved_at, creators(username), videos(id, created_at, link_video, content_type)')
       .eq('campaign_id', campaignId)
       .range(from_v, to_v);
 
@@ -114,8 +114,8 @@ export async function getDailyData(campaignId: number) {
   }
 
   // Group by Date and Month
-  const grouped: Record<string, { gmv: number; gmvAds: number; creators: Set<string>; videos: Set<string> }> = {};
-  const monthlyGrouped: Record<string, { gmv: number; gmvAds: number; creators: Set<string>; videos: Set<string> }> = {};
+  const grouped: Record<string, { gmv: number; gmvAds: number; creators: Set<string>; videos: Set<string>; gmvLive: number; gmvVT: number; ordersLive: number; ordersVT: number; liveSessions: Set<string> }> = {};
+  const monthlyGrouped: Record<string, { gmv: number; gmvAds: number; creators: Set<string>; videos: Set<string>; gmvLive: number; gmvVT: number; ordersLive: number; ordersVT: number; liveSessions: Set<string> }> = {};
 
   const campaignStartStr = campaign.start_date || '';
   const campaignEndStr = campaign.status === 'selesai' ? campaign.end_date || '' : '';
@@ -129,17 +129,38 @@ export async function getDailyData(campaignId: number) {
       if (campaignStartStr && dateStr < campaignStartStr) return;
       if (campaignEndStr && dateStr > campaignEndStr) return;
 
-      if (!grouped[dateStr]) grouped[dateStr] = { gmv: 0, gmvAds: 0, creators: new Set(), videos: new Set() };
+      if (!grouped[dateStr]) grouped[dateStr] = { gmv: 0, gmvAds: 0, creators: new Set(), videos: new Set(), gmvLive: 0, gmvVT: 0, ordersLive: 0, ordersVT: 0, liveSessions: new Set() };
+      
+      const isLive = sale.content_type === 'Livestream' || sale.content_type === 'Live';
+      const isVT = sale.content_type === 'Video' || sale.content_type === 'ShortVideo';
+
+      if (isLive) {
+        grouped[dateStr].gmvLive += (sale.gmv || 0);
+        grouped[dateStr].ordersLive += (sale.quantity || 0);
+      } else if (isVT) {
+        grouped[dateStr].gmvVT += (sale.gmv || 0);
+        grouped[dateStr].ordersVT += (sale.quantity || 0);
+      }
+
       grouped[dateStr].gmv += (sale.gmv || 0);
       if (sale.creator_username) grouped[dateStr].creators.add(sale.creator_username);
-      if (sale.content_uid) grouped[dateStr].videos.add(sale.content_uid);
+      if (sale.content_uid && !isLive) grouped[dateStr].videos.add(sale.content_uid);
 
       // Extract YYYY-MM
       const monthStr = sale.tanggal.substring(0, 7);
-      if (!monthlyGrouped[monthStr]) monthlyGrouped[monthStr] = { gmv: 0, gmvAds: 0, creators: new Set(), videos: new Set() };
+      if (!monthlyGrouped[monthStr]) monthlyGrouped[monthStr] = { gmv: 0, gmvAds: 0, creators: new Set(), videos: new Set(), gmvLive: 0, gmvVT: 0, ordersLive: 0, ordersVT: 0, liveSessions: new Set() };
+      
+      if (isLive) {
+        monthlyGrouped[monthStr].gmvLive += (sale.gmv || 0);
+        monthlyGrouped[monthStr].ordersLive += (sale.quantity || 0);
+      } else if (isVT) {
+        monthlyGrouped[monthStr].gmvVT += (sale.gmv || 0);
+        monthlyGrouped[monthStr].ordersVT += (sale.quantity || 0);
+      }
+
       monthlyGrouped[monthStr].gmv += (sale.gmv || 0);
       if (sale.creator_username) monthlyGrouped[monthStr].creators.add(sale.creator_username);
-      if (sale.content_uid) monthlyGrouped[monthStr].videos.add(sale.content_uid);
+      if (sale.content_uid && !isLive) monthlyGrouped[monthStr].videos.add(sale.content_uid);
     });
   }
 
@@ -156,11 +177,11 @@ export async function getDailyData(campaignId: number) {
         if (campaignEndStr && approvedDateStr > campaignEndStr) countCreator = false;
         
         if (countCreator) {
-          if (!grouped[approvedDateStr]) grouped[approvedDateStr] = { gmv: 0, gmvAds: 0, creators: new Set(), videos: new Set() };
+          if (!grouped[approvedDateStr]) grouped[approvedDateStr] = { gmv: 0, gmvAds: 0, creators: new Set(), videos: new Set(), gmvLive: 0, gmvVT: 0, ordersLive: 0, ordersVT: 0, liveSessions: new Set() };
           grouped[approvedDateStr].creators.add(username);
 
           const monthStr = cc.approved_at.substring(0, 7);
-          if (!monthlyGrouped[monthStr]) monthlyGrouped[monthStr] = { gmv: 0, gmvAds: 0, creators: new Set(), videos: new Set() };
+          if (!monthlyGrouped[monthStr]) monthlyGrouped[monthStr] = { gmv: 0, gmvAds: 0, creators: new Set(), videos: new Set(), gmvLive: 0, gmvVT: 0, ordersLive: 0, ordersVT: 0, liveSessions: new Set() };
           monthlyGrouped[monthStr].creators.add(username);
         }
       }
@@ -176,12 +197,22 @@ export async function getDailyData(campaignId: number) {
         if (campaignStartStr && dateStr < campaignStartStr) return;
         if (campaignEndStr && dateStr > campaignEndStr) return;
         
-        if (!grouped[dateStr]) grouped[dateStr] = { gmv: 0, gmvAds: 0, creators: new Set(), videos: new Set() };
-        grouped[dateStr].videos.add(v.id.toString());
+        if (!grouped[dateStr]) grouped[dateStr] = { gmv: 0, gmvAds: 0, creators: new Set(), videos: new Set(), gmvLive: 0, gmvVT: 0, ordersLive: 0, ordersVT: 0, liveSessions: new Set() };
+        
+        const isLive = v.content_type === 'LIVE' || v.content_type === 'Livestream';
+        if (isLive) {
+          grouped[dateStr].liveSessions.add(v.id.toString());
+        } else {
+          grouped[dateStr].videos.add(v.id.toString());
+        }
 
         const monthStr = v.created_at.substring(0, 7);
-        if (!monthlyGrouped[monthStr]) monthlyGrouped[monthStr] = { gmv: 0, gmvAds: 0, creators: new Set(), videos: new Set() };
-        monthlyGrouped[monthStr].videos.add(v.id.toString());
+        if (!monthlyGrouped[monthStr]) monthlyGrouped[monthStr] = { gmv: 0, gmvAds: 0, creators: new Set(), videos: new Set(), gmvLive: 0, gmvVT: 0, ordersLive: 0, ordersVT: 0, liveSessions: new Set() };
+        if (isLive) {
+          monthlyGrouped[monthStr].liveSessions.add(v.id.toString());
+        } else {
+          monthlyGrouped[monthStr].videos.add(v.id.toString());
+        }
       });
     });
   }
@@ -204,11 +235,11 @@ export async function getDailyData(campaignId: number) {
         const kurs = (ad.kurs && ad.kurs < 1000) ? ad.kurs * 1000 : (ad.kurs || 16000);
         const deltaIdr = deltaUsd * kurs;
         
-        if (!grouped[dateStr]) grouped[dateStr] = { gmv: 0, gmvAds: 0, creators: new Set(), videos: new Set() };
+        if (!grouped[dateStr]) grouped[dateStr] = { gmv: 0, gmvAds: 0, creators: new Set(), videos: new Set(), gmvLive: 0, gmvVT: 0, ordersLive: 0, ordersVT: 0, liveSessions: new Set() };
         grouped[dateStr].gmvAds += deltaIdr;
         
         const monthStr = dateStr.substring(0, 7);
-        if (!monthlyGrouped[monthStr]) monthlyGrouped[monthStr] = { gmv: 0, gmvAds: 0, creators: new Set(), videos: new Set() };
+        if (!monthlyGrouped[monthStr]) monthlyGrouped[monthStr] = { gmv: 0, gmvAds: 0, creators: new Set(), videos: new Set(), gmvLive: 0, gmvVT: 0, ordersLive: 0, ordersVT: 0, liveSessions: new Set() };
         monthlyGrouped[monthStr].gmvAds += deltaIdr;
       }
       
@@ -219,17 +250,27 @@ export async function getDailyData(campaignId: number) {
   const formattedDaily = Object.keys(grouped).map(date => ({
     date,
     gmvOrganic: grouped[date].gmv,
+    gmvLive: grouped[date].gmvLive,
+    gmvVT: grouped[date].gmvVT,
+    ordersLive: grouped[date].ordersLive,
+    ordersVT: grouped[date].ordersVT,
     gmvAds: grouped[date].gmvAds,
     totalCreators: grouped[date].creators.size,
-    totalVideos: grouped[date].videos.size
+    totalVideos: grouped[date].videos.size,
+    totalLiveSessions: grouped[date].liveSessions.size
   })).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   const formattedMonthly = Object.keys(monthlyGrouped).map(month => ({
     month,
     gmvOrganic: monthlyGrouped[month].gmv,
+    gmvLive: monthlyGrouped[month].gmvLive,
+    gmvVT: monthlyGrouped[month].gmvVT,
+    ordersLive: monthlyGrouped[month].ordersLive,
+    ordersVT: monthlyGrouped[month].ordersVT,
     gmvAds: monthlyGrouped[month].gmvAds,
     totalCreators: monthlyGrouped[month].creators.size,
-    totalVideos: monthlyGrouped[month].videos.size
+    totalVideos: monthlyGrouped[month].videos.size,
+    totalLiveSessions: monthlyGrouped[month].liveSessions.size
   })).sort((a, b) => new Date(b.month + '-01').getTime() - new Date(a.month + '-01').getTime());
 
   return {

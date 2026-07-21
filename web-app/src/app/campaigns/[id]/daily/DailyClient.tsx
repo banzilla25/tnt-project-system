@@ -59,6 +59,9 @@ export default function CampaignDailyPerformanceClient({
                       <h3 className="text-[18px] font-bold text-indigo-900">{m.totalVideos} <span className="text-[11px] font-normal text-indigo-700">VT</span></h3>
                     </div>
                     <div>
+                      <h3 className="text-[18px] font-bold text-rose-700">{m.totalLiveSessions || 0} <span className="text-[11px] font-normal text-rose-600">Live</span></h3>
+                    </div>
+                    <div>
                       <h3 className="text-[18px] font-bold text-indigo-900">{m.totalCreators} <span className="text-[11px] font-normal text-indigo-700">Kreator</span></h3>
                     </div>
                   </div>
@@ -109,9 +112,10 @@ export default function CampaignDailyPerformanceClient({
           <table className="w-full">
             <thead className="border-b border-line">
               <tr>
-                <th className="py-[16px]">Tanggal</th>
-                <th className="py-[16px] text-center">Video Baru</th>
+                <th className="py-[16px] whitespace-nowrap">Tanggal</th>
+                <th className="py-[16px] text-center">Video / Sesi Live</th>
                 <th className="py-[16px] text-center">Kreator Aktif</th>
+                <th className="py-[16px] text-center">Orders (VT/Live)</th>
                 <th className="py-[16px] text-right">GMV Organik</th>
                 <th className="py-[16px] text-right pr-6">GMV Ads</th>
               </tr>
@@ -132,20 +136,33 @@ export default function CampaignDailyPerformanceClient({
               ) : (
                 paginatedDaily.map((d, idx) => (
                   <tr key={idx} className="border-b border-line hover:bg-slate-50/50">
-                    <td className="font-medium text-text">
-                      {new Date(d.date).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                    <td className="font-medium text-text whitespace-nowrap align-top pt-[20px]">
+                      {new Date(d.date).toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
                     </td>
                     
-                    <td className="text-center font-bold text-indigo-700 bg-indigo-50/30">
-                      {d.totalVideos} VT
+                    <td className="text-center align-top pt-[16px]">
+                      <div className="flex flex-col items-center gap-1.5">
+                         <span className="font-bold text-indigo-700 bg-indigo-50/80 px-2 py-0.5 rounded text-[12px] min-w-[70px] inline-block">{d.totalVideos} VT</span>
+                         <span className="font-bold text-rose-700 bg-rose-50/80 px-2 py-0.5 rounded text-[12px] min-w-[70px] inline-block">{d.totalLiveSessions || 0} Live</span>
+                      </div>
                     </td>
-                    <td className="text-center text-text-soft font-medium">
-                      {d.totalCreators} Kreator
+                    <td className="text-center text-text-soft font-medium align-top pt-[20px]">
+                      {d.totalCreators}
                     </td>
-                    <td className="text-right font-bold text-emerald-600">
-                      Rp {(d.gmvOrganic || 0).toLocaleString()}
+                    <td className="text-center align-top pt-[16px]">
+                      <div className="flex flex-col items-center gap-1 text-[12px] font-medium text-slate-600">
+                         <span className="px-2 py-0.5">{d.ordersVT || 0} VT</span>
+                         <span className="px-2 py-0.5">{d.ordersLive || 0} Live</span>
+                      </div>
                     </td>
-                    <td className="text-right font-bold text-blue-600 pr-6">
+                    <td className="text-right align-top pt-[16px]">
+                      <div className="flex flex-col items-end gap-1 text-[13px]">
+                         <span className="font-bold text-emerald-600">VT: Rp {(d.gmvVT || 0).toLocaleString()}</span>
+                         <span className="font-bold text-rose-600">Live: Rp {(d.gmvLive || 0).toLocaleString()}</span>
+                         <span className="text-[11px] text-slate-400 mt-1 border-t border-slate-100 pt-1">Total: Rp {(d.gmvOrganic || 0).toLocaleString()}</span>
+                      </div>
+                    </td>
+                    <td className="text-right font-bold text-blue-600 pr-6 align-top pt-[20px]">
                       Rp {(d.gmvAds || 0).toLocaleString()}
                     </td>
                   </tr>
