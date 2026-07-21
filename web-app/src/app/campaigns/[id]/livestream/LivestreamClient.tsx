@@ -96,8 +96,8 @@ export default function CampaignLiveStreamClient({
     return medals[rank] ?? `#${rank}`;
   };
 
-  const aggregatedData = useMemo(() => {
-    let data = creators.filter(cc => isCreatorVisible(cc.creators.username)).map(cc => {
+  const aggregatedData = React.useMemo(() => {
+    let data = creators.map(cc => {
       const creatorUsername = cc.creators.username;
       
       // Use actualLives from the RPC as the single source of truth for sessions, views, likes, and GMV

@@ -219,7 +219,6 @@ export default function LiveSchedulePage() {
   // ─── Filter / Sort localCreators ───────────────────────────────────────────
   const approvedCCs = localCreators
     .filter(cc => {
-      if (!isCreatorVisible(cc.creators?.username)) return false;
       if (searchQuery) {
         if (!cc.creators?.username.toLowerCase().includes(searchQuery.toLowerCase())) return false;
       }
