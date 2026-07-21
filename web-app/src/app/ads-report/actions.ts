@@ -18,7 +18,9 @@ export async function getAdsReportData(params: {
     .from('ads_performance')
     .select('*, creators(username)');
     
-  // We ignore startDate because the user explicitly wants the LATEST cumulative lifetime record up to the endDate.
+  if (params.startDate) {
+    query = query.gte('tanggal', params.startDate);
+  }
   if (params.endDate) {
     query = query.lte('tanggal', params.endDate);
   }
@@ -37,15 +39,8 @@ export async function getAdsReportData(params: {
     return { summary: { totalSpend: 0, totalGmv: 0, totalImpressions: 0, roas: 0, cpm: 0 }, data: [], campaignBreakdown: { list: [], globalUnmappedCampaigns: 0 }, budgetBalances: {} };
   }
 
-  // 2. Aggregate to find the latest record for each ad_id
-  const latestMap = new Map();
-  for (const row of rawFilteredData) {
-    const existing = latestMap.get(row.ad_id);
-    if (!existing || new Date(row.tanggal) > new Date(existing.tanggal)) {
-      latestMap.set(row.ad_id, row);
-    }
-  }
-  let latestData = Array.from(latestMap.values());
+  // We want ALL records for the table's grouped accordion view and for summing up daily increments
+  let latestData = rawFilteredData;
 
   // 3. Apply Search Query Filter in memory
   let breakdownData = latestData;
