@@ -39,8 +39,18 @@ export async function getAdsReportData(params: {
     return { summary: { totalSpend: 0, totalGmv: 0, totalImpressions: 0, roas: 0, cpm: 0 }, data: [], campaignBreakdown: { list: [], globalUnmappedCampaigns: 0 }, budgetBalances: {} };
   }
 
-  // We want ALL records for the table's grouped accordion view and for summing up daily increments
-  let latestData = rawFilteredData;
+  // 2. Aggregate to find the latest record for each ad_id for summary calculations
+  const latestMap = new Map();
+  for (const row of rawFilteredData) {
+    const existing = latestMap.get(row.ad_id);
+    if (!existing || new Date(row.tanggal) > new Date(existing.tanggal)) {
+      latestMap.set(row.ad_id, row);
+    }
+  }
+  let latestData = Array.from(latestMap.values());
+
+  // We want ALL records for the table's grouped accordion view
+  let tableData = rawFilteredData;
 
   // 3. Apply Search Query Filter in memory
   let breakdownData = latestData;
@@ -89,15 +99,15 @@ export async function getAdsReportData(params: {
   const list = Object.entries(campaignBreakdown).map(([id, data]: any) => ({ id: Number(id), ...data }));
   list.sort((a, b) => b.gmv - a.gmv);
 
-  // 4. Apply Campaign ID filter for Table and Summary
-  let tableData = breakdownData;
+  // 5. Apply Campaign ID filter for Table and Summary
   if (params.campaignId !== null && params.campaignId !== undefined) {
     tableData = tableData.filter(r => r.campaign_id === params.campaignId);
+    breakdownData = breakdownData.filter(r => r.campaign_id === params.campaignId);
   }
 
-  // 6. Calculate Global Summary (using filtered tableData)
+  // 6. Calculate Global Summary (using filtered breakdownData which only contains latest records)
   let sumSpend = 0; let sumGmv = 0; let sumImpr = 0; let sumSpendUsd = 0;
-  for (const ad of tableData) {
+  for (const ad of breakdownData) {
     let kurs = ad.kurs || 16000;
     if (kurs < 1000) kurs = kurs * 1000;
     sumSpend += (ad.cost_usd || 0) * kurs;

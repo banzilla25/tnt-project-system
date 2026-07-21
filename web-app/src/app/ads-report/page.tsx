@@ -632,15 +632,16 @@ export default function AdsReportPage() {
           rows: []
         };
       }
-      
-      groups[key].cost_usd += Number(ad.cost_usd || 0);
-      groups[key].impressions += Number(ad.impressions || 0);
-      groups[key].clicks += Number(ad.clicks || 0);
-      groups[key].product_page_views += Number(ad.product_page_views || 0);
-      groups[key].checkouts_initiated += Number(ad.checkouts_initiated || 0);
-      groups[key].purchases += Number(ad.purchases || 0);
-      groups[key].items_purchased += Number(ad.items_purchased || 0);
-      groups[key].gross_revenue_usd += Number(ad.gross_revenue_usd || 0);
+      // Data is lifetime cumulative, so we don't sum it up. 
+      // Since sortedAds is sorted chronologically, overwriting it will leave us with the latest date's value.
+      groups[key].cost_usd = Number(ad.cost_usd || 0);
+      groups[key].impressions = Number(ad.impressions || 0);
+      groups[key].clicks = Number(ad.clicks || 0);
+      groups[key].product_page_views = Number(ad.product_page_views || 0);
+      groups[key].checkouts_initiated = Number(ad.checkouts_initiated || 0);
+      groups[key].purchases = Number(ad.purchases || 0);
+      groups[key].items_purchased = Number(ad.items_purchased || 0);
+      groups[key].gross_revenue_usd = Number(ad.gross_revenue_usd || 0);
       
       // Update metadata to latest (chronological)
       groups[key].ad_id = ad.ad_id;
