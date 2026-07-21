@@ -65,16 +65,19 @@ export const CreatorRow = React.memo(({
     };
   }, []);
 
-  const latestNotes = React.useMemo(() => {
-    const allNotes = [
-      ...parseNotes(cc.notes_manager, 'Manager'),
-      ...parseNotes(cc.notes_pic, 'PIC')
-    ].filter(n => n.isi && n.isi.trim() !== '');
-    
-    return allNotes
-      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+  const managerNotes = React.useMemo(() => {
+    return parseNotes(cc.notes_manager, 'Manager')
+      .filter((n: any) => n.isi && n.isi.trim() !== '')
+      .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
       .slice(0, 3);
-  }, [cc.notes_manager, cc.notes_pic, parseNotes]);
+  }, [cc.notes_manager, parseNotes]);
+
+  const picNotes = React.useMemo(() => {
+    return parseNotes(cc.notes_pic, 'PIC')
+      .filter((n: any) => n.isi && n.isi.trim() !== '')
+      .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .slice(0, 3);
+  }, [cc.notes_pic, parseNotes]);
 
   return (
     <React.Fragment>
@@ -108,20 +111,9 @@ export const CreatorRow = React.memo(({
             <a href={creator.link_account || `https://www.tiktok.com/@${creator.username}`} target="_blank" rel="noopener noreferrer" className="inline-block hover:opacity-80 transition-opacity shrink-0">
               <img src="/logo-tiktok-landscape-button.svg" alt="TikTok" className="h-[20px]" />
             </a>
-            {latestNotes.length > 0 && (
-              <div className="overflow-hidden whitespace-nowrap max-w-[180px] border border-orange-200 bg-orange-50 rounded px-1.5 py-0.5" title="Klik row untuk detail notes">
-                <div className="animate-marquee inline-block text-[10px] text-orange-700 font-medium">
-                  {latestNotes.map((n, i) => (
-                    <span key={i} className="mr-4">
-                      <span className="font-bold">[{n.role} - {new Date(n.created_at).toLocaleDateString('id-ID', {day:'numeric', month:'numeric'})}]</span> {n.isi}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         </td>
-        <td className="text-right">
+        <td className="relative text-right">
           {activeEditingField === `followers` ? (
             <input 
               type="number" 
@@ -137,6 +129,33 @@ export const CreatorRow = React.memo(({
               className={`text-[13px] font-medium cursor-pointer hover:bg-blue-50 px-1 py-0.5 rounded ${hasPending && pendingChange?.followers !== undefined ? 'text-amber-700' : 'text-text'}`}
               onClick={() => hasAccess && setEditingCellId(`${cc.id}-followers`)}
             >{formatAbbreviated(getPendingValue(cc.id, 'followers', snapshot?.followers || 0) as number, false)}</span>
+          )}
+          
+          {(managerNotes.length > 0 || picNotes.length > 0) && (
+            <div className="absolute bottom-1 left-0 flex gap-3 w-[400px] text-left z-10 opacity-90 group-hover:opacity-100 transition-opacity">
+              {managerNotes.length > 0 && (
+                <div className="flex-1 overflow-hidden whitespace-nowrap border border-orange-200 bg-orange-50/90 rounded px-1.5 py-0.5" title="Klik row untuk detail notes Manager">
+                  <div className="animate-marquee inline-block text-[10px] text-orange-700 font-medium">
+                    {managerNotes.map((n: any, i: number) => (
+                      <span key={i} className="mr-4">
+                        <span className="font-bold">[Manager - {new Date(n.created_at).toLocaleDateString('id-ID', {day:'numeric', month:'numeric'})}]</span> {n.isi}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {picNotes.length > 0 && (
+                <div className="flex-1 overflow-hidden whitespace-nowrap border border-blue-200 bg-blue-50/90 rounded px-1.5 py-0.5" title="Klik row untuk detail notes PIC">
+                  <div className="animate-marquee inline-block text-[10px] text-blue-700 font-medium">
+                    {picNotes.map((n: any, i: number) => (
+                      <span key={i} className="mr-4">
+                        <span className="font-bold">[PIC - {new Date(n.created_at).toLocaleDateString('id-ID', {day:'numeric', month:'numeric'})}]</span> {n.isi}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           )}
         </td>
         <td className="text-right text-[13px] font-medium text-text">
