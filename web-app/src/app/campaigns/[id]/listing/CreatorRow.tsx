@@ -100,7 +100,7 @@ export const CreatorRow = React.memo(({
         <td className="text-center font-medium text-[13px] text-text-soft">
           {index + 1}
         </td>
-        <td>
+        <td className="relative">
           <div className="flex items-center gap-[8px]">
             <Link href={`/creator-pool/${creator.id}`} className="font-semibold text-p300 hover:underline block">
               @{creator.username}
@@ -112,27 +112,8 @@ export const CreatorRow = React.memo(({
               <img src="/logo-tiktok-landscape-button.svg" alt="TikTok" className="h-[20px]" />
             </a>
           </div>
-        </td>
-        <td className="relative text-right">
-          {activeEditingField === `followers` ? (
-            <input 
-              type="number" 
-              min="0"
-              autoFocus
-              defaultValue={getPendingValue(cc.id, 'followers', snapshot?.followers || 0)}
-              onBlur={e => { setCellChange(cc.id, 'followers', Number(e.target.value), cc); setEditingCellId(null); }}
-              onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-              className="input w-20 !p-[4px] text-right text-[13px]"
-            />
-          ) : (
-            <span 
-              className={`text-[13px] font-medium cursor-pointer hover:bg-blue-50 px-1 py-0.5 rounded ${hasPending && pendingChange?.followers !== undefined ? 'text-amber-700' : 'text-text'}`}
-              onClick={() => hasAccess && setEditingCellId(`${cc.id}-followers`)}
-            >{formatAbbreviated(getPendingValue(cc.id, 'followers', snapshot?.followers || 0) as number, false)}</span>
-          )}
-          
           {(managerNotes.length > 0 || picNotes.length > 0) && (
-            <div className="absolute bottom-1 left-0 flex gap-3 w-[400px] text-left z-10 opacity-90 group-hover:opacity-100 transition-opacity">
+            <div className="absolute bottom-1 left-[120px] flex gap-3 w-[480px] text-left z-10 opacity-90 group-hover:opacity-100 transition-opacity">
               {managerNotes.length > 0 && (
                 <div className="flex-1 overflow-hidden whitespace-nowrap border border-orange-200 bg-orange-50/90 rounded px-1.5 py-0.5" title="Klik row untuk detail notes Manager">
                   <div className="animate-marquee inline-block text-[10px] text-orange-700 font-medium">
@@ -156,6 +137,24 @@ export const CreatorRow = React.memo(({
                 </div>
               )}
             </div>
+          )}
+        </td>
+        <td className="text-right">
+          {activeEditingField === `followers` ? (
+            <input 
+              type="number" 
+              min="0"
+              autoFocus
+              defaultValue={getPendingValue(cc.id, 'followers', snapshot?.followers || 0)}
+              onBlur={e => { setCellChange(cc.id, 'followers', Number(e.target.value), cc); setEditingCellId(null); }}
+              onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+              className="input w-20 !p-[4px] text-right text-[13px]"
+            />
+          ) : (
+            <span 
+              className={`text-[13px] font-medium cursor-pointer hover:bg-blue-50 px-1 py-0.5 rounded ${hasPending && pendingChange?.followers !== undefined ? 'text-amber-700' : 'text-text'}`}
+              onClick={() => hasAccess && setEditingCellId(`${cc.id}-followers`)}
+            >{formatAbbreviated(getPendingValue(cc.id, 'followers', snapshot?.followers || 0) as number, false)}</span>
           )}
         </td>
         <td className="text-right text-[13px] font-medium text-text">
