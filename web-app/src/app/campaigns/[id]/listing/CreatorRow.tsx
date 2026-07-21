@@ -221,23 +221,34 @@ export const CreatorRow = React.memo(({
           )}
         </td>
         <td>
-          {activeEditingField === `content_type` ? (
-            <select
-              autoFocus
-              defaultValue={getPendingValue(cc.id, 'content_type', cc.content_type || 'Video')}
-              onBlur={e => { setCellChange(cc.id, 'content_type', e.target.value, cc); setEditingCellId(null); }}
-              className="select w-32 !p-[4px] text-[13px] !min-h-[28px]"
-            >
-              <option value="Video">Video</option>
-              <option value="Live">Live</option>
-              <option value="Video & Live">Video & Live</option>
-            </select>
-          ) : (
-            <span 
-              className={`text-[13px] font-medium cursor-pointer hover:bg-blue-50 px-1 py-0.5 rounded ${hasPending && pendingChange?.content_type !== undefined ? 'text-amber-700' : 'text-text'}`}
-              onClick={() => hasAccess && setEditingCellId(`${cc.id}-content_type`)}
-            >{getPendingValue(cc.id, 'content_type', cc.content_type || '-')}</span>
-          )}
+          {(() => {
+            let derivedContentType = getPendingValue(cc.id, 'content_type', cc.content_type || '-');
+            if (derivedContentType === '-' || !derivedContentType) {
+              const qVt = Number(getPendingValue(cc.id, 'qty_vt', cc.qty_vt)) || 0;
+              const qLive = Number(getPendingValue(cc.id, 'qty_live', cc.qty_live)) || 0;
+              if (qVt >= 1 && qLive === 0) derivedContentType = 'Video';
+              else if (qVt === 0 && qLive >= 1) derivedContentType = 'Live';
+              else if (qVt >= 1 && qLive >= 1) derivedContentType = 'Video & Live';
+            }
+
+            return activeEditingField === `content_type` ? (
+              <select
+                autoFocus
+                defaultValue={derivedContentType as string}
+                onBlur={e => { setCellChange(cc.id, 'content_type', e.target.value, cc); setEditingCellId(null); }}
+                className="select w-32 !p-[4px] text-[13px] !min-h-[28px]"
+              >
+                <option value="Video">Video</option>
+                <option value="Live">Live</option>
+                <option value="Video & Live">Video & Live</option>
+              </select>
+            ) : (
+              <span 
+                className={`text-[13px] font-medium cursor-pointer hover:bg-blue-50 px-1 py-0.5 rounded ${hasPending && pendingChange?.content_type !== undefined ? 'text-amber-700' : 'text-text'}`}
+                onClick={() => hasAccess && setEditingCellId(`${cc.id}-content_type`)}
+              >{derivedContentType as string}</span>
+            );
+          })()}
         </td>
         <td className="min-w-[150px]">
           {activeEditingField === `produk` ? (

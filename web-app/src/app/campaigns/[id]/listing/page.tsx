@@ -1257,6 +1257,23 @@ function CampaignListingContent() {
       } else if (sortConfig.key === 'level') {
         valA = Number(a._cachedSnapshot?.level) || 0;
         valB = Number(b._cachedSnapshot?.level) || 0;
+      } else if (sortConfig.key === 'content_type') {
+        const getDerivedCT = (c: any) => {
+          let ct = c.content_type || '-';
+          if (ct === '-') {
+            const v = Number(c.qty_vt) || 0;
+            const l = Number(c.qty_live) || 0;
+            if (v >= 1 && l === 0) ct = 'Video';
+            else if (v === 0 && l >= 1) ct = 'Live';
+            else if (v >= 1 && l >= 1) ct = 'Video & Live';
+          }
+          return ct;
+        };
+        valA = getDerivedCT(a);
+        valB = getDerivedCT(b);
+      } else if (sortConfig.key === 'gmv') {
+        valA = Number(a._cachedSnapshot?.gmv_30d) || 0;
+        valB = Number(b._cachedSnapshot?.gmv_30d) || 0;
       }
 
       if (valA < valB) return sortConfig.dir === 'asc' ? -1 : 1;
@@ -1985,7 +2002,11 @@ function CampaignListingContent() {
                   Qty Live SOW <SortIcon col="qty_live" />
                 </button>
               </th>
-              <th>Tipe Konten</th>
+              <th>
+                <button onClick={() => toggleSort('content_type')} className="flex items-center font-semibold hover:text-p300 transition-colors">
+                  Tipe Konten <SortIcon col="content_type" />
+                </button>
+              </th>
               <th>Produk</th>
               <th>
                 <button onClick={() => toggleSort('approval')} className="flex items-center font-semibold hover:text-p300 transition-colors">
@@ -1993,7 +2014,11 @@ function CampaignListingContent() {
                 </button>
               </th>
               {isClientApprovalRequired && <th>Client Status</th>}
-              <th className="text-right">GMV Creator</th>
+              <th className="text-right">
+                <button onClick={() => toggleSort('gmv')} className="flex items-center justify-end font-semibold hover:text-p300 transition-colors w-full">
+                  GMV Creator <SortIcon col="gmv" />
+                </button>
+              </th>
               <th className="text-right">Aksi</th>
             </tr>
           </thead>
