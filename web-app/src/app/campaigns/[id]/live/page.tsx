@@ -178,7 +178,7 @@ export default function LiveSchedulePage() {
   const creatorLikesMap  = new Map<string, number>();
   actualLives.forEach(l => {
     const u = l.creator_username;
-    if (u && isCreatorVisible(u)) {
+    if (u) {
       creatorGmvMap.set(u,   (creatorGmvMap.get(u)   || 0) + (Number(l.gmv)          || 0));
       creatorLivesMap.set(u, (creatorLivesMap.get(u) || 0) + 1);
       creatorViewsMap.set(u, (creatorViewsMap.get(u) || 0) + (Number(l.video_views)  || 0));
@@ -212,7 +212,7 @@ export default function LiveSchedulePage() {
 
   // ─── Leaderboard 3: Top 5 Sesi Live — GMV Terbanyak (per sesi) ───────────
   const top5SessionsByGmv = [...actualLives]
-    .filter(l => (l.gmv || 0) > 0 && isCreatorVisible(l.creator_username))
+    .filter(l => (l.gmv || 0) > 0)
     .sort((a, b) => (b.gmv || 0) - (a.gmv || 0))
     .slice(0, 5);
 
