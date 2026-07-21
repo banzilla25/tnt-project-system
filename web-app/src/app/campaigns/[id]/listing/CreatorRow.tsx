@@ -50,6 +50,32 @@ export const CreatorRow = React.memo(({
   fetchListing,
   page
 }: any) => {
+  const parseNotes = React.useMemo(() => {
+    return (raw: string, role: string) => {
+      if (!raw) return [];
+      try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          return parsed.map((n: any) => ({ ...n, role }));
+        }
+        return [{ isi: raw, role, created_at: '2000-01-01T00:00:00Z', author_name: 'System' }];
+      } catch {
+        return [{ isi: raw, role, created_at: '2000-01-01T00:00:00Z', author_name: 'System' }];
+      }
+    };
+  }, []);
+
+  const latestNotes = React.useMemo(() => {
+    const allNotes = [
+      ...parseNotes(cc.notes_manager, 'Manager'),
+      ...parseNotes(cc.notes_pic, 'PIC')
+    ].filter(n => n.isi && n.isi.trim() !== '');
+    
+    return allNotes
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .slice(0, 3);
+  }, [cc.notes_manager, cc.notes_pic, parseNotes]);
+
   return (
     <React.Fragment>
       <tr className={`group transition-colors ${hasPending ? 'bg-amber-50/70 hover:bg-amber-50' : 'hover:bg-[#f8fafc]'}`}>
@@ -78,9 +104,22 @@ export const CreatorRow = React.memo(({
             </Link>
             {cc.tier === 'Auto-Detect' && <span className="px-[6px] py-[2px] bg-yellow-100 text-yellow-800 text-[10px] font-bold rounded-full">AUTO</span>}
           </div>
-          <a href={creator.link_account || `https://www.tiktok.com/@${creator.username}`} target="_blank" rel="noopener noreferrer" className="inline-block mt-[4px] hover:opacity-80 transition-opacity">
-            <img src="/logo-tiktok-landscape-button.svg" alt="TikTok" className="h-[26px]" />
-          </a>
+          <div className="flex items-center gap-2 mt-[4px]">
+            <a href={creator.link_account || `https://www.tiktok.com/@${creator.username}`} target="_blank" rel="noopener noreferrer" className="inline-block hover:opacity-80 transition-opacity shrink-0">
+              <img src="/logo-tiktok-landscape-button.svg" alt="TikTok" className="h-[20px]" />
+            </a>
+            {latestNotes.length > 0 && (
+              <div className="overflow-hidden whitespace-nowrap max-w-[180px] border border-orange-200 bg-orange-50 rounded px-1.5 py-0.5" title="Klik row untuk detail notes">
+                <div className="animate-marquee inline-block text-[10px] text-orange-700 font-medium">
+                  {latestNotes.map((n, i) => (
+                    <span key={i} className="mr-4">
+                      <span className="font-bold">[{n.role} - {new Date(n.created_at).toLocaleDateString('id-ID', {day:'numeric', month:'numeric'})}]</span> {n.isi}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </td>
         <td className="text-right">
           {activeEditingField === `followers` ? (
