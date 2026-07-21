@@ -882,14 +882,13 @@ function CampaignListingContent() {
           return getLatest(b) - getLatest(a);
         });
 
-        const sliced = finalData.slice(from, to + 1);
-        setHasMore(finalData.length > (pageNum + 1) * PAGE_SIZE);
-        finalData = sliced;
+        // Do not slice/paginate for this filter so user can see all at once
+        setHasMore(false);
       } else {
         setHasMore((data || []).length === PAGE_SIZE);
       }
 
-      if (isReset) {
+      if (isReset || filterNotes === 'Ada Notes') {
         setListingData(finalData);
       } else {
         setListingData(prev => [...prev, ...finalData]);
