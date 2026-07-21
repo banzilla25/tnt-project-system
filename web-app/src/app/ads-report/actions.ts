@@ -55,6 +55,20 @@ export async function getAdsReportData(params: {
   }
   let allTimeLatestData = Array.from(allTimeLatestMap.values());
 
+  // 4. Find Latest Before Start Date for Delta Calculation
+  const latestBeforeMap = new Map();
+  if (params.startDate) {
+    for (const row of rawAllData) {
+      if (row.tanggal < params.startDate) {
+        const existing = latestBeforeMap.get(row.ad_id);
+        if (!existing || new Date(row.tanggal) > new Date(existing.tanggal)) {
+          latestBeforeMap.set(row.ad_id, row);
+        }
+      }
+    }
+  }
+
+  // 5. Aggregate to find the latest record for each ad_id WITHIN the filtered range
   const filteredLatestMap = new Map();
   for (const row of rawFilteredData) {
     const existing = filteredLatestMap.get(row.ad_id);
@@ -62,6 +76,34 @@ export async function getAdsReportData(params: {
       filteredLatestMap.set(row.ad_id, row);
     }
   }
+  
+  // Inject Delta values into the latest rows
+  for (const row of rawFilteredData) {
+    const latestRow = filteredLatestMap.get(row.ad_id);
+    if (latestRow && latestRow.id === row.id) {
+      const beforeRow = latestBeforeMap.get(row.ad_id);
+      if (beforeRow) {
+        row.delta_cost_usd = Math.max(0, row.cost_usd - beforeRow.cost_usd);
+        row.delta_gross_revenue_usd = Math.max(0, row.gross_revenue_usd - beforeRow.gross_revenue_usd);
+        row.delta_impressions = Math.max(0, row.impressions - beforeRow.impressions);
+        row.delta_clicks = Math.max(0, row.clicks - beforeRow.clicks);
+        row.delta_product_page_views = Math.max(0, row.product_page_views - beforeRow.product_page_views);
+        row.delta_checkouts_initiated = Math.max(0, row.checkouts_initiated - beforeRow.checkouts_initiated);
+        row.delta_purchases = Math.max(0, row.purchases - beforeRow.purchases);
+        row.delta_items_purchased = Math.max(0, row.items_purchased - beforeRow.items_purchased);
+      } else {
+        row.delta_cost_usd = row.cost_usd;
+        row.delta_gross_revenue_usd = row.gross_revenue_usd;
+        row.delta_impressions = row.impressions;
+        row.delta_clicks = row.clicks;
+        row.delta_product_page_views = row.product_page_views;
+        row.delta_checkouts_initiated = row.checkouts_initiated;
+        row.delta_purchases = row.purchases;
+        row.delta_items_purchased = row.items_purchased;
+      }
+    }
+  }
+
   let filteredLatestData = Array.from(filteredLatestMap.values());
 
   // We want the date-filtered records for the table
@@ -125,15 +167,20 @@ export async function getAdsReportData(params: {
   }
 
   // 6. Calculate Summaries
-  const calcSummary = (dataArr: any[]) => {
+  const calcSummary = (dataArr: any[], useDelta = false) => {
     let sumSpend = 0; let sumGmv = 0; let sumImpr = 0; let sumSpendUsd = 0;
     for (const ad of dataArr) {
       let kurs = ad.kurs || 16000;
       if (kurs < 1000) kurs = kurs * 1000;
-      sumSpend += (ad.cost_usd || 0) * kurs;
-      sumSpendUsd += (ad.cost_usd || 0);
-      sumGmv += (ad.gross_revenue_usd || 0) * kurs;
-      sumImpr += (ad.impressions || 0);
+      
+      const cost = useDelta && ad.delta_cost_usd !== undefined ? ad.delta_cost_usd : ad.cost_usd;
+      const gmv = useDelta && ad.delta_gross_revenue_usd !== undefined ? ad.delta_gross_revenue_usd : ad.gross_revenue_usd;
+      const impr = useDelta && ad.delta_impressions !== undefined ? ad.delta_impressions : ad.impressions;
+
+      sumSpend += (cost || 0) * kurs;
+      sumSpendUsd += (cost || 0);
+      sumGmv += (gmv || 0) * kurs;
+      sumImpr += (impr || 0);
     }
     return {
       totalSpend: sumSpend,
@@ -145,8 +192,8 @@ export async function getAdsReportData(params: {
     };
   };
 
-  const summary = calcSummary(allTimeLatestData);
-  const filteredSummary = calcSummary(filteredLatestData);
+  const summary = calcSummary(allTimeLatestData, false);
+  const filteredSummary = calcSummary(filteredLatestData, true);
 
   // 7. Sort Table Data
   tableData.sort((a, b) => {

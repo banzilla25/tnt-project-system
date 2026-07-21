@@ -636,14 +636,15 @@ export default function AdsReportPage() {
       }
       // Data is lifetime cumulative, so we don't sum it up. 
       // Since sortedAds is sorted chronologically, overwriting it will leave us with the latest date's value.
-      groups[key].cost_usd = Number(ad.cost_usd || 0);
-      groups[key].impressions = Number(ad.impressions || 0);
-      groups[key].clicks = Number(ad.clicks || 0);
-      groups[key].product_page_views = Number(ad.product_page_views || 0);
-      groups[key].checkouts_initiated = Number(ad.checkouts_initiated || 0);
-      groups[key].purchases = Number(ad.purchases || 0);
-      groups[key].items_purchased = Number(ad.items_purchased || 0);
-      groups[key].gross_revenue_usd = Number(ad.gross_revenue_usd || 0);
+      // If server calculated a delta value (for date filtering), we use it to show the growth, otherwise use raw cumulative value.
+      groups[key].cost_usd = Number(ad.delta_cost_usd !== undefined ? ad.delta_cost_usd : ad.cost_usd || 0);
+      groups[key].impressions = Number(ad.delta_impressions !== undefined ? ad.delta_impressions : ad.impressions || 0);
+      groups[key].clicks = Number(ad.delta_clicks !== undefined ? ad.delta_clicks : ad.clicks || 0);
+      groups[key].product_page_views = Number(ad.delta_product_page_views !== undefined ? ad.delta_product_page_views : ad.product_page_views || 0);
+      groups[key].checkouts_initiated = Number(ad.delta_checkouts_initiated !== undefined ? ad.delta_checkouts_initiated : ad.checkouts_initiated || 0);
+      groups[key].purchases = Number(ad.delta_purchases !== undefined ? ad.delta_purchases : ad.purchases || 0);
+      groups[key].items_purchased = Number(ad.delta_items_purchased !== undefined ? ad.delta_items_purchased : ad.items_purchased || 0);
+      groups[key].gross_revenue_usd = Number(ad.delta_gross_revenue_usd !== undefined ? ad.delta_gross_revenue_usd : ad.gross_revenue_usd || 0);
       
       // Update metadata to latest (chronological)
       groups[key].ad_id = ad.ad_id;
