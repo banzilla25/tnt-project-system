@@ -306,6 +306,7 @@ function CampaignListingContent() {
   
   // New Multidimensional Filters
   const [filterTier, setFilterTier] = useState<string>('');
+  const [filterContentType, setFilterContentType] = useState<string>('');
   const [filterLevel, setFilterLevel] = useState<string>('');
   const [filterNiche, setFilterNiche] = useState<string>('');
   const [filterAddedBy, setFilterAddedBy] = useState<string>('');
@@ -756,6 +757,15 @@ function CampaignListingContent() {
       if (filterNiche) query = query.eq('creators.creator_niches.niche_id', filterNiche);
       if (filterAddedBy) query = query.eq('added_by', filterAddedBy);
       if (filterActionBy) query = query.or(`approved_by.eq.${filterActionBy},not_approved_by.eq.${filterActionBy}`);
+      if (filterContentType) {
+        if (filterContentType === 'Video') {
+          query = query.or('content_type.eq.Video,and(content_type.in.("-",""),qty_vt.gte.1,qty_live.eq.0),and(content_type.is.null,qty_vt.gte.1,qty_live.eq.0)');
+        } else if (filterContentType === 'Live') {
+          query = query.or('content_type.eq.Live,and(content_type.in.("-",""),qty_vt.eq.0,qty_live.gte.1),and(content_type.is.null,qty_vt.eq.0,qty_live.gte.1)');
+        } else if (filterContentType === 'Video & Live') {
+          query = query.or('content_type.eq."Video & Live",and(content_type.in.("-",""),qty_vt.gte.1,qty_live.gte.1),and(content_type.is.null,qty_vt.gte.1,qty_live.gte.1)');
+        }
+      }
 
       if (debouncedSearch) {
         query = query.or(`username.ilike.%${debouncedSearch}%,nama_asli.ilike.%${debouncedSearch}%`, { foreignTable: 'creators' });
@@ -851,16 +861,16 @@ function CampaignListingContent() {
          setIsLoading(false);
       }
     }
-  }, [campaignId, filterType, statusFilter, debouncedSearch, sortConfig, filterTier, filterLevel, filterNiche, filterAddedBy, filterActionBy, filterPendingWithVideo, filterUnattributed]);
+  }, [campaignId, filterType, statusFilter, debouncedSearch, sortConfig, filterTier, filterLevel, filterNiche, filterAddedBy, filterActionBy, filterPendingWithVideo, filterUnattributed, filterContentType]);
 
   useEffect(() => {
     fetchListing(page);
-  }, [page, campaignId, filterType, statusFilter, debouncedSearch, sortConfig, filterTier, filterLevel, filterNiche, filterAddedBy, filterActionBy, filterPendingWithVideo, filterUnattributed]);
+  }, [page, campaignId, filterType, statusFilter, debouncedSearch, sortConfig, filterTier, filterLevel, filterNiche, filterAddedBy, filterActionBy, filterPendingWithVideo, filterUnattributed, filterContentType]);
 
   useEffect(() => {
     setPage(0);
     fetchListing(0, true);
-  }, [debouncedSearch, filterType, statusFilter, sortConfig, fetchListing, filterTier, filterLevel, filterNiche, filterAddedBy, filterActionBy, filterPendingWithVideo, filterUnattributed]);
+  }, [debouncedSearch, filterType, statusFilter, sortConfig, fetchListing, filterTier, filterLevel, filterNiche, filterAddedBy, filterActionBy, filterPendingWithVideo, filterUnattributed, filterContentType]);
 
   const handleLoadMore = () => {
     const next = page + 1;
@@ -1431,6 +1441,12 @@ function CampaignListingContent() {
             <option value="4">Level 4</option>
             <option value="5">Level 5</option>
           </select>
+          <select value={filterContentType} onChange={(e) => setFilterContentType(e.target.value)} className="select !mb-0 min-w-[120px] md:w-auto flex-1 text-sm py-1.5">
+            <option value="">Semua Tipe Konten</option>
+            <option value="Video">Video</option>
+            <option value="Live">Live</option>
+            <option value="Video & Live">Video & Live</option>
+          </select>
           <select value={filterNiche} onChange={(e) => setFilterNiche(e.target.value)} className="select !mb-0 min-w-[120px] md:w-auto flex-1 text-sm py-1.5">
             <option value="">Semua Niche</option>
             {niches.map(n => (
@@ -1476,7 +1492,7 @@ function CampaignListingContent() {
             />
             <span className="font-medium whitespace-nowrap">Unattributed (Pending + GMV)</span>
           </label>
-          {(statusFilter !== 'all' || filterTier || filterLevel || filterNiche || filterAddedBy || filterActionBy || filterPendingWithVideo || filterUnattributed) && (
+          {(statusFilter !== 'all' || filterTier || filterLevel || filterNiche || filterAddedBy || filterActionBy || filterPendingWithVideo || filterUnattributed || filterContentType) && (
             <button 
               onClick={() => {
                 setStatusFilter('all');
@@ -1485,6 +1501,7 @@ function CampaignListingContent() {
                 setFilterNiche('');
                 setFilterAddedBy('');
                 setFilterActionBy('');
+                setFilterContentType('');
                 setFilterPendingWithVideo(false);
                 setFilterUnattributed(false);
               }} 
