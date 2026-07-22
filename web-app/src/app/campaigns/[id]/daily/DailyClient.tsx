@@ -17,11 +17,6 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 50;
 
-  if (!campaign) return null;
-
-  const isAwareness = campaign.tipe_campaign === 'awareness';
-  const isHybrid = campaign.tipe_campaign === 'gmv_awareness';
-  
   const totalPages = Math.ceil(dailyData.length / pageSize);
   const paginatedDaily = React.useMemo(() => {
     return dailyData.slice((currentPage - 1) * pageSize, currentPage * pageSize);
@@ -297,6 +292,9 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
   }
 
   if (!campaign) return null;
+
+  const isAwareness = campaign.tipe_campaign === 'awareness';
+  const isHybrid = campaign.tipe_campaign === 'gmv_awareness';
 
   return (
     <div className="space-y-[24px] pb-[80px]">

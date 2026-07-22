@@ -269,21 +269,6 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
     exportToCSV(exportData, `campaign_${campaignId}_performance`);
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
-        <span className="ml-3 text-slate-500 font-medium">Memuat dan Mengkalkulasi Data...</span>
-      </div>
-    );
-  }
-
-  if (!campaign) return <div className="text-center p-12 text-slate-500">Campaign tidak ditemukan</div>;
-
-  const isAwareness = campaign.tipe_campaign === 'awareness' || campaign.tipe_campaign === 'gmv_awareness';
-  const totalApprovedCreators = localCreators.filter(c => c.approval === 'approved').length;
-  const totalPendingCreators = localCreators.filter(c => c.approval === 'pending').length;
-
   const creatorStats = React.useMemo(() => {
     if (appliedFilterType === 'none' || appliedFilterUsernames.length === 0) return baseCreatorStats;
     return baseCreatorStats.filter(c => {
@@ -300,6 +285,21 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery, sortField, sortOrder]);
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
+        <span className="ml-3 text-slate-500 font-medium">Memuat dan Mengkalkulasi Data...</span>
+      </div>
+    );
+  }
+
+  if (!campaign) return <div className="text-center p-12 text-slate-500">Campaign tidak ditemukan</div>;
+
+  const isAwareness = campaign.tipe_campaign === 'awareness' || campaign.tipe_campaign === 'gmv_awareness';
+  const totalApprovedCreators = localCreators.filter(c => c.approval === 'approved').length;
+  const totalPendingCreators = localCreators.filter(c => c.approval === 'pending').length;
 
   const handleSort = (field: any) => {
     if (sortField === field) {
