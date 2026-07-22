@@ -184,93 +184,101 @@ function CampaignListingContent() {
     setBatchSaveProgress(0);
     const entries = Array.from(pendingChanges.entries());
     let done = 0;
-    for (const [ccId, change] of entries) {
-      const updates: any = {};
-      if (change.price !== undefined) updates.price = change.price;
-      if (change.qty_vt !== undefined) updates.qty_vt = change.qty_vt;
-      if (change.qty_live !== undefined) updates.qty_live = change.qty_live;
-      if (change.assigned_sku_ids !== undefined) updates.assigned_sku_ids = change.assigned_sku_ids;
-      if (change.content_type !== undefined) updates.content_type = change.content_type;
-      if (change.approval !== undefined) {
-        updates.approval = change.approval;
-        if (change.approval !== change.original.approval) {
-          if (change.approval === 'approved') {
-            updates.approved_by = profile?.id;
-            updates.approved_at = new Date().toISOString();
-          } else if (change.approval === 'not_approved' || change.approval === 'alternate') {
-            updates.not_approved_by = profile?.id;
-            updates.not_approved_at = new Date().toISOString();
+    try {
+      for (const [ccId, change] of entries) {
+        const updates: any = {};
+        if (change.price !== undefined) updates.price = change.price;
+        if (change.qty_vt !== undefined) updates.qty_vt = change.qty_vt;
+        if (change.qty_live !== undefined) updates.qty_live = change.qty_live;
+        if (change.assigned_sku_ids !== undefined) updates.assigned_sku_ids = change.assigned_sku_ids;
+        if (change.content_type !== undefined) updates.content_type = change.content_type;
+        if (change.approval !== undefined) {
+          updates.approval = change.approval;
+          if (change.approval !== change.original.approval) {
+            if (change.approval === 'approved') {
+              updates.approved_by = profile?.id;
+              updates.approved_at = new Date().toISOString();
+            } else if (change.approval === 'not_approved' || change.approval === 'alternate') {
+              updates.not_approved_by = profile?.id;
+              updates.not_approved_at = new Date().toISOString();
+            }
           }
         }
-      }
-      if (isClientApprovalRequired && change.client_approval !== undefined) {
-        updates.client_approval = change.client_approval;
-      }
-
-      if (Object.keys(updates).length > 0) {
-        await updateCampaignCreator(ccId, updates, profile?.nama || 'System');
-      }
-
-      // Handle creator snapshot updates (excluding price which is now campaign-specific)
-      if (change.followers !== undefined || change.level !== undefined || change.gmv_30d !== undefined) {
-        if (change.original.creator_id) {
-          const newFollowers = change.followers !== undefined ? change.followers : change.original.followers;
-          const newLevel = change.level !== undefined ? change.level : change.original.level;
-          const newGmv = change.gmv_30d !== undefined ? change.gmv_30d : change.original.gmv_30d;
-          const newRatecard = change.original.ratecard;
-          
-          let newTier = change.original.tier;
-          if (change.followers !== undefined) {
-             const f = Number(newFollowers);
-             if (f < 10000) newTier = 'Nano';
-             else if (f < 100000) newTier = 'Micro';
-             else if (f < 1000000) newTier = 'Macro';
-             else newTier = 'Mega';
-          }
-          
-          await useDatabaseStore.getState().addCreatorSnapshot({
-            creator_id: change.original.creator_id,
-            tanggal_update: new Date().toISOString(),
-            followers: newFollowers,
-            level: newLevel,
-            gmv_30d: newGmv,
-            tier: newTier, // inherit or recalculated
-            audience_age: change.original.audience_age, // inherit
-            ratecard: newRatecard, // inherit
-
-            updated_by: profile?.nama || null
-          });
+        if (isClientApprovalRequired && change.client_approval !== undefined) {
+          updates.client_approval = change.client_approval;
         }
-      }
 
-      done++;
-      setBatchSaveProgress(Math.round((done / entries.length) * 100));
+        if (Object.keys(updates).length > 0) {
+          await updateCampaignCreator(ccId, updates, profile?.nama || 'System');
+        }
+
+        // Handle creator snapshot updates (excluding price which is now campaign-specific)
+        if (change.followers !== undefined || change.level !== undefined || change.gmv_30d !== undefined) {
+          if (change.original.creator_id) {
+            const newFollowers = change.followers !== undefined ? change.followers : change.original.followers;
+            const newLevel = change.level !== undefined ? change.level : change.original.level;
+            const newGmv = change.gmv_30d !== undefined ? change.gmv_30d : change.original.gmv_30d;
+            const newRatecard = change.original.ratecard;
+            
+            let newTier = change.original.tier;
+            if (change.followers !== undefined) {
+               const f = Number(newFollowers);
+               if (f < 10000) newTier = 'Nano';
+               else if (f < 100000) newTier = 'Micro';
+               else if (f < 1000000) newTier = 'Macro';
+               else newTier = 'Mega';
+            }
+            
+            try {
+              await useDatabaseStore.getState().addCreatorSnapshot({
+                creator_id: change.original.creator_id,
+                tanggal_update: new Date().toISOString(),
+                followers: newFollowers,
+                level: newLevel,
+                gmv_30d: newGmv,
+                tier: newTier, // inherit or recalculated
+                audience_age: change.original.audience_age, // inherit
+                ratecard: newRatecard, // inherit
+                updated_by: profile?.nama || null
+              });
+            } catch (snapErr) {
+              console.error("Failed to add snapshot:", snapErr);
+            }
+          }
+        }
+
+        done++;
+        setBatchSaveProgress(Math.round((done / entries.length) * 100));
+      }
+      
+      // Optimistic UI update to prevent flashing old data while fetchListing is running
+      setListingData(prev => prev.map(cc => {
+        const change = pendingChanges.get(cc.id);
+        if (change) {
+          return {
+            ...cc,
+            price: change.price !== undefined ? change.price : cc.price,
+            qty_vt: change.qty_vt !== undefined ? change.qty_vt : cc.qty_vt,
+            qty_live: change.qty_live !== undefined ? change.qty_live : cc.qty_live,
+            approval: change.approval !== undefined ? change.approval : cc.approval,
+            client_approval: change.client_approval !== undefined ? change.client_approval : cc.client_approval,
+            assigned_sku_ids: change.assigned_sku_ids !== undefined ? change.assigned_sku_ids : cc.assigned_sku_ids,
+            content_type: change.content_type !== undefined ? change.content_type : cc.content_type
+          };
+        }
+        return cc;
+      }));
+
+      pendingChanges.clear();
+      setPendingChanges(new Map());
+      await fetchListing(page, false); // refetch silently
+    } catch (error) {
+      console.error("Batch save error:", error);
+      alert("Terjadi kesalahan saat menyimpan perubahan.");
+    } finally {
+      setIsBatchSaving(false);
+      setShowUnsavedFirst(false);
     }
-    
-    // Optimistic UI update to prevent flashing old data while fetchListing is running
-    setListingData(prev => prev.map(cc => {
-      const change = pendingChanges.get(cc.id);
-      if (change) {
-        return {
-          ...cc,
-          price: change.price !== undefined ? change.price : cc.price,
-          qty_vt: change.qty_vt !== undefined ? change.qty_vt : cc.qty_vt,
-          qty_live: change.qty_live !== undefined ? change.qty_live : cc.qty_live,
-          approval: change.approval !== undefined ? change.approval : cc.approval,
-          client_approval: change.client_approval !== undefined ? change.client_approval : cc.client_approval,
-          assigned_sku_ids: change.assigned_sku_ids !== undefined ? change.assigned_sku_ids : cc.assigned_sku_ids,
-          content_type: change.content_type !== undefined ? change.content_type : cc.content_type,
-        };
-      }
-      return cc;
-    }));
-
-    setPendingChanges(new Map());
-    setIsBatchSaving(false);
-    setShowUnsavedFirst(false);
-    setPage(0);
-    fetchListing(0, true);
-    fetchCounts();
   };
 
   // Legacy single-row edit state (kept for backwards compat with pencil icon)
