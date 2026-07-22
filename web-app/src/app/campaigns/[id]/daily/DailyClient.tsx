@@ -9,7 +9,6 @@ import TimelineTarget from "./TimelineTarget";
 const supabase = createClient();
 
 export default function CampaignDailyPerformanceClient({ campaignId }: { campaignId: number }) {
-  const campaignId = campaign.id;
 
   const [loading, setLoading] = useState(true);
   const [campaign, setCampaign] = useState<any>(null);
