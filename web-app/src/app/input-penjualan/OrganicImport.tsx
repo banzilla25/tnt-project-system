@@ -220,7 +220,8 @@ export default function OrganicImport({ mode = 'sales' }: { mode?: 'sales' | 'vi
     }
   };
 
-  const generatePreview = () => {
+  const generatePreview = async () => {
+    setLoading(true);
     // We already parsed the data and have mapping
     const data = parsedData;
     const isSalesFormat = mode === 'sales';
@@ -233,7 +234,27 @@ export default function OrganicImport({ mode = 'sales' }: { mode?: 'sales' | 'vi
     const skuIdMapping: Record<string, number> = {};
     const tiktokToCampaigns: Record<string, number[]> = {};
 
-    skus?.forEach(s => {
+    let localSkus: any[] = [];
+    let skuStart = 0;
+    while (true) {
+      const { data: skuData } = await supabase.from('skus').select('*').range(skuStart, skuStart + 999);
+      if (!skuData || skuData.length === 0) break;
+      localSkus = localSkus.concat(skuData);
+      if (skuData.length < 1000) break;
+      skuStart += 1000;
+    }
+
+    let localCampaigns: any[] = [];
+    let campStart = 0;
+    while (true) {
+      const { data: campData } = await supabase.from('campaigns').select('*').range(campStart, campStart + 999);
+      if (!campData || campData.length === 0) break;
+      localCampaigns = localCampaigns.concat(campData);
+      if (campData.length < 1000) break;
+      campStart += 1000;
+    }
+
+    localSkus.forEach(s => {
       if (s.product_id) {
         skuMapping[s.product_id.toString()] = s.campaign_id;
         skuNameMapping[s.product_id.toString()] = s.nama_produk;
@@ -241,7 +262,7 @@ export default function OrganicImport({ mode = 'sales' }: { mode?: 'sales' | 'vi
       }
     });
 
-    campaigns?.forEach(c => {
+    localCampaigns.forEach(c => {
       if (c.tiktok_campaign_ids && c.tiktok_campaign_ids.length > 0) {
         c.tiktok_campaign_ids.forEach(tid => {
           if (!tiktokToCampaigns[tid]) tiktokToCampaigns[tid] = [];
@@ -886,11 +907,8 @@ export default function OrganicImport({ mode = 'sales' }: { mode?: 'sales' | 'vi
              <div className="flex gap-4">
                 <Button variant="outline" onClick={() => setStep(1)} className="w-1/3 h-12 text-base font-bold rounded-xl">Kembali</Button>
                 <Button 
-                  onClick={() => {
-                    setLoading(true);
-                    setTimeout(() => {
-                      generatePreview();
-                    }, 100);
+                  onClick={async () => {
+                    await generatePreview();
                   }} 
                   className="w-2/3 h-12 text-base font-bold rounded-xl"
                 >

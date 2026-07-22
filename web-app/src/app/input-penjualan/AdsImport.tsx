@@ -122,11 +122,17 @@ export default function AdsImport() {
       let hasMissingAdId = false;
 
       // Get existing mappings
-      const { data: dbMappings } = await supabase.from('ad_name_mapping').select('*');
       const knownMappingMap: Record<string, number> = { ...mappings };
-      dbMappings?.forEach(m => {
-        if (!knownMappingMap[m.ad_name]) knownMappingMap[m.ad_name] = m.creator_id;
-      });
+      let mappingStart = 0;
+      while (true) {
+        const { data: dbMappings } = await supabase.from('ad_name_mapping').select('*').range(mappingStart, mappingStart + 999);
+        if (!dbMappings || dbMappings.length === 0) break;
+        dbMappings.forEach(m => {
+          if (!knownMappingMap[m.ad_name]) knownMappingMap[m.ad_name] = m.creator_id;
+        });
+        if (dbMappings.length < 1000) break;
+        mappingStart += 1000;
+      }
 
       let unmappedByFile: {fileId: string, fileName: string, unmapped: {adName: string, adId: string}[]}[] = [];
 

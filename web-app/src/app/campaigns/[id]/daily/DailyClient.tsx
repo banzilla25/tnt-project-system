@@ -6,20 +6,15 @@ import { createClient } from "@/utils/supabase/client";
 import { useDatabaseStore } from "@/store/useDatabaseStore";
 import TimelineTarget from "./TimelineTarget";
 
-export default function CampaignDailyPerformanceClient({
-  campaign,
-  initialDailyData,
-  initialMonthlyData
-}: {
-  campaign: any;
-  initialDailyData: any[];
-  initialMonthlyData: any[];
-}) {
+const supabase = createClient();
+
+export default function CampaignDailyPerformanceClient({ campaignId }: { campaignId: number }) {
   const campaignId = campaign.id;
 
-  const [loading, setLoading] = useState(false);
-  const [dailyData, setDailyData] = useState<any[]>(initialDailyData || []);
-  const [monthlyData, setMonthlyData] = useState<any[]>(initialMonthlyData || []);
+  const [loading, setLoading] = useState(true);
+  const [campaign, setCampaign] = useState<any>(null);
+  const [dailyData, setDailyData] = useState<any[]>([]);
+  const [monthlyData, setMonthlyData] = useState<any[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 50;
 
@@ -32,6 +27,277 @@ export default function CampaignDailyPerformanceClient({
   const paginatedDaily = React.useMemo(() => {
     return dailyData.slice((currentPage - 1) * pageSize, currentPage * pageSize);
   }, [dailyData, currentPage]);
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const { data: campaignData } = await supabase.from('campaigns').select('*').eq('id', campaignId).single();
+      if (!campaignData) return;
+      setCampaign(campaignData);
+
+      let allSales: any[] = [];
+      let allVideosFromCreators: any[] = [];
+      
+      const isAwareness = campaignData.tipe_campaign === 'awareness';
+      const isHybrid = campaignData.tipe_campaign === 'gmv_awareness';
+
+      // 1. Fetch Sales
+      let from = 0;
+      let to = 999;
+      let hasMore = true;
+      while (hasMore) {
+        const { data: salesData, error } = await supabase
+          .from('sales')
+          .select('tanggal, gmv, creator_username, content_uid, content_type, quantity')
+          .eq('campaign_id', campaignId)
+          .eq('is_refund', false)
+          .range(from, to);
+
+        if (error) break;
+
+        if (salesData && salesData.length > 0) {
+          allSales = [...allSales, ...salesData];
+          if (salesData.length < 1000) {
+            hasMore = false;
+          } else {
+            from += 1000;
+            to += 1000;
+          }
+        } else {
+          hasMore = false;
+        }
+      }
+
+      // 2. Fetch Videos
+      let from_v = 0;
+      let to_v = 999;
+      let hasMore_v = true;
+      while (hasMore_v) {
+        const { data: ccData, error } = await supabase
+          .from('campaign_creators')
+          .select('id, approved_at, creators(username), videos(id, created_at, link_video)')
+          .eq('campaign_id', campaignId)
+          .range(from_v, to_v);
+
+        if (error) break;
+
+        if (ccData && ccData.length > 0) {
+          allVideosFromCreators = [...allVideosFromCreators, ...ccData];
+          if (ccData.length < 1000) {
+            hasMore_v = false;
+          } else {
+            from_v += 1000;
+            to_v += 1000;
+          }
+        } else {
+          hasMore_v = false;
+        }
+      }
+
+      // 3. Fetch Ads Performance
+      let allAds: any[] = [];
+      let adsFrom = 0;
+      let adsTo = 999;
+      let adsHasMore = true;
+      while (adsHasMore) {
+        const { data: adsData, error } = await supabase
+          .from('ads_performance')
+          .select('ad_id, tanggal, gross_revenue_usd, kurs')
+          .eq('campaign_id', campaignId)
+          .order('tanggal', { ascending: true })
+          .range(adsFrom, adsTo);
+
+        if (error) break;
+
+        if (adsData && adsData.length > 0) {
+          allAds = [...allAds, ...adsData];
+          if (adsData.length < 1000) adsHasMore = false;
+          else { adsFrom += 1000; adsTo += 1000; }
+        } else {
+          adsHasMore = false;
+        }
+      }
+
+      // 4. Fetch Live Sessions via RPC
+      const { data: liveStats } = await supabase.rpc('get_campaign_live_stats', { p_campaign_id: campaignId });
+      const allLiveSessions = liveStats || [];
+
+      // Grouping
+      const grouped: Record<string, { gmv: number; gmvAds: number; creators: Set<string>; videos: Set<string>; gmvLive: number; gmvVT: number; ordersLive: number; ordersVT: number; liveSessions: Set<string> }> = {};
+      const monthlyGrouped: Record<string, { gmv: number; gmvAds: number; creators: Set<string>; videos: Set<string>; gmvLive: number; gmvVT: number; ordersLive: number; ordersVT: number; liveSessions: Set<string> }> = {};
+
+      const campaignStartStr = campaignData.start_date || '';
+      const campaignEndStr = campaignData.status === 'selesai' ? campaignData.end_date || '' : '';
+
+      if (allSales.length > 0) {
+        allSales.forEach(sale => {
+          if (!sale.tanggal) return;
+          const dateStr = sale.tanggal.substring(0, 10);
+          
+          if (campaignStartStr && dateStr < campaignStartStr) return;
+          if (campaignEndStr && dateStr > campaignEndStr) return;
+
+          if (!grouped[dateStr]) grouped[dateStr] = { gmv: 0, gmvAds: 0, creators: new Set(), videos: new Set(), gmvLive: 0, gmvVT: 0, ordersLive: 0, ordersVT: 0, liveSessions: new Set() };
+          
+          const isLive = sale.content_type === 'Livestream' || sale.content_type === 'Live';
+          const isVT = sale.content_type === 'Video' || sale.content_type === 'ShortVideo';
+
+          if (isLive) {
+            grouped[dateStr].gmvLive += (sale.gmv || 0);
+            grouped[dateStr].ordersLive += (sale.quantity || 0);
+          } else if (isVT) {
+            grouped[dateStr].gmvVT += (sale.gmv || 0);
+            grouped[dateStr].ordersVT += (sale.quantity || 0);
+          }
+
+          grouped[dateStr].gmv += (sale.gmv || 0);
+          if (sale.creator_username) grouped[dateStr].creators.add(sale.creator_username);
+          if (sale.content_uid && !isLive) grouped[dateStr].videos.add(sale.content_uid);
+
+          const monthStr = sale.tanggal.substring(0, 7);
+          if (!monthlyGrouped[monthStr]) monthlyGrouped[monthStr] = { gmv: 0, gmvAds: 0, creators: new Set(), videos: new Set(), gmvLive: 0, gmvVT: 0, ordersLive: 0, ordersVT: 0, liveSessions: new Set() };
+          
+          if (isLive) {
+            monthlyGrouped[monthStr].gmvLive += (sale.gmv || 0);
+            monthlyGrouped[monthStr].ordersLive += (sale.quantity || 0);
+          } else if (isVT) {
+            monthlyGrouped[monthStr].gmvVT += (sale.gmv || 0);
+            monthlyGrouped[monthStr].ordersVT += (sale.quantity || 0);
+          }
+
+          monthlyGrouped[monthStr].gmv += (sale.gmv || 0);
+          if (sale.creator_username) monthlyGrouped[monthStr].creators.add(sale.creator_username);
+          if (sale.content_uid && !isLive) monthlyGrouped[monthStr].videos.add(sale.content_uid);
+        });
+      }
+
+      if (allVideosFromCreators.length > 0) {
+        allVideosFromCreators.forEach(cc => {
+          const username = cc.creators?.username || 'unknown';
+          if (cc.approved_at) {
+            const approvedDateStr = cc.approved_at.substring(0, 10);
+            let countCreator = true;
+            if (campaignStartStr && approvedDateStr < campaignStartStr) countCreator = false;
+            if (campaignEndStr && approvedDateStr > campaignEndStr) countCreator = false;
+            
+            if (countCreator) {
+              if (!grouped[approvedDateStr]) grouped[approvedDateStr] = { gmv: 0, gmvAds: 0, creators: new Set(), videos: new Set(), gmvLive: 0, gmvVT: 0, ordersLive: 0, ordersVT: 0, liveSessions: new Set() };
+              grouped[approvedDateStr].creators.add(username);
+
+              const monthStr = cc.approved_at.substring(0, 7);
+              if (!monthlyGrouped[monthStr]) monthlyGrouped[monthStr] = { gmv: 0, gmvAds: 0, creators: new Set(), videos: new Set(), gmvLive: 0, gmvVT: 0, ordersLive: 0, ordersVT: 0, liveSessions: new Set() };
+              monthlyGrouped[monthStr].creators.add(username);
+            }
+          }
+
+          if (!cc.videos || cc.videos.length === 0) return;
+          cc.videos.forEach((v: any) => {
+            if (!v.created_at || !v.link_video) return; 
+            const dateStr = v.created_at.substring(0, 10);
+            if (campaignStartStr && dateStr < campaignStartStr) return;
+            if (campaignEndStr && dateStr > campaignEndStr) return;
+            
+            if (!grouped[dateStr]) grouped[dateStr] = { gmv: 0, gmvAds: 0, creators: new Set(), videos: new Set(), gmvLive: 0, gmvVT: 0, ordersLive: 0, ordersVT: 0, liveSessions: new Set() };
+            grouped[dateStr].videos.add(v.id.toString());
+
+            const monthStr = v.created_at.substring(0, 7);
+            if (!monthlyGrouped[monthStr]) monthlyGrouped[monthStr] = { gmv: 0, gmvAds: 0, creators: new Set(), videos: new Set(), gmvLive: 0, gmvVT: 0, ordersLive: 0, ordersVT: 0, liveSessions: new Set() };
+            monthlyGrouped[monthStr].videos.add(v.id.toString());
+          });
+        });
+      }
+
+      if (allLiveSessions.length > 0) {
+        allLiveSessions.forEach((l: any) => {
+          if (!l.start_time) return;
+          const dateStr = String(l.start_time).substring(0, 10);
+          if (campaignStartStr && dateStr < campaignStartStr) return;
+          if (campaignEndStr && dateStr > campaignEndStr) return;
+          
+          if (!grouped[dateStr]) grouped[dateStr] = { gmv: 0, gmvAds: 0, creators: new Set(), videos: new Set(), gmvLive: 0, gmvVT: 0, ordersLive: 0, ordersVT: 0, liveSessions: new Set() };
+          if (l.content_uid) grouped[dateStr].liveSessions.add(l.content_uid);
+
+          const monthStr = dateStr.substring(0, 7);
+          if (!monthlyGrouped[monthStr]) monthlyGrouped[monthStr] = { gmv: 0, gmvAds: 0, creators: new Set(), videos: new Set(), gmvLive: 0, gmvVT: 0, ordersLive: 0, ordersVT: 0, liveSessions: new Set() };
+          if (l.content_uid) monthlyGrouped[monthStr].liveSessions.add(l.content_uid);
+        });
+      }
+
+      if (allAds.length > 0) {
+        const previousAdValues: Record<string, number> = {};
+        allAds.forEach(ad => {
+          if (!ad.tanggal || !ad.ad_id) return;
+          const dateStr = ad.tanggal.substring(0, 10);
+          if (campaignStartStr && dateStr < campaignStartStr) return;
+          if (campaignEndStr && dateStr > campaignEndStr) return;
+          
+          const currentGmv = ad.gross_revenue_usd || 0;
+          const prevGmv = previousAdValues[ad.ad_id] || 0;
+          const deltaUsd = currentGmv - prevGmv;
+          
+          if (deltaUsd > 0) {
+            const kurs = (ad.kurs && ad.kurs < 1000) ? ad.kurs * 1000 : (ad.kurs || 16000);
+            const deltaIdr = deltaUsd * kurs;
+            
+            if (!grouped[dateStr]) grouped[dateStr] = { gmv: 0, gmvAds: 0, creators: new Set(), videos: new Set(), gmvLive: 0, gmvVT: 0, ordersLive: 0, ordersVT: 0, liveSessions: new Set() };
+            grouped[dateStr].gmvAds += deltaIdr;
+            
+            const monthStr = dateStr.substring(0, 7);
+            if (!monthlyGrouped[monthStr]) monthlyGrouped[monthStr] = { gmv: 0, gmvAds: 0, creators: new Set(), videos: new Set(), gmvLive: 0, gmvVT: 0, ordersLive: 0, ordersVT: 0, liveSessions: new Set() };
+            monthlyGrouped[monthStr].gmvAds += deltaIdr;
+          }
+          previousAdValues[ad.ad_id] = currentGmv;
+        });
+      }
+
+      const formattedDaily = Object.keys(grouped).map(date => ({
+        date,
+        gmvOrganic: grouped[date].gmv,
+        gmvLive: grouped[date].gmvLive,
+        gmvVT: grouped[date].gmvVT,
+        ordersLive: grouped[date].ordersLive,
+        ordersVT: grouped[date].ordersVT,
+        gmvAds: grouped[date].gmvAds,
+        totalCreators: grouped[date].creators.size,
+        totalVideos: grouped[date].videos.size,
+        totalLiveSessions: grouped[date].liveSessions.size
+      })).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+      const formattedMonthly = Object.keys(monthlyGrouped).map(month => ({
+        month,
+        gmvOrganic: monthlyGrouped[month].gmv,
+        gmvLive: monthlyGrouped[month].gmvLive,
+        gmvVT: monthlyGrouped[month].gmvVT,
+        ordersLive: monthlyGrouped[month].ordersLive,
+        ordersVT: monthlyGrouped[month].ordersVT,
+        gmvAds: monthlyGrouped[month].gmvAds,
+        totalCreators: monthlyGrouped[month].creators.size,
+        totalVideos: monthlyGrouped[month].videos.size,
+        totalLiveSessions: monthlyGrouped[month].liveSessions.size
+      })).sort((a, b) => new Date(b.month + '-01').getTime() - new Date(a.month + '-01').getTime());
+
+      setDailyData(formattedDaily);
+      setMonthlyData(formattedMonthly);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, [campaignId]);
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64 text-slate-500 font-medium">
+        Memuat data harian...
+      </div>
+    );
+  }
+
+  if (!campaign) return null;
 
   return (
     <div className="space-y-[24px] pb-[80px]">

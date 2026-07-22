@@ -11,32 +11,22 @@ import { useCampaignFilter } from "@/providers/CampaignFilterProvider";
 
 const supabase = createClient();
 
-export default function CampaignPerformaClient({ 
-  campaign, 
-  rpcPerformance: initialRpcPerformance,
-  baseCreatorStats,
-  localCreators,
-  initialTotalAdsGmv = 0,
-  initialTotalAdsGmvUsd = 0,
-  initialTotalAdsSpend = 0,
-  initialAdsData = []
-}: { 
-  campaign: any, 
-  rpcPerformance: any,
-  baseCreatorStats: any[],
-  localCreators: any[],
-  initialTotalAdsGmv?: number,
-  initialTotalAdsGmvUsd?: number,
-  initialTotalAdsSpend?: number,
-  initialAdsData?: any[]
-}) {
-  const campaignId = campaign.id;
+export default function CampaignPerformaClient({ campaignId }: { campaignId: number }) {
   const router = useRouter();
 
   const { canEditCampaign } = useAuth();
   const hasAccess = canEditCampaign(campaignId);
 
-  const [adsPerf, setAdsPerf] = useState<any[]>(initialAdsData || []);
+  const [campaign, setCampaign] = useState<any>(null);
+  const [rpcPerformance, setRpcPerformance] = useState<any>(null);
+  const [baseCreatorStats, setBaseCreatorStats] = useState<any[]>([]);
+  const [localCreators, setLocalCreators] = useState<any[]>([]);
+  const [initialTotalAdsGmv, setInitialTotalAdsGmv] = useState(0);
+  const [initialTotalAdsGmvUsd, setInitialTotalAdsGmvUsd] = useState(0);
+  const [initialTotalAdsSpend, setInitialTotalAdsSpend] = useState(0);
+  const [adsPerf, setAdsPerf] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
   const [searchQuery, setSearchQuery] = useState('');
   const [showAdsDetail, setShowAdsDetail] = useState(false);
   const [editingKursId, setEditingKursId] = useState<number | null>(null);
@@ -45,6 +35,191 @@ export default function CampaignPerformaClient({
 
   // Filter Creator State from Global Context
   const { appliedFilterType, appliedFilterUsernames } = useCampaignFilter();
+
+  const fetchData = async () => {
+    setIsRefreshing(true);
+    try {
+      const { data: campaignData } = await supabase.from('campaigns').select('*').eq('id', campaignId).single();
+      if (campaignData) setCampaign(campaignData);
+
+      const { data: rpcPerf } = await supabase.rpc('get_campaign_performance', { p_campaign_id: campaignId });
+      setRpcPerformance(Array.isArray(rpcPerf) ? rpcPerf[0] : rpcPerf);
+
+      let ccData: any[] = [];
+      let start = 0;
+      const pageSize = 500;
+      while (true) {
+        const { data, error } = await supabase
+          .from('campaign_creators')
+          .select(`
+            *,
+            creators(id, username, nama_asli, link_account, creator_snapshots(followers, level, tier)),
+            videos(id, link_video, content_uid, vt_approval, urutan)
+          `)
+          .eq('campaign_id', campaignId)
+          .in('approval', ['approved', 'pending'])
+          .range(start, start + pageSize - 1);
+
+        if (error || !data || data.length === 0) break;
+        ccData = ccData.concat(data);
+        if (data.length < pageSize) break;
+        start += pageSize;
+      }
+      setLocalCreators(ccData);
+
+      let creatorPerformance: any[] = [];
+      let cpStart = 0;
+      while (true) {
+        const { data, error } = await supabase
+          .from('campaign_creators_performance')
+          .select('*')
+          .eq('campaign_id', campaignId)
+          .range(cpStart, cpStart + pageSize - 1);
+        
+        if (error || !data || data.length === 0) break;
+        creatorPerformance = creatorPerformance.concat(data);
+        if (data.length < pageSize) break;
+        cpStart += pageSize;
+      }
+
+      const { data: videoGmvData } = await supabase.rpc('get_campaign_video_gmv', { p_campaign_id: campaignId });
+
+      const { data: rawAdsData } = await supabase.from('ads_performance').select('*, creators(username)').eq('campaign_id', campaignId);
+      const latestAdsMap = new Map();
+      if (rawAdsData) {
+        for (const row of rawAdsData) {
+          const existing = latestAdsMap.get(row.ad_id);
+          if (!existing || new Date(row.tanggal) > new Date(existing.tanggal)) {
+            latestAdsMap.set(row.ad_id, row);
+          }
+        }
+      }
+      
+      const adsStatsByCreator: Record<number, { gmvAds: number, costAds: number, itemsSoldAds: number }> = {};
+      let globalAdsGmv = 0;
+      let globalAdsGmvUsd = 0;
+      let globalAdsSpend = 0;
+
+      for (const ad of latestAdsMap.values()) {
+        let kurs = ad.kurs || 16000;
+        if (kurs < 1000) kurs = kurs * 1000;
+        
+        globalAdsGmv += (ad.gross_revenue_usd || 0) * kurs;
+        globalAdsGmvUsd += (ad.gross_revenue_usd || 0);
+        globalAdsSpend += (ad.cost_usd || 0);
+
+        if (ad.creator_id) {
+          if (!adsStatsByCreator[ad.creator_id]) {
+            adsStatsByCreator[ad.creator_id] = { gmvAds: 0, costAds: 0, itemsSoldAds: 0 };
+          }
+          adsStatsByCreator[ad.creator_id].gmvAds += (ad.gross_revenue_usd || 0) * kurs;
+          adsStatsByCreator[ad.creator_id].costAds += (ad.cost_usd || 0) * kurs;
+          adsStatsByCreator[ad.creator_id].itemsSoldAds += (ad.purchases || 0);
+        }
+      }
+
+      setInitialTotalAdsGmv(globalAdsGmv);
+      setInitialTotalAdsGmvUsd(globalAdsGmvUsd);
+      setInitialTotalAdsSpend(globalAdsSpend);
+      setAdsPerf(Array.from(latestAdsMap.values()));
+
+      const computedStats = ccData.map((cc: any) => {
+        const creator = Array.isArray(cc.creators) ? cc.creators[0] : cc.creators;
+        const snap = creator?.creator_snapshots 
+          ? (Array.isArray(creator.creator_snapshots) ? creator.creator_snapshots[0] : creator.creator_snapshots)
+          : null;
+        const username = creator?.username || 'Unknown';
+
+        const perf = creatorPerformance?.find(p => p.campaign_creator_id === cc.id);
+
+        const gmvOrganic = perf?.gmv_organic || 0;
+        const itemsSold = perf?.items_sold || 0;
+        const videoViews = perf?.video_views || 0;
+        const videoLikes = perf?.video_likes || 0;
+        const trackedVideos = perf?.video_count || 0;
+        
+        const aggregatedAds = adsStatsByCreator[creator?.id] || { gmvAds: 0, costAds: 0, itemsSoldAds: 0 };
+        const gmvAds = aggregatedAds.gmvAds;
+        const costAds = aggregatedAds.costAds;
+        const itemsSoldAds = aggregatedAds.itemsSoldAds || 0;
+        
+        const totalGmv = gmvOrganic + gmvAds;
+        const roas = costAds > 0 ? (gmvAds / costAds).toFixed(2) : '-';
+
+        const autoSalesVideos = videoGmvData?.filter((v: any) => v.creator_username === username) || [];
+        const dbVideos = cc.videos || [];
+        const uniqueVideoIds = new Map<string, string>(); 
+        const uniqueLiveIds = new Set<string>();
+
+        dbVideos.forEach((v: any) => {
+          const id = v.content_uid;
+          if (id) {
+              uniqueVideoIds.set(id, v.vt_approval || 'approved');
+          }
+        });
+
+        autoSalesVideos.forEach((s: any) => {
+           let vid = s.content_uid;
+           if (vid && vid.startsWith('video_')) {
+             const parts = vid.split('_');
+             if (parts.length >= 2) {
+               vid = parts[1];
+             }
+           }
+           if (vid) {
+             if (s.content_type === 'Livestream') {
+               uniqueLiveIds.add(vid);
+             } else {
+               if (!uniqueVideoIds.has(vid)) {
+                 uniqueVideoIds.set(vid, 'approved');
+               }
+             }
+           }
+        });
+
+        let approvedVtCount = 0;
+        let pendingVtCount = 0;
+        
+        if (cc.approval === 'pending') {
+            pendingVtCount = Math.max(trackedVideos || 0, uniqueVideoIds.size);
+        } else {
+            approvedVtCount = Math.max(trackedVideos || 0, uniqueVideoIds.size);
+            pendingVtCount = 0;
+        }
+
+        const totalVt = approvedVtCount + pendingVtCount;
+        const totalLive = uniqueLiveIds.size;
+
+        return {
+          ...cc,
+          username,
+          followers: snap?.followers || 0,
+          gmvOrganic,
+          gmvAds,
+          costAds,
+          roas,
+          totalGmv,
+          itemsSold,
+          itemsSoldAds,
+          videoViews,
+          videoLikes,
+          totalVt,
+          totalLive
+        };
+      });
+
+      setBaseCreatorStats(computedStats);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, [campaignId]);
 
   // Real-time subscription to 'sales' table
   useEffect(() => {
@@ -57,16 +232,14 @@ export default function CampaignPerformaClient({
         table: 'sales', 
         filter: `campaign_id=eq.${campaignId}` 
       }, () => {
-        setIsRefreshing(true);
-        router.refresh();
-        setTimeout(() => setIsRefreshing(false), 1000);
+        fetchData();
       })
       .subscribe();
       
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [campaignId, router]);
+  }, [campaignId]);
 
   const handleUpdateKurs = async (id: number) => {
     const numKurs = Number(editKursValue);
@@ -96,7 +269,16 @@ export default function CampaignPerformaClient({
     exportToCSV(exportData, `campaign_${campaignId}_performance`);
   };
 
-  if (!campaign) return null;
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
+        <span className="ml-3 text-slate-500 font-medium">Memuat dan Mengkalkulasi Data...</span>
+      </div>
+    );
+  }
+
+  if (!campaign) return <div className="text-center p-12 text-slate-500">Campaign tidak ditemukan</div>;
 
   const isAwareness = campaign.tipe_campaign === 'awareness' || campaign.tipe_campaign === 'gmv_awareness';
   const totalApprovedCreators = localCreators.filter(c => c.approval === 'approved').length;
@@ -175,7 +357,7 @@ export default function CampaignPerformaClient({
   });
 
   const isFiltered = appliedFilterType !== 'none' && appliedFilterUsernames.length > 0;
-  const totalSales = initialRpcPerformance || {};
+  const totalSales = rpcPerformance || {};
 
   const totalOrganic = isFiltered ? fbOrganic : (totalSales?.totalOrganic || fbOrganic);
   // Always use initialTotalAdsGmv for accurate deduplicated total, unless filtered by creator
