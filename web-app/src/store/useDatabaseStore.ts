@@ -333,7 +333,9 @@ export const useDatabaseStore = create<DatabaseState>((set, get) => ({
     if (existing) {
       if (existing.audience_age === snapshot.audience_age && 
           existing.level === snapshot.level && 
-          existing.gmv_30d === snapshot.gmv_30d) {
+          existing.gmv_30d === snapshot.gmv_30d &&
+          existing.followers === snapshot.followers &&
+          existing.tier === snapshot.tier) {
         console.log("Snapshot identical to previous, skipping insert.");
         return; // Deduplicated
       }
