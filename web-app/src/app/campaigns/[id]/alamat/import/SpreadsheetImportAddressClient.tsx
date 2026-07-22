@@ -86,7 +86,7 @@ export default function SpreadsheetImportAddressClient() {
   const [dragFill, setDragFill] = useState<DragFillState | null>(null);
 
   const runBulkAutoDetect = async (usernamesToDetect: string[]) => {
-    const usernames = usernamesToDetect.map(u => u.trim().toLowerCase()).filter(Boolean);
+    const usernames = usernamesToDetect.map(u => u.replace('@', '').trim().toLowerCase()).filter(Boolean);
     if (usernames.length === 0 || !campaignId) return;
     
     setIsAutoDetecting(true);
@@ -103,7 +103,7 @@ export default function SpreadsheetImportAddressClient() {
           
           for (let i = 0; i < newRows.length; i++) {
             const row = newRows[i];
-            const uname = row.username.trim().toLowerCase();
+            const uname = row.username.replace('@', '').trim().toLowerCase();
             if (!uname) continue;
             
             const matched = matchedCCs.find((cc: any) => cc.creators.username.toLowerCase() === uname);
@@ -537,19 +537,15 @@ export default function SpreadsheetImportAddressClient() {
     </th>
   );
 
-  const TableCell = ({ 
-    idx, 
-    field, 
-    placeholder,
-    width
-  }: { 
+  const renderCell = (
     idx: number, 
     field: keyof SpreadsheetRow, 
     placeholder?: string,
     width?: string
-  }) => {
+  ) => {
     return (
       <td 
+        key={field}
         className={`relative p-0 border-b border-r border-slate-300 group ${getDragHighlightClass(idx, field)}`}
         onMouseEnter={() => handleDragFillEnter(idx)}
       >
@@ -656,20 +652,20 @@ export default function SpreadsheetImportAddressClient() {
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </td>
-                    <TableCell idx={idx} field="username" placeholder="@username" width="w-48" />
-                    <TableCell idx={idx} field="whatsapp" placeholder="08..." width="w-40" />
-                    <TableCell idx={idx} field="nama_penerima" width="w-48" />
-                    <TableCell idx={idx} field="nama_jalan" width="w-64" />
-                    <TableCell idx={idx} field="provinsi" width="w-40" />
-                    <TableCell idx={idx} field="kabupaten_kota" width="w-40" />
-                    <TableCell idx={idx} field="kecamatan" width="w-40" />
-                    <TableCell idx={idx} field="kelurahan" width="w-40" />
-                    <TableCell idx={idx} field="kode_pos" width="w-32" />
-                    <TableCell idx={idx} field="tanggal_kirim" width="w-32" />
-                    <TableCell idx={idx} field="resi" width="w-40" />
-                    <TableCell idx={idx} field="ekspedisi" width="w-40" />
-                    <TableCell idx={idx} field="notes" width="w-48" />
-                    <TableCell idx={idx} field="proses" width="w-40" />
+                    {renderCell(idx, 'username', '@username', 'w-48')}
+                    {renderCell(idx, 'whatsapp', '08...', 'w-40')}
+                    {renderCell(idx, 'nama_penerima', '', 'w-48')}
+                    {renderCell(idx, 'nama_jalan', '', 'w-64')}
+                    {renderCell(idx, 'provinsi', '', 'w-40')}
+                    {renderCell(idx, 'kabupaten_kota', '', 'w-40')}
+                    {renderCell(idx, 'kecamatan', '', 'w-40')}
+                    {renderCell(idx, 'kelurahan', '', 'w-40')}
+                    {renderCell(idx, 'kode_pos', '', 'w-32')}
+                    {renderCell(idx, 'tanggal_kirim', 'DD/MM/YYYY', 'w-32')}
+                    {renderCell(idx, 'resi', '', 'w-40')}
+                    {renderCell(idx, 'ekspedisi', '', 'w-40')}
+                    {renderCell(idx, 'notes', '', 'w-48')}
+                    {renderCell(idx, 'proses', '', 'w-40')}
                     <td className={`p-3 border-b border-slate-300 text-xs w-48 truncate
                       ${row.status === 'error' ? 'text-red-600 font-medium' : ''}
                       ${row.status === 'update' ? 'text-blue-600' : ''}
