@@ -364,12 +364,15 @@ export default function SpreadsheetImportClient() {
     
     let hasError = false;
     filledRows = filledRows.map(r => {
+      // Auto-clean username
+      const cleanUsername = r.username.replace('@', '').trim().toLowerCase();
+      
       let err = '';
       if (!r.niche.trim()) err = "Niche wajib diisi!";
       if (!r.whatsapp.trim()) err = "No. Whatsapp wajib diisi!";
-      if (r.username.includes(' ')) err = "Username tidak boleh ada spasi";
+      if (cleanUsername.includes(' ')) err = "Username tidak boleh ada spasi";
       if (err) hasError = true;
-      return { ...r, status: err ? 'error' : undefined, errorMsg: err };
+      return { ...r, username: cleanUsername, status: err ? 'error' : undefined, errorMsg: err };
     });
 
     if (hasError) {
@@ -423,7 +426,10 @@ export default function SpreadsheetImportClient() {
   const handleImport = async () => {
     setIsImporting(true);
     try {
-      const filledRows = rows.filter(r => r.username.trim() !== '' && r.status !== 'error');
+      const filledRows = rows.filter(r => r.username.trim() !== '' && r.status !== 'error').map(r => ({
+        ...r,
+        username: r.username.replace('@', '').trim().toLowerCase()
+      }));
       
       const uniqueUsernames = Array.from(new Set(filledRows.map(r => r.username)));
       
@@ -483,12 +489,18 @@ export default function SpreadsheetImportClient() {
         });
 
         if (r.whatsapp) {
-          contacts.push({
-            creator_id: cId,
-            nomor: r.whatsapp,
-            status: 'aktif',
-            created_at: new Date().toISOString()
-          });
+          let cleanWa = r.whatsapp.replace(/\D/g, '');
+          if (cleanWa.startsWith('62')) cleanWa = '0' + cleanWa.substring(2);
+          else if (cleanWa.startsWith('8')) cleanWa = '0' + cleanWa;
+          
+          if (cleanWa) {
+            contacts.push({
+              creator_id: cId,
+              nomor: cleanWa,
+              status: 'aktif',
+              created_at: new Date().toISOString()
+            });
+          }
         }
       }
 
