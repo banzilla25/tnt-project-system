@@ -67,20 +67,57 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
       }
       setLocalCreators(ccData);
 
-      let creatorPerformance: any[] = [];
-      let cpStart = 0;
+      let allSales: any[] = [];
+      let salesStart = 0;
       while (true) {
         const { data, error } = await supabase
-          .from('campaign_creators_performance')
-          .select('*')
+          .from('sales')
+          .select('creator_username, gmv, quantity, order_id')
           .eq('campaign_id', campaignId)
-          .range(cpStart, cpStart + pageSize - 1);
+          .range(salesStart, salesStart + pageSize - 1);
         
         if (error || !data || data.length === 0) break;
-        creatorPerformance = creatorPerformance.concat(data);
+        allSales = allSales.concat(data);
         if (data.length < pageSize) break;
-        cpStart += pageSize;
+        salesStart += pageSize;
       }
+
+      let allOrganicVideos: any[] = [];
+      let vStart = 0;
+      while (true) {
+        const { data, error } = await supabase
+          .from('organic_videos')
+          .select('creator_username, video_views, video_likes')
+          .eq('campaign_id', campaignId)
+          .range(vStart, vStart + pageSize - 1);
+        
+        if (error || !data || data.length === 0) break;
+        allOrganicVideos = allOrganicVideos.concat(data);
+        if (data.length < pageSize) break;
+        vStart += pageSize;
+      }
+
+      // Aggregate locally by creator_username
+      const perfMap = new Map<string, any>();
+      
+      allSales.forEach(s => {
+        const user = s.creator_username?.toLowerCase() || '';
+        if (!user) return;
+        if (!perfMap.has(user)) perfMap.set(user, { gmv_organic: 0, items_sold: 0, video_views: 0, video_likes: 0, video_count: 0 });
+        const p = perfMap.get(user);
+        p.gmv_organic += (s.gmv || 0);
+        p.items_sold += (s.quantity || 0);
+      });
+
+      allOrganicVideos.forEach(v => {
+        const user = v.creator_username?.toLowerCase() || '';
+        if (!user) return;
+        if (!perfMap.has(user)) perfMap.set(user, { gmv_organic: 0, items_sold: 0, video_views: 0, video_likes: 0, video_count: 0 });
+        const p = perfMap.get(user);
+        p.video_views += (v.video_views || 0);
+        p.video_likes += (v.video_likes || 0);
+        p.video_count += 1;
+      });
 
       const { data: videoGmvData } = await supabase.rpc('get_campaign_video_gmv', { p_campaign_id: campaignId });
 
@@ -130,13 +167,14 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
           : null;
         const username = creator?.username || 'Unknown';
 
-        const perf = creatorPerformance?.find(p => p.campaign_creator_id === cc.id);
+        const usernameLower = username.toLowerCase();
+        const perf = perfMap.get(usernameLower) || { gmv_organic: 0, items_sold: 0, video_views: 0, video_likes: 0, video_count: 0 };
 
-        const gmvOrganic = perf?.gmv_organic || 0;
-        const itemsSold = perf?.items_sold || 0;
-        const videoViews = perf?.video_views || 0;
-        const videoLikes = perf?.video_likes || 0;
-        const trackedVideos = perf?.video_count || 0;
+        const gmvOrganic = perf.gmv_organic || 0;
+        const itemsSold = perf.items_sold || 0;
+        const videoViews = perf.video_views || 0;
+        const videoLikes = perf.video_likes || 0;
+        const trackedVideos = perf.video_count || 0;
         
         const aggregatedAds = adsStatsByCreator[creator?.id] || { gmvAds: 0, costAds: 0, itemsSoldAds: 0 };
         const gmvAds = aggregatedAds.gmvAds;
