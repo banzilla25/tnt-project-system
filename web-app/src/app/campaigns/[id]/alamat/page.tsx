@@ -246,8 +246,21 @@ export default function AlamatPage() {
         (existing.tanggal_kirim || '') !== (formData.tanggal_kirim || '')
       );
     }
-    
-    if (!isDataChanged && !isSkusChanged) {
+    // Check if WA changed
+    let isWaChanged = false;
+    let cleanWa = editWhatsapp.replace(/\D/g, '');
+    if (cleanWa.startsWith('62')) {
+      cleanWa = '0' + cleanWa.substring(2);
+    } else if (cleanWa.startsWith('8')) {
+      cleanWa = '0' + cleanWa;
+    }
+    const contacts = Array.isArray(cc?.creators?.creator_contacts) ? cc?.creators.creator_contacts : (cc?.creators?.creator_contacts ? [cc?.creators.creator_contacts] : []);
+    const activeContact = contacts.find((c: any) => c.status === 'aktif') || contacts[0];
+    if (cleanWa && (!activeContact || activeContact.nomor !== cleanWa)) {
+      isWaChanged = true;
+    }
+
+    if (!isDataChanged && !isSkusChanged && !isWaChanged) {
       setEditId(null);
       setIsSaving(false);
       return;
@@ -269,23 +282,27 @@ export default function AlamatPage() {
     }
     
     // Save Whatsapp to creator_contacts
-    if (cc && cc.creator_id && editWhatsapp) {
-      const contacts = Array.isArray(cc.creators?.creator_contacts) ? cc.creators.creator_contacts : (cc.creators?.creator_contacts ? [cc.creators.creator_contacts] : []);
-      const activeContact = contacts.find((c: any) => c.status === 'aktif') || contacts[0];
-      let cleanWa = editWhatsapp.replace(/\D/g, '');
-      if (cleanWa.startsWith('62')) {
-        cleanWa = '0' + cleanWa.substring(2);
-      } else if (cleanWa.startsWith('8')) {
-        cleanWa = '0' + cleanWa;
-      }
-
-      if (cleanWa && (!activeContact || activeContact.nomor !== cleanWa)) {
-        await supabase.from('creator_contacts').insert({
-          creator_id: cc.creator_id,
-          nomor: cleanWa,
-          status: 'aktif'
-        });
-      }
+    if (cc && cc.creator_id && isWaChanged && cleanWa) {
+      await supabase.from('creator_contacts').insert({
+        creator_id: cc.creator_id,
+        nomor: cleanWa,
+        status: 'aktif'
+      });
+      // Update local state so it immediately reflects
+      setLocalCreators(prev => prev.map(c => {
+        if (c.id === ccId) {
+          const oldContacts = Array.isArray(c.creators?.creator_contacts) ? c.creators.creator_contacts : (c.creators?.creator_contacts ? [c.creators.creator_contacts] : []);
+          const updatedContacts = [...oldContacts, { nomor: cleanWa, status: 'aktif' }];
+          return {
+            ...c,
+            creators: {
+              ...c.creators,
+              creator_contacts: updatedContacts
+            }
+          };
+        }
+        return c;
+      }));
     }
     
     // Auto-save to address book if not selected from book
