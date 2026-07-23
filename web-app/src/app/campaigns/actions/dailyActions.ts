@@ -27,35 +27,9 @@ export async function getDailyData(campaignId: number) {
   const isAwareness = campaign.tipe_campaign === 'awareness';
   const isHybrid = campaign.tipe_campaign === 'gmv_awareness';
 
-  // 1. Fetch Sales
-  let from = 0;
-  let to = 999;
-  let hasMore = true;
-  while (hasMore) {
-    const { data: salesData, error } = await supabase
-      .from('sales')
-      .select('tanggal, gmv, creator_username, content_uid, content_type, quantity')
-      .eq('campaign_id', campaignId)
-      .eq('is_refund', false)
-      .range(from, to);
-
-    if (error) {
-      console.error("Error fetching sales:", error);
-      break;
-    }
-
-    if (salesData && salesData.length > 0) {
-      allSales = [...allSales, ...salesData];
-      if (salesData.length < 1000) {
-        hasMore = false;
-      } else {
-        from += 1000;
-        to += 1000;
-      }
-    } else {
-      hasMore = false;
-    }
-  }
+  // 1. Fetch Sales via RPC
+  const { data: dailyStats, error: dsError } = await supabase.rpc('get_campaign_daily_stats', { p_campaign_id: campaignId });
+  const allSalesStats = dailyStats || [];
 
   // 2. Fetch Videos (for all campaigns now, as requested)
   let from_v = 0;
@@ -124,47 +98,36 @@ export async function getDailyData(campaignId: number) {
   const campaignStartStr = campaign.start_date || '';
   const campaignEndStr = campaign.status === 'selesai' ? campaign.end_date || '' : '';
 
-  if (allSales.length > 0) {
-    allSales.forEach(sale => {
-      if (!sale.tanggal) return;
-      // Extract YYYY-MM-DD
-      const dateStr = sale.tanggal.substring(0, 10);
+  if (allSalesStats.length > 0) {
+    allSalesStats.forEach((stat: any) => {
+      if (!stat.date_str) return;
+      const dateStr = stat.date_str;
       
       if (campaignStartStr && dateStr < campaignStartStr) return;
       if (campaignEndStr && dateStr > campaignEndStr) return;
 
       if (!grouped[dateStr]) grouped[dateStr] = { gmv: 0, gmvAds: 0, creators: new Set(), videos: new Set(), gmvLive: 0, gmvVT: 0, ordersLive: 0, ordersVT: 0, liveSessions: new Set() };
       
-      const isLive = sale.content_type === 'Livestream' || sale.content_type === 'Live';
-      const isVT = sale.content_type === 'Video' || sale.content_type === 'ShortVideo';
+      grouped[dateStr].gmvLive += (stat.gmv_live || 0);
+      grouped[dateStr].ordersLive += (stat.orders_live || 0);
+      grouped[dateStr].gmvVT += (stat.gmv_vt || 0);
+      grouped[dateStr].ordersVT += (stat.orders_vt || 0);
+      grouped[dateStr].gmv += (stat.total_gmv || 0);
+      
+      if (stat.active_creators) stat.active_creators.forEach((c: string) => grouped[dateStr].creators.add(c));
+      if (stat.active_videos) stat.active_videos.forEach((v: string) => grouped[dateStr].videos.add(v));
 
-      if (isLive) {
-        grouped[dateStr].gmvLive += (sale.gmv || 0);
-        grouped[dateStr].ordersLive += (sale.quantity || 0);
-      } else if (isVT) {
-        grouped[dateStr].gmvVT += (sale.gmv || 0);
-        grouped[dateStr].ordersVT += (sale.quantity || 0);
-      }
-
-      grouped[dateStr].gmv += (sale.gmv || 0);
-      if (sale.creator_username) grouped[dateStr].creators.add(sale.creator_username);
-      if (sale.content_uid && !isLive) grouped[dateStr].videos.add(sale.content_uid);
-
-      // Extract YYYY-MM
-      const monthStr = sale.tanggal.substring(0, 7);
+      const monthStr = dateStr.substring(0, 7);
       if (!monthlyGrouped[monthStr]) monthlyGrouped[monthStr] = { gmv: 0, gmvAds: 0, creators: new Set(), videos: new Set(), gmvLive: 0, gmvVT: 0, ordersLive: 0, ordersVT: 0, liveSessions: new Set() };
       
-      if (isLive) {
-        monthlyGrouped[monthStr].gmvLive += (sale.gmv || 0);
-        monthlyGrouped[monthStr].ordersLive += (sale.quantity || 0);
-      } else if (isVT) {
-        monthlyGrouped[monthStr].gmvVT += (sale.gmv || 0);
-        monthlyGrouped[monthStr].ordersVT += (sale.quantity || 0);
-      }
-
-      monthlyGrouped[monthStr].gmv += (sale.gmv || 0);
-      if (sale.creator_username) monthlyGrouped[monthStr].creators.add(sale.creator_username);
-      if (sale.content_uid && !isLive) monthlyGrouped[monthStr].videos.add(sale.content_uid);
+      monthlyGrouped[monthStr].gmvLive += (stat.gmv_live || 0);
+      monthlyGrouped[monthStr].ordersLive += (stat.orders_live || 0);
+      monthlyGrouped[monthStr].gmvVT += (stat.gmv_vt || 0);
+      monthlyGrouped[monthStr].ordersVT += (stat.orders_vt || 0);
+      monthlyGrouped[monthStr].gmv += (stat.total_gmv || 0);
+      
+      if (stat.active_creators) stat.active_creators.forEach((c: string) => monthlyGrouped[monthStr].creators.add(c));
+      if (stat.active_videos) stat.active_videos.forEach((v: string) => monthlyGrouped[monthStr].videos.add(v));
     });
   }
 

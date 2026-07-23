@@ -540,23 +540,11 @@ export default function CampaignVideoPage({
        const uploadedVtCount = creatorVideos.filter(v => v.link_video).length;
        const targetVt = cc.qty_vt || 0;
        
-       const ccSales = cc._localSales || [];
+       const vStats = cc._videoStats || [];
        let totalGmv = 0;
-       
-       ccSales.forEach((s: any) => {
-          if (s.content_uid && s.product_id) {
-             const matchingSku = skus.find(sku => sku.product_id === s.product_id && sku.campaign_id === campaignId);
-             if (matchingSku) {
-                totalGmv += (s.gmv || 0);
-             }
-          }
-       });
-
-       const ccOrganic = cc._localOrganicVideos || [];
        let totalViews = 0;
        let totalLikes = 0;
-       
-       // Hanya ambil views/likes dari video yang benar-benar ada di tabel videos (terhubung ke campaign)
+
        const validContentUids = new Set(
            creatorVideos
                .map(v => {
@@ -570,10 +558,11 @@ export default function CampaignVideoPage({
                .filter(Boolean)
        );
 
-       ccOrganic.forEach((o: any) => {
-          if (validContentUids.has(o.vt_code) || validContentUids.has(o.content_uid) || validContentUids.has(o.video_id)) {
-             totalViews += (o.video_views || 0);
-             totalLikes += (o.video_likes || 0);
+       vStats.forEach((s: any) => {
+          if (s.content_uid && validContentUids.has(s.content_uid)) {
+             totalGmv += (s.gmv || 0);
+             totalViews += (s.views || 0);
+             totalLikes += (s.likes || 0);
           }
        });
 
@@ -608,8 +597,8 @@ export default function CampaignVideoPage({
 
     if (filterSku !== 'all') {
        data = data.filter(cc => {
-          const ccSales = cc._localSales || [];
-          return ccSales.some((s: any) => s.product_id === filterSku);
+          const vStats = cc._videoStats || [];
+          return vStats.some((s: any) => s.product_id === filterSku);
        });
     }
 
@@ -648,8 +637,7 @@ export default function CampaignVideoPage({
        if (!cc || !cc.creators || !isCreatorVisible(cc.creators.username)) return;
        
        const creator = cc.creators;
-       const ccSales = cc._localSales || [];
-       const ccOrganic = cc._localOrganicVideos || [];
+       const vStats = cc._videoStats || [];
        
        const hasContentUid = v.content_uid && v.content_uid !== '';
        const dynamicContentUid = hasContentUid ? v.content_uid : null;
@@ -658,18 +646,13 @@ export default function CampaignVideoPage({
        let vidViews = 0;
        let vidLikes = 0;
        
-       if (dynamicContentUid) {
-          ccSales.forEach((s: any) => {
-             if (s.content_uid === dynamicContentUid || s.content_uid === `video_${dynamicContentUid}`) {
-                vidGmv += (s.gmv || 0);
-             }
-          });
-          ccOrganic.forEach((o: any) => {
-             if (o.video_id === dynamicContentUid) {
-                vidViews += (o.video_views || 0);
-                vidLikes += (o.video_likes || 0);
-             }
-          });
+       if (hasContentUid) {
+          const matchingStat = vStats.find((s: any) => s.content_uid === dynamicContentUid);
+          if (matchingStat) {
+              vidGmv = matchingStat.gmv || 0;
+              vidViews = matchingStat.views || 0;
+              vidLikes = matchingStat.likes || 0;
+          }
        }
        
        const rpm = vidViews > 0 ? (vidGmv / vidViews) * 1000 : 0;
@@ -999,23 +982,13 @@ export default function CampaignVideoPage({
                             let vidLikes = 0;
 
                             if (hasContentUid) {
-                               const ccSales = cc._localSales || [];
-                               ccSales.forEach((s: any) => {
-                                  if ((s.content_uid === dynamicContentUid || s.content_uid === `video_${dynamicContentUid}`) && s.product_id) {
-                                     const matchingSku = skus.find(sku => sku.product_id === s.product_id && sku.campaign_id === campaignId);
-                                     if (matchingSku) {
-                                        vidGmv += (s.gmv || 0);
-                                     }
-                                  }
-                               });
-
-                               const ccOrganic = cc._localOrganicVideos || [];
-                               ccOrganic.forEach((o: any) => {
-                                  if (o.vt_code === dynamicContentUid || o.content_uid === dynamicContentUid) {
-                                     vidViews += (o.video_views || 0);
-                                     vidLikes += (o.video_likes || 0);
-                                  }
-                               });
+                               const vStats = cc._videoStats || [];
+                               const matchingStat = vStats.find((s: any) => s.content_uid === dynamicContentUid);
+                               if (matchingStat) {
+                                  vidGmv = matchingStat.gmv || 0;
+                                  vidViews = matchingStat.views || 0;
+                                  vidLikes = matchingStat.likes || 0;
+                               }
                             }
 
                             const rpm = vidViews > 0 ? (vidGmv / vidViews) * 1000 : 0;

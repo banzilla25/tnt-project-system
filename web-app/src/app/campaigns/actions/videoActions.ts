@@ -55,47 +55,14 @@ export async function getInternalVideoData(campaignId: number, searchKeyword: st
      currentFrom += 1000;
   }
 
-  const creatorUsernames = allResults.map((cc: any) => cc.creators?.username).filter(Boolean);
-  let localSalesData: any[] = [];
-  let localOrganicVideos: any[] = [];
-
-  const CHUNK_SIZE = 300;
-  for (let i = 0; i < creatorUsernames.length; i += CHUNK_SIZE) {
-    const chunk = creatorUsernames.slice(i, i + CHUNK_SIZE);
-    
-    if (chunk.length > 0) {
-      let sQuery = supabase
-        .from('sales')
-        .select('id, campaign_id, creator_username, content_uid, gmv, quantity, raw_data, product_id, tanggal')
-        .eq('campaign_id', campaignId)
-        .in('creator_username', chunk);
-
-      if (campaign.start_date) sQuery = sQuery.gte('tanggal', campaign.start_date);
-      if (campaign.end_date && campaign.status === 'selesai') sQuery = sQuery.lte('tanggal', campaign.end_date);
-
-      const { data: sData } = await sQuery;
-      if (sData) localSalesData.push(...sData);
-
-      let oQuery = supabase
-        .from('organic_videos')
-        .select('*')
-        .in('creator_username', chunk);
-        
-      if (campaign.start_date) oQuery = oQuery.gte('post_time', campaign.start_date);
-      if (campaign.end_date && campaign.status === 'selesai') oQuery = oQuery.lte('post_time', campaign.end_date);
-
-      const { data: oData } = await oQuery;
-      if (oData) localOrganicVideos.push(...oData);
-    }
-  }
+  const { data: videoStats } = await supabase.rpc('get_campaign_video_stats', { p_campaign_id: campaignId });
+  const statsList = videoStats || [];
 
   const allVideosFromDb = allResults.flatMap((cc: any) => cc.videos || []).map((v: any) => {
     if (!v.sku_id && v.content_uid) {
-       const matchingSale = localSalesData.find(s => 
-          (s.content_uid === v.content_uid || s.content_uid === `video_${v.content_uid}`) && s.product_id
-       );
-       if (matchingSale) {
-          const matchingSku = skus?.find(sku => sku.product_id === matchingSale.product_id && sku.campaign_id === campaignId);
+       const matchingStat = statsList.find((s: any) => s.content_uid === v.content_uid);
+       if (matchingStat && matchingStat.product_id) {
+          const matchingSku = skus?.find(sku => sku.product_id === matchingStat.product_id && sku.campaign_id === campaignId);
           if (matchingSku) {
              return { ...v, sku_id: matchingSku.id };
           }
@@ -110,40 +77,30 @@ export async function getInternalVideoData(campaignId: number, searchKeyword: st
     const creator = cc.creators;
     if (!creator) return;
     
-    const creatorSales = localSalesData.filter((s: any) => s.creator_username === creator.username && s.content_uid);
-    const uniqueVideoIds = new Set<string>();
+    const creatorStats = statsList.filter((s: any) => s.username === creator.username.toLowerCase());
     
-    creatorSales.forEach((s: any) => {
-      let vid = s.content_uid;
-      if (vid && vid.startsWith('video_')) {
-        const parts = vid.split('_');
-        if (parts.length >= 2) vid = parts[1];
-      }
+    creatorStats.forEach((s: any) => {
+      const vid = s.content_uid;
+      if (!vid) return;
 
-      if (vid && !uniqueVideoIds.has(vid)) {
-        uniqueVideoIds.add(vid);
-        
-        // Check if exists in db using the true video ID or vt_code
-        const existsInDb = allVideosFromDb.some((v: any) => 
-           v.campaign_creator_id === cc.id && 
-           (v.content_uid === vid || v.vt_code === vid || v.content_uid === s.content_uid)
-        );
-        
-        if (!existsInDb) {
-           // Try to match product_id from sales to skus table
-           const matchingSku = skus?.find(sku => sku.product_id === s.product_id && sku.campaign_id === campaignId);
-           
-           autoVideos.push({
-             id: `auto_${vid}`,
-             campaign_creator_id: cc.id,
-             urutan: 999, // Will be re-assigned later
-             concept: 'Auto-detected from Sales CSV',
-             link_video: `https://www.tiktok.com/@${creator.username}/video/${vid}`,
-             content_uid: vid,
-             sku_id: matchingSku ? matchingSku.id : null,
-             vt_approval: 'approved'
-           });
-        }
+      const existsInDb = allVideosFromDb.some((v: any) => 
+          v.campaign_creator_id === cc.id && 
+          (v.content_uid === vid || v.vt_code === vid)
+      );
+      
+      if (!existsInDb) {
+          const matchingSku = skus?.find(sku => sku.product_id === s.product_id && sku.campaign_id === campaignId);
+          
+          autoVideos.push({
+            id: `auto_${vid}`,
+            campaign_creator_id: cc.id,
+            urutan: 999, // Will be re-assigned later
+            concept: 'Auto-detected from Sales CSV',
+            link_video: `https://www.tiktok.com/@${creator.username}/video/${vid}`,
+            content_uid: vid,
+            sku_id: matchingSku ? matchingSku.id : null,
+            vt_approval: 'approved'
+          });
       }
     });
   });
@@ -152,8 +109,7 @@ export async function getInternalVideoData(campaignId: number, searchKeyword: st
 
   const listingData = allResults.map((cc: any) => ({
       ...cc,
-      _localSales: localSalesData.filter((s: any) => s.creator_username === cc.creators?.username),
-      _localOrganicVideos: localOrganicVideos.filter((v: any) => v.creator_username === cc.creators?.username)
+      _videoStats: statsList.filter((s: any) => s.username === cc.creators?.username?.toLowerCase())
   }));
 
   return {
