@@ -440,21 +440,22 @@ export default function SpreadsheetImportAddressClient() {
           .eq('campaign_creator_id', row.ccId)
           .maybeSingle();
 
-        const payload = {
+        const payload: any = {
           campaign_creator_id: row.ccId,
-          nama_penerima: row.nama_penerima,
-          nama_jalan: row.nama_jalan,
-          provinsi: row.provinsi,
-          kabupaten_kota: row.kabupaten_kota,
-          kecamatan: row.kecamatan,
-          kelurahan: row.kelurahan,
-          kode_pos: row.kode_pos,
-          ...(row.tanggal_kirim && { tanggal_kirim: row.tanggal_kirim }),
-          ...(row.resi && { resi: row.resi }),
-          ...(row.ekspedisi && { ekspedisi: row.ekspedisi }),
-          ...(row.notes && { notes: row.notes }),
-          ...(row.proses && { proses: row.proses }),
         };
+
+        if (row.nama_penerima?.trim()) payload.nama_penerima = row.nama_penerima;
+        if (row.nama_jalan?.trim()) payload.nama_jalan = row.nama_jalan;
+        if (row.provinsi?.trim()) payload.provinsi = row.provinsi;
+        if (row.kabupaten_kota?.trim()) payload.kabupaten_kota = row.kabupaten_kota;
+        if (row.kecamatan?.trim()) payload.kecamatan = row.kecamatan;
+        if (row.kelurahan?.trim()) payload.kelurahan = row.kelurahan;
+        if (row.kode_pos?.trim()) payload.kode_pos = row.kode_pos;
+        if (row.tanggal_kirim?.trim()) payload.tanggal_kirim = row.tanggal_kirim;
+        if (row.resi?.trim()) payload.resi = row.resi;
+        if (row.ekspedisi?.trim()) payload.ekspedisi = row.ekspedisi;
+        if (row.notes?.trim()) payload.notes = row.notes;
+        if (row.proses?.trim()) payload.proses = row.proses;
 
         if (existingAddr) {
           await supabase.from('creator_addresses').update(payload).eq('id', existingAddr.id);
