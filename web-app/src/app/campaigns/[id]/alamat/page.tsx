@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { useParams } from "next/navigation";
 import { useDatabaseStore } from "@/store/useDatabaseStore";
 import { CreatorAddress } from "@/types/database";
@@ -47,6 +47,7 @@ export default function AlamatPage() {
   const [sortConfig, setSortConfig] = useState<{ key: string; dir: 'asc' | 'desc' }>({ key: 'username', dir: 'asc' });
   const [currentPage, setCurrentPage] = useState(0);
   const [debouncedSearch, setDebouncedSearch] = useState('');
+  const hasSyncedRef = useRef(new Set<number>());
 
   // Debounce search input
   useEffect(() => {
@@ -106,6 +107,77 @@ export default function AlamatPage() {
     };
     fetchCCs();
   }, [campaignId, campaign?.require_client_approval]);
+
+  // Auto-sync missing addresses from profile
+  useEffect(() => {
+    if (isFetchingCC || isLoading || localCreators.length === 0 || !campaignId) return;
+    if (hasSyncedRef.current.has(campaignId)) return;
+    
+    const autoSync = async () => {
+      hasSyncedRef.current.add(campaignId);
+      
+      const existingCcIds = new Set(creator_addresses.map(a => a.campaign_creator_id));
+      const missingCCs = localCreators.filter(cc => !existingCcIds.has(cc.id) && cc.creator_id);
+      
+      if (missingCCs.length === 0) return;
+      
+      try {
+        const creatorIds = missingCCs.map(cc => cc.creator_id);
+        const { data: addressBooks } = await supabase
+          .from('creator_address_book')
+          .select('*')
+          .in('creator_id', creatorIds);
+          
+        const insertPayloads = [];
+        for (const cc of missingCCs) {
+          const books = (addressBooks || []).filter(b => b.creator_id === cc.creator_id);
+          if (books.length > 0) {
+            books.sort((a, b) => {
+              if (a.is_primary && !b.is_primary) return -1;
+              if (!a.is_primary && b.is_primary) return 1;
+              return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+            });
+            const best = books[0];
+            insertPayloads.push({
+              campaign_creator_id: cc.id,
+              nama_penerima: best.nama_penerima || cc.creators?.alamat_penerima || '',
+              nama_jalan: best.alamat_jalan || cc.creators?.alamat_jalan || '',
+              provinsi: best.provinsi || cc.creators?.alamat_provinsi || '',
+              kabupaten_kota: best.kota || cc.creators?.alamat_kota || '',
+              kecamatan: best.kecamatan || cc.creators?.alamat_kecamatan || '',
+              kelurahan: '',
+              kode_pos: best.kodepos || cc.creators?.alamat_kodepos || '',
+              proses: 'Belum diproses'
+            });
+          } else if (cc.creators?.alamat_jalan || cc.creators?.alamat_penerima) {
+            insertPayloads.push({
+              campaign_creator_id: cc.id,
+              nama_penerima: cc.creators?.alamat_penerima || '',
+              nama_jalan: cc.creators?.alamat_jalan || '',
+              provinsi: cc.creators?.alamat_provinsi || '',
+              kabupaten_kota: cc.creators?.alamat_kota || '',
+              kecamatan: cc.creators?.alamat_kecamatan || '',
+              kelurahan: '',
+              kode_pos: cc.creators?.alamat_kodepos || '',
+              proses: 'Belum diproses'
+            });
+          }
+        }
+        
+        if (insertPayloads.length > 0) {
+          const BATCH_SIZE = 50;
+          for (let i = 0; i < insertPayloads.length; i += BATCH_SIZE) {
+             await supabase.from('creator_addresses').insert(insertPayloads.slice(i, i + BATCH_SIZE));
+          }
+          fetchCreatorAddresses(campaignId);
+        }
+      } catch (err) {
+        console.error("Auto sync failed", err);
+      }
+    };
+    
+    autoSync();
+  }, [isFetchingCC, isLoading, localCreators, creator_addresses, campaignId, fetchCreatorAddresses]);
 
   // Memoize address lookup map for O(1) access instead of O(n) per row
   const addressMap = useMemo(() => {
