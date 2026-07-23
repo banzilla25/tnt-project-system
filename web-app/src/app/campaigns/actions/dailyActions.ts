@@ -38,7 +38,7 @@ export async function getDailyData(campaignId: number) {
   while (hasMore_v) {
     const { data: ccData, error } = await supabase
       .from('campaign_creators')
-      .select('id, approved_at, creators(username), videos(id, created_at, link_video)')
+      .select('id, approved_at, creators(username), videos(id, created_at, link_video, content_uid)')
       .eq('campaign_id', campaignId)
       .range(from_v, to_v);
 
@@ -165,11 +165,14 @@ export async function getDailyData(campaignId: number) {
         if (campaignEndStr && dateStr > campaignEndStr) return;
         
         if (!grouped[dateStr]) grouped[dateStr] = { gmv: 0, gmvAds: 0, creators: new Set(), videos: new Set(), gmvLive: 0, gmvVT: 0, ordersLive: 0, ordersVT: 0, liveSessions: new Set() };
-        grouped[dateStr].videos.add(v.id.toString());
+        
+        // Gunakan content_uid untuk mencegah duplikasi ganda dengan data dari sales
+        const uid = v.content_uid || v.id.toString();
+        grouped[dateStr].videos.add(uid);
 
         const monthStr = v.created_at.substring(0, 7);
         if (!monthlyGrouped[monthStr]) monthlyGrouped[monthStr] = { gmv: 0, gmvAds: 0, creators: new Set(), videos: new Set(), gmvLive: 0, gmvVT: 0, ordersLive: 0, ordersVT: 0, liveSessions: new Set() };
-        monthlyGrouped[monthStr].videos.add(v.id.toString());
+        monthlyGrouped[monthStr].videos.add(uid);
       });
     });
   }

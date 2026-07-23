@@ -7,13 +7,20 @@ AS $BODY
 DECLARE
     v_result JSONB;
 BEGIN
-    WITH sales_agg AS (
+    WITH campaign_skus AS (
+        SELECT DISTINCT product_id 
+        FROM skus 
+        WHERE campaign_id = p_campaign_id 
+          AND product_id IS NOT NULL
+    ),
+    sales_agg AS (
         SELECT 
             lower(creator_username) AS username,
             COALESCE(SUM(gmv), 0) AS gmv_organic,
             COALESCE(SUM(quantity), 0) AS items_sold
         FROM sales
         WHERE campaign_id = p_campaign_id
+          AND product_id IN (SELECT product_id FROM campaign_skus)
         GROUP BY lower(creator_username)
     ),
     videos_agg AS (

@@ -7,7 +7,13 @@ AS $BODY
 DECLARE
     v_result JSONB;
 BEGIN
-    WITH sales_agg AS (
+    WITH campaign_skus AS (
+        SELECT DISTINCT product_id 
+        FROM skus 
+        WHERE campaign_id = p_campaign_id 
+          AND product_id IS NOT NULL
+    ),
+    sales_agg AS (
         SELECT 
             CASE 
                 WHEN content_uid LIKE 'video_%' THEN split_part(content_uid, '_', 2)
@@ -20,6 +26,7 @@ BEGIN
         FROM sales
         WHERE campaign_id = p_campaign_id
           AND lower(content_type) = 'video'
+          AND product_id IN (SELECT product_id FROM campaign_skus)
         GROUP BY 1, 2
     ),
     organic_agg AS (
@@ -33,6 +40,7 @@ BEGIN
             COALESCE(MAX(video_likes), 0) AS likes
         FROM organic_videos
         WHERE campaign_id = p_campaign_id
+          AND product_id IN (SELECT product_id FROM campaign_skus)
         GROUP BY 1, 2
     ),
     all_uids AS (

@@ -7,7 +7,13 @@ AS $BODY
 DECLARE
     v_result JSONB;
 BEGIN
-    WITH raw_daily AS (
+    WITH campaign_skus AS (
+        SELECT DISTINCT product_id 
+        FROM skus 
+        WHERE campaign_id = p_campaign_id 
+          AND product_id IS NOT NULL
+    ),
+    raw_daily AS (
         SELECT 
             TO_CHAR(tanggal, 'YYYY-MM-DD') AS date_str,
             gmv,
@@ -18,6 +24,7 @@ BEGIN
         FROM sales
         WHERE campaign_id = p_campaign_id
           AND is_refund = false
+          AND product_id IN (SELECT product_id FROM campaign_skus)
     ),
     daily_agg AS (
         SELECT 
