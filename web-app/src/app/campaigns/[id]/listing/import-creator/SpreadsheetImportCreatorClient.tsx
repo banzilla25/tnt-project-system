@@ -533,12 +533,19 @@ export default function SpreadsheetImportCreatorClient() {
           const newGmv = Number(row.gmv_30_days) || 0;
           const newRateCard = Number(row.rate_card) || 0;
           
+          let calculatedTier = 'Nano';
+          if (newFollowers < 10000) calculatedTier = 'Nano';
+          else if (newFollowers < 100000) calculatedTier = 'Micro';
+          else if (newFollowers < 1000000) calculatedTier = 'Macro';
+          else calculatedTier = 'Mega';
+          
           if (!lastSnap || lastSnap.followers !== newFollowers || lastSnap.gmv_30d !== newGmv || lastSnap.ratecard !== newRateCard) {
             await supabase.from('creator_snapshots').insert({
               creator_id: cid,
               followers: newFollowers,
               gmv_30d: newGmv,
               ratecard: newRateCard,
+              tier: calculatedTier,
               likes: lastSnap?.likes || 0,
               avg_views: lastSnap?.avg_views || 0,
               engagement_rate: lastSnap?.engagement_rate || 0,
@@ -571,7 +578,7 @@ export default function SpreadsheetImportCreatorClient() {
               await supabase.from('campaign_creators').insert({
                 campaign_id: campaignId,
                 creator_id: cid,
-                tier: 'NANO',
+                tier: calculatedTier,
                 price: newRateCard,
                 qty_vt: Number(row.qty_vt) || 0,
                 qty_live: Number(row.qty_live) || 0,
