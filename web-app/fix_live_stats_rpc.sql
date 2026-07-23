@@ -52,7 +52,8 @@ BEGIN
             ov.video_likes,
             ov.duration_str
         FROM organic_videos ov
-        WHERE ov.creator_username IN (SELECT username FROM valid_creators)
+        WHERE ov.campaign_id = p_campaign_id
+          AND ov.creator_username IN (SELECT username FROM valid_creators)
           AND (lower(ov.duration_str) LIKE '%h%' OR lower(ov.duration_str) LIKE '%min%')
           AND (v_start_date IS NULL OR ov.post_time::date >= v_start_date)
           AND (v_end_date IS NULL OR ov.post_time::date <= v_end_date)
