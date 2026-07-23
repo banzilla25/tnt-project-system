@@ -49,21 +49,8 @@ export async function getInternalPerformaData(campaignId: number) {
     start += pageSize;
   }
   
-  // 4. Fetch performa summary dari SQL View
-  let creatorPerformance: any[] = [];
-  let cpStart = 0;
-  while (true) {
-    const { data, error } = await supabase
-      .from('campaign_creators_performance')
-      .select('*')
-      .eq('campaign_id', campaignId)
-      .range(cpStart, cpStart + pageSize - 1);
-    
-    if (error || !data || data.length === 0) break;
-    creatorPerformance = creatorPerformance.concat(data);
-    if (data.length < pageSize) break;
-    cpStart += pageSize;
-  }
+  // 4. Fetch performa summary dari RPC
+  const { data: creatorPerformance } = await supabase.rpc('get_campaign_creator_performance', { p_campaign_id: campaignId });
 
   // 5. Fetch video GMV for accurate VT/Live count
   const { data: videoGmvData } = await supabase
@@ -117,7 +104,7 @@ export async function getInternalPerformaData(campaignId: number) {
       : null;
     const username = creator?.username || 'Unknown';
 
-    const perf = creatorPerformance?.find(p => p.campaign_creator_id === cc.id);
+    const perf = creatorPerformance?.find((p: any) => p.username === username.toLowerCase());
 
     const gmvOrganic = perf?.gmv_organic || 0;
     const itemsSold = perf?.items_sold || 0;

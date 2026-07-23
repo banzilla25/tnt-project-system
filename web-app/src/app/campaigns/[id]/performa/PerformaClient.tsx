@@ -67,57 +67,15 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
       }
       setLocalCreators(ccData);
 
-      let allSales: any[] = [];
-      let salesStart = 0;
-      while (true) {
-        const { data, error } = await supabase
-          .from('sales')
-          .select('creator_username, gmv, quantity, order_id')
-          .eq('campaign_id', campaignId)
-          .range(salesStart, salesStart + pageSize - 1);
-        
-        if (error || !data || data.length === 0) break;
-        allSales = allSales.concat(data);
-        if (data.length < pageSize) break;
-        salesStart += pageSize;
-      }
-
-      let allOrganicVideos: any[] = [];
-      let vStart = 0;
-      while (true) {
-        const { data, error } = await supabase
-          .from('organic_videos')
-          .select('creator_username, video_views, video_likes')
-          .eq('campaign_id', campaignId)
-          .range(vStart, vStart + pageSize - 1);
-        
-        if (error || !data || data.length === 0) break;
-        allOrganicVideos = allOrganicVideos.concat(data);
-        if (data.length < pageSize) break;
-        vStart += pageSize;
-      }
-
-      // Aggregate locally by creator_username
-      const perfMap = new Map<string, any>();
+      // 1. Ambil agregasi sales & organic videos per kreator dari RPC (Sangat ringan & cepat)
+      const { data: creatorPerfData, error: perfError } = await supabase.rpc('get_campaign_creator_performance', { p_campaign_id: campaignId });
       
-      allSales.forEach(s => {
-        const user = s.creator_username?.toLowerCase() || '';
-        if (!user) return;
-        if (!perfMap.has(user)) perfMap.set(user, { gmv_organic: 0, items_sold: 0, video_views: 0, video_likes: 0, video_count: 0 });
-        const p = perfMap.get(user);
-        p.gmv_organic += (s.gmv || 0);
-        p.items_sold += (s.quantity || 0);
-      });
-
-      allOrganicVideos.forEach(v => {
-        const user = v.creator_username?.toLowerCase() || '';
-        if (!user) return;
-        if (!perfMap.has(user)) perfMap.set(user, { gmv_organic: 0, items_sold: 0, video_views: 0, video_likes: 0, video_count: 0 });
-        const p = perfMap.get(user);
-        p.video_views += (v.video_views || 0);
-        p.video_likes += (v.video_likes || 0);
-        p.video_count += 1;
-      });
+      const perfMap = new Map<string, any>();
+      if (creatorPerfData && !perfError) {
+        creatorPerfData.forEach((p: any) => {
+          if (p.username) perfMap.set(p.username.toLowerCase(), p);
+        });
+      }
 
       const { data: videoGmvData } = await supabase.rpc('get_campaign_video_gmv', { p_campaign_id: campaignId });
 
