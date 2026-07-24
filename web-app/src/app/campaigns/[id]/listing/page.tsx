@@ -596,7 +596,7 @@ function CampaignListingContent() {
         .from('campaign_creators')
         .select(`
           id, approval, approved_at, created_at, added_by, tier, creator_id,
-          creators ( username )
+          creators ( username, creator_snapshots ( id, tier, tanggal_update ) )
         `)
         .eq('campaign_id', campaignId)
         .range(start, start + pageSize - 1);
@@ -777,7 +777,7 @@ function CampaignListingContent() {
       }
       
       if (filterNotes === 'Ada Notes') {
-        query = query.or('notes_manager.not.is.null,notes_pic.not.is.null');
+        query = query.or('and(notes_manager.not.is.null,notes_manager.neq.""),and(notes_pic.not.is.null,notes_pic.neq."")');
       }
 
       if (debouncedSearch) {
