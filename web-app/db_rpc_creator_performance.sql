@@ -3,7 +3,7 @@ DROP FUNCTION IF EXISTS public.get_campaign_creator_performance(integer);
 CREATE OR REPLACE FUNCTION public.get_campaign_creator_performance(p_campaign_id integer)
 RETURNS jsonb
 LANGUAGE plpgsql
-AS $BODY
+AS $$
 DECLARE
     v_result JSONB;
 BEGIN
@@ -58,4 +58,4 @@ BEGIN
 
     RETURN v_result;
 END;
-$BODY;
+$$;
