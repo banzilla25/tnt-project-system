@@ -166,6 +166,42 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
             monthlyGrouped[monthStr].videos.add(v.id.toString());
           });
         });
+
+        // Get usernames to fetch organic videos mapped to these creators
+        const creatorUsernames = Array.from(new Set(allVideosFromCreators.map(cc => cc.creators?.username).filter(Boolean)));
+        let allOrganicVideos: any[] = [];
+        if (creatorUsernames.length > 0) {
+          const chunkSize = 200;
+          for (let i = 0; i < creatorUsernames.length; i += chunkSize) {
+            const chunk = creatorUsernames.slice(i, i + chunkSize);
+            const { data: orgData } = await supabase
+              .from('organic_videos')
+              .select('content_uid, post_time, content_type')
+              .in('creator_username', chunk);
+            if (orgData) {
+              allOrganicVideos = [...allOrganicVideos, ...orgData];
+            }
+          }
+        }
+
+        allOrganicVideos.forEach(v => {
+          if (!v.post_time || !v.content_uid) return;
+          const dateStr = String(v.post_time).substring(0, 10);
+          if (campaignStartStr && dateStr < campaignStartStr) return;
+          if (campaignEndStr && dateStr > campaignEndStr) return;
+
+          if (!grouped[dateStr]) grouped[dateStr] = { gmv: 0, gmvAds: 0, creators: new Set(), videos: new Set(), gmvLive: 0, gmvVT: 0, ordersLive: 0, ordersVT: 0, liveSessions: new Set() };
+          const monthStr = dateStr.substring(0, 7);
+          if (!monthlyGrouped[monthStr]) monthlyGrouped[monthStr] = { gmv: 0, gmvAds: 0, creators: new Set(), videos: new Set(), gmvLive: 0, gmvVT: 0, ordersLive: 0, ordersVT: 0, liveSessions: new Set() };
+
+          if (v.content_type === 'Video') {
+            grouped[dateStr].videos.add(v.content_uid.toString());
+            monthlyGrouped[monthStr].videos.add(v.content_uid.toString());
+          } else if (v.content_type === 'Livestream' || v.content_type === 'Live') {
+            grouped[dateStr].liveSessions.add(v.content_uid.toString());
+            monthlyGrouped[monthStr].liveSessions.add(v.content_uid.toString());
+          }
+        });
       }
 
       if (allLiveSessions.length > 0) {
