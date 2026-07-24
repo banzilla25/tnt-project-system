@@ -23,8 +23,8 @@ SELECT
 FROM sales s
 JOIN campaigns c ON s.campaign_id = c.id
 JOIN skus k ON k.campaign_id = s.campaign_id AND k.product_id = s.product_id
-WHERE s.tanggal >= c.start_date::text 
-AND s.tanggal <= c.end_date::text
+WHERE s.tanggal >= c.start_date 
+AND s.tanggal <= c.end_date
 GROUP BY s.campaign_id, s.creator_username;
 
 -- Update campaign_total_sales
@@ -36,8 +36,8 @@ SELECT
 FROM sales s
 JOIN campaigns c ON s.campaign_id = c.id
 JOIN skus k ON k.campaign_id = s.campaign_id AND k.product_id = s.product_id
-WHERE s.tanggal >= c.start_date::text 
-AND s.tanggal <= c.end_date::text
+WHERE s.tanggal >= c.start_date 
+AND s.tanggal <= c.end_date
 GROUP BY s.campaign_id;
 
 -- Update vw_campaign_summary (specifically the organic_sales CTE)
@@ -47,8 +47,8 @@ WITH organic_sales AS (
     FROM sales s
     JOIN campaigns c ON s.campaign_id = c.id
     JOIN skus k ON k.campaign_id = s.campaign_id AND k.product_id = s.product_id
-    WHERE s.tanggal >= c.start_date::text 
-    AND s.tanggal <= c.end_date::text
+    WHERE s.tanggal >= c.start_date 
+    AND s.tanggal <= c.end_date
     GROUP BY s.campaign_id
 ),
 ads_sales AS (
