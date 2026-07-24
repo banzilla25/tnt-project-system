@@ -556,6 +556,7 @@ export default function SpreadsheetImportCreatorClient() {
             // Update
             await supabase.from('campaign_creators').update({
               price: newRateCard,
+              tier: calculatedTier,
               qty_vt: Number(row.qty_vt) || 0,
               qty_live: Number(row.qty_live) || 0,
               content_type: row.content_type
@@ -570,6 +571,7 @@ export default function SpreadsheetImportCreatorClient() {
               // Already exists - update instead
               await supabase.from('campaign_creators').update({
                 price: newRateCard,
+                tier: calculatedTier,
                 qty_vt: Number(row.qty_vt) || 0,
                 qty_live: Number(row.qty_live) || 0,
                 content_type: row.content_type
