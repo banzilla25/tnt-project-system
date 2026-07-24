@@ -143,7 +143,7 @@ export async function getInternalPerformaData(campaignId: number) {
          }
        }
        if (vid) {
-         if (s.content_type === 'Livestream') {
+         if ((s.content_type || '').toLowerCase() === 'livestream' || (s.content_type || '').toLowerCase() === 'live') {
            uniqueLiveIds.add(vid);
          } else {
            if (!uniqueVideoIds.has(vid)) {

@@ -45,7 +45,7 @@ export async function getLivestreamData(campaignId: number) {
     .from('sales')
     .select('*')
     .eq('campaign_id', campaignId)
-    .in('content_type', ['Livestream', 'Live'])
+    .or('content_type.ilike.livestream,content_type.ilike.live')
   );
 
   const contentUids = sData ? Array.from(new Set(sData.map(s => s.content_uid).filter(Boolean))) : [];

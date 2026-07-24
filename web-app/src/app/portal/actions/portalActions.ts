@@ -414,7 +414,7 @@ export async function getPortalData(campaignId: number) {
          let vid = s.content_uid;
          if (vid && vid.startsWith('video_')) vid = vid.split('_')[1] || vid;
          if (vid) {
-            if (s.content_type === 'Livestream') uniqueLiveIds.add(vid);
+            if ((s.content_type || '').toLowerCase() === 'livestream' || (s.content_type || '').toLowerCase() === 'live') uniqueLiveIds.add(vid);
             else uniqueVideoIds.add(vid);
          }
       });
