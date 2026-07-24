@@ -128,8 +128,8 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
           monthlyGrouped[monthStr].ordersVT += (stat.orders_vt || 0);
           monthlyGrouped[monthStr].gmv += (stat.total_gmv || 0);
           
-          // We DO NOT add active_creators from sales to monthlyGrouped[monthStr].creators either.
           // We DO NOT add active_videos from sales to monthlyGrouped[monthStr].videos either.
+        });
       }
 
       if (allVideosFromCreators.length > 0) {
