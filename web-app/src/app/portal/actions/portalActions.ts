@@ -409,7 +409,7 @@ export async function getPortalData(campaignId: number) {
         if (id) uniqueVideoIds.add(id);
       });
       
-      const creatorSales = videoGmvData?.filter((s: any) => s.creator_username === (cc.creators?.username || '') && s.content_uid) || [];
+      const creatorSales = videoStats?.filter((s: any) => s.username === (cc.creators?.username?.toLowerCase() || '') && s.content_uid) || [];
       creatorSales.forEach((s: any) => {
          let vid = s.content_uid;
          if (vid && vid.startsWith('video_')) vid = vid.split('_')[1] || vid;
