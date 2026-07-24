@@ -14,6 +14,7 @@ async function updateViews() {
 
   const sql = `
 -- Update campaign_sales_summary to strictly check product_id against skus table
+DROP VIEW IF EXISTS campaign_sales_summary CASCADE;
 CREATE OR REPLACE VIEW campaign_sales_summary AS
 SELECT 
     s.campaign_id,
@@ -28,6 +29,7 @@ AND s.tanggal <= c.end_date
 GROUP BY s.campaign_id, s.creator_username;
 
 -- Update campaign_total_sales
+DROP VIEW IF EXISTS campaign_total_sales CASCADE;
 CREATE OR REPLACE VIEW campaign_total_sales AS
 SELECT 
     s.campaign_id,
@@ -41,6 +43,7 @@ AND s.tanggal <= c.end_date
 GROUP BY s.campaign_id;
 
 -- Update vw_campaign_summary (specifically the organic_sales CTE)
+DROP VIEW IF EXISTS vw_campaign_summary CASCADE;
 CREATE OR REPLACE VIEW vw_campaign_summary AS
 WITH organic_sales AS (
     SELECT s.campaign_id, SUM(s.gmv) as total_organic_gmv 
