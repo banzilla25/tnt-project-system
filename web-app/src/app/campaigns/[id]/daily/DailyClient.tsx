@@ -159,11 +159,19 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
             if (campaignEndStr && dateStr > campaignEndStr) return;
             
             if (!grouped[dateStr]) grouped[dateStr] = { gmv: 0, gmvAds: 0, creators: new Set(), videos: new Set(), gmvLive: 0, gmvVT: 0, ordersLive: 0, ordersVT: 0, liveSessions: new Set() };
-            grouped[dateStr].videos.add(v.id.toString());
+            
+            // Extract TikTok video ID to avoid double counting with organic videos
+            let videoId = v.id.toString();
+            const match = v.link_video.match(/\/video\/(\d+)/);
+            if (match && match[1]) {
+              videoId = match[1];
+            }
+            
+            grouped[dateStr].videos.add(videoId);
 
             const monthStr = v.created_at.substring(0, 7);
             if (!monthlyGrouped[monthStr]) monthlyGrouped[monthStr] = { gmv: 0, gmvAds: 0, creators: new Set(), videos: new Set(), gmvLive: 0, gmvVT: 0, ordersLive: 0, ordersVT: 0, liveSessions: new Set() };
-            monthlyGrouped[monthStr].videos.add(v.id.toString());
+            monthlyGrouped[monthStr].videos.add(videoId);
           });
         });
 
