@@ -133,6 +133,7 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
         const videoViews = perf.video_views || 0;
         const videoLikes = perf.video_likes || 0;
         const trackedVideos = perf.video_count || 0;
+        const trackedLives = perf.live_count || 0;
         
         const aggregatedAds = adsStatsByCreator[creator?.id] || { gmvAds: 0, costAds: 0, itemsSoldAds: 0 };
         const gmvAds = aggregatedAds.gmvAds;
@@ -184,7 +185,7 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
         }
 
         const totalVt = approvedVtCount + pendingVtCount;
-        const totalLive = uniqueLiveIds.size;
+        const totalLive = Math.max(trackedLives, uniqueLiveIds.size);
 
         return {
           ...cc,

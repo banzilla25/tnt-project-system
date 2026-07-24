@@ -26,9 +26,10 @@ BEGIN
     videos_agg AS (
         SELECT 
             lower(creator_username) AS username,
-            COALESCE(SUM(video_views), 0) AS video_views,
-            COALESCE(SUM(video_likes), 0) AS video_likes,
-            COUNT(*) AS video_count
+            COALESCE(SUM(video_views) FILTER (WHERE lower(content_type) != 'livestream'), 0) AS video_views,
+            COALESCE(SUM(video_likes) FILTER (WHERE lower(content_type) != 'livestream'), 0) AS video_likes,
+            COUNT(*) FILTER (WHERE lower(content_type) != 'livestream') AS video_count,
+            COUNT(*) FILTER (WHERE lower(content_type) = 'livestream') AS live_count
         FROM organic_videos
         WHERE campaign_id = p_campaign_id
         GROUP BY lower(creator_username)
@@ -45,7 +46,8 @@ BEGIN
             COALESCE(s.items_sold, 0) AS items_sold,
             COALESCE(v.video_views, 0) AS video_views,
             COALESCE(v.video_likes, 0) AS video_likes,
-            COALESCE(v.video_count, 0) AS video_count
+            COALESCE(v.video_count, 0) AS video_count,
+            COALESCE(v.live_count, 0) AS live_count
         FROM all_creators c
         LEFT JOIN sales_agg s ON c.username = s.username
         LEFT JOIN videos_agg v ON c.username = v.username
