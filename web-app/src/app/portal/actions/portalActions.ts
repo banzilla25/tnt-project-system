@@ -384,6 +384,26 @@ export async function getPortalData(campaignId: number) {
   const salesPerProduct = topSkusData || [];
   const totalItemsSold = salesPerProduct.reduce((sum: number, p: any) => sum + Number(p.items_sold || 0), 0);
 
+  // Fetch Ads Data to match internal dashboard
+  const { data: rawAdsData } = await supabase.from('ads_performance').select('*').eq('campaign_id', campaignId);
+  let globalAdsGmv = 0;
+  let globalAdsViews = 0;
+  if (rawAdsData && rawAdsData.length > 0) {
+    const latestAdsMap = new Map();
+    for (const row of rawAdsData) {
+      const existing = latestAdsMap.get(row.ad_id);
+      if (!existing || new Date(row.tanggal) > new Date(existing.tanggal)) {
+        latestAdsMap.set(row.ad_id, row);
+      }
+    }
+    for (const ad of latestAdsMap.values()) {
+      let kurs = ad.kurs || 16000;
+      if (kurs < 1000) kurs = kurs * 1000;
+      globalAdsGmv += (ad.gross_revenue_usd || 0) * kurs;
+      globalAdsViews += (ad.video_views || 0);
+    }
+  }
+
   // Fallback if rpcPerformance fails or returns empty (e.g. database function issue)
   let finalRpcPerf = Array.isArray(rpcPerformance) ? rpcPerformance[0] : rpcPerformance;
   
@@ -429,14 +449,19 @@ export async function getPortalData(campaignId: number) {
     });
 
     finalRpcPerf = {
-      totalAllGmv: fbAllGmv,
-      totalViews: fbViews,
+      totalAllGmv: fbAllGmv + globalAdsGmv,
+      totalViews: fbViews + globalAdsViews,
       totalVideos: fbVideos,
       totalLivestreams: fbLivestreams,
       creatorsWithVideo: fbWithVideo,
       creatorsWithLive: fbWithLive,
       approvedCreators: fbApprovedCreators
     };
+  } else {
+    // If rpcPerf succeeded, add Ads data which is not tracked by the RPC
+    finalRpcPerf = { ...finalRpcPerf };
+    finalRpcPerf.totalAllGmv = (finalRpcPerf.totalAllGmv || 0) + globalAdsGmv;
+    finalRpcPerf.totalViews = (finalRpcPerf.totalViews || 0) + globalAdsViews;
   }
 
   return { 

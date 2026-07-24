@@ -96,9 +96,9 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
   const approvedOnlyList = approvalList?.filter((cc: any) => cc.approval === 'approved') || [];
   
   // Gunakan summary dari RPC (Sangat cepat dan 100% akurat)
-  const displayTotalGmv = data.summary?.total_gmv_achievement || rpcPerformance?.totalAllGmv || 0;
-  const displayTotalViews = data.totalAwareness?.totalViews || data.totalSales?.totalViews || rpcPerformance?.totalViews || 0;
-  const displayTotalVideo = data.summary?.achievement_video || rpcPerformance?.totalVideos || 0;
+  const displayTotalGmv = rpcPerformance?.totalAllGmv || 0;
+  const displayTotalViews = rpcPerformance?.totalViews || 0;
+  const displayTotalVideo = rpcPerformance?.totalVideos || 0;
   const displayTotalLivestream = rpcPerformance?.totalLivestreams || 0;
   const displayCreatorVideo = rpcPerformance?.creatorsWithVideo || 0;
   const displayCreatorLive = rpcPerformance?.creatorsWithLive || 0;
