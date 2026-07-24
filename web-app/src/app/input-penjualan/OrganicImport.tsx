@@ -625,6 +625,7 @@ export default function OrganicImport({ mode = 'sales' }: { mode?: 'sales' | 'vi
           content_uid: c.content_uid,
           creator_username: c.creator_username,
           post_time: c.tanggal,
+          content_type: c.content_type,
           video_views: c.video_views,
           video_likes: c.video_likes,
           duration_str: c.duration_str,
