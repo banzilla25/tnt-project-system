@@ -1,8 +1,11 @@
 const { Client } = require('pg');
 const fs = require('fs');
-const env = fs.readFileSync('.env.local', 'utf8');
-const urlMatch = env.match(/DATABASE_URL="?(.*?)"?\n/);
-const url = urlMatch ? urlMatch[1] : env.match(/DATABASE_URL=(.*)/)[1];
+require('dotenv').config({ path: '.env.local' });
+const url = process.env.SUPABASE_DATABASE_URL || process.env.DATABASE_URL;
+if (!url) {
+  console.error("DATABASE_URL or SUPABASE_DATABASE_URL not found in .env.local");
+  process.exit(1);
+}
 
 const client = new Client({ connectionString: url });
 
@@ -20,8 +23,7 @@ SELECT
 FROM sales s
 JOIN campaigns c ON s.campaign_id = c.id
 JOIN skus k ON k.campaign_id = s.campaign_id AND k.product_id = s.product_id
-WHERE s.is_refund = false
-AND s.tanggal >= c.start_date::text 
+WHERE s.tanggal >= c.start_date::text 
 AND s.tanggal <= c.end_date::text
 GROUP BY s.campaign_id, s.creator_username;
 
@@ -34,8 +36,7 @@ SELECT
 FROM sales s
 JOIN campaigns c ON s.campaign_id = c.id
 JOIN skus k ON k.campaign_id = s.campaign_id AND k.product_id = s.product_id
-WHERE s.is_refund = false
-AND s.tanggal >= c.start_date::text 
+WHERE s.tanggal >= c.start_date::text 
 AND s.tanggal <= c.end_date::text
 GROUP BY s.campaign_id;
 
@@ -46,8 +47,7 @@ WITH organic_sales AS (
     FROM sales s
     JOIN campaigns c ON s.campaign_id = c.id
     JOIN skus k ON k.campaign_id = s.campaign_id AND k.product_id = s.product_id
-    WHERE s.is_refund = false 
-    AND s.tanggal >= c.start_date::text 
+    WHERE s.tanggal >= c.start_date::text 
     AND s.tanggal <= c.end_date::text
     GROUP BY s.campaign_id
 ),

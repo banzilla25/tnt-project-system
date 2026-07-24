@@ -30,7 +30,6 @@ BEGIN
             content_type
         FROM sales
         WHERE campaign_id = p_campaign_id
-          AND is_refund = false
           AND product_id IN (SELECT product_id FROM campaign_skus)
           AND creator_username IN (SELECT username FROM valid_creators)
     ),
