@@ -26,10 +26,10 @@ BEGIN
     videos_agg AS (
         SELECT 
             lower(creator_username) AS username,
-            COALESCE(SUM(video_views) FILTER (WHERE lower(content_type) != 'livestream'), 0) AS video_views,
-            COALESCE(SUM(video_likes) FILTER (WHERE lower(content_type) != 'livestream'), 0) AS video_likes,
-            COUNT(*) FILTER (WHERE lower(content_type) != 'livestream') AS video_count,
-            COUNT(*) FILTER (WHERE lower(content_type) = 'livestream') AS live_count
+            COALESCE(SUM(video_views) FILTER (WHERE lower(COALESCE(content_type, 'video')) != 'livestream'), 0) AS video_views,
+            COALESCE(SUM(video_likes) FILTER (WHERE lower(COALESCE(content_type, 'video')) != 'livestream'), 0) AS video_likes,
+            COUNT(*) FILTER (WHERE lower(COALESCE(content_type, 'video')) != 'livestream') AS video_count,
+            COUNT(*) FILTER (WHERE lower(COALESCE(content_type, 'video')) = 'livestream') AS live_count
         FROM organic_videos
         WHERE campaign_id = p_campaign_id
         GROUP BY lower(creator_username)
