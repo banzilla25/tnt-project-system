@@ -116,9 +116,8 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
           grouped[dateStr].ordersVT += (stat.orders_vt || 0);
           grouped[dateStr].gmv += (stat.total_gmv || 0);
           
-          if (stat.active_creators) stat.active_creators.forEach((c: string) => grouped[dateStr].creators.add(c));
-          if (stat.active_videos) stat.active_videos.forEach((v: string) => grouped[dateStr].videos.add(v));
-          // liveSessions is handled separately below via get_campaign_live_stats, but if we had it here we could add it.
+          // We DO NOT add active_creators from sales to grouped[dateStr].creators, because we only want to count *approved* creators on this date.
+          // We DO NOT add active_videos from sales to grouped[dateStr].videos, because we only want to count *uploaded* videos on this date, not videos that made a sale on this date.
 
           const monthStr = dateStr.substring(0, 7);
           if (!monthlyGrouped[monthStr]) monthlyGrouped[monthStr] = { gmv: 0, gmvAds: 0, creators: new Set(), videos: new Set(), gmvLive: 0, gmvVT: 0, ordersLive: 0, ordersVT: 0, liveSessions: new Set() };
@@ -129,9 +128,8 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
           monthlyGrouped[monthStr].ordersVT += (stat.orders_vt || 0);
           monthlyGrouped[monthStr].gmv += (stat.total_gmv || 0);
           
-          if (stat.active_creators) stat.active_creators.forEach((c: string) => monthlyGrouped[monthStr].creators.add(c));
-          if (stat.active_videos) stat.active_videos.forEach((v: string) => monthlyGrouped[monthStr].videos.add(v));
-        });
+          // We DO NOT add active_creators from sales to monthlyGrouped[monthStr].creators either.
+          // We DO NOT add active_videos from sales to monthlyGrouped[monthStr].videos either.
       }
 
       if (allVideosFromCreators.length > 0) {
