@@ -16,6 +16,7 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
 
   const targetGmv = Number(campaign.target_gmv) || 0;
   const targetVideo = Number(campaign.target_video) || 0;
+  const targetLive = Number(campaign.target_live) || 0;
   const targetCreator = Number(campaign.target_creator) || 0;
 
   const hasAnyTarget = targetGmv > 0 || targetVideo > 0 || targetCreator > 0;
@@ -65,6 +66,7 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
 
     let cumulativeGmv = 0;
     let cumulativeVideo = 0;
+    let cumulativeLive = 0;
     let cumulativeCreator = 0;
 
     const data = [];
@@ -72,6 +74,7 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
     // Also track weekly aggregates
     let currentWeekGmvTarget = 0;
     let currentWeekVideoTarget = 0;
+    let currentWeekLiveTarget = 0;
     let currentWeekCreatorTarget = 0;
     let currentWeekGmvAchieve = 0;
     let currentWeekVideoAchieve = 0;
@@ -90,10 +93,12 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
       // Calculate Target for Today
       const remGmv = Math.max(0, targetGmv - cumulativeGmv);
       const remVideo = Math.max(0, targetVideo - cumulativeVideo);
+      const remLive = Math.max(0, targetLive - cumulativeLive);
       const remCreator = Math.max(0, targetCreator - cumulativeCreator);
 
       const targetForTodayGmv = remGmv / remainingDays;
       const targetForTodayVideo = remVideo / remainingDays;
+      const targetForTodayLive = remLive / remainingDays;
       const targetForTodayCreator = remCreator / remainingDays;
 
       // Actual achieved today
@@ -102,6 +107,7 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
       // Add to weekly aggregates
       currentWeekGmvTarget += targetForTodayGmv;
       currentWeekVideoTarget += targetForTodayVideo;
+      currentWeekLiveTarget += targetForTodayLive;
       currentWeekCreatorTarget += targetForTodayCreator;
       currentWeekGmvAchieve += achievedToday.gmv;
       currentWeekVideoAchieve += achievedToday.video;
@@ -117,6 +123,7 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
       const weeklySummary = isEndOfWeek ? {
         targetGmv: currentWeekGmvTarget,
         targetVideo: currentWeekVideoTarget,
+        targetLive: currentWeekLiveTarget,
         targetCreator: currentWeekCreatorTarget,
         achievedGmv: currentWeekGmvAchieve,
         achievedVideo: currentWeekVideoAchieve,
@@ -129,6 +136,7 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
         isPastEndDate,
         targetGmv: targetForTodayGmv,
         targetVideo: targetForTodayVideo,
+        targetLive: targetForTodayLive,
         targetCreator: targetForTodayCreator,
         achievedGmv: achievedToday.gmv,
         achievedVideo: achievedToday.video,
@@ -141,6 +149,7 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
       if (isEndOfWeek) {
         currentWeekGmvTarget = 0;
         currentWeekVideoTarget = 0;
+        currentWeekLiveTarget = 0;
         currentWeekCreatorTarget = 0;
         currentWeekGmvAchieve = 0;
         currentWeekVideoAchieve = 0;
@@ -152,11 +161,12 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
       // Update cumulatives for NEXT day calculation
       cumulativeGmv += achievedToday.gmv;
       cumulativeVideo += achievedToday.video;
+      cumulativeLive += achievedToday.live;
       cumulativeCreator += achievedToday.creator;
     }
 
     return data;
-  }, [campaign, dailyData, targetGmv, targetVideo, targetCreator]);
+  }, [campaign, dailyData, targetGmv, targetVideo, targetLive, targetCreator]);
 
   const scrollToToday = () => {
     if (scrollRef.current) {
@@ -270,9 +280,15 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
                           </span>
                         </div>
                         <div className="text-[10px] text-blue-800 flex justify-between px-2">
-                          <span>VT/Live:</span>
+                          <span>VT:</span>
                           <span className={day.weeklySummary.achievedVideo >= day.weeklySummary.targetVideo && targetVideo > 0 ? 'text-emerald-700 font-bold' : 'font-medium'}>
-                            {Math.round(day.weeklySummary.achievedVideo)} / {Math.round(day.weeklySummary.achievedLive)} {targetVideo > 0 ? `(🎯 ${Math.round(day.weeklySummary.targetVideo)})` : ''}
+                            {Math.round(day.weeklySummary.achievedVideo)} {targetVideo > 0 ? `/ ${Math.round(day.weeklySummary.targetVideo)}` : ''}
+                          </span>
+                        </div>
+                        <div className="text-[10px] text-blue-800 flex justify-between px-2">
+                          <span>Live:</span>
+                          <span className={day.weeklySummary.achievedLive >= day.weeklySummary.targetLive && targetLive > 0 ? 'text-emerald-700 font-bold' : 'font-medium'}>
+                            {Math.round(day.weeklySummary.achievedLive)} {targetLive > 0 ? `/ ${Math.round(day.weeklySummary.targetLive)}` : ''}
                           </span>
                         </div>
                         <div className="text-[10px] text-blue-800 flex justify-between px-2">
@@ -297,9 +313,15 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
                            </span>
                          </div>
                          <div className="text-[10px] text-slate-600 flex justify-between border-t border-slate-100 pt-1 mt-1">
-                           <span>VT/Live:</span>
+                           <span>VT:</span>
                            <span className={day.achievedVideo >= day.targetVideo && targetVideo > 0 ? 'text-emerald-600 font-bold' : 'font-medium'}>
-                             {Math.round(day.achievedVideo)} / {Math.round(day.achievedLive)} {targetVideo > 0 ? `(🎯 ${Math.round(day.targetVideo)})` : ''}
+                             {Math.round(day.achievedVideo)} {targetVideo > 0 ? `/ ${Math.round(day.targetVideo)}` : ''}
+                           </span>
+                         </div>
+                         <div className="text-[10px] text-slate-600 flex justify-between border-t border-slate-100 pt-1 mt-1">
+                           <span>Live:</span>
+                           <span className={day.achievedLive >= day.targetLive && targetLive > 0 ? 'text-emerald-600 font-bold' : 'font-medium'}>
+                             {Math.round(day.achievedLive)} {targetLive > 0 ? `/ ${Math.round(day.targetLive)}` : ''}
                            </span>
                          </div>
                          <div className="text-[10px] text-slate-600 flex justify-between border-t border-slate-100 pt-1 mt-1">
@@ -338,9 +360,15 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
                            </span>
                          </div>
                          <div className="text-[10px] text-slate-600 flex justify-between border-t border-slate-100 pt-1 mt-1">
-                           <span>VT/Live:</span>
+                           <span>VT:</span>
                            <span className={day.achievedVideo >= day.targetVideo && targetVideo > 0 ? 'text-emerald-600 font-bold' : 'font-medium'}>
-                             {Math.round(day.achievedVideo)} / {Math.round(day.achievedLive)} {targetVideo > 0 ? `(🎯 ${Math.round(day.targetVideo)})` : ''}
+                             {Math.round(day.achievedVideo)} {targetVideo > 0 ? `/ ${Math.round(day.targetVideo)}` : ''}
+                           </span>
+                         </div>
+                         <div className="text-[10px] text-slate-600 flex justify-between border-t border-slate-100 pt-1 mt-1">
+                           <span>Live:</span>
+                           <span className={day.achievedLive >= day.targetLive && targetLive > 0 ? 'text-emerald-600 font-bold' : 'font-medium'}>
+                             {Math.round(day.achievedLive)} {targetLive > 0 ? `/ ${Math.round(day.targetLive)}` : ''}
                            </span>
                          </div>
                          <div className="text-[10px] text-slate-600 flex justify-between border-t border-slate-100 pt-1 mt-1">
