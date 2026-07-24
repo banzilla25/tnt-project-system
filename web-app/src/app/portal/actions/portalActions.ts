@@ -112,7 +112,7 @@ export async function getPortalData(campaignId: number) {
         videos(id, link_video, content_uid, vt_approval, urutan)
       `)
       .eq('campaign_id', campaignId)
-      .in('approval', ['approved', 'pending'])
+      .eq('approval', 'approved')
       .range(start, start + pageSize - 1);
 
     if (error || !data || data.length === 0) break;
