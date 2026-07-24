@@ -40,6 +40,7 @@ BEGIN
             COALESCE(MAX(video_likes), 0) AS likes
         FROM organic_videos
         WHERE campaign_id = p_campaign_id
+          AND COALESCE(content_type, 'Video') = 'Video'
           AND product_id IN (SELECT product_id FROM campaign_skus)
         GROUP BY 1, 2
     ),

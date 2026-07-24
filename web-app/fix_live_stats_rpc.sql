@@ -54,7 +54,8 @@ BEGIN
         FROM organic_videos ov
         WHERE ov.campaign_id = p_campaign_id
           AND ov.creator_username IN (SELECT username FROM valid_creators)
-          AND (lower(ov.duration_str) LIKE '%h%' OR lower(ov.duration_str) LIKE '%min%')
+          AND ov.product_id IN (SELECT product_id FROM campaign_skus)
+          AND COALESCE(ov.content_type, 'Livestream') = 'Livestream'
           AND (v_start_date IS NULL OR ov.post_time::date >= v_start_date)
           AND (v_end_date IS NULL OR ov.post_time::date <= v_end_date)
     ),
@@ -71,11 +72,6 @@ BEGIN
             COALESCE(s.total_orders, 0) AS orders
         FROM organic_lives o
         LEFT JOIN normalized_sales s ON o.n_uid = s.n_uid AND o.creator_username = s.creator_username
-        WHERE
-            -- Hanya masukkan jika: ada di sales (artinya pasti live) ATAU durasi menunjukkan live
-            s.n_uid IS NOT NULL
-            OR lower(o.duration_str) LIKE '%h%'
-            OR lower(o.duration_str) LIKE '%min%'
     ),
     unmatched_sales AS (
         -- Sales live yang tidak ada data metrik organiknya (0 views tapi ada GMV)

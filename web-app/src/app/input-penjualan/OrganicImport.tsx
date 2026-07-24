@@ -86,7 +86,7 @@ export default function OrganicImport({ mode = 'sales' }: { mode?: 'sales' | 'vi
     { key: 'product_id', label: 'Product ID', autoMatch: ['product id'] },
     { key: 'product_name', label: 'Product Name', autoMatch: ['product name'] },
     { key: 'tiktok_campaign_id', label: 'Campaign ID', autoMatch: ['campaign id'] },
-    { key: 'post_time', label: 'Post Time', autoMatch: ['post time', 'date'] },
+    { key: 'post_time', label: 'Post Time', autoMatch: ['post time'] },
     { key: 'video_views', label: 'Video Views', autoMatch: ['video views', 'views'] },
     { key: 'video_likes', label: 'Video Likes', autoMatch: ['video likes', 'likes'] },
     { key: 'duration_str', label: 'Duration', autoMatch: ['duration'] },
@@ -98,7 +98,7 @@ export default function OrganicImport({ mode = 'sales' }: { mode?: 'sales' | 'vi
     { key: 'product_id', label: 'Product ID', autoMatch: ['product id'] },
     { key: 'product_name', label: 'Product Name', autoMatch: ['product name'] },
     { key: 'tiktok_campaign_id', label: 'Campaign ID', autoMatch: ['campaign id'] },
-    { key: 'post_time', label: 'LIVE Time Info', autoMatch: ['live time info', 'date'] },
+    { key: 'post_time', label: 'LIVE Time Info', autoMatch: ['live time info'] },
     { key: 'video_views', label: 'LIVE Views', autoMatch: ['live views', 'views'] },
     { key: 'video_likes', label: 'LIVE Likes', autoMatch: ['live likes', 'likes'] },
     { key: 'duration_str', label: 'Duration', autoMatch: ['duration'] },
@@ -306,6 +306,19 @@ export default function OrganicImport({ mode = 'sales' }: { mode?: 'sales' | 'vi
     const parseTikTokDate = (dateStr: string) => {
       if (!dateStr) return new Date().toISOString();
       try {
+        // Fix for LIVE time info or Date range e.g., "2026-03-27 21:10:38-2026-03-27 22:30:39"
+        if (dateStr.includes('-') && dateStr.length > 15) {
+          // Hanya ambil bagian pertama sebelum '-' (hati-hati karena tanggal format YYYY-MM-DD juga punya '-')
+          // Format rentang Live biasanya: YYYY-MM-DD HH:MM:SS-YYYY-MM-DD HH:MM:SS
+          // Tapi kita bisa saja ketemu "2026-03-27-2026-04-01".
+          // Cara teraman: split berdasarkan '-' JIKA '-' ada lebih dari 2 (seperti YYYY-MM-DD HH:MM:SS-YYYY...).
+          // Atau lebih aman: extract 10 karakter pertama jika itu adalah YYYY-MM-DD.
+          const match = dateStr.match(/^(\d{4}-\d{2}-\d{2}(?:\s\d{2}:\d{2}:\d{2})?)/);
+          if (match) {
+            dateStr = match[1];
+          }
+        }
+
         if (dateStr.includes('/')) {
           const parts = dateStr.split(' ');
           const dateParts = parts[0].split('/');
