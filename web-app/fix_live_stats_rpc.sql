@@ -55,7 +55,7 @@ BEGIN
         WHERE ov.campaign_id = p_campaign_id
           AND ov.creator_username IN (SELECT username FROM valid_creators)
           AND ov.product_id IN (SELECT product_id FROM campaign_skus)
-          AND COALESCE(ov.content_type, 'Livestream') = 'Livestream'
+          AND lower(COALESCE(ov.content_type, 'livestream')) = 'livestream'
           AND (v_start_date IS NULL OR ov.post_time::date >= v_start_date)
           AND (v_end_date IS NULL OR ov.post_time::date <= v_end_date)
     ),
