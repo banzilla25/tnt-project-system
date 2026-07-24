@@ -306,31 +306,52 @@ export default function OrganicImport({ mode = 'sales' }: { mode?: 'sales' | 'vi
     const parseTikTokDate = (dateStr: string) => {
       if (!dateStr) return new Date().toISOString();
       try {
-        // Fix for LIVE time info or Date range e.g., "2026-03-27 21:10:38-2026-03-27 22:30:39"
-        if (dateStr.includes('-') && dateStr.length > 15) {
-          // Hanya ambil bagian pertama sebelum '-' (hati-hati karena tanggal format YYYY-MM-DD juga punya '-')
-          // Format rentang Live biasanya: YYYY-MM-DD HH:MM:SS-YYYY-MM-DD HH:MM:SS
-          // Tapi kita bisa saja ketemu "2026-03-27-2026-04-01".
-          // Cara teraman: split berdasarkan '-' JIKA '-' ada lebih dari 2 (seperti YYYY-MM-DD HH:MM:SS-YYYY...).
-          // Atau lebih aman: extract 10 karakter pertama jika itu adalah YYYY-MM-DD.
-          const match = dateStr.match(/^(\d{4}-\d{2}-\d{2}(?:\s\d{2}:\d{2}:\d{2})?)/);
-          if (match) {
-            dateStr = match[1];
+        let str = dateStr.trim();
+        // 1. Remove range (e.g. LIVE time info)
+        if (str.includes('-') && str.length > 15) {
+          const match = str.match(/^(\d{4}-\d{2}-\d{2}(?:\s\d{2}:\d{2}:\d{2})?)/);
+          if (match) str = match[1];
+        }
+        
+        // 2. Handle DD/MM/YYYY HH:MM or MM/DD/YYYY HH:MM
+        if (str.includes('/')) {
+          const parts = str.split(' ');
+          const dateParts = parts[0].split('/');
+          if (dateParts.length === 3) {
+            let year = dateParts[2];
+            let p1 = parseInt(dateParts[1]);
+            let p0 = parseInt(dateParts[0]);
+            let month = p1;
+            let day = p0;
+            // auto detect DD/MM vs MM/DD
+            if (p0 > 12) { month = p1; day = p0; }
+            else if (p1 > 12) { month = p0; day = p1; }
+            if (year.length === 2) year = '20' + year;
+            str = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')} ${parts[1] || '00:00:00'}`;
           }
         }
 
-        if (dateStr.includes('/')) {
-          const parts = dateStr.split(' ');
-          const dateParts = parts[0].split('/');
-          if (dateParts.length === 3) {
-            // DD/MM/YYYY -> YYYY-MM-DD
-            const isoStr = `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}T${parts[1] || '00:00:00'}.000Z`;
-            const d = new Date(isoStr);
-            if (!isNaN(d.getTime())) return d.toISOString();
+        // 3. Fix Safari space issue: YYYY-MM-DD HH:MM:SS -> YYYY-MM-DDTHH:MM:SS
+        str = str.replace(' ', 'T');
+        
+        // 4. Ensure it has seconds if it has a T
+        if (str.includes('T')) {
+          const timeParts = str.split('T')[1].split(':');
+          if (timeParts.length === 2) {
+            str += ':00';
+          }
+          if (!str.endsWith('Z') && !str.includes('+')) {
+            str += '.000Z'; // Force UTC
           }
         }
-        const d = new Date(dateStr);
+
+        const d = new Date(str);
         if (!isNaN(d.getTime())) return d.toISOString();
+        
+        // Fallback: just parse the first 10 characters
+        const fallback = new Date(str.substring(0, 10));
+        if (!isNaN(fallback.getTime())) return fallback.toISOString();
+
         return new Date().toISOString();
       } catch (e) {
         return new Date().toISOString();
