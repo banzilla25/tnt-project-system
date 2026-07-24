@@ -177,7 +177,8 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
             const { data: orgData } = await supabase
               .from('organic_videos')
               .select('content_uid, post_time, content_type')
-              .in('creator_username', chunk);
+              .in('creator_username', chunk)
+              .eq('campaign_id', campaignId);
             if (orgData) {
               allOrganicVideos = [...allOrganicVideos, ...orgData];
             }
