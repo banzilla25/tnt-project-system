@@ -55,8 +55,9 @@ export default function CampaignLiveStreamClient({
   const creatorLikesMap  = new Map<string, number>();
   
   actualLives.forEach(l => {
-    const u = l.creator_username;
+    let u = l.creator_username;
     if (u) {
+      u = u.replace(/^@/, '').toLowerCase();
       creatorGmvMap.set(u,   (creatorGmvMap.get(u)   || 0) + (Number(l.gmv)          || 0));
       creatorLivesMap.set(u, (creatorLivesMap.get(u) || 0) + 1);
       creatorViewsMap.set(u, (creatorViewsMap.get(u) || 0) + (Number(l.video_views)  || 0));
@@ -99,12 +100,13 @@ export default function CampaignLiveStreamClient({
   const aggregatedData = React.useMemo(() => {
     let data = creators.map(cc => {
       const creatorUsername = cc.creators.username;
+      const normalizedCreatorUname = (creatorUsername || '').replace(/^@/, '').toLowerCase();
       
       // Use actualLives from the RPC as the single source of truth for sessions, views, likes, and GMV
-      const cLives = actualLives.filter(l => l.creator_username === creatorUsername);
+      const cLives = actualLives.filter(l => (l.creator_username || '').replace(/^@/, '').toLowerCase() === normalizedCreatorUname);
       
       // Keep using salesData for totalOrders (quantity) since the RPC might not return it
-      const cSales = salesData.filter(s => s.creator_username === creatorUsername);
+      const cSales = salesData.filter(s => (s.creator_username || '').replace(/^@/, '').toLowerCase() === normalizedCreatorUname);
 
       let totalOrders = 0;
       cSales.forEach(s => {
@@ -259,7 +261,7 @@ export default function CampaignLiveStreamClient({
                       <div className="flex items-center gap-2">
                         <span className="text-[15px] w-7 shrink-0 text-center">{rankBadge(idx + 1)}</span>
                         <div className="flex-1 min-w-0">
-                          <div className="text-[13px] font-semibold text-text truncate">@{live.creator_username}</div>
+                          <div className="text-[13px] font-semibold text-text truncate">@{(live.creator_username || '').replace(/^@/, '').toLowerCase()}</div>
                           <div className="text-[11px] text-text-soft">
                             {live.start_time ? new Date(live.start_time).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
                             {live.duration_str ? ` · ${live.duration_str}` : ''}
