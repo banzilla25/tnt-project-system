@@ -744,9 +744,10 @@ export default function OrganicImport({ mode = 'sales' }: { mode?: 'sales' | 'vi
       }
       
       // 5. Auto Populate Videos Table (So they appear in Pending ber-Video)
-      const uniqueVideos = Array.from(new Set(uniquePayload.map(p => p.content_uid).filter(Boolean)));
-      if (uniqueVideos.length > 0) {
-        const existingUids = new Set<string>();
+      if (mode === 'video') {
+        const uniqueVideos = Array.from(new Set(uniquePayload.map(p => p.content_uid).filter(Boolean)));
+        if (uniqueVideos.length > 0) {
+          const existingUids = new Set<string>();
         for (let i = 0; i < uniqueVideos.length; i += 200) {
           const chunk = uniqueVideos.slice(i, i + 200);
           const { data: chunkExisting } = await supabase.from('videos').select('content_uid').in('content_uid', chunk);
@@ -824,6 +825,7 @@ export default function OrganicImport({ mode = 'sales' }: { mode?: 'sales' | 'vi
             }
           }
         }
+      }
       }
     } catch (autoAssignErr: any) {
       errors.push(`Gagal Auto-Assign Produk/Video: ${autoAssignErr.message}`);
