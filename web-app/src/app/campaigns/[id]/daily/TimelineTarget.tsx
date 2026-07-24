@@ -21,7 +21,7 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
   const hasAnyTarget = targetGmv > 0 || targetVideo > 0 || targetCreator > 0;
 
   const timelineData = useMemo(() => {
-    if (!campaign.start_date || !hasAnyTarget) return [];
+    if (!campaign.start_date) return [];
 
     const startDate = new Date(campaign.start_date);
     startDate.setHours(0, 0, 0, 0);
@@ -150,7 +150,7 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
     }
 
     return data;
-  }, [campaign, dailyData, targetGmv, targetVideo, targetCreator, hasAnyTarget]);
+  }, [campaign, dailyData, targetGmv, targetVideo, targetCreator]);
 
   const scrollToToday = () => {
     if (scrollRef.current) {
@@ -184,7 +184,7 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
     return () => clearTimeout(timer);
   }, [timelineData]);
 
-  if (!hasAnyTarget || timelineData.length === 0) return null;
+  if (timelineData.length === 0) return null;
 
   return (
     <div className="ccard mb-[24px]">
@@ -257,30 +257,24 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
                         <div className="absolute bottom-[-6px] left-1/2 -translate-x-1/2 w-3 h-3 bg-blue-50 border-b border-r border-blue-200 rotate-45"></div>
                         <h4 className="text-xs font-bold text-blue-900 mb-1">Target Minggu Ini</h4>
                         
-                        {targetGmv > 0 && (
-                          <div className="text-[10px] text-blue-800 flex justify-between px-2">
-                            <span>GMV:</span>
-                            <span className={day.weeklySummary.achievedGmv >= day.weeklySummary.targetGmv ? 'text-emerald-700 font-bold' : ''}>
-                              Rp {Math.round(day.weeklySummary.achievedGmv).toLocaleString()} / Rp {Math.round(day.weeklySummary.targetGmv).toLocaleString()}
-                            </span>
-                          </div>
-                        )}
-                        {targetVideo > 0 && (
-                          <div className="text-[10px] text-blue-800 flex justify-between px-2">
-                            <span>Video:</span>
-                            <span className={day.weeklySummary.achievedVideo >= day.weeklySummary.targetVideo ? 'text-emerald-700 font-bold' : ''}>
-                              {Math.round(day.weeklySummary.achievedVideo)} / {Math.round(day.weeklySummary.targetVideo)}
-                            </span>
-                          </div>
-                        )}
-                        {targetCreator > 0 && (
-                          <div className="text-[10px] text-blue-800 flex justify-between px-2">
-                            <span>Kreator:</span>
-                            <span className={day.weeklySummary.achievedCreator >= day.weeklySummary.targetCreator ? 'text-emerald-700 font-bold' : ''}>
-                              {Math.round(day.weeklySummary.achievedCreator)} / {Math.round(day.weeklySummary.targetCreator)}
-                            </span>
-                          </div>
-                        )}
+                        <div className="text-[10px] text-blue-800 flex justify-between px-2">
+                          <span>GMV:</span>
+                          <span className={day.weeklySummary.achievedGmv >= day.weeklySummary.targetGmv && targetGmv > 0 ? 'text-emerald-700 font-bold' : 'font-medium'}>
+                            Rp {Math.round(day.weeklySummary.achievedGmv).toLocaleString()} {targetGmv > 0 ? `/ Rp ${Math.round(day.weeklySummary.targetGmv).toLocaleString()}` : ''}
+                          </span>
+                        </div>
+                        <div className="text-[10px] text-blue-800 flex justify-between px-2">
+                          <span>Video:</span>
+                          <span className={day.weeklySummary.achievedVideo >= day.weeklySummary.targetVideo && targetVideo > 0 ? 'text-emerald-700 font-bold' : 'font-medium'}>
+                            {Math.round(day.weeklySummary.achievedVideo)} {targetVideo > 0 ? `/ ${Math.round(day.weeklySummary.targetVideo)}` : ''}
+                          </span>
+                        </div>
+                        <div className="text-[10px] text-blue-800 flex justify-between px-2">
+                          <span>Kreator:</span>
+                          <span className={day.weeklySummary.achievedCreator >= day.weeklySummary.targetCreator && targetCreator > 0 ? 'text-emerald-700 font-bold' : 'font-medium'}>
+                            {Math.round(day.weeklySummary.achievedCreator)} {targetCreator > 0 ? `/ ${Math.round(day.weeklySummary.targetCreator)}` : ''}
+                          </span>
+                        </div>
                       </div>
                     ) : isTop ? (
                       <div className={`rounded-lg p-3 w-[180px] shadow-sm relative z-20 ${isToday ? 'bg-rose-50 border border-rose-200' : 'bg-white border border-slate-200'}`}>
@@ -290,30 +284,24 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
                            {day.isPastEndDate && <span className="text-rose-500 ml-1">(Overdue)</span>}
                          </h4>
                          
-                         {targetGmv > 0 && (
-                           <div className="text-[10px] text-slate-600 flex justify-between border-t border-slate-100 pt-1 mt-1">
-                             <span>GMV:</span>
-                             <span className={day.achievedGmv >= day.targetGmv ? 'text-emerald-600 font-bold' : ''}>
-                               {Math.round(day.achievedGmv).toLocaleString()} / {Math.round(day.targetGmv).toLocaleString()}
-                             </span>
-                           </div>
-                         )}
-                         {targetVideo > 0 && (
-                           <div className="text-[10px] text-slate-600 flex justify-between border-t border-slate-100 pt-1 mt-1">
-                             <span>VT:</span>
-                             <span className={day.achievedVideo >= day.targetVideo ? 'text-emerald-600 font-bold' : ''}>
-                               {Math.round(day.achievedVideo)} / {Math.round(day.targetVideo)}
-                             </span>
-                           </div>
-                         )}
-                         {targetCreator > 0 && (
-                           <div className="text-[10px] text-slate-600 flex justify-between border-t border-slate-100 pt-1 mt-1">
-                             <span>Kreator:</span>
-                             <span className={day.achievedCreator >= day.targetCreator ? 'text-emerald-600 font-bold' : ''}>
-                               {Math.round(day.achievedCreator)} / {Math.round(day.targetCreator)}
-                             </span>
-                           </div>
-                         )}
+                         <div className="text-[10px] text-slate-600 flex justify-between border-t border-slate-100 pt-1 mt-1">
+                           <span>GMV:</span>
+                           <span className={day.achievedGmv >= day.targetGmv && targetGmv > 0 ? 'text-emerald-600 font-bold' : 'font-medium'}>
+                             {Math.round(day.achievedGmv).toLocaleString()} {targetGmv > 0 ? `/ ${Math.round(day.targetGmv).toLocaleString()}` : ''}
+                           </span>
+                         </div>
+                         <div className="text-[10px] text-slate-600 flex justify-between border-t border-slate-100 pt-1 mt-1">
+                           <span>Video:</span>
+                           <span className={day.achievedVideo >= day.targetVideo && targetVideo > 0 ? 'text-emerald-600 font-bold' : 'font-medium'}>
+                             {Math.round(day.achievedVideo)} {targetVideo > 0 ? `/ ${Math.round(day.targetVideo)}` : ''}
+                           </span>
+                         </div>
+                         <div className="text-[10px] text-slate-600 flex justify-between border-t border-slate-100 pt-1 mt-1">
+                           <span>Kreator:</span>
+                           <span className={day.achievedCreator >= day.targetCreator && targetCreator > 0 ? 'text-emerald-600 font-bold' : 'font-medium'}>
+                             {Math.round(day.achievedCreator)} {targetCreator > 0 ? `/ ${Math.round(day.targetCreator)}` : ''}
+                           </span>
+                         </div>
                       </div>
                     ) : null}
                   </div>
@@ -337,30 +325,24 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
                            {day.isPastEndDate && <span className="text-rose-500 ml-1">(Overdue)</span>}
                          </h4>
                          
-                         {targetGmv > 0 && (
-                           <div className="text-[10px] text-slate-600 flex justify-between border-t border-slate-100 pt-1 mt-1">
-                             <span>GMV:</span>
-                             <span className={day.achievedGmv >= day.targetGmv ? 'text-emerald-600 font-bold' : ''}>
-                               {Math.round(day.achievedGmv).toLocaleString()} / {Math.round(day.targetGmv).toLocaleString()}
-                             </span>
-                           </div>
-                         )}
-                         {targetVideo > 0 && (
-                           <div className="text-[10px] text-slate-600 flex justify-between border-t border-slate-100 pt-1 mt-1">
-                             <span>VT:</span>
-                             <span className={day.achievedVideo >= day.targetVideo ? 'text-emerald-600 font-bold' : ''}>
-                               {Math.round(day.achievedVideo)} / {Math.round(day.targetVideo)}
-                             </span>
-                           </div>
-                         )}
-                         {targetCreator > 0 && (
-                           <div className="text-[10px] text-slate-600 flex justify-between border-t border-slate-100 pt-1 mt-1">
-                             <span>Kreator:</span>
-                             <span className={day.achievedCreator >= day.targetCreator ? 'text-emerald-600 font-bold' : ''}>
-                               {Math.round(day.achievedCreator)} / {Math.round(day.targetCreator)}
-                             </span>
-                           </div>
-                         )}
+                         <div className="text-[10px] text-slate-600 flex justify-between border-t border-slate-100 pt-1 mt-1">
+                           <span>GMV:</span>
+                           <span className={day.achievedGmv >= day.targetGmv && targetGmv > 0 ? 'text-emerald-600 font-bold' : 'font-medium'}>
+                             {Math.round(day.achievedGmv).toLocaleString()} {targetGmv > 0 ? `/ ${Math.round(day.targetGmv).toLocaleString()}` : ''}
+                           </span>
+                         </div>
+                         <div className="text-[10px] text-slate-600 flex justify-between border-t border-slate-100 pt-1 mt-1">
+                           <span>Video:</span>
+                           <span className={day.achievedVideo >= day.targetVideo && targetVideo > 0 ? 'text-emerald-600 font-bold' : 'font-medium'}>
+                             {Math.round(day.achievedVideo)} {targetVideo > 0 ? `/ ${Math.round(day.targetVideo)}` : ''}
+                           </span>
+                         </div>
+                         <div className="text-[10px] text-slate-600 flex justify-between border-t border-slate-100 pt-1 mt-1">
+                           <span>Kreator:</span>
+                           <span className={day.achievedCreator >= day.targetCreator && targetCreator > 0 ? 'text-emerald-600 font-bold' : 'font-medium'}>
+                             {Math.round(day.achievedCreator)} {targetCreator > 0 ? `/ ${Math.round(day.targetCreator)}` : ''}
+                           </span>
+                         </div>
                       </div>
                     )}
                   </div>
