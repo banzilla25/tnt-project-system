@@ -813,6 +813,7 @@ export default function OrganicImport({ mode = 'sales' }: { mode?: 'sales' | 'vi
                 vt_approval: 'pending',
                 urutan: nextUrutan,
                 concept: 'Auto-detected from Awareness Import',
+                created_at: missing.tanggal
               });
             }
           }
