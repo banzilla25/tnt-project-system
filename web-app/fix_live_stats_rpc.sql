@@ -13,7 +13,13 @@ BEGIN
     INTO v_start_date, v_end_date
     FROM campaigns WHERE id = p_campaign_id;
 
-    WITH valid_creators AS (
+    WITH campaign_skus AS (
+        SELECT DISTINCT product_id 
+        FROM skus 
+        WHERE campaign_id = p_campaign_id 
+          AND product_id IS NOT NULL
+    ),
+    valid_creators AS (
         -- Hanya ambil kreator yang di-approve di campaign ini
         SELECT c.username
         FROM campaign_creators cc
