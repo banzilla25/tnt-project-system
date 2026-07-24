@@ -452,7 +452,13 @@ export default function SpreadsheetImportAddressClient() {
         if (row.kelurahan?.trim()) payload.kelurahan = row.kelurahan;
         if (row.kode_pos?.trim()) payload.kode_pos = row.kode_pos;
         if (row.tanggal_kirim?.trim()) payload.tanggal_kirim = row.tanggal_kirim;
-        if (row.resi?.trim()) payload.resi = row.resi;
+        if (row.resi?.trim()) {
+          payload.resi = row.resi;
+          if (!existingAddr || existingAddr.resi !== row.resi) {
+            payload.resi_updated_at = new Date().toISOString();
+            payload.resi_updated_by = 'Internal TNT';
+          }
+        }
         if (row.ekspedisi?.trim()) payload.ekspedisi = row.ekspedisi;
         if (row.notes?.trim()) payload.notes = row.notes;
         if (row.proses?.trim()) payload.proses = row.proses;
