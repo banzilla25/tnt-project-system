@@ -52,6 +52,35 @@ const determineContentType = (vt: number, live: number) => {
   return '';
 };
 
+const parseSmartNumber = (val: string): string => {
+  if (!val) return '';
+  let str = val.toString().trim().toUpperCase();
+  
+  // Handle empty or dash inputs
+  if (str === '-' || str === '_' || str === 'NA' || str === 'N/A') return '0';
+
+  // Handle K, M, B suffixes like 1.5M, 10K
+  const match = str.match(/^([0-9.,]+)([KMB]?)$/);
+  if (match) {
+    let numStr = match[1];
+    const suffix = match[2];
+    
+    if (suffix) {
+      numStr = numStr.replace(',', '.'); // treat comma as decimal
+      let numPart = parseFloat(numStr);
+      if (!isNaN(numPart)) {
+        if (suffix === 'K') return Math.round(numPart * 1000).toString();
+        if (suffix === 'M') return Math.round(numPart * 1000000).toString();
+        if (suffix === 'B') return Math.round(numPart * 1000000000).toString();
+      }
+    }
+  }
+  
+  // Fallback: strip everything except digits
+  const fallback = str.replace(/\D/g, '');
+  return fallback;
+};
+
 export default function SpreadsheetImportCreatorClient() {
   const router = useRouter();
   const { id } = useParams();
@@ -205,7 +234,7 @@ export default function SpreadsheetImportCreatorClient() {
             if (targetColName === 'username') {
               cleanedVal = cleanedVal.replace(/^@/, '').toLowerCase();
             } else if (['followers', 'gmv_30_days', 'rate_card', 'qty_vt', 'qty_live'].includes(targetColName)) {
-              cleanedVal = cleanedVal.replace(/\D/g, '');
+              cleanedVal = parseSmartNumber(cleanedVal);
               if (!cleanedVal && ['qty_vt', 'qty_live', 'rate_card'].includes(targetColName)) cleanedVal = '0';
             }
             
@@ -232,7 +261,7 @@ export default function SpreadsheetImportCreatorClient() {
     
     if (field === 'username') cleaned = cleaned.replace(/^@/, '').toLowerCase();
     else if (['followers', 'gmv_30_days', 'rate_card', 'qty_vt', 'qty_live'].includes(field)) {
-      cleaned = cleaned.replace(/\D/g, '');
+      cleaned = parseSmartNumber(cleaned);
     }
     
     newRows[idx] = { ...newRows[idx], [field]: cleaned, status: undefined, errorMsg: undefined };
@@ -431,7 +460,7 @@ export default function SpreadsheetImportCreatorClient() {
   };
 
   const handleUpdateIncomplete = (idx: number, field: 'followers' | 'gmv_30_days', val: string) => {
-    const cleaned = val.replace(/\D/g, '');
+    const cleaned = parseSmartNumber(val);
     const newInc = [...incompleteRows];
     newInc[idx][field] = cleaned;
     
