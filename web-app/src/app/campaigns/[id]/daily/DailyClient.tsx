@@ -234,12 +234,16 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
         allAds.forEach(ad => {
           if (!ad.tanggal || !ad.ad_id) return;
           const dateStr = ad.tanggal.substring(0, 10);
-          if (campaignStartStr && dateStr < campaignStartStr) return;
-          if (campaignEndStr && dateStr > campaignEndStr) return;
           
           const currentGmv = ad.gross_revenue_usd || 0;
           const prevGmv = previousAdValues[ad.ad_id] || 0;
           const deltaUsd = currentGmv - prevGmv;
+          
+          // Ensure we record the memory of this ad's revenue even if it's before campaign start
+          previousAdValues[ad.ad_id] = currentGmv;
+
+          if (campaignStartStr && dateStr < campaignStartStr) return;
+          if (campaignEndStr && dateStr > campaignEndStr) return;
           
           if (deltaUsd > 0) {
             const kurs = (ad.kurs && ad.kurs < 1000) ? ad.kurs * 1000 : (ad.kurs || 16000);
@@ -252,7 +256,6 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
             if (!monthlyGrouped[monthStr]) monthlyGrouped[monthStr] = { gmv: 0, gmvAds: 0, creators: new Set(), videos: new Set(), gmvLive: 0, gmvVT: 0, ordersLive: 0, ordersVT: 0, liveSessions: new Set() };
             monthlyGrouped[monthStr].gmvAds += deltaIdr;
           }
-          previousAdValues[ad.ad_id] = currentGmv;
         });
       }
 

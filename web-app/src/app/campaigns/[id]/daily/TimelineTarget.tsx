@@ -40,15 +40,12 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
       lastTimelineDate = new Date(today);
     }
 
-    // Generate all working days
-    const workingDays: Date[] = [];
-    let curr = new Date(startDate);
-    while (curr.getTime() <= lastTimelineDate.getTime()) {
-      const dayOfWeek = curr.getDay();
-      if (dayOfWeek !== 0 && dayOfWeek !== 6) { // Skip Sunday(0) and Saturday(6)
-        workingDays.push(new Date(curr));
-      }
-      curr.setDate(curr.getDate() + 1);
+    // Pre-calculate total working days
+    let totalWorkingDays = 0;
+    let tempCurr = new Date(startDate);
+    while (tempCurr.getTime() <= lastTimelineDate.getTime()) {
+      if (tempCurr.getDay() !== 0 && tempCurr.getDay() !== 6) totalWorkingDays++;
+      tempCurr.setDate(tempCurr.getDate() + 1);
     }
 
     // Map dailyData for easy lookup
@@ -57,7 +54,7 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
       const dDate = new Date(d.date);
       dDate.setHours(0, 0, 0, 0);
       achievedMap.set(dDate.getTime(), {
-        gmv: Number(d.gmvOrganic) || 0,
+        gmv: (Number(d.gmvOrganic) || 0) + (Number(d.gmvAds) || 0),
         video: Number(d.totalVideos) || 0,
         live: Number(d.totalLiveSessions) || 0,
         creator: Number(d.totalCreators) || 0,
@@ -71,7 +68,7 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
 
     const data = [];
 
-    // Also track weekly aggregates
+    // Weekly aggregates
     let currentWeekGmvTarget = 0;
     let currentWeekVideoTarget = 0;
     let currentWeekLiveTarget = 0;
@@ -80,59 +77,53 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
     let currentWeekVideoAchieve = 0;
     let currentWeekLiveAchieve = 0;
     let currentWeekCreatorAchieve = 0;
-    let weekDaysCount = 0;
 
-    for (let i = 0; i < workingDays.length; i++) {
-      const date = workingDays[i];
-      const time = date.getTime();
-      
+    let remainingWorkingDays = totalWorkingDays;
+    let curr = new Date(startDate);
+    let lastNodeIndex = -1;
+
+    while (curr.getTime() <= lastTimelineDate.getTime()) {
+      const time = curr.getTime();
+      const dayOfWeek = curr.getDay();
+      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
       const isPastEndDate = time > endDate.getTime();
       
-      const remainingDays = isPastEndDate ? 1 : (workingDays.length - i);
-
-      // Calculate Target for Today
-      const remGmv = Math.max(0, targetGmv - cumulativeGmv);
-      const remVideo = Math.max(0, targetVideo - cumulativeVideo);
-      const remLive = Math.max(0, targetLive - cumulativeLive);
-      const remCreator = Math.max(0, targetCreator - cumulativeCreator);
-
-      const targetForTodayGmv = remGmv / remainingDays;
-      const targetForTodayVideo = remVideo / remainingDays;
-      const targetForTodayLive = remLive / remainingDays;
-      const targetForTodayCreator = remCreator / remainingDays;
-
-      // Actual achieved today
       const achievedToday = achievedMap.get(time) || { gmv: 0, video: 0, live: 0, creator: 0 };
 
-      // Add to weekly aggregates
-      currentWeekGmvTarget += targetForTodayGmv;
-      currentWeekVideoTarget += targetForTodayVideo;
-      currentWeekLiveTarget += targetForTodayLive;
-      currentWeekCreatorTarget += targetForTodayCreator;
+      // Accumulate achievements (EVERY day)
       currentWeekGmvAchieve += achievedToday.gmv;
       currentWeekVideoAchieve += achievedToday.video;
       currentWeekLiveAchieve += achievedToday.live;
       currentWeekCreatorAchieve += achievedToday.creator;
-      weekDaysCount++;
 
-      // Is it Friday? Or is it the last day of the timeline?
-      const isFriday = date.getDay() === 5;
-      const isLastDay = i === workingDays.length - 1;
-      const isEndOfWeek = isFriday || isLastDay;
+      let targetForTodayGmv = 0;
+      let targetForTodayVideo = 0;
+      let targetForTodayLive = 0;
+      let targetForTodayCreator = 0;
 
-      const weeklySummary = isEndOfWeek ? {
-        targetGmv: currentWeekGmvTarget,
-        targetVideo: currentWeekVideoTarget,
-        targetLive: currentWeekLiveTarget,
-        targetCreator: currentWeekCreatorTarget,
-        achievedGmv: currentWeekGmvAchieve,
-        achievedVideo: currentWeekVideoAchieve,
-        achievedLive: currentWeekLiveAchieve,
-        achievedCreator: currentWeekCreatorAchieve,
-      } : null;
+      if (!isWeekend) {
+        const remGmv = Math.max(0, targetGmv - cumulativeGmv);
+        const remVideo = Math.max(0, targetVideo - cumulativeVideo);
+        const remLive = Math.max(0, targetLive - cumulativeLive);
+        const remCreator = Math.max(0, targetCreator - cumulativeCreator);
 
-      data.push({
-        date,
+        const divisor = isPastEndDate ? 1 : Math.max(1, remainingWorkingDays);
+
+        targetForTodayGmv = remGmv / divisor;
+        targetForTodayVideo = remVideo / divisor;
+        targetForTodayLive = remLive / divisor;
+        targetForTodayCreator = remCreator / divisor;
+
+        remainingWorkingDays--;
+      }
+
+      currentWeekGmvTarget += targetForTodayGmv;
+      currentWeekVideoTarget += targetForTodayVideo;
+      currentWeekLiveTarget += targetForTodayLive;
+      currentWeekCreatorTarget += targetForTodayCreator;
+
+      const node = {
+        date: new Date(curr),
         isPastEndDate,
         targetGmv: targetForTodayGmv,
         targetVideo: targetForTodayVideo,
@@ -142,11 +133,37 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
         achievedVideo: achievedToday.video,
         achievedLive: achievedToday.live,
         achievedCreator: achievedToday.creator,
-        weeklySummary
-      });
+        weeklySummary: null as any
+      };
+      
+      data.push(node);
+      lastNodeIndex = data.length - 1;
 
-      // Reset weekly aggregates if end of week
-      if (isEndOfWeek) {
+      // Update cumulatives for NEXT day calculation
+      cumulativeGmv += achievedToday.gmv;
+      cumulativeVideo += achievedToday.video;
+      cumulativeLive += achievedToday.live;
+      cumulativeCreator += achievedToday.creator;
+
+      // End of week logic: Sunday is the true end of the week, or it's the absolute last day of timeline
+      const isSunday = dayOfWeek === 0;
+      const isLastDay = curr.getTime() === lastTimelineDate.getTime();
+      
+      if (isSunday || isLastDay) {
+        if (lastNodeIndex >= 0) {
+          data[lastNodeIndex].weeklySummary = {
+            targetGmv: currentWeekGmvTarget,
+            targetVideo: currentWeekVideoTarget,
+            targetLive: currentWeekLiveTarget,
+            targetCreator: currentWeekCreatorTarget,
+            achievedGmv: currentWeekGmvAchieve,
+            achievedVideo: currentWeekVideoAchieve,
+            achievedLive: currentWeekLiveAchieve,
+            achievedCreator: currentWeekCreatorAchieve,
+          };
+        }
+        
+        // Reset for next week
         currentWeekGmvTarget = 0;
         currentWeekVideoTarget = 0;
         currentWeekLiveTarget = 0;
@@ -155,14 +172,9 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
         currentWeekVideoAchieve = 0;
         currentWeekLiveAchieve = 0;
         currentWeekCreatorAchieve = 0;
-        weekDaysCount = 0;
       }
 
-      // Update cumulatives for NEXT day calculation
-      cumulativeGmv += achievedToday.gmv;
-      cumulativeVideo += achievedToday.video;
-      cumulativeLive += achievedToday.live;
-      cumulativeCreator += achievedToday.creator;
+      curr.setDate(curr.getDate() + 1);
     }
 
     return data;
