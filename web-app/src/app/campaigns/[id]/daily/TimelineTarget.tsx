@@ -69,10 +69,12 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
     const data = [];
 
     // Weekly aggregates
-    let currentWeekGmvTarget = 0;
-    let currentWeekVideoTarget = 0;
-    let currentWeekLiveTarget = 0;
-    let currentWeekCreatorTarget = 0;
+    let currentWeekGmvTargetVelocity = 0;
+    let currentWeekVideoTargetVelocity = 0;
+    let currentWeekLiveTargetVelocity = 0;
+    let currentWeekCreatorTargetVelocity = 0;
+    let currentWeekWorkingDaysCount = 0;
+
     let currentWeekGmvAchieve = 0;
     let currentWeekVideoAchieve = 0;
     let currentWeekLiveAchieve = 0;
@@ -114,13 +116,17 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
         targetForTodayLive = remLive / divisor;
         targetForTodayCreator = remCreator / divisor;
 
+        // If this is the first working day of the week, lock in the weekly velocity
+        if (currentWeekWorkingDaysCount === 0) {
+          currentWeekGmvTargetVelocity = targetForTodayGmv;
+          currentWeekVideoTargetVelocity = targetForTodayVideo;
+          currentWeekLiveTargetVelocity = targetForTodayLive;
+          currentWeekCreatorTargetVelocity = targetForTodayCreator;
+        }
+        currentWeekWorkingDaysCount++;
+
         remainingWorkingDays--;
       }
-
-      currentWeekGmvTarget += targetForTodayGmv;
-      currentWeekVideoTarget += targetForTodayVideo;
-      currentWeekLiveTarget += targetForTodayLive;
-      currentWeekCreatorTarget += targetForTodayCreator;
 
       const node = {
         date: new Date(curr),
@@ -152,10 +158,10 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
       if (isSunday || isLastDay) {
         if (lastNodeIndex >= 0) {
           data[lastNodeIndex].weeklySummary = {
-            targetGmv: currentWeekGmvTarget,
-            targetVideo: currentWeekVideoTarget,
-            targetLive: currentWeekLiveTarget,
-            targetCreator: currentWeekCreatorTarget,
+            targetGmv: currentWeekGmvTargetVelocity * currentWeekWorkingDaysCount,
+            targetVideo: currentWeekVideoTargetVelocity * currentWeekWorkingDaysCount,
+            targetLive: currentWeekLiveTargetVelocity * currentWeekWorkingDaysCount,
+            targetCreator: currentWeekCreatorTargetVelocity * currentWeekWorkingDaysCount,
             achievedGmv: currentWeekGmvAchieve,
             achievedVideo: currentWeekVideoAchieve,
             achievedLive: currentWeekLiveAchieve,
@@ -164,10 +170,12 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
         }
         
         // Reset for next week
-        currentWeekGmvTarget = 0;
-        currentWeekVideoTarget = 0;
-        currentWeekLiveTarget = 0;
-        currentWeekCreatorTarget = 0;
+        currentWeekGmvTargetVelocity = 0;
+        currentWeekVideoTargetVelocity = 0;
+        currentWeekLiveTargetVelocity = 0;
+        currentWeekCreatorTargetVelocity = 0;
+        currentWeekWorkingDaysCount = 0;
+
         currentWeekGmvAchieve = 0;
         currentWeekVideoAchieve = 0;
         currentWeekLiveAchieve = 0;
