@@ -641,18 +641,34 @@ function CampaignListingContent() {
       filteredData = filteredData.filter(r => r.added_by === recapFilterPic);
     }
     const group: Record<string, { total: number, approved: number, pending: number, alternate: number, not_approved: number }> = {};
+    
+    // Helper to get local date string (YYYY-MM-DD) to avoid UTC timezone shifts
+    const getLocalDateStr = (dateString: string) => {
+      const d = new Date(dateString);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    };
+
     filteredData.forEach(r => {
-      // Use approved_at if approved/alternate/not_approved, else created_at
-      const dateStr = r.approved_at || r.created_at;
-      if (!dateStr) return;
-      const dateKey = new Date(dateStr).toISOString().split('T')[0];
-      if (!group[dateKey]) group[dateKey] = { total: 0, approved: 0, pending: 0, alternate: 0, not_approved: 0 };
-      
-      group[dateKey].total++;
-      if (r.approval === 'approved') group[dateKey].approved++;
-      else if (r.approval === 'alternate') group[dateKey].alternate++;
-      else if (r.approval === 'not_approved') group[dateKey].not_approved++;
-      else if (r.approval === 'pending') group[dateKey].pending++;
+      // 1. Process \"Added\" and \"Pending\" based on created_at
+      if (r.created_at) {
+        const createDateKey = getLocalDateStr(r.created_at);
+        if (!group[createDateKey]) group[createDateKey] = { total: 0, approved: 0, pending: 0, alternate: 0, not_approved: 0 };
+        
+        group[createDateKey].total++;
+        if (r.approval === 'pending') {
+          group[createDateKey].pending++;
+        }
+      }
+
+      // 2. Process Action (Approved, Alternate, Not Approved) based on approved_at
+      if (r.approved_at && r.approval !== 'pending') {
+        const actionDateKey = getLocalDateStr(r.approved_at);
+        if (!group[actionDateKey]) group[actionDateKey] = { total: 0, approved: 0, pending: 0, alternate: 0, not_approved: 0 };
+        
+        if (r.approval === 'approved') group[actionDateKey].approved++;
+        else if (r.approval === 'alternate') group[actionDateKey].alternate++;
+        else if (r.approval === 'not_approved') group[actionDateKey].not_approved++;
+      }
     });
     // Sort ascending so oldest is first, newest is last
     const sortedKeys = Object.keys(group).sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
