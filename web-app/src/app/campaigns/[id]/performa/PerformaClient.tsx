@@ -42,7 +42,12 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
       const { data: campaignData } = await supabase.from('campaigns').select('*').eq('id', campaignId).single();
       if (campaignData) setCampaign(campaignData);
 
-      const { data: rpcPerf } = await supabase.rpc('get_campaign_performance', { p_campaign_id: campaignId });
+      let rpcParams: any = { p_campaign_id: campaignId };
+      if (appliedFilterType !== 'none' && appliedFilterUsernames && appliedFilterUsernames.length > 0) {
+        rpcParams.p_filter_type = appliedFilterType;
+        rpcParams.p_filter_values = appliedFilterUsernames;
+      }
+      const { data: rpcPerf } = await supabase.rpc('get_performance_summary_v2', rpcParams);
       setRpcPerformance(Array.isArray(rpcPerf) ? rpcPerf[0] : rpcPerf);
 
       let ccData: any[] = [];
@@ -295,8 +300,11 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
   if (!campaign) return <div className="text-center p-12 text-slate-500">Campaign tidak ditemukan</div>;
 
   const isAwareness = campaign.tipe_campaign === 'awareness' || campaign.tipe_campaign === 'gmv_awareness';
-  const totalApprovedCreators = localCreators.filter(c => c.approval === 'approved').length;
-  const totalPendingCreators = localCreators.filter(c => c.approval === 'pending').length;
+  const rpc = rpcPerformance || {};
+  const isFiltered = appliedFilterType !== 'none' && appliedFilterUsernames.length > 0;
+
+  const totalApprovedCreators = rpc.total_approved_creators !== undefined ? Number(rpc.total_approved_creators) : localCreators.filter(c => c.approval === 'approved').length;
+  const totalPendingCreators = rpc.total_pending_creators !== undefined ? Number(rpc.total_pending_creators) : localCreators.filter(c => c.approval === 'pending').length;
 
   const handleSort = (field: any) => {
     if (sortField === field) {
@@ -353,21 +361,19 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
     if ((c.pendingVtCount || 0) > 0) pendingCreatorsWithVideosCount++;
   });
 
-  const isFiltered = appliedFilterType !== 'none' && appliedFilterUsernames.length > 0;
-  const totalSales = rpcPerformance || {};
-
-  const totalOrganic = isFiltered ? fbOrganic : (totalSales?.totalOrganic || fbOrganic);
+  const totalOrganic = rpc.organic_gmv !== undefined ? Number(rpc.organic_gmv) : (isFiltered ? fbOrganic : (totalSales?.totalOrganic || fbOrganic));
   // Always use initialTotalAdsGmv for accurate deduplicated total, unless filtered by creator
-  const totalAdsGmv = isFiltered ? fbAds : initialTotalAdsGmv; 
+  const totalAdsGmv = rpc.ads_gmv !== undefined ? Number(rpc.ads_gmv) : (isFiltered ? fbAds : initialTotalAdsGmv); 
   const totalAllGmv = totalOrganic + totalAdsGmv;
   const percentCapai = campaign?.target_gmv ? Math.round((totalAllGmv / campaign.target_gmv) * 100) : 0;
-  const trackedOrganic = isFiltered ? fbOrganic : (totalSales?.trackedOrganic || fbOrganic);
-  const attributionGap = isFiltered ? 0 : (totalSales?.attributionGap || 0);
+  const trackedOrganic = totalOrganic;
+  const attributionGap = isFiltered ? 0 : (totalAllGmv - totalOrganic - totalAdsGmv > 0 ? totalAllGmv - totalOrganic - totalAdsGmv : 0); // For now fallback to 0
   const gapPercentage = totalOrganic > 0 ? Math.round((attributionGap / totalOrganic) * 100) : 0;
 
-  const totalCampaignViews = isFiltered ? fbViews : Number(totalSales?.totalViews || fbViews);
-  const totalCampaignLikes = isFiltered ? fbLikes : Number(totalSales?.totalLikes || fbLikes);
-  const totalCampaignVideos = isFiltered ? fbVideos : Number(totalSales?.totalVideos || fbVideos);
+  const totalCampaignViews = rpc.total_views !== undefined ? Number(rpc.total_views) : (isFiltered ? fbViews : Number(totalSales?.totalViews || fbViews));
+  const totalCampaignLikes = rpc.total_likes !== undefined ? Number(rpc.total_likes) : (isFiltered ? fbLikes : Number(totalSales?.totalLikes || fbLikes));
+  const totalCampaignVideos = rpc.total_videos !== undefined ? Number(rpc.total_videos) : (isFiltered ? fbVideos : Number(totalSales?.totalVideos || fbVideos));
+  
   const totalCampaignLivestreams = isFiltered ? fbLivestreams : Number(totalSales?.totalLivestreams || fbLivestreams);
   const creatorsWithVideo = isFiltered ? fbWithVideo : Number(totalSales?.creatorsWithVideo || fbWithVideo);
   const creatorsWithLive = isFiltered ? fbWithLive : Number(totalSales?.creatorsWithLive || fbWithLive);
@@ -376,7 +382,7 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
   const percentCapaiVideo = targetVideo > 0 ? Math.round((totalCampaignVideos / targetVideo) * 100) : 0;
   
   const targetCreator = campaign.target_creator || 0;
-  const percentCapaiCreator = targetCreator > 0 ? Math.round((localCreators.length / targetCreator) * 100) : 0;
+  const percentCapaiCreator = targetCreator > 0 ? Math.round((totalApprovedCreators / targetCreator) * 100) : 0;
 
   const formatCompactNumber = (num: number) => {
     if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
