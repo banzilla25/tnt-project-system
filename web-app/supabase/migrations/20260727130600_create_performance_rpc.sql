@@ -38,16 +38,24 @@ BEGIN
     ORDER BY username, 
              CASE approval WHEN 'approved' THEN 1 WHEN 'pending' THEN 2 ELSE 3 END
   ),
+  approved_vids AS (
+    SELECT v.id, v.vt_views, v.vt_likes
+    FROM videos v
+    WHERE v.campaign_id = p_campaign_id
+      AND v.vt_approval = 'approved'
+      AND (
+        p_filter_type IS NULL 
+        OR v.creator_id IN (SELECT c_id FROM deduped_creators)
+      )
+  ),
   organic_stats AS (
     SELECT 
-      SUM(gmv_organic) as gmv,
-      SUM(items_sold) as items,
-      SUM(video_views) as views,
-      SUM(video_likes) as likes,
-      SUM(video_count) as videos
-    FROM get_campaign_creator_performance(p_campaign_id::INT) p
-    WHERE p_filter_type IS NULL 
-       OR p.username IN (SELECT username FROM deduped_creators)
+      SUM(v.vt_views)::BIGINT as views,
+      SUM(v.vt_likes)::BIGINT as likes,
+      COUNT(v.id)::BIGINT as videos,
+      (SELECT SUM(s.gmv) FROM sales s WHERE s.campaign_id = p_campaign_id AND s.content_uid IN (SELECT 'video_' || id FROM approved_vids))::NUMERIC as gmv,
+      (SELECT SUM(s.quantity) FROM sales s WHERE s.campaign_id = p_campaign_id AND s.content_uid IN (SELECT 'video_' || id FROM approved_vids))::BIGINT as items
+    FROM approved_vids v
   ),
   latest_ads AS (
     SELECT DISTINCT ON (ad_id) *
