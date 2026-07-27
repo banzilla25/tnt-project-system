@@ -63,6 +63,7 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
           `)
           .eq('campaign_id', campaignId)
           .in('approval', ['approved', 'pending'])
+          .order('id', { ascending: true })
           .range(start, start + pageSize - 1);
 
         if (error || !data || data.length === 0) break;

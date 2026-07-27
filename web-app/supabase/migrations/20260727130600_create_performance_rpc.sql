@@ -28,7 +28,7 @@ BEGIN
     WHERE cc.campaign_id = p_campaign_id
       AND (
         p_filter_type IS NULL 
-        OR (p_filter_type = 'pic' AND cc.added_by = ANY(p_filter_values))
+        OR (p_filter_type = 'pic' AND cc.added_by::text = ANY(p_filter_values))
         OR (p_filter_type = 'username' AND c.username = ANY(p_filter_values))
       )
   ),
