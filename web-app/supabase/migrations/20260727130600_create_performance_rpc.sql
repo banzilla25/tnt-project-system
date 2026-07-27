@@ -45,7 +45,7 @@ BEGIN
       SUM(video_views) as views,
       SUM(video_likes) as likes,
       SUM(video_count) as videos
-    FROM get_campaign_creator_performance(p_campaign_id) p
+    FROM get_campaign_creator_performance(p_campaign_id::INT) p
     WHERE p_filter_type IS NULL 
        OR p.username IN (SELECT username FROM deduped_creators)
   ),
