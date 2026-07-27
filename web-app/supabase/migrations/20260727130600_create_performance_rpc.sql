@@ -38,24 +38,16 @@ BEGIN
     ORDER BY username, 
              CASE approval WHEN 'approved' THEN 1 WHEN 'pending' THEN 2 ELSE 3 END
   ),
-  approved_vids AS (
-    SELECT v.id, v.vt_views, v.vt_likes
-    FROM videos v
-    WHERE v.campaign_id = p_campaign_id
-      AND v.vt_approval = 'approved'
-      AND (
-        p_filter_type IS NULL 
-        OR v.creator_id IN (SELECT c_id FROM deduped_creators)
-      )
-  ),
   organic_stats AS (
     SELECT 
-      SUM(v.vt_views)::BIGINT as views,
-      SUM(v.vt_likes)::BIGINT as likes,
-      COUNT(v.id)::BIGINT as videos,
-      (SELECT SUM(s.gmv) FROM sales s WHERE s.campaign_id = p_campaign_id AND s.content_uid IN (SELECT 'video_' || id FROM approved_vids))::NUMERIC as gmv,
-      (SELECT SUM(s.quantity) FROM sales s WHERE s.campaign_id = p_campaign_id AND s.content_uid IN (SELECT 'video_' || id FROM approved_vids))::BIGINT as items
-    FROM approved_vids v
+      SUM((row_to_json(p)->>'gmv_organic')::NUMERIC) as gmv,
+      SUM((row_to_json(p)->>'items_sold')::BIGINT) as items,
+      SUM((row_to_json(p)->>'video_views')::BIGINT) as views,
+      SUM((row_to_json(p)->>'video_likes')::BIGINT) as likes,
+      SUM((row_to_json(p)->>'video_count')::BIGINT) as videos
+    FROM get_campaign_creator_performance(p_campaign_id::INT) p
+    WHERE p_filter_type IS NULL 
+       OR (row_to_json(p)->>'username') IN (SELECT username FROM deduped_creators)
   ),
   latest_ads AS (
     SELECT DISTINCT ON (ad_id) *
