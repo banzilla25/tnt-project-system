@@ -557,6 +557,7 @@ function CampaignListingContent() {
           videos ( id, urutan, concept, link_video, vt_approval )
         `)
         .eq('campaign_id', campaignId)
+        .order('id', { ascending: true })
         .range(start, start + pageSize - 1);
 
       if (error || !data || data.length === 0) break;
@@ -599,6 +600,7 @@ function CampaignListingContent() {
           creators ( username, creator_snapshots ( id, tier, tanggal_update ) )
         `)
         .eq('campaign_id', campaignId)
+        .order('id', { ascending: true })
         .range(start, start + pageSize - 1);
         
       if (!data || data.length === 0) break;
