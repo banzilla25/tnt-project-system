@@ -301,6 +301,7 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
 
   const isAwareness = campaign.tipe_campaign === 'awareness' || campaign.tipe_campaign === 'gmv_awareness';
   const rpc = rpcPerformance || {};
+  const totalSales = rpc;
   const isFiltered = appliedFilterType !== 'none' && appliedFilterUsernames.length > 0;
 
   const totalApprovedCreators = rpc.total_approved_creators !== undefined ? Number(rpc.total_approved_creators) : localCreators.filter(c => c.approval === 'approved').length;
