@@ -350,6 +350,7 @@ function CampaignListingContent() {
 
   // Counts State
   const [counts, setCounts] = useState({ approved: 0, pending: 0, alternate: 0, not_approved: 0, all: 0 });
+  const [recapLoadingProgress, setRecapLoadingProgress] = useState<number | null>(null);
   const [tierCounts, setTierCounts] = useState<Record<string, Record<string, number>>>({
     all: { Nano: 0, Micro: 0, Macro: 0, Mega: 0 },
     approved: { Nano: 0, Micro: 0, Macro: 0, Mega: 0 },
@@ -588,10 +589,30 @@ function CampaignListingContent() {
   }, [checkDuplicates]);
 
   const fetchCounts = useCallback(async () => {
-    // Fetch all data for accurate, deduplicated counting
+    // 1. Try fast RPC for instant counts
+    let hasRpcSucceeded = false;
+    try {
+      const { data: rpcData, error: rpcError } = await supabase.rpc('get_campaign_creator_counts', { p_campaign_id: campaignId });
+      if (!rpcError && rpcData && rpcData.length > 0) {
+        const res = rpcData[0];
+        setCounts({
+          approved: Number(res.approved || 0),
+          pending: Number(res.pending || 0),
+          alternate: Number(res.alternate || 0),
+          not_approved: Number(res.not_approved || 0),
+          all: Number(res.total || 0),
+        });
+        hasRpcSucceeded = true;
+      }
+    } catch (e) {
+      console.warn("RPC failed, falling back to JS counter", e);
+    }
+
+    // 2. Fetch all data for daily recap (with progressive loading)
     let allRecapData: any[] = [];
     let start = 0;
     const pageSize = 1000;
+    setRecapLoadingProgress(0);
     while (true) {
       const { data } = await supabase
         .from('campaign_creators')
@@ -605,9 +626,11 @@ function CampaignListingContent() {
         
       if (!data || data.length === 0) break;
       allRecapData = allRecapData.concat(data);
+      setRecapLoadingProgress(allRecapData.length);
       if (data.length < pageSize) break;
       start += pageSize;
     }
+    setRecapLoadingProgress(null);
 
     // Deduplicate by username (or fallback to id)
     const uniqueMap = new Map();
@@ -625,15 +648,17 @@ function CampaignListingContent() {
     }
     const deduplicatedData = Array.from(uniqueMap.values());
 
-    let approved = 0, pending = 0, alternate = 0, not_approved = 0;
-    for (const row of deduplicatedData) {
-       if (row.approval === 'approved') approved++;
-       else if (row.approval === 'pending') pending++;
-       else if (row.approval === 'alternate') alternate++;
-       else if (row.approval === 'not_approved') not_approved++;
+    if (!hasRpcSucceeded) {
+      let approved = 0, pending = 0, alternate = 0, not_approved = 0;
+      for (const row of deduplicatedData) {
+         if (row.approval === 'approved') approved++;
+         else if (row.approval === 'pending') pending++;
+         else if (row.approval === 'alternate') alternate++;
+         else if (row.approval === 'not_approved') not_approved++;
+      }
+      setCounts({ approved, pending, alternate, not_approved, all: deduplicatedData.length });
     }
 
-    setCounts({ approved, pending, alternate, not_approved, all: deduplicatedData.length });
     setRawRecapData(deduplicatedData);
   }, [campaignId]);
 
@@ -1587,6 +1612,12 @@ function CampaignListingContent() {
           )}
         </div>
       </div>
+      {recapLoadingProgress !== null && (
+        <div className="mb-4 p-3 bg-blue-50 text-blue-700 rounded-lg text-sm flex items-center border border-blue-200">
+          <svg className="animate-spin -ml-1 mr-3 h-4 w-4 text-blue-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+          Mempersiapkan data rekap harian... (Menarik {recapLoadingProgress} baris data).
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-5 gap-[16px]">
         <div className={`metric cursor-pointer ${statusFilter === 'all' ? 'ring-2 ring-p300' : ''}`} onClick={() => setStatusFilter('all')}>
