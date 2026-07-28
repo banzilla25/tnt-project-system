@@ -41,18 +41,18 @@ BEGIN
   ),
   organic_stats AS (
     SELECT 
-      -- Only count GMV for creators who are approved
-      SUM(COALESCE(p.gmv_organic, 0)) FILTER (WHERE dc.approval = 'approved') as approved_gmv,
-      -- Count GMV for all creators (including pending/unknown)
-      SUM(COALESCE(p.gmv_organic, 0)) as total_gmv,
-      SUM(COALESCE(p.items_sold, 0)) as items,
-      SUM(COALESCE(p.video_views, 0)) as views,
-      SUM(COALESCE(p.video_likes, 0)) as likes,
-      SUM(COALESCE(p.video_count, 0)) as videos
+      -- Hanya hitung GMV untuk kreator yang statusnya Approved
+      SUM((p->>'gmv_organic')::NUMERIC) FILTER (WHERE dc.approval = 'approved') as approved_gmv,
+      -- Hitung GMV keseluruhan (termasuk yang Pending / belum terdaftar)
+      SUM((p->>'gmv_organic')::NUMERIC) as total_gmv,
+      SUM((p->>'items_sold')::BIGINT) as items,
+      SUM((p->>'video_views')::BIGINT) as views,
+      SUM((p->>'video_likes')::BIGINT) as likes,
+      SUM((p->>'video_count')::BIGINT) as videos
     FROM get_campaign_creator_performance(p_campaign_id::INT) p
-    LEFT JOIN deduped_creators dc ON LOWER(p.username) = dc.username
+    LEFT JOIN deduped_creators dc ON LOWER(p->>'username') = dc.username
     WHERE p_filter_type IS NULL 
-       OR p.username IN (SELECT username FROM deduped_creators)
+       OR (p->>'username') IN (SELECT username FROM deduped_creators)
   ),
   latest_ads AS (
     SELECT DISTINCT ON (ad_id) *
