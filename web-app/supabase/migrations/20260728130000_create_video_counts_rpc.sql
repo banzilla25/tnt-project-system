@@ -9,13 +9,14 @@ BEGIN
   WITH all_videos AS (
     -- 1. Video dari tabel videos (input manual kreator)
     SELECT 
-      content_uid,
-      vt_approval,
+      v.content_uid,
+      v.vt_approval,
       'video' as content_type
-    FROM videos
-    WHERE campaign_id = p_campaign_id
-      AND content_uid IS NOT NULL
-      AND content_uid != ''
+    FROM videos v
+    JOIN campaign_creators cc ON cc.id = v.campaign_creator_id
+    WHERE cc.campaign_id = p_campaign_id
+      AND v.content_uid IS NOT NULL
+      AND v.content_uid != ''
 
     UNION
 
