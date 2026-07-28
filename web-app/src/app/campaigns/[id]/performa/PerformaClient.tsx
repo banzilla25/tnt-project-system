@@ -33,6 +33,7 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
   const [editKursValue, setEditKursValue] = useState<string>('');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [fastCountsData, setFastCountsData] = useState<{ approved: number; pending: number; all: number } | null>(null);
+  const [fastVideoCountsData, setFastVideoCountsData] = useState<{ approved: number; pending: number; livestream: number } | null>(null);
 
   // Filter Creator State from Global Context
   const { appliedFilterType, appliedFilterUsernames } = useCampaignFilter();
@@ -103,18 +104,36 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
       let globalAdsSpend = 0;
 
       // === FETCH CREATOR COUNTS USING RPC ===
+      let fastCounts = { approved: 0, pending: 0, all: 0 };
       try {
         const { data: countsData } = await supabase.rpc('get_campaign_creator_counts', { p_campaign_id: campaignId });
         if (countsData && countsData.length > 0) {
-          setFastCountsData({
+          fastCounts = {
             approved: Number(countsData[0].approved || 0),
             pending: Number(countsData[0].pending || 0),
             all: Number(countsData[0].total || 0),
-          });
+          };
         }
       } catch (e) {
         console.warn("Fast counts RPC failed in performa:", e);
       }
+      setFastCountsData(fastCounts);
+
+      // === FETCH VIDEO COUNTS USING RPC ===
+      let fastVideoCounts = { approved: 0, pending: 0, livestream: 0 };
+      try {
+        const { data: videoCountsData } = await supabase.rpc('get_campaign_video_counts_fast', { p_campaign_id: campaignId });
+        if (videoCountsData && videoCountsData.length > 0) {
+          fastVideoCounts = {
+            approved: Number(videoCountsData[0].total_approved || 0),
+            pending: Number(videoCountsData[0].total_pending || 0),
+            livestream: Number(videoCountsData[0].total_livestream || 0),
+          };
+        }
+      } catch (e) {
+        console.warn("Fast video counts RPC failed in performa:", e);
+      }
+      setFastVideoCountsData(fastVideoCounts);
 
       for (const ad of latestAdsMap.values()) {
         let kurs = ad.kurs || 16000;
@@ -386,6 +405,18 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
     if (c.approval === 'pending') fbPendingCreators++;
   });
 
+  const totalApprovedVideos = isFiltered 
+    ? fbApprovedVideos 
+    : (fastVideoCountsData ? fastVideoCountsData.approved : fbApprovedVideos);
+
+  const totalPendingVideos = isFiltered 
+    ? fbPendingVideos 
+    : (fastVideoCountsData ? fastVideoCountsData.pending : fbPendingVideos);
+
+  const totalCampaignLivestreams = isFiltered 
+    ? fbLivestreams 
+    : (fastVideoCountsData ? fastVideoCountsData.livestream : Number(totalSales?.totalLivestreams || fbLivestreams));
+
   const totalOrganic = rpc.organic_gmv !== undefined ? Number(rpc.organic_gmv) : (isFiltered ? fbOrganic : (totalSales?.totalOrganic || fbOrganic));
   // Always use initialTotalAdsGmv for accurate deduplicated total, unless filtered by creator
   const totalAdsGmv = rpc.ads_gmv !== undefined ? Number(rpc.ads_gmv) : (isFiltered ? fbAds : initialTotalAdsGmv); 
@@ -399,7 +430,6 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
   const totalCampaignLikes = rpc.total_likes !== undefined ? Number(rpc.total_likes) : (isFiltered ? fbLikes : Number(totalSales?.totalLikes || fbLikes));
   const totalCampaignVideos = rpc.total_videos !== undefined ? Number(rpc.total_videos) : (isFiltered ? fbVideos : Number(totalSales?.totalVideos || fbVideos));
   
-  const totalCampaignLivestreams = isFiltered ? fbLivestreams : Number(totalSales?.totalLivestreams || fbLivestreams);
   const creatorsWithVideo = isFiltered ? fbWithVideo : Number(totalSales?.creatorsWithVideo || fbWithVideo);
   const creatorsWithLive = isFiltered ? fbWithLive : Number(totalSales?.creatorsWithLive || fbWithLive);
   
@@ -499,9 +529,9 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
               <div className="flex justify-between items-start">
                 <div>
                   <p className="text-[13px] font-medium text-text-soft">Pencapaian Target Video</p>
-                  <h3 className="text-[24px] font-bold mt-[8px] text-text">{fbApprovedVideos} <span className="text-[13px] text-text-soft font-normal">video approved</span></h3>
+                  <h3 className="text-[24px] font-bold mt-[8px] text-text">{totalApprovedVideos} <span className="text-[13px] text-text-soft font-normal">video approved</span></h3>
                   <div className="flex items-center gap-3 text-[11px] mt-[4px] text-text-soft">
-                    <span>{fbPendingVideos} video pending dari {pendingCreatorsWithVideosCount} kreator</span>
+                    <span>{totalPendingVideos} video pending dari {pendingCreatorsWithVideosCount} kreator</span>
                   </div>
                   <p className="text-[11px] font-semibold text-text-soft mt-[4px]">{totalCampaignLivestreams} <span className="font-normal">livestream</span></p>
                 </div>
