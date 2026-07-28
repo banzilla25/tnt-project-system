@@ -10,7 +10,7 @@ BEGIN
     -- 1. Video dari tabel videos (input manual kreator)
     SELECT 
       v.content_uid,
-      v.vt_approval,
+      cc.approval as vt_approval,
       'video' as content_type
     FROM videos v
     JOIN campaign_creators cc ON cc.id = v.campaign_creator_id
@@ -23,18 +23,20 @@ BEGIN
     -- 2. Video dari hasil impor (tabel sales / awareness data)
     SELECT 
       CASE 
-        WHEN content_uid LIKE 'video_%' THEN SUBSTRING(content_uid FROM 7)
-        ELSE content_uid 
+        WHEN s.content_uid LIKE 'video_%' THEN SUBSTRING(s.content_uid FROM 7)
+        ELSE s.content_uid 
       END as content_uid,
-      'approved' as vt_approval,
+      COALESCE(cc.approval, 'approved') as vt_approval,
       CASE 
-        WHEN LOWER(content_type) IN ('livestream', 'live', 'live stream') THEN 'livestream'
+        WHEN LOWER(s.content_type) IN ('livestream', 'live', 'live stream') THEN 'livestream'
         ELSE 'video'
       END as content_type
-    FROM sales
-    WHERE campaign_id = p_campaign_id
-      AND content_uid IS NOT NULL
-      AND content_uid != ''
+    FROM sales s
+    LEFT JOIN creators c ON LOWER(c.username) = LOWER(s.creator_username)
+    LEFT JOIN campaign_creators cc ON cc.creator_id = c.id AND cc.campaign_id = s.campaign_id
+    WHERE s.campaign_id = p_campaign_id
+      AND s.content_uid IS NOT NULL
+      AND s.content_uid != ''
   ),
   deduped AS (
     SELECT DISTINCT ON (content_uid)
