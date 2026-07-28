@@ -41,15 +41,13 @@ BEGIN
   ),
   organic_stats AS (
     SELECT 
-      -- Hanya hitung GMV untuk kreator yang statusnya Approved
       SUM((p->>'gmv_organic')::NUMERIC) FILTER (WHERE dc.approval = 'approved') as approved_gmv,
-      -- Hitung GMV keseluruhan (termasuk yang Pending / belum terdaftar)
       SUM((p->>'gmv_organic')::NUMERIC) as total_gmv,
       SUM((p->>'items_sold')::BIGINT) as items,
       SUM((p->>'video_views')::BIGINT) as views,
       SUM((p->>'video_likes')::BIGINT) as likes,
       SUM((p->>'video_count')::BIGINT) as videos
-    FROM get_campaign_creator_performance(p_campaign_id::INT) p
+    FROM jsonb_array_elements(get_campaign_creator_performance(p_campaign_id::INT)::jsonb) p
     LEFT JOIN deduped_creators dc ON LOWER(p->>'username') = dc.username
     WHERE p_filter_type IS NULL 
        OR (p->>'username') IN (SELECT username FROM deduped_creators)
