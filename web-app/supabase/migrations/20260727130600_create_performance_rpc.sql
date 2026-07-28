@@ -12,7 +12,8 @@ RETURNS TABLE (
   organic_gmv NUMERIC,
   ads_gmv NUMERIC,
   ads_spend NUMERIC,
-  items_sold BIGINT
+  items_sold BIGINT,
+  unattributed_gmv NUMERIC
 ) AS $$
 BEGIN
   RETURN QUERY
@@ -40,12 +41,16 @@ BEGIN
   ),
   organic_stats AS (
     SELECT 
-      SUM(COALESCE(p.gmv_organic, 0)) as gmv,
+      -- Only count GMV for creators who are approved
+      SUM(COALESCE(p.gmv_organic, 0)) FILTER (WHERE dc.approval = 'approved') as approved_gmv,
+      -- Count GMV for all creators (including pending/unknown)
+      SUM(COALESCE(p.gmv_organic, 0)) as total_gmv,
       SUM(COALESCE(p.items_sold, 0)) as items,
       SUM(COALESCE(p.video_views, 0)) as views,
       SUM(COALESCE(p.video_likes, 0)) as likes,
       SUM(COALESCE(p.video_count, 0)) as videos
     FROM get_campaign_creator_performance(p_campaign_id::INT) p
+    LEFT JOIN deduped_creators dc ON LOWER(p.username) = dc.username
     WHERE p_filter_type IS NULL 
        OR p.username IN (SELECT username FROM deduped_creators)
   ),
@@ -63,9 +68,10 @@ BEGIN
     COALESCE((SELECT views FROM organic_stats), 0)::BIGINT,
     COALESCE((SELECT likes FROM organic_stats), 0)::BIGINT,
     COALESCE((SELECT videos FROM organic_stats), 0)::BIGINT,
-    COALESCE((SELECT gmv FROM organic_stats), 0)::NUMERIC,
+    COALESCE((SELECT approved_gmv FROM organic_stats), 0)::NUMERIC,
     COALESCE((SELECT SUM(gross_revenue_usd * GREATEST(kurs, 1000)) FROM latest_ads), 0)::NUMERIC,
     COALESCE((SELECT SUM(cost_usd) FROM latest_ads), 0)::NUMERIC,
-    COALESCE((SELECT items FROM organic_stats), 0)::BIGINT;
+    COALESCE((SELECT items FROM organic_stats), 0)::BIGINT,
+    (COALESCE((SELECT total_gmv FROM organic_stats), 0) - COALESCE((SELECT approved_gmv FROM organic_stats), 0))::NUMERIC;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
