@@ -32,6 +32,7 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
   const [editingKursId, setEditingKursId] = useState<number | null>(null);
   const [editKursValue, setEditKursValue] = useState<string>('');
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [fastCountsData, setFastCountsData] = useState<{ approved: number; pending: number; all: number } | null>(null);
 
   // Filter Creator State from Global Context
   const { appliedFilterType, appliedFilterUsernames } = useCampaignFilter();
@@ -100,6 +101,20 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
       let globalAdsGmv = 0;
       let globalAdsGmvUsd = 0;
       let globalAdsSpend = 0;
+
+      // === FETCH CREATOR COUNTS USING RPC ===
+      try {
+        const { data: countsData } = await supabase.rpc('get_campaign_creator_counts', { p_campaign_id: campaignId });
+        if (countsData && countsData.length > 0) {
+          setFastCountsData({
+            approved: Number(countsData[0].approved || 0),
+            pending: Number(countsData[0].pending || 0),
+            all: Number(countsData[0].total || 0),
+          });
+        }
+      } catch (e) {
+        console.warn("Fast counts RPC failed in performa:", e);
+      }
 
       for (const ad of latestAdsMap.values()) {
         let kurs = ad.kurs || 16000;
@@ -305,8 +320,13 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
   const totalSales = rpc;
   const isFiltered = appliedFilterType !== 'none' && appliedFilterUsernames.length > 0;
 
-  const totalApprovedCreators = rpc.total_approved_creators !== undefined ? Number(rpc.total_approved_creators) : localCreators.filter(c => c.approval === 'approved').length;
-  const totalPendingCreators = rpc.total_pending_creators !== undefined ? Number(rpc.total_pending_creators) : localCreators.filter(c => c.approval === 'pending').length;
+  const totalApprovedCreators = isFiltered 
+    ? fbApprovedCreators 
+    : (fastCountsData ? fastCountsData.approved : (rpc.total_approved_creators !== undefined ? Number(rpc.total_approved_creators) : localCreators.filter(c => c.approval === 'approved').length));
+
+  const totalPendingCreators = isFiltered 
+    ? fbPendingCreators 
+    : (fastCountsData ? fastCountsData.pending : (rpc.total_pending_creators !== undefined ? Number(rpc.total_pending_creators) : localCreators.filter(c => c.approval === 'pending').length));
 
   const handleSort = (field: any) => {
     if (sortField === field) {
@@ -345,6 +365,7 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
 
   let fbViews = 0, fbLikes = 0, fbVideos = 0, fbLivestreams = 0, fbOrganic = 0, fbAds = 0, fbAllGmv = 0, fbWithVideo = 0, fbWithLive = 0;
   let fbApprovedVideos = 0, fbPendingVideos = 0, pendingCreatorsWithVideosCount = 0;
+  let fbApprovedCreators = 0, fbPendingCreators = 0;
 
   creatorStats.forEach(c => {
     fbViews += c.videoViews || 0;
@@ -361,6 +382,8 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
     fbApprovedVideos += c.approvedVtCount || c.totalVt || 0;
     fbPendingVideos += c.pendingVtCount || 0;
     if ((c.pendingVtCount || 0) > 0) pendingCreatorsWithVideosCount++;
+    if (c.approval === 'approved') fbApprovedCreators++;
+    if (c.approval === 'pending') fbPendingCreators++;
   });
 
   const totalOrganic = rpc.organic_gmv !== undefined ? Number(rpc.organic_gmv) : (isFiltered ? fbOrganic : (totalSales?.totalOrganic || fbOrganic));

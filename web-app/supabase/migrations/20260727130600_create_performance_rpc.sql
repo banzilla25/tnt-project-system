@@ -40,14 +40,14 @@ BEGIN
   ),
   organic_stats AS (
     SELECT 
-      SUM((row_to_json(p)->>'gmv_organic')::NUMERIC) as gmv,
-      SUM((row_to_json(p)->>'items_sold')::BIGINT) as items,
-      SUM((row_to_json(p)->>'video_views')::BIGINT) as views,
-      SUM((row_to_json(p)->>'video_likes')::BIGINT) as likes,
-      SUM((row_to_json(p)->>'video_count')::BIGINT) as videos
+      SUM((p->>'gmv_organic')::NUMERIC) as gmv,
+      SUM((p->>'items_sold')::BIGINT) as items,
+      SUM((p->>'video_views')::BIGINT) as views,
+      SUM((p->>'video_likes')::BIGINT) as likes,
+      SUM((p->>'video_count')::BIGINT) as videos
     FROM get_campaign_creator_performance(p_campaign_id::INT) p
     WHERE p_filter_type IS NULL 
-       OR (row_to_json(p)->>'username') IN (SELECT username FROM deduped_creators)
+       OR (p->>'username') IN (SELECT username FROM deduped_creators)
   ),
   latest_ads AS (
     SELECT DISTINCT ON (ad_id) *
