@@ -320,7 +320,7 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
                           </span>
                         </div>
                         <div className="text-[10px] text-blue-800 flex justify-between px-2">
-                          <span>Kr Pending:</span>
+                          <span>Kr Ditambah:</span>
                           <span className="font-medium text-amber-600">
                             {Math.round(day.weeklySummary.achievedPendingCreator)}
                           </span>
@@ -359,7 +359,7 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
                            </span>
                          </div>
                          <div className="text-[10px] text-slate-600 flex justify-between border-t border-slate-100 pt-1 mt-1">
-                           <span>Kr Pending:</span>
+                           <span>Kr Ditambah:</span>
                            <span className="font-medium text-amber-600">
                              {Math.round(day.achievedPendingCreator)}
                            </span>
@@ -412,7 +412,7 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
                            </span>
                          </div>
                          <div className="text-[10px] text-slate-600 flex justify-between border-t border-slate-100 pt-1 mt-1">
-                           <span>Kr Pending:</span>
+                           <span>Kr Ditambah:</span>
                            <span className="font-medium text-amber-600">
                              {Math.round(day.achievedPendingCreator)}
                            </span>
