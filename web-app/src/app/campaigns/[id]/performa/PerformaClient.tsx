@@ -443,7 +443,8 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
   const targetCreator = campaign.target_creator || 0;
   const percentCapaiCreator = targetCreator > 0 ? Math.round((totalApprovedCreators / targetCreator) * 100) : 0;
 
-  const formatCompactNumber = (num: number) => {
+  const formatCompactNumber = (num: number | undefined) => {
+    if (num === undefined || isNaN(num)) return '0';
     if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
     if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
     return num.toLocaleString();
