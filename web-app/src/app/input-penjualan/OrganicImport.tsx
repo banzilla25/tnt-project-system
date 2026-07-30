@@ -62,7 +62,6 @@ export default function OrganicImport({ mode = 'sales' }: { mode?: 'sales' | 'vi
   const [columnMapping, setColumnMapping] = useState<Record<string, string>>({});
   const [parsedData, setParsedData] = useState<any[]>([]);
 
-  // KAMUS PANDUAN KOLOM OTOMATIS
   const REQUIRED_COLUMNS = mode === 'sales' ? [
     { key: 'order_id', label: 'Order ID', autoMatch: ['order id', 'id pesanan'] },
     { key: 'sku_id', label: 'SKU ID', autoMatch: ['sku id'] },
@@ -72,6 +71,7 @@ export default function OrganicImport({ mode = 'sales' }: { mode?: 'sales' | 'vi
     { key: 'time_created', label: 'Time Created', autoMatch: ['time created', 'waktu pesanan'] },
     { key: 'price', label: 'Price', autoMatch: ['price', 'harga'] },
     { key: 'quantity', label: 'Quantity', autoMatch: ['quantity', 'jumlah'] },
+    { key: 'commission_gmv', label: 'Commission GMV', autoMatch: ['commission gmv', 'revenue', 'omzet', 'gmv'] },
     { key: 'refund_status', label: 'Refund Status', autoMatch: ['fully returned or refunded', 'refund', 'pengembalian'] },
     { key: 'tiktok_campaign_id', label: 'Campaign ID', autoMatch: ['partner campaign id', 'campaign id'] },
     { key: 'shop_code', label: 'Shop Code', autoMatch: ['shop code', 'shop id'] },
@@ -391,7 +391,14 @@ export default function OrganicImport({ mode = 'sales' }: { mode?: 'sales' | 'vi
         productName = row[columnMapping['product_name']]?.toString().trim() || skuNameMapping[rawProductId] || 'Unknown Product';
         price = Math.round(parseFloat(row[columnMapping['price']]?.toString().replace(/[^0-9.-]+/g,"") || '0'));
         quantity = parseInt(row[columnMapping['quantity']]?.toString().replace(/[^0-9.-]+/g,"") || '0');
-        gmv = Math.round(price * quantity);
+        
+        const rawGmvStr = row[columnMapping['commission_gmv']]?.toString();
+        if (rawGmvStr !== undefined && rawGmvStr !== '') {
+          gmv = Math.round(parseFloat(rawGmvStr.replace(/[^0-9.-]+/g,"")));
+        } else {
+          gmv = Math.round(price * quantity);
+        }
+        
         const rawUsername = row[columnMapping['creator_username']]?.toString().trim() || '';
         creatorUsername = rawUsername.replace('@', '').toLowerCase();
         
