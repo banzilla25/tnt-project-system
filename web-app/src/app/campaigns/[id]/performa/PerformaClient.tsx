@@ -40,7 +40,15 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
 
   const fetchData = async () => {
     setIsRefreshing(true);
-    try {
+    await _fetchDataInner().catch(fetchErr => {
+      console.error(fetchErr);
+    }).finally(() => {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    });
+  };
+
+  const _fetchDataInner = async () => {
       const { data: campaignData } = await supabase.from('campaigns').select('*').eq('id', campaignId).single();
       if (campaignData) setCampaign(campaignData);
 
@@ -105,33 +113,27 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
 
       // === FETCH CREATOR COUNTS USING RPC ===
       let fastCounts = { approved: 0, pending: 0, all: 0 };
-      try {
-        const { data: countsData } = await supabase.rpc('get_campaign_creator_counts', { p_campaign_id: campaignId });
-        if (countsData && countsData.length > 0) {
-          fastCounts = {
-            approved: Number(countsData[0].approved || 0),
-            pending: Number(countsData[0].pending || 0),
-            all: Number(countsData[0].total || 0),
-          };
-        }
-      } catch (err) {
-        console.warn("Fast counts RPC failed in performa:", err);
+      const countsResult = await supabase.rpc('get_campaign_creator_counts', { p_campaign_id: campaignId }).catch(() => ({ data: null }));
+      const countsData = countsResult?.data;
+      if (countsData && countsData.length > 0) {
+        fastCounts = {
+          approved: Number(countsData[0].approved || 0),
+          pending: Number(countsData[0].pending || 0),
+          all: Number(countsData[0].total || 0),
+        };
       }
       setFastCountsData(fastCounts);
 
       // === FETCH VIDEO COUNTS USING RPC ===
       let fastVideoCounts = { approved: 0, pending: 0, livestream: 0 };
-      try {
-        const { data: videoCountsData } = await supabase.rpc('get_campaign_video_counts_fast', { p_campaign_id: campaignId });
-        if (videoCountsData && videoCountsData.length > 0) {
-          fastVideoCounts = {
-            approved: Number(videoCountsData[0].total_approved || 0),
-            pending: Number(videoCountsData[0].total_pending || 0),
-            livestream: Number(videoCountsData[0].total_livestream || 0),
-          };
-        }
-      } catch (err) {
-        console.warn("Fast video counts RPC failed in performa:", err);
+      const videoCountsResult = await supabase.rpc('get_campaign_video_counts_fast', { p_campaign_id: campaignId }).catch(() => ({ data: null }));
+      const videoCountsData = videoCountsResult?.data;
+      if (videoCountsData && videoCountsData.length > 0) {
+        fastVideoCounts = {
+          approved: Number(videoCountsData[0].total_approved || 0),
+          pending: Number(videoCountsData[0].total_pending || 0),
+          livestream: Number(videoCountsData[0].total_livestream || 0),
+        };
       }
       setFastVideoCountsData(fastVideoCounts);
 
@@ -246,12 +248,6 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
       });
 
       setBaseCreatorStats(computedStats);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
-    }
   };
 
   useEffect(() => {
