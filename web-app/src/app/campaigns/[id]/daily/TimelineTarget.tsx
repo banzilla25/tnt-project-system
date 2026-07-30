@@ -58,6 +58,7 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
         video: Number(d.totalVideos) || 0,
         live: Number(d.totalLiveSessions) || 0,
         creator: Number(d.totalCreators) || 0,
+        pendingCreator: Number(d.totalPendingCreators) || 0,
       });
     });
 
@@ -65,6 +66,7 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
     let cumulativeVideo = 0;
     let cumulativeLive = 0;
     let cumulativeCreator = 0;
+    let cumulativePendingCreator = 0;
 
     const data = [];
 
@@ -79,6 +81,7 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
     let currentWeekVideoAchieve = 0;
     let currentWeekLiveAchieve = 0;
     let currentWeekCreatorAchieve = 0;
+    let currentWeekPendingCreatorAchieve = 0;
 
     let remainingWorkingDays = totalWorkingDays;
     let curr = new Date(startDate);
@@ -90,13 +93,14 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
       const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
       const isPastEndDate = time > endDate.getTime();
       
-      const achievedToday = achievedMap.get(time) || { gmv: 0, video: 0, live: 0, creator: 0 };
+      const achievedToday = achievedMap.get(time) || { gmv: 0, video: 0, live: 0, creator: 0, pendingCreator: 0 };
 
       // Accumulate achievements (EVERY day)
       currentWeekGmvAchieve += achievedToday.gmv;
       currentWeekVideoAchieve += achievedToday.video;
       currentWeekLiveAchieve += achievedToday.live;
       currentWeekCreatorAchieve += achievedToday.creator;
+      currentWeekPendingCreatorAchieve += achievedToday.pendingCreator;
 
       let targetForTodayGmv = 0;
       let targetForTodayVideo = 0;
@@ -139,6 +143,7 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
         achievedVideo: achievedToday.video,
         achievedLive: achievedToday.live,
         achievedCreator: achievedToday.creator,
+        achievedPendingCreator: achievedToday.pendingCreator,
         weeklySummary: null as any
       };
       
@@ -150,6 +155,7 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
       cumulativeVideo += achievedToday.video;
       cumulativeLive += achievedToday.live;
       cumulativeCreator += achievedToday.creator;
+      cumulativePendingCreator += achievedToday.pendingCreator;
 
       // End of week logic: Sunday is the true end of the week, or it's the absolute last day of timeline
       const isSunday = dayOfWeek === 0;
@@ -166,6 +172,7 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
             achievedVideo: currentWeekVideoAchieve,
             achievedLive: currentWeekLiveAchieve,
             achievedCreator: currentWeekCreatorAchieve,
+            achievedPendingCreator: currentWeekPendingCreatorAchieve,
           };
         }
         
@@ -180,6 +187,7 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
         currentWeekVideoAchieve = 0;
         currentWeekLiveAchieve = 0;
         currentWeekCreatorAchieve = 0;
+        currentWeekPendingCreatorAchieve = 0;
       }
 
       curr.setDate(curr.getDate() + 1);
@@ -312,7 +320,13 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
                           </span>
                         </div>
                         <div className="text-[10px] text-blue-800 flex justify-between px-2">
-                          <span>Kreator:</span>
+                          <span>Kr Pending:</span>
+                          <span className="font-medium text-amber-600">
+                            {Math.round(day.weeklySummary.achievedPendingCreator)}
+                          </span>
+                        </div>
+                        <div className="text-[10px] text-blue-800 flex justify-between px-2">
+                          <span>Kr Approve:</span>
                           <span className={day.weeklySummary.achievedCreator >= day.weeklySummary.targetCreator && targetCreator > 0 ? 'text-emerald-700 font-bold' : 'font-medium'}>
                             {Math.round(day.weeklySummary.achievedCreator)} {targetCreator > 0 ? `/ ${Math.round(day.weeklySummary.targetCreator)}` : ''}
                           </span>
@@ -345,7 +359,13 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
                            </span>
                          </div>
                          <div className="text-[10px] text-slate-600 flex justify-between border-t border-slate-100 pt-1 mt-1">
-                           <span>Kreator:</span>
+                           <span>Kr Pending:</span>
+                           <span className="font-medium text-amber-600">
+                             {Math.round(day.achievedPendingCreator)}
+                           </span>
+                         </div>
+                         <div className="text-[10px] text-slate-600 flex justify-between border-t border-slate-100 pt-1 mt-1">
+                           <span>Kr Approve:</span>
                            <span className={day.achievedCreator >= day.targetCreator && targetCreator > 0 ? 'text-emerald-600 font-bold' : 'font-medium'}>
                              {Math.round(day.achievedCreator)} {targetCreator > 0 ? `/ ${Math.round(day.targetCreator)}` : ''}
                            </span>
@@ -392,7 +412,13 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
                            </span>
                          </div>
                          <div className="text-[10px] text-slate-600 flex justify-between border-t border-slate-100 pt-1 mt-1">
-                           <span>Kreator:</span>
+                           <span>Kr Pending:</span>
+                           <span className="font-medium text-amber-600">
+                             {Math.round(day.achievedPendingCreator)}
+                           </span>
+                         </div>
+                         <div className="text-[10px] text-slate-600 flex justify-between border-t border-slate-100 pt-1 mt-1">
+                           <span>Kr Approve:</span>
                            <span className={day.achievedCreator >= day.targetCreator && targetCreator > 0 ? 'text-emerald-600 font-bold' : 'font-medium'}>
                              {Math.round(day.achievedCreator)} {targetCreator > 0 ? `/ ${Math.round(day.targetCreator)}` : ''}
                            </span>
