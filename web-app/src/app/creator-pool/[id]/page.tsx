@@ -419,7 +419,7 @@ export default function CreatorProfilePage() {
       setSnapOpen(false);
       window.location.reload();
       setSnapForm({ audience_age: '', level: '', gmv_30d: '', followers: '', tier: '', ratecard: '' });
-    } catch (e: any) {
+    } catch (err: any) {
       alert("Gagal update profil: " + e.message);
     }
   };
@@ -460,7 +460,7 @@ export default function CreatorProfilePage() {
       setLocalData(prev => prev ? { ...prev, addressBook: data || [] } : null);
       
       setAddressOpen(false);
-    } catch (e: any) {
+    } catch (err: any) {
       alert("Gagal update alamat: " + e.message);
     }
   };
@@ -556,7 +556,7 @@ export default function CreatorProfilePage() {
       setVideoOpen(false);
       setVideoLink('');
       setActiveCcId(null);
-    } catch (e: any) {
+    } catch (err: any) {
       alert("Gagal menyimpan video.");
     }
   };

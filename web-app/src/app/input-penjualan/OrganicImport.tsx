@@ -213,7 +213,7 @@ export default function OrganicImport({ mode = 'sales' }: { mode?: 'sales' | 'vi
       alert(`SKU ${productName} berhasil didaftarkan! Memuat ulang data...`);
       await fetchData(); // Refresh global state to get new SKU
       processFileLocally(); // Re-scan the file
-    } catch (e: any) {
+    } catch (err: any) {
       alert("Gagal mendaftarkan SKU: " + e.message);
     } finally {
       setIsRegisteringSku(null);

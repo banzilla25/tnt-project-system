@@ -205,7 +205,7 @@ export default function CampaignVideoPage({
       } else {
         alert('Gagal mengekspansi link: ' + (data.error || 'Unknown error'));
       }
-    } catch (e: any) {
+    } catch (err: any) {
        alert('Gagal menghubungi server untuk ekspansi link');
     } finally {
        setExpandingLinks(prev => ({ ...prev, [key]: false }));

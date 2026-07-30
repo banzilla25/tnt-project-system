@@ -32,7 +32,7 @@ export default function ManajemenAkunClient({
     setLoadingId(id);
     try {
       await approveUser(id);
-    } catch (e: any) {
+    } catch (err: any) {
       alert("Error: " + e.message);
     }
     setLoadingId(null);
@@ -43,7 +43,7 @@ export default function ManajemenAkunClient({
     setLoadingId(id);
     try {
       await rejectUser(id);
-    } catch (e: any) {
+    } catch (err: any) {
       alert("Error: " + e.message);
     }
     setLoadingId(null);
@@ -54,7 +54,7 @@ export default function ManajemenAkunClient({
     setLoadingId(id);
     try {
       await deactivateUser(id);
-    } catch (e: any) {
+    } catch (err: any) {
       alert("Error: " + e.message);
     }
     setLoadingId(null);
@@ -71,7 +71,7 @@ export default function ManajemenAkunClient({
       setWlEmail('');
       setWlNama('');
       setWlRole('anggota');
-    } catch (e: any) {
+    } catch (err: any) {
       alert("Error: " + e.message);
     }
     setLoadingId(null);
@@ -82,7 +82,7 @@ export default function ManajemenAkunClient({
     setLoadingId(id);
     try {
       await removeWhitelistEmail(id);
-    } catch (e: any) {
+    } catch (err: any) {
       alert("Error: " + e.message);
     }
     setLoadingId(null);
@@ -399,7 +399,7 @@ function UserAssignmentCard({ user, campaigns, userCampaigns }: { user: any, cam
     setIsSaving(true);
     try {
       await assignCampaignsToUser(user.id, localCampaignIds, localAllCampaigns);
-    } catch (e: any) {
+    } catch (err: any) {
       alert("Error saving: " + e.message);
     }
     setIsSaving(false);

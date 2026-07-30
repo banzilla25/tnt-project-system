@@ -142,7 +142,7 @@ export function AddressSyncModal({ campaignId: initialCampaignId, onComplete }: 
       } else {
         await executeCommit(existingCreators, []);
       }
-    } catch (e: any) {
+    } catch (err: any) {
       setErrors([e.message || "Terjadi kesalahan saat memverifikasi kreator."]);
       setIsCommitting(false);
     }
@@ -275,7 +275,7 @@ export function AddressSyncModal({ campaignId: initialCampaignId, onComplete }: 
       setErrorLog(localErrorLog);
       await fetchData();
       setStep(4);
-    } catch (e: any) {
+    } catch (err: any) {
       setErrors([e.message || "Terjadi kesalahan saat commit ke database."]);
     } finally {
       setIsCommitting(false);
@@ -303,7 +303,7 @@ export function AddressSyncModal({ campaignId: initialCampaignId, onComplete }: 
       } else {
         await executeCommit(existingCreators, pendingNewUsernames); 
       }
-    } catch(e: any) {
+    } catch (err: any) {
       setErrors([e.message || "Gagal menyiapkan data commit."]);
       setIsCommitting(false);
     }

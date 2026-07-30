@@ -397,7 +397,7 @@ export function CampaignSyncModal({ campaignId: initialCampaignId, onComplete }:
       await fetchData();
       setErrorLog(localErrorLog);
       setStep(4);
-    } catch (e: any) {
+    } catch (err: any) {
       setErrors([e.message || "Terjadi kesalahan saat commit ke database."]);
     } finally {
       setIsCommitting(false);
