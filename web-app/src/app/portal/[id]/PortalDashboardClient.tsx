@@ -422,6 +422,8 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
   const paginatedLive = filteredLive.slice(livePage * PAGE_SIZE, (livePage + 1) * PAGE_SIZE);
 
   // 5. Video
+  const validCreatorUsernames = new Set(approvalList?.map((cc: any) => cc.creators?.username) || []);
+  const validVideos = (videos || []).filter((v: any) => validCreatorUsernames.has(v.creator_username));
   let filteredVideo = validVideos.filter((v: any) => {
     if (videoSearch && !v.creator_username?.toLowerCase().includes(videoSearch.toLowerCase())) return false;
     return true;
