@@ -137,11 +137,16 @@ export async function getPortalData(campaignId: number) {
   // Fetch performa summary dari RPC
   const { data: creatorPerformance } = await supabase.rpc('get_campaign_creator_performance', { p_campaign_id: campaignId });
 
-  // Fetch RPC untuk Global Cards
-  const { data: rpcPerformance, error: rpcError } = await supabase
-    .rpc('get_campaign_performance', { p_campaign_id: campaignId });
-
+  // Fetch RPC untuk Global Cards V2 (Mirror Internal Dashboard)
+  const { data: rpcPerfArr, error: rpcError } = await supabase.rpc('get_performance_summary_v2', { p_campaign_id: campaignId });
+  const rpcPerf = rpcPerfArr?.[0] || {};
   if (rpcError) console.error("RPC Error:", rpcError);
+
+  const { data: fastCountsDataArr } = await supabase.rpc('get_campaign_creator_counts', { p_campaign_id: campaignId });
+  const fastCountsData = fastCountsDataArr?.[0] || {};
+
+  const { data: fastVideoCountsDataArr } = await supabase.rpc('get_campaign_video_counts_fast', { p_campaign_id: campaignId });
+  const fastVideoCountsData = fastVideoCountsDataArr?.[0] || {};
 
   // Ambil semua sesi Live via RPC
   const { data: rpcLives } = await supabase.rpc('get_campaign_live_stats', { p_campaign_id: campaignId });
@@ -384,10 +389,9 @@ export async function getPortalData(campaignId: number) {
   const salesPerProduct = topSkusData || [];
   const totalItemsSold = salesPerProduct.reduce((sum: number, p: any) => sum + Number(p.items_sold || 0), 0);
 
-  // Fetch Ads Data to match internal dashboard
+  // Aggregate Ads Data
   const { data: rawAdsData } = await supabase.from('ads_performance').select('*').eq('campaign_id', campaignId);
   let globalAdsGmv = 0;
-  let globalAdsViews = 0;
   if (rawAdsData && rawAdsData.length > 0) {
     const latestAdsMap = new Map();
     for (const row of rawAdsData) {
@@ -400,68 +404,7 @@ export async function getPortalData(campaignId: number) {
       let kurs = ad.kurs || 16000;
       if (kurs < 1000) kurs = kurs * 1000;
       globalAdsGmv += (ad.gross_revenue_usd || 0) * kurs;
-      globalAdsViews += (ad.video_views || 0);
     }
-  }
-
-  // Fallback if rpcPerformance fails or returns empty (e.g. database function issue)
-  let finalRpcPerf = Array.isArray(rpcPerformance) ? rpcPerformance[0] : rpcPerformance;
-  
-  if (!finalRpcPerf || Object.keys(finalRpcPerf || {}).length === 0 || !finalRpcPerf.totalAllGmv) {
-    let fbViews = 0, fbVideos = 0, fbLivestreams = 0, fbAllGmv = 0, fbWithVideo = 0, fbWithLive = 0, fbApprovedCreators = 0;
-
-    enrichedCcData.forEach((cc: any) => {
-      if (campaign?.require_client_approval && cc.client_approval !== 'approved' && cc.client_approval !== 'not_required') return;
-      if (cc.approval !== 'approved' && cc.approval !== 'pending') return;
-      
-      if (cc.approval === 'approved') fbApprovedCreators++;
-      
-      fbAllGmv += (Number(cc.gmv_organic) || 0) + (Number(cc.gmv_ads) || 0);
-      fbViews += Number(cc.video_views) || 0;
-      
-      const trackedVideos = cc.total_vt || 0;
-      const dbVideos = cc.videos || [];
-      const uniqueVideoIds = new Set<string>();
-      const uniqueLiveIds = new Set<string>();
-      
-      dbVideos.forEach((v: any) => {
-        const id = v.vt_code || v.content_uid;
-        if (id) uniqueVideoIds.add(id);
-      });
-      
-      const creatorSales = videoStats?.filter((s: any) => s.username === (cc.creators?.username?.toLowerCase() || '') && s.content_uid) || [];
-      creatorSales.forEach((s: any) => {
-         let vid = s.content_uid;
-         if (vid && vid.startsWith('video_')) vid = vid.split('_')[1] || vid;
-         if (vid) {
-            if ((s.content_type || '').toLowerCase() === 'livestream' || (s.content_type || '').toLowerCase() === 'live') uniqueLiveIds.add(vid);
-            else uniqueVideoIds.add(vid);
-         }
-      });
-      
-      const totalVt = Math.max(trackedVideos, uniqueVideoIds.size);
-      const totalLive = uniqueLiveIds.size;
-      
-      fbVideos += totalVt;
-      fbLivestreams += totalLive;
-      if (totalVt > 0) fbWithVideo++;
-      if (totalLive > 0) fbWithLive++;
-    });
-
-    finalRpcPerf = {
-      totalAllGmv: fbAllGmv + globalAdsGmv,
-      totalViews: fbViews + globalAdsViews,
-      totalVideos: fbVideos,
-      totalLivestreams: fbLivestreams,
-      creatorsWithVideo: fbWithVideo,
-      creatorsWithLive: fbWithLive,
-      approvedCreators: fbApprovedCreators
-    };
-  } else {
-    // If rpcPerf succeeded, add Ads data which is not tracked by the RPC
-    finalRpcPerf = { ...finalRpcPerf };
-    finalRpcPerf.totalAllGmv = (finalRpcPerf.totalAllGmv || 0) + globalAdsGmv;
-    finalRpcPerf.totalViews = (finalRpcPerf.totalViews || 0) + globalAdsViews;
   }
 
   return { 
@@ -477,7 +420,10 @@ export async function getPortalData(campaignId: number) {
     videos: portalVideos,
     skus: skusData || [],
     liveHistory: [],
-    rpcPerformance: finalRpcPerf,
+    rpc: rpcPerf,
+    fastCountsData,
+    fastVideoCountsData,
+    initialTotalAdsGmv: globalAdsGmv,
     topSkus: salesPerProduct,
     actualLives,
     salesPerProduct,
