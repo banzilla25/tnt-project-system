@@ -58,7 +58,7 @@ export default function SkuPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ productId: newSku.product_id, campaignId })
       });
-    } catch (e) {
+    } catch (err) {
       console.error('Failed to sync unmapped data', e);
     }
     
@@ -107,7 +107,7 @@ export default function SkuPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ productId: editSkuData.product_id, campaignId })
       });
-    } catch (e) {
+    } catch (err) {
       console.error('Failed to sync unmapped data', e);
     }
 

@@ -73,7 +73,7 @@ export default function SpreadsheetImportAddressClient() {
         try {
           const parsed = JSON.parse(saved);
           if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-        } catch (e) {}
+        } catch (err) {}
       }
     }
     return Array(5).fill(null).map(getEmptyRow);
@@ -134,7 +134,7 @@ export default function SpreadsheetImportAddressClient() {
           return row;
         }));
       }
-    } catch (e) {
+    } catch (err) {
       console.error(e);
     } finally {
       setIsAutoDetecting(false);

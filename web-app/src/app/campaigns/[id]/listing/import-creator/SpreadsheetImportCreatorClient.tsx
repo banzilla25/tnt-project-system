@@ -100,7 +100,7 @@ export default function SpreadsheetImportCreatorClient() {
         try {
           const parsed = JSON.parse(saved);
           if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-        } catch (e) {}
+        } catch (err) {}
       }
     }
     return Array(5).fill(null).map(getEmptyRow);
@@ -317,7 +317,7 @@ export default function SpreadsheetImportCreatorClient() {
       } else {
         alert("Tidak ada data ratecard terbaru yang ditemukan untuk di-autofill.");
       }
-    } catch (e) {
+    } catch (err) {
       console.error(e);
       alert("Gagal melakukan autofill ratecard.");
     }

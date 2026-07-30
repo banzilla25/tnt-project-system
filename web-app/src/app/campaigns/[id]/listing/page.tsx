@@ -415,7 +415,7 @@ function CampaignListingContent() {
           return updated ? newRows : currentRows;
         });
       }
-    } catch (e) {
+    } catch (err) {
       console.error(e);
     }
     setIsAutoDetecting(false);
@@ -604,7 +604,7 @@ function CampaignListingContent() {
         });
         hasRpcSucceeded = true;
       }
-    } catch (e) {
+    } catch (err) {
       console.warn("RPC failed, falling back to JS counter", e);
     }
 
@@ -947,7 +947,7 @@ function CampaignListingContent() {
       } else {
         setListingData(prev => [...prev, ...finalData]);
       }
-    } catch (e) {
+    } catch (err) {
       if (currentFetchId === fetchIdRef.current) {
          console.error(e);
       }
@@ -2311,7 +2311,7 @@ function CampaignListingContent() {
                                           });
                                           fetchListing(0, true);
                                           fetchCounts();
-                                        } catch (e) {
+                                        } catch (err) {
                                           alert("Gagal menghapus data dobel.");
                                         }
                                       }

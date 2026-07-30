@@ -63,7 +63,7 @@ export const CreatorRow = React.memo(({
           })).slice(-3);
         }
         return [{ isi: raw, created_at: null, role }];
-      } catch (e) {
+      } catch (err) {
         return [{ isi: raw, created_at: null, role }];
       }
     };

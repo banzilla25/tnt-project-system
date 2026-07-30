@@ -64,7 +64,7 @@ export default function SpreadsheetImportClient() {
         try {
           const parsed = JSON.parse(saved);
           if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-        } catch (e) {}
+        } catch (err) {}
       }
     }
     return Array(5).fill(null).map(getEmptyRow);
@@ -123,7 +123,7 @@ export default function SpreadsheetImportClient() {
           return updated ? newRows : currentRows;
         });
       }
-    } catch (e) {
+    } catch (err) {
       console.error(e);
     }
     setIsAutoDetecting(false);

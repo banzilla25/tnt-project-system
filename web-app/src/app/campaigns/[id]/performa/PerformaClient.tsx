@@ -114,8 +114,8 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
             all: Number(countsData[0].total || 0),
           };
         }
-      } catch (e) {
-        console.warn("Fast counts RPC failed in performa:", e);
+      } catch (err) {
+        console.warn("Fast counts RPC failed in performa:", err);
       }
       setFastCountsData(fastCounts);
 
@@ -130,8 +130,8 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
             livestream: Number(videoCountsData[0].total_livestream || 0),
           };
         }
-      } catch (e) {
-        console.warn("Fast video counts RPC failed in performa:", e);
+      } catch (err) {
+        console.warn("Fast video counts RPC failed in performa:", err);
       }
       setFastVideoCountsData(fastVideoCounts);
 
@@ -246,8 +246,8 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
       });
 
       setBaseCreatorStats(computedStats);
-    } catch (e) {
-      console.error(e);
+    } catch (err) {
+      console.error(err);
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);

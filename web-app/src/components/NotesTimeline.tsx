@@ -35,7 +35,7 @@ export function NotesTimeline({ title, rawNotes, onSave, hasAccess }: NotesTimel
       } else {
         notes = [{ id: 'legacy', isi: rawNotes, author_id: 'system', author_name: 'System', created_at: new Date().toISOString() }];
       }
-    } catch (e) {
+    } catch (err) {
       notes = [{ id: 'legacy', isi: rawNotes, author_id: 'system', author_name: 'System', created_at: new Date().toISOString() }];
     }
   }

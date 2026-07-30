@@ -132,7 +132,7 @@ export default function CampaignVideoPage({
           });
         }
       }
-    } catch (e) {
+    } catch (err) {
       console.error("Error fetching video data:", e);
     } finally {
       setIsLoading(false);
@@ -346,7 +346,7 @@ export default function CampaignVideoPage({
             } else {
               return { original: link, status: 'error', message: 'Gagal konversi link pendek' };
             }
-          } catch (e) {
+          } catch (err) {
             return { original: link, status: 'error', message: 'Koneksi gagal saat konversi' };
           }
         }

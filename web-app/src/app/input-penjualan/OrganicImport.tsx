@@ -353,7 +353,7 @@ export default function OrganicImport({ mode = 'sales' }: { mode?: 'sales' | 'vi
         if (!isNaN(fallback.getTime())) return fallback.toISOString();
 
         return new Date().toISOString();
-      } catch (e) {
+      } catch (err) {
         return new Date().toISOString();
       }
     };
