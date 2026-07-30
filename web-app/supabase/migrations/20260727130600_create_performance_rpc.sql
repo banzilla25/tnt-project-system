@@ -31,6 +31,7 @@ BEGIN
         p_filter_type IS NULL 
         OR (p_filter_type = 'pic' AND cc.added_by::text = ANY(p_filter_values))
         OR (p_filter_type = 'username' AND c.username = ANY(p_filter_values))
+        OR (p_filter_type = 'exclude' AND NOT (c.username = ANY(p_filter_values)))
       )
   ),
   deduped_creators AS (
@@ -50,14 +51,16 @@ BEGIN
     FROM jsonb_array_elements(get_campaign_creator_performance(p_campaign_id::INT)::jsonb) p
     LEFT JOIN deduped_creators dc ON LOWER(p->>'username') = dc.username
     WHERE p_filter_type IS NULL 
-       OR (p->>'username') IN (SELECT username FROM deduped_creators)
+       OR (p_filter_type = 'exclude' AND NOT (LOWER(p->>'username') = ANY(p_filter_values)))
+       OR (p_filter_type != 'exclude' AND (p->>'username') IN (SELECT username FROM deduped_creators))
   ),
   latest_ads AS (
     SELECT DISTINCT ON (ad_id) *
     FROM ads_performance
     WHERE campaign_id = p_campaign_id
       AND (p_filter_type IS NULL 
-           OR creator_id IN (SELECT c_id FROM deduped_creators))
+           OR (p_filter_type = 'exclude' AND NOT (creator_id IN (SELECT c_id FROM campaign_creators cc LEFT JOIN creators c ON c.id = cc.creator_id WHERE c.username = ANY(p_filter_values))))
+           OR (p_filter_type != 'exclude' AND creator_id IN (SELECT c_id FROM deduped_creators)))
     ORDER BY ad_id, tanggal DESC
   )
   SELECT 

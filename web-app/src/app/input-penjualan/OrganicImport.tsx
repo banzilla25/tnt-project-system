@@ -646,7 +646,27 @@ export default function OrganicImport({ mode = 'sales' }: { mode?: 'sales' | 'vi
       const { error } = salesChunk.length > 0 ? await supabase.from('sales').upsert(salesChunk as any, { onConflict: 'order_id' }) : { error: null };
       
       if (videoChunk.length > 0) {
-        await supabase.from('organic_videos').upsert(videoChunk as any, { onConflict: 'content_uid' });
+        // Fetch existing videos to ensure we don't shrink views/likes with a partial date report
+        const uids = videoChunk.map(v => v.content_uid);
+        const { data: existingVids } = await supabase.from('organic_videos').select('content_uid, video_views, video_likes').in('content_uid', uids);
+        const existingMap = new Map();
+        if (existingVids) {
+          existingVids.forEach(ev => existingMap.set(ev.content_uid, ev));
+        }
+        
+        const finalVideoChunk = videoChunk.map(v => {
+          const ex = existingMap.get(v.content_uid);
+          if (ex) {
+            return {
+              ...v,
+              video_views: Math.max(v.video_views || 0, ex.video_views || 0),
+              video_likes: Math.max(v.video_likes || 0, ex.video_likes || 0)
+            };
+          }
+          return v;
+        });
+
+        await supabase.from('organic_videos').upsert(finalVideoChunk as any, { onConflict: 'content_uid' });
       }
 
       if (error) {
