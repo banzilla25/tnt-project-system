@@ -113,8 +113,7 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
 
       // === FETCH CREATOR COUNTS USING RPC ===
       let fastCounts = { approved: 0, pending: 0, all: 0 };
-      const countsResult = await supabase.rpc('get_campaign_creator_counts', { p_campaign_id: campaignId }).catch(() => ({ data: null }));
-      const countsData = countsResult?.data;
+      const { data: countsData } = await supabase.rpc('get_campaign_creator_counts', { p_campaign_id: campaignId });
       if (countsData && countsData.length > 0) {
         fastCounts = {
           approved: Number(countsData[0].approved || 0),
@@ -126,8 +125,7 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
 
       // === FETCH VIDEO COUNTS USING RPC ===
       let fastVideoCounts = { approved: 0, pending: 0, livestream: 0 };
-      const videoCountsResult = await supabase.rpc('get_campaign_video_counts_fast', { p_campaign_id: campaignId }).catch(() => ({ data: null }));
-      const videoCountsData = videoCountsResult?.data;
+      const { data: videoCountsData } = await supabase.rpc('get_campaign_video_counts_fast', { p_campaign_id: campaignId });
       if (videoCountsData && videoCountsData.length > 0) {
         fastVideoCounts = {
           approved: Number(videoCountsData[0].total_approved || 0),
@@ -335,6 +333,29 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
   const totalSales = rpc;
   const isFiltered = appliedFilterType !== 'none' && appliedFilterUsernames.length > 0;
 
+  let fbViews = 0, fbLikes = 0, fbVideos = 0, fbLivestreams = 0, fbOrganic = 0, fbAds = 0, fbAllGmv = 0, fbWithVideo = 0, fbWithLive = 0;
+  let fbApprovedVideos = 0, fbPendingVideos = 0, pendingCreatorsWithVideosCount = 0;
+  let fbApprovedCreators = 0, fbPendingCreators = 0;
+
+  creatorStats.forEach(c => {
+    fbViews += c.videoViews || 0;
+    fbLikes += c.videoLikes || 0;
+    fbVideos += c.totalVt || 0;
+    fbLivestreams += c.totalLive || 0;
+    fbOrganic += c.gmvOrganic || 0;
+    fbAds += c.gmvAds || 0;
+    fbAllGmv += c.totalGmv || 0;
+    if (c.totalVt > 0) fbWithVideo++;
+    if (c.totalLive > 0) fbWithLive++;
+    
+    // Fallback if these don't exist
+    fbApprovedVideos += c.approvedVtCount || c.totalVt || 0;
+    fbPendingVideos += c.pendingVtCount || 0;
+    if ((c.pendingVtCount || 0) > 0) pendingCreatorsWithVideosCount++;
+    if (c.approval === 'approved') fbApprovedCreators++;
+    if (c.approval === 'pending') fbPendingCreators++;
+  });
+
   const totalApprovedCreators = isFiltered 
     ? fbApprovedCreators 
     : (fastCountsData ? fastCountsData.approved : (rpc.total_approved_creators !== undefined ? Number(rpc.total_approved_creators) : localCreators.filter(c => c.approval === 'approved').length));
@@ -378,28 +399,7 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
   const totalPages = Math.ceil(filteredCreatorStats.length / pageSize);
   const paginatedStats = filteredCreatorStats.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
-  let fbViews = 0, fbLikes = 0, fbVideos = 0, fbLivestreams = 0, fbOrganic = 0, fbAds = 0, fbAllGmv = 0, fbWithVideo = 0, fbWithLive = 0;
-  let fbApprovedVideos = 0, fbPendingVideos = 0, pendingCreatorsWithVideosCount = 0;
-  let fbApprovedCreators = 0, fbPendingCreators = 0;
-
-  creatorStats.forEach(c => {
-    fbViews += c.videoViews || 0;
-    fbLikes += c.videoLikes || 0;
-    fbVideos += c.totalVt || 0;
-    fbLivestreams += c.totalLive || 0;
-    fbOrganic += c.gmvOrganic || 0;
-    fbAds += c.gmvAds || 0;
-    fbAllGmv += c.totalGmv || 0;
-    if (c.totalVt > 0) fbWithVideo++;
-    if (c.totalLive > 0) fbWithLive++;
-    
-    // Fallback if these don't exist
-    fbApprovedVideos += c.approvedVtCount || c.totalVt || 0;
-    fbPendingVideos += c.pendingVtCount || 0;
-    if ((c.pendingVtCount || 0) > 0) pendingCreatorsWithVideosCount++;
-    if (c.approval === 'approved') fbApprovedCreators++;
-    if (c.approval === 'pending') fbPendingCreators++;
-  });
+  // Aggregation moved up to prevent TDZ
 
   const totalApprovedVideos = isFiltered 
     ? fbApprovedVideos 
