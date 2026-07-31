@@ -100,9 +100,9 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
   const totalPendingCreators = fastCountsData ? fastCountsData.pending : (rpc?.total_pending_creators !== undefined ? Number(rpc.total_pending_creators) : 0);
   const pendingCreatorsWithVideosCount = fastCountsData ? fastCountsData.pending_with_videos : 0;
 
-  const totalApprovedVideos = fastVideoCountsData ? fastVideoCountsData.approved : 0;
-  const totalPendingVideos = fastVideoCountsData ? fastVideoCountsData.pending : 0;
-  const totalCampaignLivestreams = fastVideoCountsData ? fastVideoCountsData.livestream : 0;
+  const totalApprovedVideos = fastVideoCountsData ? fastVideoCountsData.total_approved : 0;
+  const totalPendingVideos = fastVideoCountsData ? fastVideoCountsData.total_pending : 0;
+  const totalCampaignLivestreams = fastVideoCountsData ? fastVideoCountsData.total_livestream : 0;
 
   const totalOrganic = rpc?.organic_gmv !== undefined ? Number(rpc.organic_gmv) : 0;
   const totalAdsGmv = rpc?.ads_gmv !== undefined ? Number(rpc.ads_gmv) : (initialTotalAdsGmv || 0); 

@@ -13,6 +13,19 @@ import { useAuth } from "@/providers/AuthProvider";
 import { useCampaignFilter } from "@/providers/CampaignFilterProvider";
 import { getInternalVideoData } from "../../actions/videoActions";
 
+// Algoritma Snowflake TikTok - Akurat 100% tanpa API
+function extractTikTokUploadDate(videoId: string): string | null {
+  try {
+    const id = BigInt(videoId);
+    const timestamp = Number(id >> 32n) * 1000;
+    const date = new Date(timestamp);
+    if (isNaN(date.getTime())) return null;
+    return date.toISOString();
+  } catch {
+    return null;
+  }
+}
+
 export default function CampaignVideoPage({
   initialListingData,
   initialVideos
@@ -51,6 +64,7 @@ export default function CampaignVideoPage({
   const [bulkProgress, setBulkProgress] = useState(0);
   const [bulkTotal, setBulkTotal] = useState(0);
   const [bulkResults, setBulkResults] = useState<any[]>([]);
+  const [bulkMinimized, setBulkMinimized] = useState(false);
 
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewUrl, setPreviewUrl] = useState('');
