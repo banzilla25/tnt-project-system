@@ -639,7 +639,6 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                         <p className="text-[13px] font-medium text-slate-500">GMV Organik</p>
                         <h3 className="text-[24px] font-bold mt-[8px] text-slate-800">Rp {formatCompactNumber(trackedOrganic)}</h3>
                         <p className="text-[11px] font-semibold text-slate-500 mt-[4px]">Rp {trackedOrganic.toLocaleString()}</p>
-                        <p className="text-[10px] text-slate-400 mt-[2px]">Total dari CSV Penjualan</p>
                       </div>
                       <div className="p-[8px] bg-blue-50 text-blue-600 rounded-[8px]"><Activity className="w-5 h-5" /></div>
                     </div>
@@ -653,7 +652,6 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                         <p className="text-[13px] font-medium text-slate-500">GMV Ads</p>
                         <h3 className="text-[24px] font-bold mt-[8px] text-slate-800">Rp {formatCompactNumber(totalAdsGmv)}</h3>
                         <p className="text-[11px] font-semibold text-slate-500 mt-[4px]">Rp {totalAdsGmv.toLocaleString()}</p>
-                        <p className="text-[10px] text-slate-400 mt-[4px]">Total dari Impor Iklan</p>
                       </div>
                       <div className="p-[8px] bg-purple-50 text-purple-600 rounded-[8px]"><BarChart3 className="w-5 h-5" /></div>
                     </div>
