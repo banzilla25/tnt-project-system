@@ -616,7 +616,7 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
               </div>
 
               {/* === SECTION: SALES METRICS === */}
-              <div className={`grid grid-cols-1 md:grid-cols-4 gap-[24px] ${isAwareness ? 'order-2' : 'order-1'}`}>
+              <div className={`grid grid-cols-1 md:grid-cols-3 gap-[24px] ${isAwareness ? 'order-2' : 'order-1'}`}>
                 <div className={`ccard relative overflow-hidden md:col-span-1 ${!isAwareness ? 'bg-gradient-to-br from-green-50 to-emerald-100/50 border-green-100 shadow-sm' : 'bg-white border-line'}`}>
                   <div className="p-[24px]">
                     <div className="flex justify-between items-start">
@@ -660,7 +660,7 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                   </div>
                 </div>
 
-                <div className="ccard">
+                {/* <div className="ccard">
                   <div className="p-[24px]">
                     <div className="flex justify-between items-start">
                       <div>
@@ -682,7 +682,7 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                       </div>
                     </div>
                   </div>
-                </div>
+                </div> */}
               </div>
             </div>
               
