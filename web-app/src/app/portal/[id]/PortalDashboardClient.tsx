@@ -569,14 +569,8 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                         <p className="text-[13px] font-medium text-slate-500">Pencapaian Target Creator</p>
                         <div className="flex items-center gap-[8px] mt-[8px]">
                           <h3 className="text-[24px] font-bold text-slate-800">{totalApprovedCreators}</h3>
-                          <Badge variant="success" className="bg-emerald-100 text-emerald-800 border-none font-medium">kreator approved</Badge>
+                          <Badge variant="success" className="bg-emerald-100 text-emerald-800 border-none font-medium">kreator</Badge>
                         </div>
-                        {totalPendingCreators > 0 && (
-                          <div className="flex items-center gap-[6px] mt-[4px]">
-                            <span className="text-[13px] font-medium text-amber-600">{totalPendingCreators}</span>
-                            <Badge variant="warning" className="bg-amber-100 text-amber-800 border-none text-[10px] px-[6px] py-[2px]">kreator pending</Badge>
-                          </div>
-                        )}
                       </div>
                       <div className="p-[8px] bg-orange-50 text-orange-600 rounded-[8px]"><Users className="w-5 h-5" /></div>
                     </div>
@@ -601,15 +595,7 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                         <p className="text-[13px] font-medium text-slate-500">Pencapaian Target Video</p>
                         <div className="flex items-center gap-[8px] mt-[8px]">
                           <h3 className="text-[24px] font-bold text-slate-800">{totalApprovedVideos}</h3>
-                          <span className="text-[12px] text-slate-500 font-medium">video approved</span>
-                        </div>
-                        <div className="flex flex-col gap-[2px] mt-[4px]">
-                          <span className="text-[11px] font-semibold text-slate-500">
-                            {totalPendingVideos} video pending dari {pendingCreatorsWithVideosCount} kreator
-                          </span>
-                          <span className="text-[11px] font-semibold text-slate-500">
-                            {totalCampaignLivestreams} livestream
-                          </span>
+                          <span className="text-[12px] text-slate-500 font-medium">video</span>
                         </div>
                       </div>
                       <div className="p-[8px] bg-rose-50 text-rose-500 rounded-[8px]"><Video className="w-5 h-5" /></div>
@@ -667,10 +653,6 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                         <p className="text-[13px] font-medium text-slate-500">GMV Ads</p>
                         <h3 className="text-[24px] font-bold mt-[8px] text-slate-800">Rp {formatCompactNumber(totalAdsGmv)}</h3>
                         <p className="text-[11px] font-semibold text-slate-500 mt-[4px]">Rp {totalAdsGmv.toLocaleString()}</p>
-                        <div className="flex gap-2 mt-1">
-                          <span className="text-[10px] text-slate-400 bg-slate-100 px-1 rounded">Spend: $0.00</span>
-                          <span className="text-[10px] text-emerald-600 bg-emerald-50 px-1 rounded">GMV: ${((totalAdsGmv/16000) || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
-                        </div>
                         <p className="text-[10px] text-slate-400 mt-[4px]">Total dari Impor Iklan</p>
                       </div>
                       <div className="p-[8px] bg-purple-50 text-purple-600 rounded-[8px]"><BarChart3 className="w-5 h-5" /></div>
