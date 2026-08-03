@@ -230,25 +230,30 @@ function CampaignLayoutInner({ children }: { children: React.ReactNode }) {
                         <label className="text-sm font-medium">Target Video (Pcs)</label>
                         <input type="number" min="0" className="input" value={formData.target_video} onChange={e => setFormData({...formData, target_video: e.target.value})} />
                       </div>
-                      <div className="space-y-[6px]">
-                        <label className="text-sm font-medium">Target Kreator (Total)</label>
-                        <input type="number" min="0" className="input" value={formData.target_creator} onChange={e => setFormData({...formData, target_creator: e.target.value})} />
-                      </div>
-                      <div className="space-y-[6px]">
-                        <label className="text-sm font-medium">Target Nano</label>
-                        <input type="number" min="0" className="input" value={formData.target_creator_nano || ''} onChange={e => setFormData({...formData, target_creator_nano: e.target.value})} />
-                      </div>
-                      <div className="space-y-[6px]">
-                        <label className="text-sm font-medium">Target Micro</label>
-                        <input type="number" min="0" className="input" value={formData.target_creator_micro || ''} onChange={e => setFormData({...formData, target_creator_micro: e.target.value})} />
-                      </div>
-                      <div className="space-y-[6px]">
-                        <label className="text-sm font-medium">Target Macro</label>
-                        <input type="number" min="0" className="input" value={formData.target_creator_macro || ''} onChange={e => setFormData({...formData, target_creator_macro: e.target.value})} />
-                      </div>
-                      <div className="space-y-[6px]">
-                        <label className="text-sm font-medium">Target Mega</label>
-                        <input type="number" min="0" className="input" value={formData.target_creator_mega || ''} onChange={e => setFormData({...formData, target_creator_mega: e.target.value})} />
+                      <div className="col-span-2 bg-slate-50 border border-slate-200 rounded-lg p-[16px] space-y-[12px]">
+                        <h5 className="font-semibold text-sm text-text">Detail Target Kreator</h5>
+                        <div className="grid grid-cols-2 sm:grid-cols-5 gap-[12px]">
+                          <div className="space-y-[6px]">
+                            <label className="text-xs font-medium text-text-soft">Total</label>
+                            <input type="number" min="0" className="input text-sm" value={formData.target_creator} onChange={e => setFormData({...formData, target_creator: e.target.value})} />
+                          </div>
+                          <div className="space-y-[6px]">
+                            <label className="text-xs font-medium text-text-soft">Nano</label>
+                            <input type="number" min="0" className="input text-sm" value={formData.target_creator_nano || ''} onChange={e => setFormData({...formData, target_creator_nano: e.target.value})} />
+                          </div>
+                          <div className="space-y-[6px]">
+                            <label className="text-xs font-medium text-text-soft">Micro</label>
+                            <input type="number" min="0" className="input text-sm" value={formData.target_creator_micro || ''} onChange={e => setFormData({...formData, target_creator_micro: e.target.value})} />
+                          </div>
+                          <div className="space-y-[6px]">
+                            <label className="text-xs font-medium text-text-soft">Macro</label>
+                            <input type="number" min="0" className="input text-sm" value={formData.target_creator_macro || ''} onChange={e => setFormData({...formData, target_creator_macro: e.target.value})} />
+                          </div>
+                          <div className="space-y-[6px]">
+                            <label className="text-xs font-medium text-text-soft">Mega</label>
+                            <input type="number" min="0" className="input text-sm" value={formData.target_creator_mega || ''} onChange={e => setFormData({...formData, target_creator_mega: e.target.value})} />
+                          </div>
+                        </div>
                       </div>
                       <div className="space-y-[6px]">
                         <label className="text-sm font-medium">Target Views</label>
