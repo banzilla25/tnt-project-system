@@ -730,7 +730,12 @@ function CampaignListingContent() {
       
       if (t) {
         t = t.toLowerCase();
-        t = t.charAt(0).toUpperCase() + t.slice(1);
+        if (t === 'mega') t = 'Mega';
+        else if (t === 'macro') t = 'Macro';
+        else if (t === 'micro') t = 'Micro';
+        else t = 'Nano';
+      } else {
+        t = 'Nano';
       }
 
       if (t && ['Nano', 'Micro', 'Macro', 'Mega'].includes(t)) {
