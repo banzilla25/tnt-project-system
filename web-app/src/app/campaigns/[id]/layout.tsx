@@ -95,6 +95,10 @@ function CampaignLayoutInner({ children }: { children: React.ReactNode }) {
         target_gmv: campaign.target_gmv?.toString() || '',
         target_video: campaign.target_video?.toString() || '',
         target_creator: campaign.target_creator?.toString() || '',
+        target_creator_nano: campaign.target_creator_nano?.toString() || '',
+        target_creator_micro: campaign.target_creator_micro?.toString() || '',
+        target_creator_macro: campaign.target_creator_macro?.toString() || '',
+        target_creator_mega: campaign.target_creator_mega?.toString() || '',
         target_views: campaign.target_views?.toString() || '',
         budget_creator_plafon: campaign.budget_creator_plafon?.toString() || '',
         budget_ads_plafon: campaign.budget_ads_plafon?.toString() || '',
@@ -116,6 +120,10 @@ function CampaignLayoutInner({ children }: { children: React.ReactNode }) {
       target_gmv: formData.target_gmv ? Number(formData.target_gmv) : null,
       target_video: formData.target_video ? Number(formData.target_video) : null,
       target_creator: formData.target_creator ? Number(formData.target_creator) : null,
+      target_creator_nano: formData.target_creator_nano ? Number(formData.target_creator_nano) : 0,
+      target_creator_micro: formData.target_creator_micro ? Number(formData.target_creator_micro) : 0,
+      target_creator_macro: formData.target_creator_macro ? Number(formData.target_creator_macro) : 0,
+      target_creator_mega: formData.target_creator_mega ? Number(formData.target_creator_mega) : 0,
       target_views: formData.target_views ? Number(formData.target_views) : null,
       budget_creator_plafon: Number(formData.budget_creator_plafon || 0),
       budget_ads_plafon: Number(formData.budget_ads_plafon || 0),
@@ -223,8 +231,24 @@ function CampaignLayoutInner({ children }: { children: React.ReactNode }) {
                         <input type="number" min="0" className="input" value={formData.target_video} onChange={e => setFormData({...formData, target_video: e.target.value})} />
                       </div>
                       <div className="space-y-[6px]">
-                        <label className="text-sm font-medium">Target Kreator (Orang)</label>
+                        <label className="text-sm font-medium">Target Kreator (Total)</label>
                         <input type="number" min="0" className="input" value={formData.target_creator} onChange={e => setFormData({...formData, target_creator: e.target.value})} />
+                      </div>
+                      <div className="space-y-[6px]">
+                        <label className="text-sm font-medium">Target Nano</label>
+                        <input type="number" min="0" className="input" value={formData.target_creator_nano || ''} onChange={e => setFormData({...formData, target_creator_nano: e.target.value})} />
+                      </div>
+                      <div className="space-y-[6px]">
+                        <label className="text-sm font-medium">Target Micro</label>
+                        <input type="number" min="0" className="input" value={formData.target_creator_micro || ''} onChange={e => setFormData({...formData, target_creator_micro: e.target.value})} />
+                      </div>
+                      <div className="space-y-[6px]">
+                        <label className="text-sm font-medium">Target Macro</label>
+                        <input type="number" min="0" className="input" value={formData.target_creator_macro || ''} onChange={e => setFormData({...formData, target_creator_macro: e.target.value})} />
+                      </div>
+                      <div className="space-y-[6px]">
+                        <label className="text-sm font-medium">Target Mega</label>
+                        <input type="number" min="0" className="input" value={formData.target_creator_mega || ''} onChange={e => setFormData({...formData, target_creator_mega: e.target.value})} />
                       </div>
                       <div className="space-y-[6px]">
                         <label className="text-sm font-medium">Target Views</label>

@@ -667,7 +667,7 @@ function CampaignListingContent() {
     if (recapFilterPic) {
       filteredData = filteredData.filter(r => r.added_by === recapFilterPic);
     }
-    const group: Record<string, { total: number, approved: number, pending: number, alternate: number, not_approved: number }> = {};
+    const group: Record<string, { total: number, approved: number, pending: number, alternate: number, not_approved: number, nano: number, micro: number, macro: number, mega: number }> = {};
     
     // Helper to get local date string (YYYY-MM-DD) to avoid UTC timezone shifts
     const getLocalDateStr = (dateString: string) => {
@@ -676,21 +676,42 @@ function CampaignListingContent() {
     };
 
     filteredData.forEach(r => {
-      // 1. Process \"Added\" and \"Pending\" based on created_at
+      // 1. Process "Added" and "Pending" based on created_at
       if (r.created_at) {
         const createDateKey = getLocalDateStr(r.created_at);
-        if (!group[createDateKey]) group[createDateKey] = { total: 0, approved: 0, pending: 0, alternate: 0, not_approved: 0 };
+        if (!group[createDateKey]) group[createDateKey] = { total: 0, approved: 0, pending: 0, alternate: 0, not_approved: 0, nano: 0, micro: 0, macro: 0, mega: 0 };
         
         group[createDateKey].total++;
         if (r.approval === 'pending') {
           group[createDateKey].pending++;
+        }
+        
+        let snapshotTier = null;
+        if (r.creators?.creator_snapshots) {
+          const sortedSnaps = [...r.creators.creator_snapshots].sort((a: any, b: any) => {
+            const tDiff = new Date(b.tanggal_update || 0).getTime() - new Date(a.tanggal_update || 0).getTime();
+            if (tDiff !== 0) return tDiff;
+            return (b.id || 0) - (a.id || 0);
+          });
+          const validSnap = sortedSnaps.find((s: any) => s.tier);
+          if (validSnap) snapshotTier = validSnap.tier;
+        }
+        let t = snapshotTier || r.tier;
+        if (t) {
+          t = t.toLowerCase();
+          if (t === 'mega') group[createDateKey].mega++;
+          else if (t === 'macro') group[createDateKey].macro++;
+          else if (t === 'micro') group[createDateKey].micro++;
+          else group[createDateKey].nano++;
+        } else {
+          group[createDateKey].nano++;
         }
       }
 
       // 2. Process Action (Approved, Alternate, Not Approved) based on approved_at
       if (r.approved_at && r.approval !== 'pending') {
         const actionDateKey = getLocalDateStr(r.approved_at);
-        if (!group[actionDateKey]) group[actionDateKey] = { total: 0, approved: 0, pending: 0, alternate: 0, not_approved: 0 };
+        if (!group[actionDateKey]) group[actionDateKey] = { total: 0, approved: 0, pending: 0, alternate: 0, not_approved: 0, nano: 0, micro: 0, macro: 0, mega: 0 };
         
         if (r.approval === 'approved') group[actionDateKey].approved++;
         else if (r.approval === 'alternate') group[actionDateKey].alternate++;
@@ -1720,6 +1741,42 @@ function CampaignListingContent() {
                         <td key={`total-${d.date}`} className="p-[12px] text-center border-r border-line font-semibold text-text bg-slate-50/50">{d.total}</td>
                       ))}
                       {Array.from({ length: Math.max(0, 5 - dailyRecap.slice(recapStartIndex, recapStartIndex + 5).length) }).map((_, i) => <td key={`e1-${i}`} className="border-r border-line bg-slate-50/50"></td>)}
+                      <td className="bg-slate-50"></td>
+                    </tr>
+                    <tr className="border-b border-line">
+                      <td className="p-[12px] pl-[24px] text-[13px] text-text-soft border-r border-line">Nano</td>
+                      <td className="border-r border-line bg-slate-50"></td>
+                      {dailyRecap.slice(recapStartIndex, recapStartIndex + 5).map(d => (
+                        <td key={`nano-${d.date}`} className="p-[12px] text-center border-r border-line text-[13px] text-text-soft">{d.nano}</td>
+                      ))}
+                      {Array.from({ length: Math.max(0, 5 - dailyRecap.slice(recapStartIndex, recapStartIndex + 5).length) }).map((_, i) => <td key={`enano-${i}`} className="border-r border-line"></td>)}
+                      <td className="bg-slate-50"></td>
+                    </tr>
+                    <tr className="border-b border-line">
+                      <td className="p-[12px] pl-[24px] text-[13px] text-text-soft border-r border-line">Micro</td>
+                      <td className="border-r border-line bg-slate-50"></td>
+                      {dailyRecap.slice(recapStartIndex, recapStartIndex + 5).map(d => (
+                        <td key={`micro-${d.date}`} className="p-[12px] text-center border-r border-line text-[13px] text-text-soft">{d.micro}</td>
+                      ))}
+                      {Array.from({ length: Math.max(0, 5 - dailyRecap.slice(recapStartIndex, recapStartIndex + 5).length) }).map((_, i) => <td key={`emicro-${i}`} className="border-r border-line"></td>)}
+                      <td className="bg-slate-50"></td>
+                    </tr>
+                    <tr className="border-b border-line">
+                      <td className="p-[12px] pl-[24px] text-[13px] text-text-soft border-r border-line">Macro</td>
+                      <td className="border-r border-line bg-slate-50"></td>
+                      {dailyRecap.slice(recapStartIndex, recapStartIndex + 5).map(d => (
+                        <td key={`macro-${d.date}`} className="p-[12px] text-center border-r border-line text-[13px] text-text-soft">{d.macro}</td>
+                      ))}
+                      {Array.from({ length: Math.max(0, 5 - dailyRecap.slice(recapStartIndex, recapStartIndex + 5).length) }).map((_, i) => <td key={`emacro-${i}`} className="border-r border-line"></td>)}
+                      <td className="bg-slate-50"></td>
+                    </tr>
+                    <tr className="border-b border-line">
+                      <td className="p-[12px] pl-[24px] text-[13px] text-text-soft border-r border-line">Mega</td>
+                      <td className="border-r border-line bg-slate-50"></td>
+                      {dailyRecap.slice(recapStartIndex, recapStartIndex + 5).map(d => (
+                        <td key={`mega-${d.date}`} className="p-[12px] text-center border-r border-line text-[13px] text-text-soft">{d.mega}</td>
+                      ))}
+                      {Array.from({ length: Math.max(0, 5 - dailyRecap.slice(recapStartIndex, recapStartIndex + 5).length) }).map((_, i) => <td key={`emega-${i}`} className="border-r border-line"></td>)}
                       <td className="bg-slate-50"></td>
                     </tr>
                     <tr className="border-b border-line">

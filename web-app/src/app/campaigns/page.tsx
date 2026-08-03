@@ -17,7 +17,15 @@ export default function CampaignsPage() {
   const [statusFilter, setStatusFilter] = useState<'aktif' | 'selesai' | 'arsip'>('aktif');
   const [formData, setFormData] = useState({
     nama: '', brand_id: '', tipe_campaign: 'sales', start_date: '', end_date: '',
-    target_gmv: '', target_video: '', target_creator: '', target_views: '', budget_creator_plafon: '', budget_ads_plafon: '', require_client_approval: false
+    target_gmv: '',
+    target_video: '',
+    target_creator: '',
+    target_creator_nano: '',
+    target_creator_micro: '',
+    target_creator_macro: '',
+    target_creator_mega: '',
+    target_views: '',
+    budget_creator_plafon: '', budget_ads_plafon: '', require_client_approval: false
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -51,6 +59,10 @@ export default function CampaignsPage() {
       target_gmv: formData.target_gmv ? Number(formData.target_gmv) : null,
       target_video: formData.target_video ? Number(formData.target_video) : null,
       target_creator: formData.target_creator ? Number(formData.target_creator) : null,
+      target_creator_nano: formData.target_creator_nano ? Number(formData.target_creator_nano) : 0,
+      target_creator_micro: formData.target_creator_micro ? Number(formData.target_creator_micro) : 0,
+      target_creator_macro: formData.target_creator_macro ? Number(formData.target_creator_macro) : 0,
+      target_creator_mega: formData.target_creator_mega ? Number(formData.target_creator_mega) : 0,
       target_views: formData.target_views ? Number(formData.target_views) : null,
       budget_creator_plafon: Number(formData.budget_creator_plafon || 0),
       budget_ads_plafon: Number(formData.budget_ads_plafon || 0),
@@ -60,7 +72,7 @@ export default function CampaignsPage() {
     setIsOpen(false);
     setIsAddingNewBrand(false);
     setNewBrandName('');
-    setFormData({ nama: '', brand_id: '', tipe_campaign: 'sales', start_date: '', end_date: '', target_gmv: '', target_video: '', target_creator: '', target_views: '', budget_creator_plafon: '', budget_ads_plafon: '', require_client_approval: false });
+    setFormData({ nama: '', brand_id: '', tipe_campaign: 'sales', start_date: '', end_date: '', target_gmv: '', target_video: '', target_creator: '', target_creator_nano: '', target_creator_micro: '', target_creator_macro: '', target_creator_mega: '', target_views: '', budget_creator_plafon: '', budget_ads_plafon: '', require_client_approval: false });
   };
 
   return (
@@ -147,8 +159,24 @@ export default function CampaignsPage() {
                       <input type="number" min="0" className="input" value={formData.target_video} onChange={e => setFormData({...formData, target_video: e.target.value})} placeholder="Opsional" />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-sm font-medium">Target Kreator (Orang)</label>
+                      <label className="text-sm font-medium">Target Kreator (Total)</label>
                       <input type="number" min="0" className="input" value={formData.target_creator} onChange={e => setFormData({...formData, target_creator: e.target.value})} placeholder="Opsional" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Target Nano</label>
+                      <input type="number" min="0" className="input" value={formData.target_creator_nano || ''} onChange={e => setFormData({...formData, target_creator_nano: e.target.value})} />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Target Micro</label>
+                      <input type="number" min="0" className="input" value={formData.target_creator_micro || ''} onChange={e => setFormData({...formData, target_creator_micro: e.target.value})} />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Target Macro</label>
+                      <input type="number" min="0" className="input" value={formData.target_creator_macro || ''} onChange={e => setFormData({...formData, target_creator_macro: e.target.value})} />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Target Mega</label>
+                      <input type="number" min="0" className="input" value={formData.target_creator_mega || ''} onChange={e => setFormData({...formData, target_creator_mega: e.target.value})} />
                     </div>
                     <div className="space-y-2">
                       <label className="text-sm font-medium">Target Views</label>
@@ -241,6 +269,10 @@ function CampaignCardItem({ campaign, brand, isManager }: { campaign: any, brand
       target_gmv: formData.target_gmv ? Number(formData.target_gmv) : null,
       target_video: formData.target_video ? Number(formData.target_video) : null,
       target_creator: formData.target_creator ? Number(formData.target_creator) : null,
+      target_creator_nano: formData.target_creator_nano ? Number(formData.target_creator_nano) : 0,
+      target_creator_micro: formData.target_creator_micro ? Number(formData.target_creator_micro) : 0,
+      target_creator_macro: formData.target_creator_macro ? Number(formData.target_creator_macro) : 0,
+      target_creator_mega: formData.target_creator_mega ? Number(formData.target_creator_mega) : 0,
       target_views: formData.target_views ? Number(formData.target_views) : null,
       budget_creator_plafon: Number(formData.budget_creator_plafon || 0), budget_ads_plafon: Number(formData.budget_ads_plafon || 0),
       require_client_approval: formData.require_client_approval
