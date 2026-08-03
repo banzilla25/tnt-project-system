@@ -1426,6 +1426,7 @@ function CampaignListingContent() {
       
       setSelectedCreators(new Set());
       fetchListing();
+      fetchCounts();
     } catch (err: any) {
       alert('Gagal melakukan aksi massal: ' + err.message);
     } finally {
@@ -1445,6 +1446,7 @@ function CampaignListingContent() {
       setListingData(prev => prev.filter(c => !creatorIds.includes(c.id)));
       setSelectedCreators(new Set());
       fetchListing();
+      fetchCounts();
     } catch (err: any) {
       alert('Gagal menghapus massal: ' + err.message);
     } finally {
