@@ -48,7 +48,6 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
       tempCurr.setDate(tempCurr.getDate() + 1);
     }
 
-    // Map dailyData for easy lookup
     const achievedMap = new Map();
     dailyData.forEach(d => {
       const dDate = new Date(d.date);
@@ -59,6 +58,14 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
         live: Number(d.totalLiveSessions) || 0,
         creator: Number(d.totalCreators) || 0,
         pendingCreator: Number(d.totalPendingCreators) || 0,
+        pendingNano: Number(d.pendingNano) || 0,
+        pendingMicro: Number(d.pendingMicro) || 0,
+        pendingMacro: Number(d.pendingMacro) || 0,
+        pendingMega: Number(d.pendingMega) || 0,
+        approvedNano: Number(d.approvedNano) || 0,
+        approvedMicro: Number(d.approvedMicro) || 0,
+        approvedMacro: Number(d.approvedMacro) || 0,
+        approvedMega: Number(d.approvedMega) || 0,
       });
     });
 
@@ -82,6 +89,14 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
     let currentWeekLiveAchieve = 0;
     let currentWeekCreatorAchieve = 0;
     let currentWeekPendingCreatorAchieve = 0;
+    let currentWeekPendingNano = 0;
+    let currentWeekPendingMicro = 0;
+    let currentWeekPendingMacro = 0;
+    let currentWeekPendingMega = 0;
+    let currentWeekApprovedNano = 0;
+    let currentWeekApprovedMicro = 0;
+    let currentWeekApprovedMacro = 0;
+    let currentWeekApprovedMega = 0;
 
     let remainingWorkingDays = totalWorkingDays;
     let curr = new Date(startDate);
@@ -101,6 +116,14 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
       currentWeekLiveAchieve += achievedToday.live;
       currentWeekCreatorAchieve += achievedToday.creator;
       currentWeekPendingCreatorAchieve += achievedToday.pendingCreator;
+      currentWeekPendingNano += achievedToday.pendingNano;
+      currentWeekPendingMicro += achievedToday.pendingMicro;
+      currentWeekPendingMacro += achievedToday.pendingMacro;
+      currentWeekPendingMega += achievedToday.pendingMega;
+      currentWeekApprovedNano += achievedToday.approvedNano;
+      currentWeekApprovedMicro += achievedToday.approvedMicro;
+      currentWeekApprovedMacro += achievedToday.approvedMacro;
+      currentWeekApprovedMega += achievedToday.approvedMega;
 
       let targetForTodayGmv = 0;
       let targetForTodayVideo = 0;
@@ -144,6 +167,14 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
         achievedLive: achievedToday.live,
         achievedCreator: achievedToday.creator,
         achievedPendingCreator: achievedToday.pendingCreator,
+        achievedPendingNano: achievedToday.pendingNano,
+        achievedPendingMicro: achievedToday.pendingMicro,
+        achievedPendingMacro: achievedToday.pendingMacro,
+        achievedPendingMega: achievedToday.pendingMega,
+        achievedApprovedNano: achievedToday.approvedNano,
+        achievedApprovedMicro: achievedToday.approvedMicro,
+        achievedApprovedMacro: achievedToday.approvedMacro,
+        achievedApprovedMega: achievedToday.approvedMega,
         weeklySummary: null as any
       };
       
@@ -173,6 +204,14 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
             achievedLive: currentWeekLiveAchieve,
             achievedCreator: currentWeekCreatorAchieve,
             achievedPendingCreator: currentWeekPendingCreatorAchieve,
+            achievedPendingNano: currentWeekPendingNano,
+            achievedPendingMicro: currentWeekPendingMicro,
+            achievedPendingMacro: currentWeekPendingMacro,
+            achievedPendingMega: currentWeekPendingMega,
+            achievedApprovedNano: currentWeekApprovedNano,
+            achievedApprovedMicro: currentWeekApprovedMicro,
+            achievedApprovedMacro: currentWeekApprovedMacro,
+            achievedApprovedMega: currentWeekApprovedMega,
           };
         }
         
@@ -188,6 +227,14 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
         currentWeekLiveAchieve = 0;
         currentWeekCreatorAchieve = 0;
         currentWeekPendingCreatorAchieve = 0;
+        currentWeekPendingNano = 0;
+        currentWeekPendingMicro = 0;
+        currentWeekPendingMacro = 0;
+        currentWeekPendingMega = 0;
+        currentWeekApprovedNano = 0;
+        currentWeekApprovedMicro = 0;
+        currentWeekApprovedMacro = 0;
+        currentWeekApprovedMega = 0;
       }
 
       curr.setDate(curr.getDate() + 1);
@@ -319,17 +366,27 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
                             {Math.round(day.weeklySummary.achievedLive)} {targetLive > 0 ? `/ ${Math.round(day.weeklySummary.targetLive)}` : ''}
                           </span>
                         </div>
-                        <div className="text-[10px] text-blue-800 flex justify-between px-2">
-                          <span>Kr Ditambah:</span>
-                          <span className="font-medium text-amber-600">
-                            {Math.round(day.weeklySummary.achievedPendingCreator)}
-                          </span>
+                        <div className="text-[10px] text-blue-800 flex flex-col px-2 mt-1">
+                          <div className="flex justify-between">
+                            <span>Kr Ditambah:</span>
+                            <span className="font-medium text-amber-600">
+                              {Math.round(day.weeklySummary.achievedPendingCreator)}
+                            </span>
+                          </div>
+                          <div className="text-[9px] text-blue-600/70 mt-[2px] leading-tight">
+                             N: {day.weeklySummary.achievedPendingNano} | Mi: {day.weeklySummary.achievedPendingMicro} | Ma: {day.weeklySummary.achievedPendingMacro} | Me: {day.weeklySummary.achievedPendingMega}
+                          </div>
                         </div>
-                        <div className="text-[10px] text-blue-800 flex justify-between px-2">
-                          <span>Kr Approve:</span>
-                          <span className={day.weeklySummary.achievedCreator >= day.weeklySummary.targetCreator && targetCreator > 0 ? 'text-emerald-700 font-bold' : 'font-medium'}>
-                            {Math.round(day.weeklySummary.achievedCreator)} {targetCreator > 0 ? `/ ${Math.round(day.weeklySummary.targetCreator)}` : ''}
-                          </span>
+                        <div className="text-[10px] text-blue-800 flex flex-col px-2 mt-1">
+                          <div className="flex justify-between">
+                            <span>Kr Approve:</span>
+                            <span className={day.weeklySummary.achievedCreator >= day.weeklySummary.targetCreator && targetCreator > 0 ? 'text-emerald-700 font-bold' : 'font-medium'}>
+                              {Math.round(day.weeklySummary.achievedCreator)} {targetCreator > 0 ? `/ ${Math.round(day.weeklySummary.targetCreator)}` : ''}
+                            </span>
+                          </div>
+                          <div className="text-[9px] text-blue-600/70 mt-[2px] leading-tight">
+                             N: {day.weeklySummary.achievedApprovedNano} | Mi: {day.weeklySummary.achievedApprovedMicro} | Ma: {day.weeklySummary.achievedApprovedMacro} | Me: {day.weeklySummary.achievedApprovedMega}
+                          </div>
                         </div>
                       </div>
                     ) : isTop ? (
@@ -358,17 +415,27 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
                              {Math.round(day.achievedLive)} {targetLive > 0 ? `/ ${Math.round(day.targetLive)}` : ''}
                            </span>
                          </div>
-                         <div className="text-[10px] text-slate-600 flex justify-between border-t border-slate-100 pt-1 mt-1">
-                           <span>Kr Ditambah:</span>
-                           <span className="font-medium text-amber-600">
-                             {Math.round(day.achievedPendingCreator)}
-                           </span>
+                         <div className="text-[10px] text-slate-600 flex flex-col border-t border-slate-100 pt-1 mt-1">
+                           <div className="flex justify-between">
+                             <span>Kr Ditambah:</span>
+                             <span className="font-medium text-amber-600">
+                               {Math.round(day.achievedPendingCreator)}
+                             </span>
+                           </div>
+                           <div className="text-[9px] text-slate-400 mt-[2px] leading-tight">
+                             N: {day.achievedPendingNano} | Mi: {day.achievedPendingMicro} | Ma: {day.achievedPendingMacro} | Me: {day.achievedPendingMega}
+                           </div>
                          </div>
-                         <div className="text-[10px] text-slate-600 flex justify-between border-t border-slate-100 pt-1 mt-1">
-                           <span>Kr Approve:</span>
-                           <span className={day.achievedCreator >= day.targetCreator && targetCreator > 0 ? 'text-emerald-600 font-bold' : 'font-medium'}>
-                             {Math.round(day.achievedCreator)} {targetCreator > 0 ? `/ ${Math.round(day.targetCreator)}` : ''}
-                           </span>
+                         <div className="text-[10px] text-slate-600 flex flex-col border-t border-slate-100 pt-1 mt-1">
+                           <div className="flex justify-between">
+                             <span>Kr Approve:</span>
+                             <span className={day.achievedCreator >= day.targetCreator && targetCreator > 0 ? 'text-emerald-600 font-bold' : 'font-medium'}>
+                               {Math.round(day.achievedCreator)} {targetCreator > 0 ? `/ ${Math.round(day.targetCreator)}` : ''}
+                             </span>
+                           </div>
+                           <div className="text-[9px] text-slate-400 mt-[2px] leading-tight">
+                             N: {day.achievedApprovedNano} | Mi: {day.achievedApprovedMicro} | Ma: {day.achievedApprovedMacro} | Me: {day.achievedApprovedMega}
+                           </div>
                          </div>
                       </div>
                     ) : null}
@@ -411,17 +478,27 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
                              {Math.round(day.achievedLive)} {targetLive > 0 ? `/ ${Math.round(day.targetLive)}` : ''}
                            </span>
                          </div>
-                         <div className="text-[10px] text-slate-600 flex justify-between border-t border-slate-100 pt-1 mt-1">
-                           <span>Kr Ditambah:</span>
-                           <span className="font-medium text-amber-600">
-                             {Math.round(day.achievedPendingCreator)}
-                           </span>
+                         <div className="text-[10px] text-slate-600 flex flex-col border-t border-slate-100 pt-1 mt-1">
+                           <div className="flex justify-between">
+                             <span>Kr Ditambah:</span>
+                             <span className="font-medium text-amber-600">
+                               {Math.round(day.achievedPendingCreator)}
+                             </span>
+                           </div>
+                           <div className="text-[9px] text-slate-400 mt-[2px] leading-tight">
+                             N: {day.achievedPendingNano} | Mi: {day.achievedPendingMicro} | Ma: {day.achievedPendingMacro} | Me: {day.achievedPendingMega}
+                           </div>
                          </div>
-                         <div className="text-[10px] text-slate-600 flex justify-between border-t border-slate-100 pt-1 mt-1">
-                           <span>Kr Approve:</span>
-                           <span className={day.achievedCreator >= day.targetCreator && targetCreator > 0 ? 'text-emerald-600 font-bold' : 'font-medium'}>
-                             {Math.round(day.achievedCreator)} {targetCreator > 0 ? `/ ${Math.round(day.targetCreator)}` : ''}
-                           </span>
+                         <div className="text-[10px] text-slate-600 flex flex-col border-t border-slate-100 pt-1 mt-1">
+                           <div className="flex justify-between">
+                             <span>Kr Approve:</span>
+                             <span className={day.achievedCreator >= day.targetCreator && targetCreator > 0 ? 'text-emerald-600 font-bold' : 'font-medium'}>
+                               {Math.round(day.achievedCreator)} {targetCreator > 0 ? `/ ${Math.round(day.targetCreator)}` : ''}
+                             </span>
+                           </div>
+                           <div className="text-[9px] text-slate-400 mt-[2px] leading-tight">
+                             N: {day.achievedApprovedNano} | Mi: {day.achievedApprovedMicro} | Ma: {day.achievedApprovedMacro} | Me: {day.achievedApprovedMega}
+                           </div>
                          </div>
                       </div>
                     )}

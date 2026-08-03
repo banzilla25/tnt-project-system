@@ -46,7 +46,7 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
       while (hasMore_v) {
         const { data: ccData, error } = await supabase
           .from('campaign_creators')
-          .select('id, created_at, approved_at, creators(username), videos(id, created_at, link_video)')
+          .select('id, tier, created_at, approved_at, creators(username, creator_snapshots(tier, tanggal_update)), videos(id, created_at, link_video)')
           .eq('campaign_id', campaignId)
           .range(from_v, to_v);
 
@@ -94,8 +94,8 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
       const allLiveSessions = liveStats || [];
 
       // Grouping
-      const grouped: Record<string, { gmv: number; gmvAds: number; creators: Set<string>; videos: Set<string>; gmvLive: number; gmvVT: number; ordersLive: number; ordersVT: number; liveSessions: Set<string> }> = {};
-      const monthlyGrouped: Record<string, { gmv: number; gmvAds: number; creators: Set<string>; videos: Set<string>; gmvLive: number; gmvVT: number; ordersLive: number; ordersVT: number; liveSessions: Set<string> }> = {};
+      const grouped: Record<string, { gmv: number; gmvAds: number; creators: Map<string, string>; pendingCreators: Map<string, string>; videos: Set<string>; gmvLive: number; gmvVT: number; ordersLive: number; ordersVT: number; liveSessions: Set<string> }> = {};
+      const monthlyGrouped: Record<string, { gmv: number; gmvAds: number; creators: Map<string, string>; pendingCreators: Map<string, string>; videos: Set<string>; gmvLive: number; gmvVT: number; ordersLive: number; ordersVT: number; liveSessions: Set<string> }> = {};
 
       const campaignStartStr = campaignData.start_date || '';
       const campaignEndStr = campaignData.status === 'selesai' ? campaignData.end_date || '' : '';
@@ -108,7 +108,7 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
           if (campaignStartStr && dateStr < campaignStartStr) return;
           if (campaignEndStr && dateStr > campaignEndStr) return;
 
-          if (!grouped[dateStr]) grouped[dateStr] = { gmv: 0, gmvAds: 0, creators: new Set(), pendingCreators: new Set(), videos: new Set(), gmvLive: 0, gmvVT: 0, ordersLive: 0, ordersVT: 0, liveSessions: new Set() };
+          if (!grouped[dateStr]) grouped[dateStr] = { gmv: 0, gmvAds: 0, creators: new Map(), pendingCreators: new Map(), videos: new Set(), gmvLive: 0, gmvVT: 0, ordersLive: 0, ordersVT: 0, liveSessions: new Set() };
           
           grouped[dateStr].gmvLive += (stat.gmv_live || 0);
           grouped[dateStr].ordersLive += (stat.orders_live || 0);
@@ -120,7 +120,7 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
           // We DO NOT add active_videos from sales to grouped[dateStr].videos, because we only want to count *uploaded* videos on this date, not videos that made a sale on this date.
 
           const monthStr = dateStr.substring(0, 7);
-          if (!monthlyGrouped[monthStr]) monthlyGrouped[monthStr] = { gmv: 0, gmvAds: 0, creators: new Set(), pendingCreators: new Set(), videos: new Set(), gmvLive: 0, gmvVT: 0, ordersLive: 0, ordersVT: 0, liveSessions: new Set() };
+          if (!monthlyGrouped[monthStr]) monthlyGrouped[monthStr] = { gmv: 0, gmvAds: 0, creators: new Map(), pendingCreators: new Map(), videos: new Set(), gmvLive: 0, gmvVT: 0, ordersLive: 0, ordersVT: 0, liveSessions: new Set() };
           
           monthlyGrouped[monthStr].gmvLive += (stat.gmv_live || 0);
           monthlyGrouped[monthStr].ordersLive += (stat.orders_live || 0);
@@ -135,6 +135,17 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
       if (allVideosFromCreators.length > 0) {
         allVideosFromCreators.forEach(cc => {
           const username = cc.creators?.username || 'unknown';
+          let snapshotTier = null;
+          if (cc.creators?.creator_snapshots) {
+            const sortedSnaps = [...cc.creators.creator_snapshots].sort((a: any, b: any) => {
+              const tDiff = new Date(b.tanggal_update || 0).getTime() - new Date(a.tanggal_update || 0).getTime();
+              if (tDiff !== 0) return tDiff;
+              return (b.id || 0) - (a.id || 0);
+            });
+            const validSnap = sortedSnaps.find((s: any) => s.tier);
+            if (validSnap) snapshotTier = validSnap.tier;
+          }
+          let resolvedTier = snapshotTier || cc.tier || 'Nano';
 
           if (cc.created_at) {
             const addedDateStr = cc.created_at.substring(0, 10);
@@ -143,12 +154,12 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
             if (campaignEndStr && addedDateStr > campaignEndStr) countAdded = false;
             
             if (countAdded) {
-              if (!grouped[addedDateStr]) grouped[addedDateStr] = { gmv: 0, gmvAds: 0, creators: new Set(), pendingCreators: new Set(), videos: new Set(), gmvLive: 0, gmvVT: 0, ordersLive: 0, ordersVT: 0, liveSessions: new Set() };
-              grouped[addedDateStr].pendingCreators.add(username);
+              if (!grouped[addedDateStr]) grouped[addedDateStr] = { gmv: 0, gmvAds: 0, creators: new Map(), pendingCreators: new Map(), videos: new Set(), gmvLive: 0, gmvVT: 0, ordersLive: 0, ordersVT: 0, liveSessions: new Set() };
+              grouped[addedDateStr].pendingCreators.set(username, resolvedTier);
 
               const monthStr = cc.created_at.substring(0, 7);
-              if (!monthlyGrouped[monthStr]) monthlyGrouped[monthStr] = { gmv: 0, gmvAds: 0, creators: new Set(), pendingCreators: new Set(), videos: new Set(), gmvLive: 0, gmvVT: 0, ordersLive: 0, ordersVT: 0, liveSessions: new Set() };
-              monthlyGrouped[monthStr].pendingCreators.add(username);
+              if (!monthlyGrouped[monthStr]) monthlyGrouped[monthStr] = { gmv: 0, gmvAds: 0, creators: new Map(), pendingCreators: new Map(), videos: new Set(), gmvLive: 0, gmvVT: 0, ordersLive: 0, ordersVT: 0, liveSessions: new Set() };
+              monthlyGrouped[monthStr].pendingCreators.set(username, resolvedTier);
             }
           }
 
@@ -159,12 +170,12 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
             if (campaignEndStr && approvedDateStr > campaignEndStr) countCreator = false;
             
             if (countCreator) {
-              if (!grouped[approvedDateStr]) grouped[approvedDateStr] = { gmv: 0, gmvAds: 0, creators: new Set(), pendingCreators: new Set(), videos: new Set(), gmvLive: 0, gmvVT: 0, ordersLive: 0, ordersVT: 0, liveSessions: new Set() };
-              grouped[approvedDateStr].creators.add(username);
+              if (!grouped[approvedDateStr]) grouped[approvedDateStr] = { gmv: 0, gmvAds: 0, creators: new Map(), pendingCreators: new Map(), videos: new Set(), gmvLive: 0, gmvVT: 0, ordersLive: 0, ordersVT: 0, liveSessions: new Set() };
+              grouped[approvedDateStr].creators.set(username, resolvedTier);
 
               const monthStr = cc.approved_at.substring(0, 7);
-              if (!monthlyGrouped[monthStr]) monthlyGrouped[monthStr] = { gmv: 0, gmvAds: 0, creators: new Set(), pendingCreators: new Set(), videos: new Set(), gmvLive: 0, gmvVT: 0, ordersLive: 0, ordersVT: 0, liveSessions: new Set() };
-              monthlyGrouped[monthStr].creators.add(username);
+              if (!monthlyGrouped[monthStr]) monthlyGrouped[monthStr] = { gmv: 0, gmvAds: 0, creators: new Map(), pendingCreators: new Map(), videos: new Set(), gmvLive: 0, gmvVT: 0, ordersLive: 0, ordersVT: 0, liveSessions: new Set() };
+              monthlyGrouped[monthStr].creators.set(username, resolvedTier);
             }
           }
 
@@ -266,43 +277,67 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
             const kurs = (ad.kurs && ad.kurs < 1000) ? ad.kurs * 1000 : (ad.kurs || 16000);
             const deltaIdr = deltaUsd * kurs;
             
-            if (!grouped[dateStr]) grouped[dateStr] = { gmv: 0, gmvAds: 0, creators: new Set(), pendingCreators: new Set(), videos: new Set(), gmvLive: 0, gmvVT: 0, ordersLive: 0, ordersVT: 0, liveSessions: new Set() };
+            if (!grouped[dateStr]) grouped[dateStr] = { gmv: 0, gmvAds: 0, creators: new Map(), pendingCreators: new Map(), videos: new Set(), gmvLive: 0, gmvVT: 0, ordersLive: 0, ordersVT: 0, liveSessions: new Set() };
             grouped[dateStr].gmvAds += deltaIdr;
             
             const monthStr = dateStr.substring(0, 7);
-            if (!monthlyGrouped[monthStr]) monthlyGrouped[monthStr] = { gmv: 0, gmvAds: 0, creators: new Set(), pendingCreators: new Set(), videos: new Set(), gmvLive: 0, gmvVT: 0, ordersLive: 0, ordersVT: 0, liveSessions: new Set() };
+            if (!monthlyGrouped[monthStr]) monthlyGrouped[monthStr] = { gmv: 0, gmvAds: 0, creators: new Map(), pendingCreators: new Map(), videos: new Set(), gmvLive: 0, gmvVT: 0, ordersLive: 0, ordersVT: 0, liveSessions: new Set() };
             monthlyGrouped[monthStr].gmvAds += deltaIdr;
           }
         });
       }
 
-      const formattedDaily = Object.keys(grouped).map(date => ({
-        date,
-        gmvOrganic: grouped[date].gmv,
-        gmvLive: grouped[date].gmvLive,
-        gmvVT: grouped[date].gmvVT,
-        ordersLive: grouped[date].ordersLive,
-        ordersVT: grouped[date].ordersVT,
-        gmvAds: grouped[date].gmvAds,
-        totalCreators: grouped[date].creators.size,
-        totalPendingCreators: grouped[date].pendingCreators.size,
-        totalVideos: grouped[date].videos.size,
-        totalLiveSessions: grouped[date].liveSessions.size
-      })).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      const getTierCounts = (tierMap: Map<string, string>) => {
+        const counts = { nano: 0, micro: 0, macro: 0, mega: 0 };
+        tierMap.forEach(t => {
+          const lowerT = (t || '').toLowerCase();
+          if (lowerT === 'mega') counts.mega++;
+          else if (lowerT === 'macro') counts.macro++;
+          else if (lowerT === 'micro') counts.micro++;
+          else counts.nano++;
+        });
+        return counts;
+      };
 
-      const formattedMonthly = Object.keys(monthlyGrouped).map(month => ({
-        month,
-        gmvOrganic: monthlyGrouped[month].gmv,
-        gmvLive: monthlyGrouped[month].gmvLive,
-        gmvVT: monthlyGrouped[month].gmvVT,
-        ordersLive: monthlyGrouped[month].ordersLive,
-        ordersVT: monthlyGrouped[month].ordersVT,
-        gmvAds: monthlyGrouped[month].gmvAds,
-        totalCreators: monthlyGrouped[month].creators.size,
-        totalPendingCreators: monthlyGrouped[month].pendingCreators.size,
-        totalVideos: monthlyGrouped[month].videos.size,
-        totalLiveSessions: monthlyGrouped[month].liveSessions.size
-      })).sort((a, b) => new Date(b.month + '-01').getTime() - new Date(a.month + '-01').getTime());
+      const formattedDaily = Object.keys(grouped).map(date => {
+        const pendingTiers = getTierCounts(grouped[date].pendingCreators);
+        const approvedTiers = getTierCounts(grouped[date].creators);
+        return {
+          date,
+          gmvOrganic: grouped[date].gmv,
+          gmvLive: grouped[date].gmvLive,
+          gmvVT: grouped[date].gmvVT,
+          ordersLive: grouped[date].ordersLive,
+          ordersVT: grouped[date].ordersVT,
+          gmvAds: grouped[date].gmvAds,
+          totalCreators: grouped[date].creators.size,
+          totalPendingCreators: grouped[date].pendingCreators.size,
+          pendingNano: pendingTiers.nano, pendingMicro: pendingTiers.micro, pendingMacro: pendingTiers.macro, pendingMega: pendingTiers.mega,
+          approvedNano: approvedTiers.nano, approvedMicro: approvedTiers.micro, approvedMacro: approvedTiers.macro, approvedMega: approvedTiers.mega,
+          totalVideos: grouped[date].videos.size,
+          totalLiveSessions: grouped[date].liveSessions.size
+        };
+      }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+      const formattedMonthly = Object.keys(monthlyGrouped).map(month => {
+        const pendingTiers = getTierCounts(monthlyGrouped[month].pendingCreators);
+        const approvedTiers = getTierCounts(monthlyGrouped[month].creators);
+        return {
+          month,
+          gmvOrganic: monthlyGrouped[month].gmv,
+          gmvLive: monthlyGrouped[month].gmvLive,
+          gmvVT: monthlyGrouped[month].gmvVT,
+          ordersLive: monthlyGrouped[month].ordersLive,
+          ordersVT: monthlyGrouped[month].ordersVT,
+          gmvAds: monthlyGrouped[month].gmvAds,
+          totalCreators: monthlyGrouped[month].creators.size,
+          totalPendingCreators: monthlyGrouped[month].pendingCreators.size,
+          pendingNano: pendingTiers.nano, pendingMicro: pendingTiers.micro, pendingMacro: pendingTiers.macro, pendingMega: pendingTiers.mega,
+          approvedNano: approvedTiers.nano, approvedMicro: approvedTiers.micro, approvedMacro: approvedTiers.macro, approvedMega: approvedTiers.mega,
+          totalVideos: monthlyGrouped[month].videos.size,
+          totalLiveSessions: monthlyGrouped[month].liveSessions.size
+        };
+      }).sort((a, b) => new Date(b.month + '-01').getTime() - new Date(a.month + '-01').getTime());
 
       setDailyData(formattedDaily);
       setMonthlyData(formattedMonthly);
