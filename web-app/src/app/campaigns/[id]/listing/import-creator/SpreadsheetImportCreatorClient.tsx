@@ -18,6 +18,8 @@ type SpreadsheetRow = {
   qty_vt: string;
   qty_live: string;
   content_type: string;
+  no_wa: string;
+  level: string;
   
   status?: 'baru' | 'update' | 'error' | 'duplicate_campaign' | 'incomplete';
   errorMsg?: string;
@@ -43,6 +45,8 @@ const getEmptyRow = (): SpreadsheetRow => ({
   qty_vt: '1',
   qty_live: '0',
   content_type: 'Video',
+  no_wa: '',
+  level: '',
 });
 
 const determineContentType = (vt: number, live: number) => {
@@ -568,17 +572,55 @@ export default function SpreadsheetImportCreatorClient() {
           else if (newFollowers < 1000000) calculatedTier = 'Macro';
           else calculatedTier = 'Mega';
           
-          if (!lastSnap || lastSnap.followers !== newFollowers || lastSnap.gmv_30d !== newGmv || lastSnap.ratecard !== newRateCard) {
+          const newLevel = row.level ? Number(row.level) : null;
+          
+          if (!lastSnap || lastSnap.followers !== newFollowers || lastSnap.gmv_30d !== newGmv || lastSnap.ratecard !== newRateCard || lastSnap.level !== newLevel) {
             const { error: snapErr } = await supabase.from('creator_snapshots').insert({
               creator_id: cid,
               followers: newFollowers,
               gmv_30d: newGmv,
               ratecard: newRateCard,
               tier: calculatedTier,
+              level: newLevel,
               tanggal_update: new Date().toISOString().split('T')[0],
               updated_by: profile?.nama || 'System'
             });
             if (snapErr) throw snapErr;
+          }
+
+          if (row.no_wa && row.no_wa.trim()) {
+            const newNomor = row.no_wa.trim();
+            const { data: activeContacts } = await supabase.from('creator_contacts')
+              .select('id, nomor').eq('creator_id', cid).eq('status', 'aktif');
+            
+            if (!activeContacts || activeContacts.length === 0 || activeContacts[0].nomor !== newNomor) {
+              const today = new Date().toISOString().split('T')[0];
+              // Archive existing
+              if (activeContacts && activeContacts.length > 0) {
+                await supabase.from('creator_contacts').update({
+                  status: 'arsip',
+                  tanggal_diganti: today
+                }).eq('id', activeContacts[0].id);
+              }
+              // Check if it was archived before
+              const { data: existingArchived } = await supabase.from('creator_contacts')
+                .select('id').eq('creator_id', cid).eq('nomor', newNomor).single();
+                
+              if (existingArchived) {
+                 await supabase.from('creator_contacts').update({
+                    status: 'aktif',
+                    tanggal_mulai: today,
+                    tanggal_diganti: null
+                 }).eq('id', existingArchived.id);
+              } else {
+                 await supabase.from('creator_contacts').insert({
+                    creator_id: cid,
+                    nomor: newNomor,
+                    status: 'aktif',
+                    tanggal_mulai: today
+                 });
+              }
+            }
           }
 
           if (row.status === 'duplicate_campaign' && row.action === 'update' && row.existingData) {
@@ -689,6 +731,8 @@ export default function SpreadsheetImportCreatorClient() {
                 <tr>
                   <th className="w-12 px-2 py-2 bg-slate-100 border-b border-r border-slate-300 sticky top-0 z-10 text-center text-xs font-semibold text-slate-500">No</th>
                   <TableHeader title="Username *" width="w-48" />
+                  <TableHeader title="No WA" width="w-40" />
+                  <TableHeader title="Level" width="w-24" />
                   <TableHeader title="Followers *" width="w-32" />
                   <TableHeader title="GMV 30 Days *" width="w-40" />
                   <TableHeader title="Rate Card (Rp)" width="w-40" />
@@ -710,6 +754,18 @@ export default function SpreadsheetImportCreatorClient() {
                       {/* USERNAME */}
                       <td className="relative p-0 border-b border-r border-slate-300 group" onMouseEnter={() => handleDragFillEnter(idx)}>
                         <input type="text" value={row.username} onChange={(e) => updateCell(idx, 'username', e.target.value)} onPaste={(e) => handlePaste(e, idx, 'username')} className={`w-full h-full min-h-[36px] px-3 py-1 outline-none text-sm transition-colors ${hasError ? 'bg-red-50 text-red-700' : 'focus:bg-blue-50'} w-48`} />
+                      </td>
+                      
+                      {/* NO WA */}
+                      <td className="relative p-0 border-b border-r border-slate-300 group" onMouseEnter={() => handleDragFillEnter(idx)}>
+                        <input type="text" value={row.no_wa} onChange={(e) => updateCell(idx, 'no_wa', e.target.value)} onPaste={(e) => handlePaste(e, idx, 'no_wa')} className={`w-full h-full min-h-[36px] px-3 py-1 outline-none text-sm transition-colors focus:bg-blue-50 w-40`} />
+                        <div className="absolute right-0 bottom-0 w-2 h-2 bg-blue-500 cursor-crosshair opacity-0 group-hover:opacity-100 transition-opacity z-10" onMouseDown={(e) => { e.preventDefault(); handleDragFillStart(idx, 'no_wa', row.no_wa); }} />
+                      </td>
+                      
+                      {/* LEVEL */}
+                      <td className="relative p-0 border-b border-r border-slate-300 group" onMouseEnter={() => handleDragFillEnter(idx)}>
+                        <input type="text" value={row.level} onChange={(e) => updateCell(idx, 'level', e.target.value)} onPaste={(e) => handlePaste(e, idx, 'level')} className={`w-full h-full min-h-[36px] px-3 py-1 outline-none text-sm transition-colors focus:bg-blue-50 w-24`} />
+                        <div className="absolute right-0 bottom-0 w-2 h-2 bg-blue-500 cursor-crosshair opacity-0 group-hover:opacity-100 transition-opacity z-10" onMouseDown={(e) => { e.preventDefault(); handleDragFillStart(idx, 'level', row.level); }} />
                       </td>
                       
                       {/* FOLLOWERS */}

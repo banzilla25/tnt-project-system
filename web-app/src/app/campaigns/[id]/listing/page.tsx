@@ -790,6 +790,7 @@ function CampaignListingContent() {
         not_approved_by_profile:profiles!campaign_creators_not_approved_by_fkey ( nama ),
         creators!inner (
           id, username, nama_asli, link_account,
+          creator_contacts ( id, nomor, status ),
           creator_snapshots${filterTier || filterLevel ? '!inner' : ''} ( id, audience_age, level, gmv_30d, tanggal_update, followers, tier ),
           creator_niches${filterNiche ? '!inner' : ''} ( niche_id, niches ( nama ) )
         ),
@@ -1062,7 +1063,7 @@ function CampaignListingContent() {
       const { data: existingData, error: fetchErr } = await supabase.from('creators')
         .select(`
           id, username, added_by,
-          creator_contacts(id),
+          creator_contacts(id, nomor, status),
           creator_snapshots(id),
           creator_niches(niche_id),
           campaign_creators( campaign_id, campaigns(nama) )
@@ -1107,7 +1108,7 @@ function CampaignListingContent() {
       const { data: foundInDb, error: fetchErr } = await supabase.from('creators')
         .select(`
           id, username, added_by,
-          creator_contacts(id),
+          creator_contacts(id, nomor, status),
           creator_snapshots(id),
           creator_niches(niche_id),
           campaign_creators( campaign_id, campaigns(nama) )
