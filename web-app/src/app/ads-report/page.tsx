@@ -894,7 +894,10 @@ export default function AdsReportPage() {
                         </div>
                       <div className="flex justify-between text-xs">
                         <span className={isActive ? 'text-blue-100' : 'text-slate-500'}>GMV:</span>
-                        <span className={`font-bold ${isActive ? 'text-emerald-300' : 'text-emerald-600'}`}>Rp {camp.gmv.toLocaleString('id-ID')}</span>
+                        <div className="flex flex-col items-end">
+                          <span className={`font-bold ${isActive ? 'text-emerald-300' : 'text-emerald-600'}`}>Rp {camp.gmv.toLocaleString('id-ID')}</span>
+                          <span className={`text-[10px] ${isActive ? 'text-blue-200' : 'text-slate-400'}`}>${(camp.gmv_usd || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        </div>
                       </div>
                       <div className="flex justify-between text-xs">
                         <span className={isActive ? 'text-blue-100' : 'text-slate-500'}>Total Orders:</span>

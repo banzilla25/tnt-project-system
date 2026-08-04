@@ -1177,36 +1177,73 @@ function CampaignListingContent() {
         });
       }
 
-      // 3. Prepare campaign creators bulk payload
-      const campaignPayloads = allCreators.map(c => ({
-        campaign_id: campaignId,
-        creator_id: c.id,
-        tier: 'NANO',
-        price: Number(c.price),
-        qty_vt: Number(c.qtyVt),
-        qty_live: Number(c.qtyLive) || 0,
-        content_type: c.contentType || 'Video',
-        approval: 'pending',
-        pic_assist: profile?.nama || '-',
-        notes_manager: '',
-        notes_pic: '',
-        sample_progress: 'Belum',
-        gmv_organic_legacy: 0,
-        gmv_ads_legacy: 0,
-        status_bayar: 'belum',
-        nominal_pelunasan: 0,
-        tgl_pembayaran: null,
-        client_approval: isClientApprovalRequired ? 'pending' : 'not_required',
-        added_by: profile?.id || null,
-        approved_by: null,
-        approved_at: null,
-        not_approved_by: null,
-        not_approved_at: null,
-        payment_updated_by: null,
-        payment_updated_at: null
-      }));
+      // 3. Fetch latest snapshots for all creators to get accurate tier/followers data
+      const creatorIds = allCreators.map(c => c.id).filter(Boolean);
+      const snapshotMap = new Map<number, any>();
+      
+      if (creatorIds.length > 0) {
+        for (let i = 0; i < creatorIds.length; i += 50) {
+          const batch = creatorIds.slice(i, i + 50);
+          const { data: snapData } = await supabase.from('creator_snapshots')
+            .select('id, creator_id, followers, gmv_30d, tier, ratecard, level, audience_age, tanggal_update')
+            .in('creator_id', batch)
+            .order('id', { ascending: false });
+          
+          if (snapData) {
+            for (const snap of snapData) {
+              // Only keep the latest snapshot per creator (first one since ordered DESC)
+              if (!snapshotMap.has(snap.creator_id)) {
+                snapshotMap.set(snap.creator_id, snap);
+              }
+            }
+          }
+        }
+      }
 
-      // 4. Check if their USERNAME is already in the campaign to absolutely avoid duplication
+      // Helper to calculate tier from followers count
+      const calculateTier = (followers: number): string => {
+        if (followers < 10000) return 'Nano';
+        if (followers < 100000) return 'Micro';
+        if (followers < 1000000) return 'Macro';
+        return 'Mega';
+      };
+
+      // 4. Prepare campaign creators bulk payload with accurate tier from snapshots
+      const campaignPayloads = allCreators.map(c => {
+        const snap = snapshotMap.get(c.id);
+        const followers = snap?.followers || 0;
+        const tier = followers > 0 ? calculateTier(followers) : (snap?.tier || 'Nano');
+        
+        return {
+          campaign_id: campaignId,
+          creator_id: c.id,
+          tier,
+          price: Number(c.price),
+          qty_vt: Number(c.qtyVt),
+          qty_live: Number(c.qtyLive) || 0,
+          content_type: c.contentType || 'Video',
+          approval: 'pending',
+          pic_assist: profile?.nama || '-',
+          notes_manager: '',
+          notes_pic: '',
+          sample_progress: 'Belum',
+          gmv_organic_legacy: 0,
+          gmv_ads_legacy: 0,
+          status_bayar: 'belum',
+          nominal_pelunasan: 0,
+          tgl_pembayaran: null,
+          client_approval: isClientApprovalRequired ? 'pending' : 'not_required',
+          added_by: profile?.id || null,
+          approved_by: null,
+          approved_at: null,
+          not_approved_by: null,
+          not_approved_at: null,
+          payment_updated_by: null,
+          payment_updated_at: null
+        };
+      });
+
+      // 5. Check if their USERNAME is already in the campaign to absolutely avoid duplication
       const { data: existingCcData } = await supabase.from('campaign_creators')
         .select(`
           creator_id,
@@ -1231,8 +1268,23 @@ function CampaignListingContent() {
       if (newCampaignPayloads.length > 0) {
         const { error: ccErr } = await supabase.from('campaign_creators').insert(newCampaignPayloads);
         if (ccErr) throw ccErr;
-        
 
+        // 6. Create initial snapshot for creators that don't have any snapshot yet
+        const creatorsNeedingSnapshot = newCampaignPayloads
+          .filter(p => !snapshotMap.has(p.creator_id))
+          .map(p => ({
+            creator_id: p.creator_id,
+            followers: 0,
+            gmv_30d: 0,
+            ratecard: p.price || 0,
+            tier: 'Nano',
+            tanggal_update: new Date().toISOString().split('T')[0],
+            updated_by: profile?.nama || 'System'
+          }));
+
+        if (creatorsNeedingSnapshot.length > 0) {
+          await supabase.from('creator_snapshots').insert(creatorsNeedingSnapshot);
+        }
       }
 
       // Refresh to show changes immediately

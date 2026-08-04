@@ -569,16 +569,16 @@ export default function SpreadsheetImportCreatorClient() {
           else calculatedTier = 'Mega';
           
           if (!lastSnap || lastSnap.followers !== newFollowers || lastSnap.gmv_30d !== newGmv || lastSnap.ratecard !== newRateCard) {
-            await supabase.from('creator_snapshots').insert({
+            const { error: snapErr } = await supabase.from('creator_snapshots').insert({
               creator_id: cid,
               followers: newFollowers,
               gmv_30d: newGmv,
               ratecard: newRateCard,
               tier: calculatedTier,
-              likes: lastSnap?.likes || 0,
-              avg_views: lastSnap?.avg_views || 0,
-              engagement_rate: lastSnap?.engagement_rate || 0,
+              tanggal_update: new Date().toISOString().split('T')[0],
+              updated_by: profile?.nama || 'System'
             });
+            if (snapErr) throw snapErr;
           }
 
           if (row.status === 'duplicate_campaign' && row.action === 'update' && row.existingData) {

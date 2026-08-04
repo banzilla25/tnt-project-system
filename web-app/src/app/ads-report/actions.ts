@@ -13,18 +13,32 @@ export async function getAdsReportData(params: {
 }) {
   const supabase = await createClient();
   
-  // 1. Fetch ALL data directly from `ads_performance` (ignore date filter for DB query to get all-time stats)
-  let query = supabase
-    .from('ads_performance')
-    .select('*, creators(username)')
-    .limit(100000);
+  let rawAllData: any[] = [];
+  let from = 0;
+  const step = 1000;
+  let hasMore = true;
+  
+  while (hasMore) {
+    let query = supabase
+      .from('ads_performance')
+      .select('*, creators(username)')
+      .range(from, from + step - 1);
+      
+    if (params.campaignAdsName) {
+      query = query.eq('campaign_ads_name', params.campaignAdsName);
+    }
     
-  if (params.campaignAdsName) {
-    query = query.eq('campaign_ads_name', params.campaignAdsName);
+    const { data, error } = await query;
+    if (error) throw error;
+    
+    if (data && data.length > 0) {
+      rawAllData = [...rawAllData, ...data];
+      from += step;
+      if (data.length < step) hasMore = false;
+    } else {
+      hasMore = false;
+    }
   }
-
-  const { data: rawAllData, error } = await query;
-  if (error) throw error;
   
   if (!rawAllData || rawAllData.length === 0) {
     return { 
@@ -143,11 +157,12 @@ export async function getAdsReportData(params: {
        continue;
     }
     if (!campaignBreakdown[cId]) {
-      campaignBreakdown[cId] = { name: campaignNames[cId] || 'Unknown Campaign', spend: 0, gmv: 0, impressions: 0, clicks: 0, purchases: 0, unmapped: 0, spend_usd: 0 };
+      campaignBreakdown[cId] = { name: campaignNames[cId] || 'Unknown Campaign', spend: 0, gmv: 0, gmv_usd: 0, impressions: 0, clicks: 0, purchases: 0, unmapped: 0, spend_usd: 0 };
     }
     campaignBreakdown[cId].spend += (ad.cost_usd || 0) * kurs;
     campaignBreakdown[cId].spend_usd += (ad.cost_usd || 0);
     campaignBreakdown[cId].gmv += (ad.gross_revenue_usd || 0) * kurs;
+    campaignBreakdown[cId].gmv_usd += (ad.gross_revenue_usd || 0);
     campaignBreakdown[cId].impressions += (ad.impressions || 0);
     campaignBreakdown[cId].clicks += (ad.clicks || 0);
     campaignBreakdown[cId].purchases += (ad.purchases || 0);
