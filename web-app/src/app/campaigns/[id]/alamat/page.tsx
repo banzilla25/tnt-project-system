@@ -308,6 +308,7 @@ export default function AlamatPage() {
         (existing.nama_penerima || '') !== (formData.nama_penerima || '') ||
         (existing.nama_jalan || '') !== (formData.nama_jalan || '') ||
         (existing.kecamatan || '') !== (formData.kecamatan || '') ||
+        (existing.kelurahan || '') !== (formData.kelurahan || '') ||
         (existing.kabupaten_kota || '') !== (formData.kabupaten_kota || '') ||
         (existing.provinsi || '') !== (formData.provinsi || '') ||
         (existing.kode_pos || '') !== (formData.kode_pos || '') ||
@@ -355,6 +356,13 @@ export default function AlamatPage() {
     
     // Save Whatsapp to creator_contacts
     if (cc && cc.creator_id && isWaChanged && cleanWa) {
+      // 1. Archive old active contacts first
+      await supabase.from('creator_contacts')
+        .update({ status: 'arsip' })
+        .eq('creator_id', cc.creator_id)
+        .eq('status', 'aktif');
+        
+      // 2. Insert new contact
       await supabase.from('creator_contacts').insert({
         creator_id: cc.creator_id,
         nomor: cleanWa,
@@ -364,7 +372,10 @@ export default function AlamatPage() {
       setLocalCreators(prev => prev.map(c => {
         if (c.id === ccId) {
           const oldContacts = Array.isArray(c.creators?.creator_contacts) ? c.creators.creator_contacts : (c.creators?.creator_contacts ? [c.creators.creator_contacts] : []);
-          const updatedContacts = [...oldContacts, { nomor: cleanWa, status: 'aktif' }];
+          const archivedContacts = oldContacts.map((contact: any) => 
+            contact.status === 'aktif' ? { ...contact, status: 'arsip' } : contact
+          );
+          const updatedContacts = [...archivedContacts, { nomor: cleanWa, status: 'aktif' }];
           return {
             ...c,
             creators: {

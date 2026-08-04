@@ -210,7 +210,7 @@ export default function SpreadsheetImportCreatorClient() {
         }
       }
 
-      const columns: (keyof SpreadsheetRow)[] = ['username', 'followers', 'gmv_30_days', 'rate_card', 'qty_vt', 'qty_live'];
+      const columns: (keyof SpreadsheetRow)[] = ['username', 'no_wa', 'level', 'followers', 'gmv_30_days', 'rate_card', 'qty_vt', 'qty_live'];
       const startColIdx = columns.indexOf(startColName);
       if (startColIdx === -1) return;
 
@@ -237,7 +237,7 @@ export default function SpreadsheetImportCreatorClient() {
             
             if (targetColName === 'username') {
               cleanedVal = cleanedVal.replace(/^@/, '').toLowerCase();
-            } else if (['followers', 'gmv_30_days', 'rate_card', 'qty_vt', 'qty_live'].includes(targetColName)) {
+            } else if (['level', 'followers', 'gmv_30_days', 'rate_card', 'qty_vt', 'qty_live'].includes(targetColName)) {
               cleanedVal = parseSmartNumber(cleanedVal);
               if (!cleanedVal && ['qty_vt', 'qty_live', 'rate_card'].includes(targetColName)) cleanedVal = '0';
             }
