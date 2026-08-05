@@ -696,6 +696,7 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
                     <th>Kreator (Mapped)</th>
                     <th className="text-right">Cost (USD)</th>
                     <th className="text-right">Revenue (USD)</th>
+                    <th className="text-right">GMV (IDR)</th>
                     <th className="text-center w-[150px]">Kurs (IDR)</th>
                     <th className="text-center">ROAS</th>
                   </tr>
@@ -704,23 +705,29 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
                   {adsPerf.map((ad, i) => {
                     const creatorUsername = ad.creators?.username;
                     const kurs = ad.kurs || 16000;
+                    const adjustedKurs = kurs < 1000 ? kurs * 1000 : kurs;
                     const costUsd = ad.cost_usd || 0;
                     const revenueUsd = ad.gross_revenue_usd || 0;
                     
-                    const costIdr = costUsd * kurs;
-                    const revenueIdr = revenueUsd * kurs;
+                    const costIdr = costUsd * adjustedKurs;
+                    const revenueIdr = revenueUsd * adjustedKurs;
                     const roas = costIdr > 0 ? (revenueIdr / costIdr).toFixed(2) : '-';
                     const isEditing = editingKursId === ad.id;
+                    const isMapped = !!creatorUsername;
 
                     return (
-                      <tr key={i} className="border-b border-line">
+                      <tr key={i} className={`border-b border-line ${!isMapped ? 'bg-amber-50/30' : ''}`}>
                         <td className="font-medium text-text truncate max-w-[200px]" title={ad.ad_name}>{ad.ad_name}</td>
                         <td className="font-mono text-[12px] text-text-soft">{ad.ad_id}</td>
                         <td>
-                          {creatorUsername ? <span className="font-medium text-indigo-600">@{creatorUsername}</span> : <span className="text-amber-500 italic text-[12px]">Belum di-map</span>}
+                          {isMapped 
+                            ? <span className="font-medium text-indigo-600">@{creatorUsername}</span> 
+                            : <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-amber-100 text-amber-700 border border-amber-200">UNMAPPED</span>
+                          }
                         </td>
                         <td className="text-right text-red-600 font-medium">${costUsd.toFixed(2)}</td>
                         <td className="text-right text-emerald-600 font-bold">${revenueUsd.toFixed(2)}</td>
+                        <td className="text-right font-semibold text-text">Rp {revenueIdr.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</td>
                         <td className="text-center">
                           {isEditing ? (
                             <div className="flex items-center justify-center gap-[4px]">
@@ -740,10 +747,10 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
                             </div>
                           ) : (
                             <div className="flex items-center justify-center gap-[8px] group">
-                              <span className="font-medium">Rp {kurs.toLocaleString()}</span>
+                              <span className="font-medium">Rp {adjustedKurs.toLocaleString()}</span>
                               {hasAccess && (
                                 <button 
-                                  onClick={() => { setEditingKursId(ad.id); setEditKursValue(kurs.toString()); }}
+                                  onClick={() => { setEditingKursId(ad.id); setEditKursValue(adjustedKurs.toString()); }}
                                   className="opacity-0 group-hover:opacity-100 transition-opacity text-text-soft hover:text-indigo-600"
                                 >
                                   <Edit2 className="w-3 h-3" />

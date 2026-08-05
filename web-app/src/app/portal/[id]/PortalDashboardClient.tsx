@@ -105,7 +105,8 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
   const totalCampaignLivestreams = fastVideoCountsData ? fastVideoCountsData.total_livestream : 0;
 
   const totalOrganic = rpc?.organic_gmv !== undefined ? Number(rpc.organic_gmv) : 0;
-  const totalAdsGmv = rpc?.ads_gmv !== undefined ? Number(rpc.ads_gmv) : (initialTotalAdsGmv || 0); 
+  // Use initialTotalAdsGmv for global total consistency with internal dashboard & Ads Report
+  const totalAdsGmv = initialTotalAdsGmv || 0; 
   const unattributedGmv = rpc?.unattributed_gmv !== undefined ? Number(rpc.unattributed_gmv) : 0;
   
   const totalAllGmv = totalOrganic + unattributedGmv + totalAdsGmv;
