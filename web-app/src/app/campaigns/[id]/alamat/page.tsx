@@ -44,7 +44,7 @@ export default function AlamatPage() {
 
   const [localCreators, setLocalCreators] = useState<any[]>([]);
   const [isFetchingCC, setIsFetchingCC] = useState(true);
-  const [sortConfig, setSortConfig] = useState<{ key: string; dir: 'asc' | 'desc' }>({ key: 'username', dir: 'asc' });
+  const [sortConfig, setSortConfig] = useState<{ key: string; dir: 'asc' | 'desc' }>({ key: 'id', dir: 'desc' });
   const [currentPage, setCurrentPage] = useState(0);
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const hasSyncedRef = useRef(new Set<number>());
@@ -204,6 +204,11 @@ export default function AlamatPage() {
         const addrA = addressMap.get(a.id)?.proses || '';
         const addrB = addressMap.get(b.id)?.proses || '';
         return addrA.localeCompare(addrB) * dir;
+      }
+      if (sortConfig.key === 'id') {
+        const idA = addressMap.get(a.id)?.id || a.id;
+        const idB = addressMap.get(b.id)?.id || b.id;
+        return (idA - idB) * dir;
       }
       return 0;
     });
