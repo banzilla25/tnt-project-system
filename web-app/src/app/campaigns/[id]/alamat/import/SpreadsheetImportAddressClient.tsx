@@ -91,10 +91,11 @@ export default function SpreadsheetImportAddressClient() {
     
     setIsAutoDetecting(true);
     try {
-      const { data: matchedCCs } = await supabase.from('campaign_creators')
+      const { data: allCCs } = await supabase.from('campaign_creators')
         .select('id, creators!inner(id, username)')
-        .eq('campaign_id', campaignId)
-        .in('creators.username', usernames);
+        .eq('campaign_id', campaignId);
+        
+      const matchedCCs = (allCCs || []).filter((cc: any) => usernames.includes(cc.creators.username.toLowerCase()));
         
       if (matchedCCs && matchedCCs.length > 0) {
         setRows(currentRows => {

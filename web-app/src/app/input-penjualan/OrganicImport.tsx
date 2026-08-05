@@ -48,6 +48,9 @@ type PreviewStats = {
   unmappedSkus: SkuInfo[];
   topCreators: CreatorGMV[];
   dateRange: string;
+  missingCampaignRows: number;
+  missingCreatorRows: number;
+  campaignBreakdown: { name: string; gmv: number; videos: number; live: number }[];
 };
 
 export default function OrganicImport({ mode = 'sales' }: { mode?: 'sales' | 'video' | 'live' }) {
@@ -291,9 +294,12 @@ export default function OrganicImport({ mode = 'sales' }: { mode?: 'sales' | 'vi
     let refundCount = 0;
     let unmappedRowsCount = 0;
     let totalGmv = 0;
+    let missingCampaignRows = 0;
+    let missingCreatorRows = 0;
     
     const uniqueCreators = new Set<string>();
     const creatorGmvMap = new Map<string, number>();
+    const campaignBreakdownMap = new Map<string, { gmv: number; videos: number; live: number }>();
     
     const mappedSkusMap = new Map<string, string>(); // id -> name
     const unmappedSkusMap = new Map<string, string>(); // id -> name
@@ -476,11 +482,27 @@ export default function OrganicImport({ mode = 'sales' }: { mode?: 'sales' | 'vi
 
       if (!mappedCampaignId) {
         unmappedRowsCount++;
+        missingCampaignRows++;
         if (rawProductId) unmappedSkusMap.set(rawProductId, productName);
         // Tetap simpan baris ini dengan campaign_id = null
       } else {
         if (rawProductId) mappedSkusMap.set(rawProductId, productName);
       }
+      
+      if (!creatorUsername) {
+        missingCreatorRows++;
+      }
+      
+      const campName = mappedCampaignId ? (localCampaigns.find(c => c.id === mappedCampaignId)?.nama || 'Unknown Campaign') : 'Belum Terpetakan';
+      const breakdown = campaignBreakdownMap.get(campName) || { gmv: 0, videos: 0, live: 0 };
+      if (isSalesFormat) {
+          breakdown.gmv += gmv;
+      } else if (isLiveFormat) {
+          breakdown.live += 1;
+      } else {
+          breakdown.videos += 1;
+      }
+      campaignBreakdownMap.set(campName, breakdown);
 
       // Update Date Range
       const rowDate = new Date(tanggal).getTime();
@@ -566,7 +588,10 @@ export default function OrganicImport({ mode = 'sales' }: { mode?: 'sales' | 'vi
       mappedSkus: mappedSkusArray,
       unmappedSkus: unmappedSkusArray,
       topCreators,
-      dateRange: dateRangeStr
+      dateRange: dateRangeStr,
+      missingCampaignRows,
+      missingCreatorRows,
+      campaignBreakdown: Array.from(campaignBreakdownMap.entries()).map(([name, data]) => ({ name, ...data })).sort((a, b) => b.gmv - a.gmv || b.videos - a.videos)
     });
     setStep(2);
     setLoading(false);
@@ -985,7 +1010,31 @@ export default function OrganicImport({ mode = 'sales' }: { mode?: 'sales' | 'vi
 
         {step === 2 && stats && (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            {stats.unmappedRows > 0 ? (
+            {stats.missingCampaignRows > 0 && (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-4 shadow-sm shadow-red-100">
+                <AlertCircle className="w-6 h-6 text-red-600 shrink-0 mt-1" />
+                <div>
+                  <h4 className="font-bold text-red-900 mb-1">Peringatan: Campaign ID Kosong!</h4>
+                  <p className="text-sm text-red-800">
+                    Ditemukan <b>{stats.missingCampaignRows} baris</b> data yang tidak memiliki Campaign ID (atau SKU tidak terdaftar). Data ini akan masuk sebagai "Belum Terpetakan" dan <b>TIDAK AKAN</b> dihitung ke performa Campaign manapun. Harap daftarkan SKU atau perbaiki file Excel Anda sebelum melanjutkan.
+                  </p>
+                </div>
+              </div>
+            )}
+            
+            {stats.missingCreatorRows > 0 && (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-4 shadow-sm shadow-red-100">
+                <AlertCircle className="w-6 h-6 text-red-600 shrink-0 mt-1" />
+                <div>
+                  <h4 className="font-bold text-red-900 mb-1">Peringatan: Creator Username Kosong!</h4>
+                  <p className="text-sm text-red-800">
+                    Ditemukan <b>{stats.missingCreatorRows} baris</b> data yang tidak memiliki Username Kreator. Data ini tidak akan masuk ke performa kreator manapun.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {stats.unmappedRows > 0 && stats.missingCampaignRows === 0 ? (
               <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-4">
                 <AlertCircle className="w-6 h-6 text-amber-600 shrink-0 mt-1" />
                 <div>
@@ -995,15 +1044,60 @@ export default function OrganicImport({ mode = 'sales' }: { mode?: 'sales' | 'vi
                   </p>
                 </div>
               </div>
-            ) : (
+            ) : null}
+            
+            {stats.unmappedRows === 0 && stats.missingCampaignRows === 0 && stats.missingCreatorRows === 0 && (
               <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-start gap-4">
                 <CheckCircle2 className="w-6 h-6 text-green-600 shrink-0 mt-1" />
                 <div>
-                  <h4 className="font-bold text-green-900 mb-1">Semua SKU Terdaftar!</h4>
-                  <p className="text-sm text-green-800">Bagus! Semua produk di dalam file ini cocok dengan SKU yang sudah Bapak daftarkan di sistem.</p>
+                  <h4 className="font-bold text-green-900 mb-1">Semua Data Valid & Terpetakan!</h4>
+                  <p className="text-sm text-green-800">Bagus! Semua produk di dalam file ini cocok dengan SKU yang sudah didaftarkan, dan semua baris memiliki Campaign ID.</p>
                 </div>
               </div>
             )}
+
+            <div className="bg-slate-900 rounded-xl p-5 text-white shadow-lg relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/20 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none"></div>
+              <h3 className="font-bold text-lg mb-4 relative z-10 flex items-center gap-2">
+                <BarChart3 className="w-5 h-5 text-indigo-400" /> Ringkasan Penambahan Data
+              </h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 relative z-10">
+                <div className="bg-slate-800/50 border border-slate-700/50 p-4 rounded-xl">
+                  <p className="text-xs text-slate-400 font-medium mb-1">Total GMV (Masuk)</p>
+                  <p className="text-xl font-bold text-emerald-400">Rp {(stats.totalGmv / 1000000).toFixed(1)}M</p>
+                  <p className="text-[10px] text-slate-500 mt-1">Rp {stats.totalGmv.toLocaleString()}</p>
+                </div>
+                <div className="bg-slate-800/50 border border-slate-700/50 p-4 rounded-xl">
+                  <p className="text-xs text-slate-400 font-medium mb-1">Baris Data Valid</p>
+                  <p className="text-xl font-bold text-white">{stats.validRows.toLocaleString()}</p>
+                  <p className="text-[10px] text-slate-500 mt-1">{stats.refunds} refund dilewati</p>
+                </div>
+                <div className="bg-slate-800/50 border border-slate-700/50 p-4 rounded-xl">
+                  <p className="text-xs text-slate-400 font-medium mb-1">Total Video Baru</p>
+                  <p className="text-xl font-bold text-blue-400">{stats.campaignBreakdown.reduce((sum, b) => sum + b.videos, 0).toLocaleString()}</p>
+                </div>
+                <div className="bg-slate-800/50 border border-slate-700/50 p-4 rounded-xl">
+                  <p className="text-xs text-slate-400 font-medium mb-1">Total Livestream</p>
+                  <p className="text-xl font-bold text-amber-400">{stats.campaignBreakdown.reduce((sum, b) => sum + b.live, 0).toLocaleString()}</p>
+                </div>
+              </div>
+              
+              <div className="mt-4 pt-4 border-t border-slate-700/50 relative z-10">
+                <p className="text-xs text-slate-400 font-bold mb-3 uppercase tracking-wider">Breakdown per Campaign</p>
+                <div className="grid md:grid-cols-2 gap-3 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
+                  {stats.campaignBreakdown.map((b, i) => (
+                    <div key={i} className="flex justify-between items-center bg-slate-800/50 p-3 rounded-lg border border-slate-700/30">
+                      <span className={`font-medium text-sm truncate pr-2 ${b.name === 'Belum Terpetakan' ? 'text-red-400' : 'text-slate-200'}`} title={b.name}>{b.name}</span>
+                      <div className="flex gap-3 text-xs text-right whitespace-nowrap">
+                        {b.gmv > 0 && <span className="text-emerald-400 font-semibold">+Rp {(b.gmv / 1000000).toFixed(1)}M</span>}
+                        {b.videos > 0 && <span className="text-blue-400 font-semibold">+{b.videos} Vid</span>}
+                        {b.live > 0 && <span className="text-amber-400 font-semibold">+{b.live} Live</span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
 
             <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4">
               <p className="text-sm font-semibold text-indigo-900 mb-1">Rentang Tanggal Data:</p>
@@ -1011,30 +1105,7 @@ export default function OrganicImport({ mode = 'sales' }: { mode?: 'sales' | 'vi
               <p className="text-xs text-indigo-600 mt-1">Pastikan ini adalah rentang tanggal yang benar sebelum klik Import.</p>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="bg-slate-50 border border-slate-100 p-4 rounded-xl">
-                <BarChart3 className="w-5 h-5 text-emerald-600 mb-2" />
-                <p className="text-xs text-slate-500 font-medium">Total GMV (Masuk)</p>
-                <p className="text-lg font-bold text-slate-900">Rp {(stats.totalGmv / 1000000).toFixed(1)}M</p>
-                <p className="text-[10px] font-semibold text-slate-500 mt-1">Rp {stats.totalGmv.toLocaleString()}</p>
-              </div>
-              <div className="bg-slate-50 border border-slate-100 p-4 rounded-xl">
-                <FileSpreadsheet className="w-5 h-5 text-indigo-600 mb-2" />
-                <p className="text-xs text-slate-500 font-medium">Baris Data Valid</p>
-                <p className="text-lg font-bold text-slate-900">{stats.validRows.toLocaleString()}</p>
-                <p className="text-xs text-slate-400 mt-1">{stats.refunds} refund dilewati</p>
-              </div>
-              <div className="bg-slate-50 border border-slate-100 p-4 rounded-xl">
-                <Users className="w-5 h-5 text-purple-600 mb-2" />
-                <p className="text-xs text-slate-500 font-medium">Kreator Unik</p>
-                <p className="text-lg font-bold text-slate-900">{stats.uniqueCreators}</p>
-              </div>
-              <div className="bg-slate-50 border border-slate-100 p-4 rounded-xl">
-                <Tags className="w-5 h-5 text-amber-600 mb-2" />
-                <p className="text-xs text-slate-500 font-medium">Belum Terpetakan</p>
-                <p className="text-lg font-bold text-amber-600">{stats.unmappedRows}</p>
-              </div>
-            </div>
+
 
             <div className="grid md:grid-cols-2 gap-6">
               {/* Leaderboard Manual Verification */}
@@ -1157,15 +1228,22 @@ export default function OrganicImport({ mode = 'sales' }: { mode?: 'sales' | 'vi
                     </tr>
                   </thead>
                   <tbody>
-                    {previewPayload.slice((previewPage - 1) * 50, previewPage * 50).map((row, idx) => (
-                      <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50">
+                    {previewPayload.slice((previewPage - 1) * 50, previewPage * 50).map((row, idx) => {
+                      const isError = !row.campaign_id || !row.creator_username;
+                      return (
+                      <tr key={idx} className={`border-b border-slate-100 hover:bg-slate-50 ${isError ? 'bg-red-50/50' : ''}`}>
                         <td className="p-3 text-slate-400">{(previewPage - 1) * 50 + idx + 1}</td>
                         <td className="p-3">{new Date(row.tanggal).toLocaleDateString('id-ID')}</td>
-                        <td className="p-3 font-medium text-slate-700">@{row.creator_username}</td>
+                        <td className="p-3 font-medium text-slate-700">
+                          {row.creator_username ? `@${row.creator_username}` : <span className="text-red-500 text-xs font-bold bg-red-100 px-2 py-1 rounded">KOSONG</span>}
+                        </td>
                         <td className="p-3 font-mono text-xs text-slate-500">{row.order_id || row.content_uid}</td>
                         <td className="p-3 text-emerald-600 font-semibold">{row.gmv.toLocaleString()}</td>
+                        <td className="p-3">
+                          {!row.campaign_id && <span className="text-red-500 text-xs font-bold bg-red-100 px-2 py-1 rounded">Campaign/SKU Belum Terdaftar</span>}
+                        </td>
                       </tr>
-                    ))}
+                    )})}
                   </tbody>
                 </table>
               </div>

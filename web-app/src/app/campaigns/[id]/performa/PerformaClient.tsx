@@ -24,6 +24,7 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
   const [initialTotalAdsGmv, setInitialTotalAdsGmv] = useState(0);
   const [initialTotalAdsGmvUsd, setInitialTotalAdsGmvUsd] = useState(0);
   const [initialTotalAdsSpend, setInitialTotalAdsSpend] = useState(0);
+  const [initialMappedAdsGmv, setInitialMappedAdsGmv] = useState(0);
   const [adsPerf, setAdsPerf] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -110,6 +111,7 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
       let globalAdsGmv = 0;
       let globalAdsGmvUsd = 0;
       let globalAdsSpend = 0;
+      let mappedAdsGmv = 0;
 
       // === FETCH CREATOR COUNTS USING RPC ===
       let fastCounts = { approved: 0, pending: 0, all: 0 };
@@ -144,6 +146,7 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
         globalAdsSpend += (ad.cost_usd || 0);
 
         if (ad.creator_id) {
+          mappedAdsGmv += (ad.gross_revenue_usd || 0) * kurs;
           if (!adsStatsByCreator[ad.creator_id]) {
             adsStatsByCreator[ad.creator_id] = { gmvAds: 0, costAds: 0, itemsSoldAds: 0 };
           }
@@ -156,6 +159,7 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
       setInitialTotalAdsGmv(globalAdsGmv);
       setInitialTotalAdsGmvUsd(globalAdsGmvUsd);
       setInitialTotalAdsSpend(globalAdsSpend);
+      setInitialMappedAdsGmv(mappedAdsGmv);
       setAdsPerf(Array.from(latestAdsMap.values()));
 
       const computedStats = ccData.map((cc: any) => {
@@ -416,6 +420,9 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
   const totalOrganic = rpc.organic_gmv !== undefined ? Number(rpc.organic_gmv) : (isFiltered ? fbOrganic : (totalSales?.totalOrganic || fbOrganic));
   // Always use initialTotalAdsGmv for accurate deduplicated total, unless filtered by creator
   const totalAdsGmv = rpc.ads_gmv !== undefined ? Number(rpc.ads_gmv) : (isFiltered ? fbAds : initialTotalAdsGmv); 
+  const mappedAdsGmv = isFiltered ? fbAds : initialMappedAdsGmv;
+  const unmappedAdsGmv = totalAdsGmv - mappedAdsGmv;
+  
   const unattributedGmv = rpc.unattributed_gmv !== undefined ? Number(rpc.unattributed_gmv) : 0;
   
   // Total All = Approved GMV (totalOrganic) + Pending/Unknown GMV (unattributedGmv) + Ads GMV
@@ -602,16 +609,29 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
             <div className="p-[24px]">
               <div className="flex justify-between items-start">
                 <div>
-                  <p className="text-[13px] font-medium text-text-soft">GMV Ads</p>
+                  <p className="text-[13px] font-medium text-text-soft">GMV Ads (Global Campaign)</p>
                   <h3 className="text-[24px] font-bold mt-[8px] text-text">Rp {(totalAdsGmv / 1000000).toFixed(1)}M</h3>
                   <p className="text-[11px] font-semibold text-text-soft mt-[4px]">Rp {totalAdsGmv.toLocaleString()}</p>
                   <div className="flex gap-2 mt-[2px]">
                     <p className="text-[10px] font-semibold text-indigo-600 bg-indigo-50 inline-block px-1.5 py-0.5 rounded">Spend: ${initialTotalAdsSpend.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                     <p className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 inline-block px-1.5 py-0.5 rounded">GMV: ${initialTotalAdsGmvUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                   </div>
-                  <p className="text-[11px] text-text-soft mt-[4px]">Total dari Impor Iklan</p>
                 </div>
                 <div className="p-[8px] bg-purple-50 rounded-[8px] text-purple-600"><BarChart3 className="w-5 h-5" /></div>
+              </div>
+              <div className="mt-[16px] pt-[16px] border-t border-line space-y-2">
+                <div className="flex justify-between text-[11px] font-medium">
+                  <span className="text-emerald-700">Terpetakan ke Kreator:</span>
+                  <span className="text-emerald-700">Rp {mappedAdsGmv.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between text-[11px] font-medium">
+                  <span className="text-amber-600">Belum Terpetakan:</span>
+                  <span className="text-amber-600">Rp {unmappedAdsGmv.toLocaleString()}</span>
+                </div>
+                <div className="w-full bg-amber-100 rounded-full h-[6px] flex overflow-hidden mt-1">
+                  <div className="bg-emerald-500 h-[6px] transition-all duration-1000" style={{ width: `${totalAdsGmv > 0 ? (mappedAdsGmv / totalAdsGmv) * 100 : 0}%` }}></div>
+                </div>
+                <p className="text-[10px] text-text-soft">Total di tabel bawah hanya menjumlahkan yang terpetakan (Mapped).</p>
               </div>
             </div>
           </div>
