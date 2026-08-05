@@ -99,7 +99,7 @@ export default function CampaignVideoPage({
   const [filterSow, setFilterSow] = useState('all');
   const [filterSales, setFilterSales] = useState('all');
   const [filterSku, setFilterSku] = useState('all');
-  const [sortBy, setSortBy] = useState('none');
+  const [sortBy, setSortBy] = useState('latest_post');
   const [expandedGroups, setExpandedGroups] = useState<Set<number>>(new Set());
   const [clientPage, setClientPage] = useState(1);
   const [viewMode, setViewMode] = useState<'creator' | 'video'>('creator');
@@ -620,6 +620,23 @@ export default function CampaignVideoPage({
        data.sort((a, b) => {
           const ma = metricsMap.get(a.id);
           const mb = metricsMap.get(b.id);
+          
+          if (sortBy === 'latest_post') {
+             const getMaxDate = (ccId: number) => {
+                const vids = localVideos.filter(v => v.campaign_creator_id === ccId && v.content_uid);
+                let maxT = 0;
+                vids.forEach(v => {
+                   const d = extractTikTokUploadDate(v.content_uid);
+                   if (d) {
+                      const t = new Date(d).getTime();
+                      if (t > maxT) maxT = t;
+                   }
+                });
+                return maxT;
+             };
+             return getMaxDate(b.id) - getMaxDate(a.id);
+          }
+
           if (!ma || !mb) return 0;
 
           switch(sortBy) {
@@ -713,6 +730,13 @@ export default function CampaignVideoPage({
 
     if (sortBy !== 'none') {
        allVids.sort((a, b) => {
+          if (sortBy === 'latest_post') {
+             const dateA = a.content_uid ? extractTikTokUploadDate(a.content_uid) : null;
+             const dateB = b.content_uid ? extractTikTokUploadDate(b.content_uid) : null;
+             const timeA = dateA ? new Date(dateA).getTime() : 0;
+             const timeB = dateB ? new Date(dateB).getTime() : 0;
+             return timeB - timeA;
+          }
           switch(sortBy) {
              case 'gmv_desc': return b.vidGmv - a.vidGmv;
              case 'gmv_asc': return a.vidGmv - b.vidGmv;
@@ -850,6 +874,7 @@ export default function CampaignVideoPage({
                    <label className="text-xs font-semibold text-text-soft">Urutkan (Sort)</label>
                    <select className="select w-full font-semibold" value={sortBy} onChange={e => setSortBy(e.target.value)}>
                       <option value="none">Tanpa Pengurutan</option>
+                      <option value="latest_post">Terbaru Diposting</option>
                       <optgroup label="Berdasarkan GMV">
                          <option value="gmv_desc">Total GMV (Tertinggi)</option>
                          <option value="gmv_asc">Total GMV (Terendah)</option>
