@@ -161,7 +161,14 @@ export default function AdsImport() {
           }
         });
 
-        const validData = parsed.filter(row => Object.keys(row).length > 0 && (row['Ad name'] || row['Ad Name'] || row['Ad Group Name']));
+        const validData = parsed.filter(row => {
+          if (Object.keys(row).length === 0) return false;
+          const adName = String(row['Ad name'] || row['Ad Name'] || row['Ad Group Name'] || '').trim();
+          const adId = String(row['Ad ID'] || row['Ad ID (Shop)'] || row['Ad Id'] || '').trim();
+          // Ignore summary rows from TikTok Ads
+          if (adName.toLowerCase().startsWith('total of') || adName.toLowerCase() === 'total' || adId.toLowerCase().includes('total') || (!adName && !adId)) return false;
+          return !!adName;
+        });
         const missingAdIds = validData.filter(row => !String(row['Ad ID'] || row['Ad ID (Shop)'] || row['Ad Id'] || '').trim());
         
         if (missingAdIds.length > 0) {
