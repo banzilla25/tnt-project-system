@@ -263,6 +263,7 @@ export default function AlamatPage() {
   const handleEdit = async (ccId: number) => {
     // 1. Fetch address book for this creator
     const cc = localCreators.find(c => c.id === ccId);
+    const creator = cc?.creators;
     const creatorId = cc?.creator_id;
     if (creatorId) {
       const { data: book } = await supabase.from('creator_address_book').select('*').eq('creator_id', creatorId).order('is_primary', { ascending: false });
@@ -278,7 +279,6 @@ export default function AlamatPage() {
       setEditId(existing.id);
     } else {
       // Find creator's master address as fallback if no address book
-      const creator = cc?.creators;
       
       setFormData({
         campaign_creator_id: ccId,
