@@ -112,6 +112,9 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
       let globalAdsGmvUsd = 0;
       let globalAdsSpend = 0;
       let mappedAdsGmv = 0;
+      let unmappedAdsGmvVal = 0;
+      let unmappedAdsCostVal = 0;
+      let unmappedAdsItemsSoldVal = 0;
 
       // === FETCH CREATOR COUNTS USING RPC ===
       let fastCounts = { approved: 0, pending: 0, all: 0 };
@@ -153,6 +156,10 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
           adsStatsByCreator[ad.creator_id].gmvAds += (ad.gross_revenue_usd || 0) * kurs;
           adsStatsByCreator[ad.creator_id].costAds += (ad.cost_usd || 0) * kurs;
           adsStatsByCreator[ad.creator_id].itemsSoldAds += (ad.purchases || 0);
+        } else {
+          unmappedAdsGmvVal += (ad.gross_revenue_usd || 0) * kurs;
+          unmappedAdsCostVal += (ad.cost_usd || 0) * kurs;
+          unmappedAdsItemsSoldVal += (ad.purchases || 0);
         }
       }
 
@@ -248,6 +255,27 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
           totalLive
         };
       });
+
+      if (unmappedAdsGmvVal > 0 || unmappedAdsCostVal > 0 || unmappedAdsItemsSoldVal > 0) {
+        computedStats.push({
+          id: -1,
+          creator_id: -1,
+          approval: 'approved',
+          username: 'UNMAPPED',
+          followers: 0,
+          gmvOrganic: 0,
+          gmvAds: unmappedAdsGmvVal,
+          costAds: unmappedAdsCostVal,
+          roas: unmappedAdsCostVal > 0 ? (unmappedAdsGmvVal / unmappedAdsCostVal).toFixed(2) : '-',
+          totalGmv: unmappedAdsGmvVal,
+          itemsSold: 0,
+          itemsSoldAds: unmappedAdsItemsSoldVal,
+          videoViews: 0,
+          videoLikes: 0,
+          totalVt: 0,
+          totalLive: 0
+        });
+      }
 
       setBaseCreatorStats(computedStats);
   };
