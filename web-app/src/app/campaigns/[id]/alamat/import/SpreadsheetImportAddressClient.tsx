@@ -511,7 +511,8 @@ export default function SpreadsheetImportAddressClient() {
               await supabase.from('creator_contacts').insert({
                 creator_id: row.creatorId,
                 nomor: cleanWa,
-                status: 'aktif'
+                status: 'aktif',
+                tanggal_mulai: new Date().toISOString().split('T')[0]
               });
             }
           }

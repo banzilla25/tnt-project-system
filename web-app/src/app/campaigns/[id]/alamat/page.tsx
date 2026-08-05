@@ -366,7 +366,8 @@ export default function AlamatPage() {
       await supabase.from('creator_contacts').insert({
         creator_id: cc.creator_id,
         nomor: cleanWa,
-        status: 'aktif'
+        status: 'aktif',
+        tanggal_mulai: new Date().toISOString().split('T')[0]
       });
       // Update local state so it immediately reflects
       setLocalCreators(prev => prev.map(c => {
