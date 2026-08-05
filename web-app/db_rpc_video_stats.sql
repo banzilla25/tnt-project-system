@@ -41,7 +41,6 @@ BEGIN
         FROM organic_videos
         WHERE campaign_id = p_campaign_id
           AND lower(COALESCE(content_type, 'video')) != 'livestream'
-          AND product_id IN (SELECT product_id FROM campaign_skus)
         GROUP BY 1, 2
     ),
     all_uids AS (
