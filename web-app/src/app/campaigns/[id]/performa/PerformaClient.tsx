@@ -418,10 +418,12 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
     : (fastVideoCountsData ? fastVideoCountsData.livestream : Number(totalSales?.totalLivestreams || fbLivestreams));
 
   const totalOrganic = rpc.organic_gmv !== undefined ? Number(rpc.organic_gmv) : (isFiltered ? fbOrganic : (totalSales?.totalOrganic || fbOrganic));
-  // Always use initialTotalAdsGmv for accurate deduplicated total, unless filtered by creator
-  const totalAdsGmv = rpc.ads_gmv !== undefined ? Number(rpc.ads_gmv) : (isFiltered ? fbAds : initialTotalAdsGmv); 
-  const mappedAdsGmv = isFiltered ? fbAds : initialMappedAdsGmv;
-  const unmappedAdsGmv = totalAdsGmv - mappedAdsGmv;
+  // Total Ads GMV = ALL ads in this campaign (global, same as Ads Report page)
+  // Always use client-side calculation for consistency with Ads Report
+  const totalAdsGmv = isFiltered ? fbAds : initialTotalAdsGmv; 
+  // Mapped Ads GMV = only ads linked to a creator in campaign_creators (what the RPC calculates)
+  const mappedAdsGmv = rpc.ads_gmv !== undefined ? Number(rpc.ads_gmv) : (isFiltered ? fbAds : initialMappedAdsGmv);
+  const unmappedAdsGmv = Math.max(0, totalAdsGmv - mappedAdsGmv);
   
   const unattributedGmv = rpc.unattributed_gmv !== undefined ? Number(rpc.unattributed_gmv) : 0;
   
