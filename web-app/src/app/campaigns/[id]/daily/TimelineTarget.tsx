@@ -11,6 +11,10 @@ type TimelineTargetProps = {
 export default function TimelineTarget({ campaign, dailyData }: TimelineTargetProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  const formatCompact = (num: number) => {
+    return Intl.NumberFormat('id-ID', { notation: "compact", maximumFractionDigits: 1 }).format(num);
+  };
+
   const isAwareness = campaign.tipe_campaign === 'awareness';
   const isHybrid = campaign.tipe_campaign === 'gmv_awareness';
   const isSales = campaign.tipe_campaign === 'sales' || !campaign.tipe_campaign;
@@ -425,7 +429,7 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
                           <div className="bg-white/60 rounded-[10px] p-2 flex flex-col items-center justify-center text-center">
                             <span className="text-[10px] font-semibold text-blue-800 mb-1">GMV</span>
                             <span className={day.weeklySummary.achievedGmv >= day.weeklySummary.targetGmv && targetGmv > 0 ? 'text-emerald-700 font-bold text-[11px]' : 'font-bold text-blue-900 text-[11px]'}>
-                              {Math.round(day.weeklySummary.achievedGmv)} / {targetGmv > 0 ? Math.round(day.weeklySummary.targetGmv) : '-'}
+                              {formatCompact(day.weeklySummary.achievedGmv)} / {targetGmv > 0 ? formatCompact(day.weeklySummary.targetGmv) : '-'}
                             </span>
                           </div>
                           <div className="bg-white/60 rounded-[10px] p-2 flex flex-col items-center justify-center text-center">
@@ -516,12 +520,14 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
                             </div>
                           </div>
                           <div>
-                            <div className="text-[18px] font-bold text-emerald-600 tracking-tight leading-none mb-1">
-                              {Math.round(day.achievedGmv).toLocaleString()}
+                            <div className="text-[18px] font-bold text-emerald-600 tracking-tight leading-none mb-1 truncate" title={Math.round(day.achievedGmv).toLocaleString()}>
+                              {formatCompact(day.achievedGmv)}
                             </div>
                             <div className="text-[10px] text-emerald-700/70 leading-tight">
                               dari target <br/>
-                              <span className="font-medium text-emerald-700">{targetGmv > 0 ? Math.round(day.targetGmv).toLocaleString() : '- / -'}</span>
+                              <span className="font-medium text-emerald-700 truncate block" title={targetGmv > 0 ? Math.round(day.targetGmv).toLocaleString() : '- / -'}>
+                                {targetGmv > 0 ? formatCompact(day.targetGmv) : '- / -'}
+                              </span>
                             </div>
                           </div>
                         </div>
@@ -586,60 +592,60 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
                       <div className="border border-slate-100 rounded-[16px] bg-white overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,0.02)]">
                         <div className="grid grid-cols-2">
                           {/* Top Left: Kreator Ditambah */}
-                          <div className="p-4 border-b border-r border-slate-100 border-dashed">
-                            <div className="flex justify-between items-center mb-2">
-                              <div className="flex items-center gap-2">
-                                <UserPlus size={16} className="text-orange-500" strokeWidth={2} />
-                                <span className="text-[12px] font-bold text-slate-700">Kreator Ditambah</span>
+                          <div className="p-3 border-b border-r border-slate-100 border-dashed">
+                            <div className="flex justify-between items-start mb-2 gap-1">
+                              <div className="flex items-center gap-1.5">
+                                <UserPlus size={14} className="text-orange-500 shrink-0" strokeWidth={2.5} />
+                                <span className="text-[11px] font-bold text-slate-700 leading-tight">Kr Ditambah</span>
                               </div>
-                              <span className="text-[18px] font-bold text-orange-600">{Math.round(day.achievedPendingCreator)}</span>
+                              <span className="text-[16px] font-bold text-orange-600 leading-none">{Math.round(day.achievedPendingCreator)}</span>
                             </div>
-                            <div className="text-[10px] text-slate-400 font-medium tracking-wide">
+                            <div className="text-[9px] text-slate-400 font-medium tracking-wide">
                               N {day.achievedPendingNano} | Mi {day.achievedPendingMicro} | Ma {day.achievedPendingMacro} | Me {day.achievedPendingMega}
                             </div>
                           </div>
 
                           {/* Top Right: Kreator Approve */}
-                          <div className="p-4 border-b border-slate-100 border-dashed">
-                            <div className="flex justify-between items-center mb-2">
-                              <div className="flex items-center gap-2">
-                                <CheckCircle2 size={16} className="text-emerald-500" strokeWidth={2} />
-                                <span className="text-[12px] font-bold text-slate-700">Kreator Approve</span>
+                          <div className="p-3 border-b border-slate-100 border-dashed">
+                            <div className="flex justify-between items-start mb-2 gap-1">
+                              <div className="flex items-center gap-1.5">
+                                <CheckCircle2 size={14} className="text-emerald-500 shrink-0" strokeWidth={2.5} />
+                                <span className="text-[11px] font-bold text-slate-700 leading-tight">Kr Approve</span>
                               </div>
-                              <div className="flex items-end gap-1">
-                                <span className="text-[18px] font-bold text-emerald-600">{Math.round(day.achievedCreator)}</span>
-                                <span className="text-[12px] font-bold text-emerald-600/50 mb-[3px]">/ {targetCreator > 0 ? Math.round(day.targetCreator) : '0'}</span>
+                              <div className="flex flex-col items-end gap-0.5">
+                                <span className="text-[16px] font-bold text-emerald-600 leading-none">{Math.round(day.achievedCreator)}</span>
+                                <span className="text-[10px] font-bold text-emerald-600/50 leading-none">/ {targetCreator > 0 ? Math.round(day.targetCreator) : '0'}</span>
                               </div>
                             </div>
-                            <div className="text-[10px] text-slate-400 font-medium tracking-wide">
+                            <div className="text-[9px] text-slate-400 font-medium tracking-wide">
                               N {day.achievedApprovedNano} | Mi {day.achievedApprovedMicro} | Ma {day.achievedApprovedMacro} | Me {day.achievedApprovedMega}
                             </div>
                           </div>
                           
                           {/* Bottom Left: Live Ditambah */}
-                          <div className="p-4 border-r border-slate-100 border-dashed">
-                            <div className="flex justify-between items-center mb-2">
-                              <div className="flex items-center gap-2">
-                                <Radio size={16} className="text-purple-500" strokeWidth={2} />
-                                <span className="text-[12px] font-bold text-slate-700">Live Ditambah</span>
+                          <div className="p-3 border-r border-slate-100 border-dashed">
+                            <div className="flex justify-between items-start mb-2 gap-1">
+                              <div className="flex items-center gap-1.5">
+                                <Radio size={14} className="text-purple-500 shrink-0" strokeWidth={2.5} />
+                                <span className="text-[11px] font-bold text-slate-700 leading-tight">Live Ditambah</span>
                               </div>
-                              <span className="text-[18px] font-bold text-purple-600">{Math.round(day.pendingLiveCreator)}</span>
+                              <span className="text-[16px] font-bold text-purple-600 leading-none">{Math.round(day.pendingLiveCreator)}</span>
                             </div>
-                            <div className="text-[10px] text-slate-400 font-medium tracking-wide">
+                            <div className="text-[9px] text-slate-400 font-medium tracking-wide">
                               N {day.pendingLiveNano} | Mi {day.pendingLiveMicro} | Ma {day.pendingLiveMacro} | Me {day.pendingLiveMega}
                             </div>
                           </div>
 
                           {/* Bottom Right: Live Approve */}
-                          <div className="p-4">
-                            <div className="flex justify-between items-center mb-2">
-                              <div className="flex items-center gap-2">
-                                <BadgeCheck size={16} className="text-purple-500" strokeWidth={2} />
-                                <span className="text-[12px] font-bold text-slate-700">Live Approve</span>
+                          <div className="p-3">
+                            <div className="flex justify-between items-start mb-2 gap-1">
+                              <div className="flex items-center gap-1.5">
+                                <BadgeCheck size={14} className="text-purple-500 shrink-0" strokeWidth={2.5} />
+                                <span className="text-[11px] font-bold text-slate-700 leading-tight">Live Approve</span>
                               </div>
-                              <span className="text-[18px] font-bold text-purple-600">{Math.round(day.liveCreator)}</span>
+                              <span className="text-[16px] font-bold text-purple-600 leading-none">{Math.round(day.liveCreator)}</span>
                             </div>
-                            <div className="text-[10px] text-slate-400 font-medium tracking-wide">
+                            <div className="text-[9px] text-slate-400 font-medium tracking-wide">
                               N {day.approvedLiveNano} | Mi {day.approvedLiveMicro} | Ma {day.approvedLiveMacro} | Me {day.approvedLiveMega}
                             </div>
                           </div>
