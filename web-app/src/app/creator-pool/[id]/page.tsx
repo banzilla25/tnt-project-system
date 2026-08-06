@@ -611,7 +611,7 @@ export default function CreatorProfilePage() {
                     onChange={e => {
                       const f = e.target.value;
                       let newTier = 'Nano';
-                      const numF = f ? parseInt(f) : 0;
+                      const numF = f !== '' ? parseInt(f) : (mergedProfile.followers || 0);
                       if (numF < 10000) newTier = 'Nano';
                       else if (numF < 100000) newTier = 'Micro';
                       else if (numF < 1000000) newTier = 'Macro';

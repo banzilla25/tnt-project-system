@@ -215,13 +215,13 @@ function CampaignListingContent() {
         // Handle creator snapshot updates (excluding price which is now campaign-specific)
         if (change.followers !== undefined || change.level !== undefined || change.gmv_30d !== undefined) {
           if (change.original.creator_id) {
-            const newFollowers = change.followers !== undefined ? change.followers : change.original.followers;
-            const newLevel = change.level !== undefined ? change.level : change.original.level;
-            const newGmv = change.gmv_30d !== undefined ? change.gmv_30d : change.original.gmv_30d;
+            const newFollowers = (change.followers !== undefined && change.followers !== '') ? change.followers : change.original.followers;
+            const newLevel = (change.level !== undefined && change.level !== '') ? change.level : change.original.level;
+            const newGmv = (change.gmv_30d !== undefined && change.gmv_30d !== '') ? change.gmv_30d : change.original.gmv_30d;
             const newRatecard = change.original.ratecard;
             
             let newTier = change.original.tier;
-            if (change.followers !== undefined) {
+            if (change.followers !== undefined && change.followers !== '') {
                const f = Number(newFollowers);
                if (f < 10000) newTier = 'Nano';
                else if (f < 100000) newTier = 'Micro';

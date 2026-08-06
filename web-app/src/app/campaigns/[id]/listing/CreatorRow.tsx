@@ -156,7 +156,7 @@ export const CreatorRow = React.memo(({
               min="0"
               autoFocus
               defaultValue={getPendingValue(cc.id, 'followers', snapshot?.followers || 0)}
-              onBlur={e => { setCellChange(cc.id, 'followers', Number(e.target.value), cc); setEditingCellId(null); }}
+              onBlur={e => { setCellChange(cc.id, 'followers', e.target.value === '' ? '' : Number(e.target.value), cc); setEditingCellId(null); }}
               onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
               className="input w-20 !p-[4px] text-right text-[13px]"
             />
