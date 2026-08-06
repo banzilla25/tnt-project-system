@@ -396,25 +396,23 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
         }}
       >
         <div className="relative min-w-max">
-          {/* Main timeline line */}
-          <div className="absolute top-[50%] left-0 right-0 h-[2px] border-t-2 border-dashed border-slate-300 -translate-y-1/2 z-0"></div>
+          {/* Main timeline line (now at bottom) */}
+          <div className="absolute bottom-[36px] left-0 right-0 h-[2px] border-t-2 border-dashed border-slate-300 z-0"></div>
           
-          <div className="flex items-center gap-[16px] relative z-10 min-h-[450px]">
+          <div className="flex items-end gap-[16px] relative z-10 pt-4 pb-4">
             {timelineData.map((day, idx) => {
               const isToday = day.date.getTime() === new Date().setHours(0, 0, 0, 0);
               const showWeekly = !!day.weeklySummary;
-              const isTop = !showWeekly && (idx % 2 === 0);
               
               return (
-                <div key={idx} className="relative flex flex-col items-center min-w-[200px]">
+                <div key={idx} className="relative flex flex-col items-center min-w-[200px] justify-end">
                   
                   {/* Highlight Block for Today */}
                   {isToday && (
-                    <div className="absolute inset-y-[-24px] left-[-8px] right-[-8px] bg-rose-50/50 border border-rose-100 rounded-xl z-0 shadow-sm pointer-events-none"></div>
+                    <div className="absolute inset-y-[-8px] left-[-4px] right-[-4px] bg-rose-50/50 border border-rose-100 rounded-xl z-0 shadow-sm pointer-events-none"></div>
                   )}
 
-                  {/* Top Area (For weekly blocks or alternate daily blocks) */}
-                  <div className="h-[200px] w-full flex items-end justify-center pb-[24px]">
+                  <div className="flex flex-col gap-3 w-full items-center justify-end z-20 pb-[24px]">
                     {showWeekly && day.weeklySummary ? (
                       <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 w-full shadow-sm text-center relative z-20">
                         <div className="absolute bottom-[-6px] left-1/2 -translate-x-1/2 w-3 h-3 bg-blue-50 border-b border-r border-blue-200 rotate-45"></div>
@@ -484,13 +482,15 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
                           </div>
                         </div>
                       </div>
-                    ) : isTop ? (
-                      <div className={`rounded-lg p-3 w-[180px] shadow-sm relative z-20 ${isToday ? 'bg-rose-50 border border-rose-200' : 'bg-white border border-slate-200'}`}>
-                         <div className={`absolute bottom-[-6px] left-1/2 -translate-x-1/2 w-3 h-3 border-b border-r rotate-45 ${isToday ? 'bg-rose-50 border-rose-200' : 'bg-white border-slate-200'}`}></div>
-                         <h4 className="text-[10px] font-bold text-slate-700 mb-1">
-                           {day.date.toLocaleDateString('id-ID', { weekday: 'long' })} 
-                           {day.isPastEndDate && <span className="text-rose-500 ml-1">(Overdue)</span>}
-                         </h4>
+                    ) : null}
+
+                    {/* Daily Block */}
+                    <div className={`rounded-lg p-3 w-[180px] shadow-sm relative z-20 ${isToday ? 'bg-rose-50 border border-rose-200' : 'bg-white border border-slate-200'}`}>
+                      <div className={`absolute bottom-[-6px] left-1/2 -translate-x-1/2 w-3 h-3 border-b border-r rotate-45 ${isToday ? 'bg-rose-50 border-rose-200' : 'bg-white border-slate-200'}`}></div>
+                      <h4 className="text-[10px] font-bold text-slate-700 mb-1">
+                        {day.date.toLocaleDateString('id-ID', { weekday: 'long' })} 
+                        {day.isPastEndDate && <span className="text-rose-500 ml-1">(Overdue)</span>}
+                      </h4>
                          
                          <div className="text-[10px] text-slate-600 flex justify-between border-t border-slate-100 pt-1 mt-1">
                            <span>GMV:</span>
@@ -555,94 +555,15 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
                              N: {day.approvedLiveNano} | Mi: {day.approvedLiveMicro} | Ma: {day.approvedLiveMacro} | Me: {day.approvedLiveMega}
                            </div>
                          </div>
-                      </div>
-                    ) : null}
-                  </div>
-
-                  {/* Center Dot */}
-                  <div className="relative my-2 z-20">
-                    <div className={`w-3 h-3 rounded-full border-2 border-white ring-2 ${isToday ? 'bg-blue-500 ring-blue-300 ring-4' : day.isPastEndDate ? 'bg-rose-400 ring-rose-200' : 'bg-emerald-500 ring-emerald-200'} relative`} title={day.date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}></div>
-                    <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 whitespace-nowrap text-[10px] font-semibold text-slate-500 bg-white/80 px-1 rounded">
-                      {day.date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
                     </div>
                   </div>
 
-                  {/* Bottom Area (For alternate daily blocks) */}
-                  <div className="h-[200px] w-full flex items-start justify-center pt-[32px] gap-2">
-                    
-                    {!isTop && (
-                      <div className={`rounded-lg p-3 w-[180px] shadow-sm relative z-20 ${isToday ? 'bg-rose-50 border border-rose-200' : 'bg-white border border-slate-200'}`}>
-                         <div className={`absolute top-[-6px] left-1/2 -translate-x-1/2 w-3 h-3 border-t border-l rotate-45 ${isToday ? 'bg-rose-50 border-rose-200' : 'bg-white border-slate-200'}`}></div>
-                         <h4 className="text-[10px] font-bold text-slate-700 mb-1">
-                           {day.date.toLocaleDateString('id-ID', { weekday: 'long' })} 
-                           {day.isPastEndDate && <span className="text-rose-500 ml-1">(Overdue)</span>}
-                         </h4>
-                         
-                         <div className="text-[10px] text-slate-600 flex justify-between border-t border-slate-100 pt-1 mt-1">
-                           <span>GMV:</span>
-                           <span className={day.achievedGmv >= day.targetGmv && targetGmv > 0 ? 'text-emerald-600 font-bold' : 'font-medium'}>
-                             {Math.round(day.achievedGmv).toLocaleString()} {targetGmv > 0 ? `/ ${Math.round(day.targetGmv).toLocaleString()}` : ''}
-                           </span>
-                         </div>
-                         <div className="text-[10px] text-slate-600 flex justify-between border-t border-slate-100 pt-1 mt-1">
-                           <span>VT:</span>
-                           <span className={day.achievedVideo >= day.targetVideo && targetVideo > 0 ? 'text-emerald-600 font-bold' : 'font-medium'}>
-                             {Math.round(day.achievedVideo)} {targetVideo > 0 ? `/ ${Math.round(day.targetVideo)}` : ''}
-                           </span>
-                         </div>
-                         <div className="text-[10px] text-slate-600 flex justify-between border-t border-slate-100 pt-1 mt-1">
-                           <span>Live:</span>
-                           <span className={day.achievedLive >= day.targetLive && targetLive > 0 ? 'text-emerald-600 font-bold' : 'font-medium'}>
-                             {Math.round(day.achievedLive)} {targetLive > 0 ? `/ ${Math.round(day.targetLive)}` : ''}
-                           </span>
-                         </div>
-                         <div className="text-[10px] text-slate-600 flex flex-col border-t border-slate-100 pt-1 mt-1">
-                           <div className="flex justify-between">
-                             <span>Kr Ditambah:</span>
-                             <span className="font-medium text-amber-600">
-                               {Math.round(day.achievedPendingCreator)}
-                             </span>
-                           </div>
-                           <div className="text-[9px] text-slate-400 mt-[2px] leading-tight">
-                             N: {day.achievedPendingNano} | Mi: {day.achievedPendingMicro} | Ma: {day.achievedPendingMacro} | Me: {day.achievedPendingMega}
-                           </div>
-                         </div>
-                         <div className="text-[10px] text-slate-600 flex flex-col border-t border-slate-100 pt-1 mt-1">
-                           <div className="flex justify-between">
-                             <span>Kr Approve:</span>
-                             <span className={day.achievedCreator >= day.targetCreator && targetCreator > 0 ? 'text-emerald-600 font-bold' : 'font-medium'}>
-                               {Math.round(day.achievedCreator)} {targetCreator > 0 ? `/ ${Math.round(day.targetCreator)}` : ''}
-                             </span>
-                           </div>
-                           <div className="text-[9px] text-slate-400 mt-[2px] leading-tight">
-                             N: {day.achievedApprovedNano} | Mi: {day.achievedApprovedMicro} | Ma: {day.achievedApprovedMacro} | Me: {day.achievedApprovedMega}
-                           </div>
-                         </div>
-                         {/* Live Creator Daily UI */}
-                         <div className="text-[10px] text-purple-700 flex flex-col border-t border-purple-100 pt-1 mt-1">
-                           <div className="flex justify-between">
-                             <span>Kr Live Ditambah:</span>
-                             <span className="font-medium text-amber-600">
-                               {Math.round(day.pendingLiveCreator)}
-                             </span>
-                           </div>
-                           <div className="text-[9px] text-purple-400/80 mt-[2px] leading-tight">
-                             N: {day.pendingLiveNano} | Mi: {day.pendingLiveMicro} | Ma: {day.pendingLiveMacro} | Me: {day.pendingLiveMega}
-                           </div>
-                         </div>
-                         <div className="text-[10px] text-purple-700 flex flex-col border-t border-purple-100 pt-1 mt-1">
-                           <div className="flex justify-between">
-                             <span>Kr Live Approve:</span>
-                             <span className={day.liveCreator >= day.targetCreatorLive && targetCreatorLive > 0 ? 'text-emerald-600 font-bold' : 'font-medium'}>
-                               {Math.round(day.liveCreator)} {targetCreatorLive > 0 ? `/ ${Math.round(day.targetCreatorLive)}` : ''}
-                             </span>
-                           </div>
-                           <div className="text-[9px] text-purple-400/80 mt-[2px] leading-tight">
-                             N: {day.approvedLiveNano} | Mi: {day.approvedLiveMicro} | Ma: {day.approvedLiveMacro} | Me: {day.approvedLiveMega}
-                           </div>
-                         </div>
-                      </div>
-                    )}
+                  {/* Center Dot (Axis) */}
+                  <div className="relative z-20 flex flex-col items-center">
+                    <div className={`w-3 h-3 rounded-full border-2 border-white ring-2 ${isToday ? 'bg-blue-500 ring-blue-300 ring-4' : day.isPastEndDate ? 'bg-rose-400 ring-rose-200' : 'bg-emerald-500 ring-emerald-200'} relative`} title={day.date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}></div>
+                    <div className="absolute top-[20px] left-1/2 -translate-x-1/2 whitespace-nowrap text-[10px] font-semibold text-slate-500 px-1 rounded">
+                      {day.date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </div>
                   </div>
                   
                 </div>
