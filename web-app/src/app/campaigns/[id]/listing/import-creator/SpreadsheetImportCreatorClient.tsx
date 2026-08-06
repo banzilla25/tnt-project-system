@@ -562,7 +562,7 @@ export default function SpreadsheetImportCreatorClient() {
             .limit(1);
             
           const lastSnap = existingSnaps?.[0];
-          const newFollowers = row.followers === '' ? (lastSnap?.followers || 0) : (Number(row.followers) || 0);
+          const newFollowers = (!row.followers || Number(row.followers) === 0) ? (lastSnap?.followers || 0) : Number(row.followers);
           const newGmv = row.gmv_30_days === '' ? (lastSnap?.gmv_30d || 0) : (Number(row.gmv_30_days) || 0);
           const newRateCard = row.rate_card === '' ? (lastSnap?.ratecard || 0) : (Number(row.rate_card) || 0);
           
