@@ -46,7 +46,7 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
       while (hasMore_v) {
         const { data: ccData, error } = await supabase
           .from('campaign_creators')
-          .select('id, tier, created_at, approved_at, content_type, creators(username, creator_snapshots(tier, tanggal_update)), videos(id, created_at, link_video)')
+          .select('id, tier, created_at, approved_at, content_type, qty_vt, qty_live, creators(username, creator_snapshots(tier, tanggal_update)), videos(id, created_at, link_video)')
           .eq('campaign_id', campaignId)
           .range(from_v, to_v);
 
@@ -147,6 +147,16 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
           }
           let resolvedTier = snapshotTier || cc.tier || 'Nano';
 
+          let cType = cc.content_type || '-';
+          if (cType === '-' || !cType) {
+            const qVt = Number(cc.qty_vt) || 0;
+            const qLive = Number(cc.qty_live) || 0;
+            if (qVt >= 1 && qLive === 0) cType = 'Video';
+            else if (qVt === 0 && qLive >= 1) cType = 'Live';
+            else if (qVt >= 1 && qLive >= 1) cType = 'Video & Live';
+          }
+          const isLiveCreator = cType.toLowerCase().includes('live');
+
           if (cc.created_at) {
             const addedDateStr = cc.created_at.substring(0, 10);
             let countAdded = true;
@@ -156,14 +166,14 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
             if (countAdded) {
               if (!grouped[addedDateStr]) grouped[addedDateStr] = { gmv: 0, gmvAds: 0, creators: new Map(), pendingCreators: new Map(), videos: new Set(), gmvLive: 0, gmvVT: 0, ordersLive: 0, ordersVT: 0, liveSessions: new Set(), liveCreators: new Map(), pendingLiveCreators: new Map() };
               grouped[addedDateStr].pendingCreators.set(username, resolvedTier);
-              if (cc.content_type?.toLowerCase().includes('live')) {
+              if (isLiveCreator) {
                 grouped[addedDateStr].pendingLiveCreators.set(username, resolvedTier);
               }
 
               const monthStr = cc.created_at.substring(0, 7);
               if (!monthlyGrouped[monthStr]) monthlyGrouped[monthStr] = { gmv: 0, gmvAds: 0, creators: new Map(), pendingCreators: new Map(), videos: new Set(), gmvLive: 0, gmvVT: 0, ordersLive: 0, ordersVT: 0, liveSessions: new Set(), liveCreators: new Map(), pendingLiveCreators: new Map() };
               monthlyGrouped[monthStr].pendingCreators.set(username, resolvedTier);
-              if (cc.content_type?.toLowerCase().includes('live')) {
+              if (isLiveCreator) {
                 monthlyGrouped[monthStr].pendingLiveCreators.set(username, resolvedTier);
               }
             }
@@ -178,14 +188,14 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
             if (countCreator) {
               if (!grouped[approvedDateStr]) grouped[approvedDateStr] = { gmv: 0, gmvAds: 0, creators: new Map(), pendingCreators: new Map(), videos: new Set(), gmvLive: 0, gmvVT: 0, ordersLive: 0, ordersVT: 0, liveSessions: new Set(), liveCreators: new Map(), pendingLiveCreators: new Map() };
               grouped[approvedDateStr].creators.set(username, resolvedTier);
-              if (cc.content_type?.toLowerCase().includes('live')) {
+              if (isLiveCreator) {
                 grouped[approvedDateStr].liveCreators.set(username, resolvedTier);
               }
 
               const monthStr = cc.approved_at.substring(0, 7);
               if (!monthlyGrouped[monthStr]) monthlyGrouped[monthStr] = { gmv: 0, gmvAds: 0, creators: new Map(), pendingCreators: new Map(), videos: new Set(), gmvLive: 0, gmvVT: 0, ordersLive: 0, ordersVT: 0, liveSessions: new Set(), liveCreators: new Map(), pendingLiveCreators: new Map() };
               monthlyGrouped[monthStr].creators.set(username, resolvedTier);
-              if (cc.content_type?.toLowerCase().includes('live')) {
+              if (isLiveCreator) {
                 monthlyGrouped[monthStr].liveCreators.set(username, resolvedTier);
               }
             }
