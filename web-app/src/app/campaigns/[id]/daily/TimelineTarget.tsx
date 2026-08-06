@@ -399,7 +399,7 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
           {/* Main timeline line */}
           <div className="absolute top-[50%] left-0 right-0 h-[2px] border-t-2 border-dashed border-slate-300 -translate-y-1/2 z-0"></div>
           
-          <div className="flex items-center gap-[16px] relative z-10 min-h-[300px]">
+          <div className="flex items-center gap-[16px] relative z-10 min-h-[450px]">
             {timelineData.map((day, idx) => {
               const isToday = day.date.getTime() === new Date().setHours(0, 0, 0, 0);
               const showWeekly = !!day.weeklySummary;
@@ -414,7 +414,7 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
                   )}
 
                   {/* Top Area (For weekly blocks or alternate daily blocks) */}
-                  <div className="h-[120px] w-full flex items-end justify-center pb-[24px]">
+                  <div className="h-[200px] w-full flex items-end justify-center pb-[24px]">
                     {showWeekly && day.weeklySummary ? (
                       <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 w-full shadow-sm text-center relative z-20">
                         <div className="absolute bottom-[-6px] left-1/2 -translate-x-1/2 w-3 h-3 bg-blue-50 border-b border-r border-blue-200 rotate-45"></div>
@@ -568,7 +568,7 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
                   </div>
 
                   {/* Bottom Area (For alternate daily blocks) */}
-                  <div className="h-[120px] w-full flex items-start justify-center pt-[32px] gap-2">
+                  <div className="h-[200px] w-full flex items-start justify-center pt-[32px] gap-2">
                     
                     {!isTop && (
                       <div className={`rounded-lg p-3 w-[180px] shadow-sm relative z-20 ${isToday ? 'bg-rose-50 border border-rose-200' : 'bg-white border border-slate-200'}`}>
