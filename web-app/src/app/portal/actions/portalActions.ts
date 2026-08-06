@@ -155,10 +155,24 @@ export async function getPortalData(campaignId: number) {
   if (rpcError) console.error("RPC Error:", rpcError);
 
   const { data: fastCountsDataArr } = await supabase.rpc('get_campaign_creator_counts', rpcParams);
-  const fastCountsData = fastCountsDataArr?.[0] || {};
+  let fastCountsData = null;
+  if (fastCountsDataArr && fastCountsDataArr.length > 0) {
+    fastCountsData = {
+      approved: Number(fastCountsDataArr[0].approved || 0),
+      pending: Number(fastCountsDataArr[0].pending || 0),
+      pending_with_videos: Number(fastCountsDataArr[0].pending_with_videos || 0)
+    };
+  }
 
   const { data: fastVideoCountsDataArr } = await supabase.rpc('get_campaign_video_counts_fast', rpcParams);
-  const fastVideoCountsData = fastVideoCountsDataArr?.[0] || {};
+  let fastVideoCountsData = null;
+  if (fastVideoCountsDataArr && fastVideoCountsDataArr.length > 0) {
+    fastVideoCountsData = {
+      total_approved: Number(fastVideoCountsDataArr[0].total_approved || 0),
+      total_pending: Number(fastVideoCountsDataArr[0].total_pending || 0),
+      total_livestream: Number(fastVideoCountsDataArr[0].total_livestream || 0)
+    };
+  }
 
   // Ambil semua sesi Live via RPC
   const { data: rpcLives } = await supabase.rpc('get_campaign_live_stats', rpcParams);
