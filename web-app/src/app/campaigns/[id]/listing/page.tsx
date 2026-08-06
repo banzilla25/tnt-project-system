@@ -784,7 +784,7 @@ function CampaignListingContent() {
       let selectQuery = `
         id, creator_id, price, qty_vt, qty_live, content_type, approval, client_approval, tier,
         sample_progress, status_bayar, notes_manager, notes_pic,
-        created_at,
+        created_at, approved_at, not_approved_at,
         added_by_profile:profiles!campaign_creators_added_by_fkey ( nama ),
         approved_by_profile:profiles!campaign_creators_approved_by_fkey ( nama ),
         not_approved_by_profile:profiles!campaign_creators_not_approved_by_fkey ( nama ),
