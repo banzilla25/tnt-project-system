@@ -420,7 +420,7 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
               const showWeekly = !!day.weeklySummary;
               
               return (
-                <div key={idx} className="relative flex flex-col items-center min-w-[440px] justify-end">
+                <div key={idx} className="relative flex flex-col items-center min-w-[360px] justify-end">
                   
                   {/* Highlight Block for Today */}
                   {isToday && (
@@ -429,7 +429,7 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
 
                   <div className="flex flex-col gap-3 w-full items-center justify-end z-20 pb-[24px]">
                     {showWeekly && day.weeklySummary ? (
-                      <div className="bg-blue-50/50 border border-blue-200/60 rounded-[20px] p-5 w-[420px] shadow-sm relative z-20">
+                      <div className="bg-blue-50/50 border border-blue-200/60 rounded-[20px] p-5 w-[340px] shadow-sm relative z-20">
                         <div className="flex justify-between items-center mb-4">
                            <h4 className="text-sm font-bold text-blue-900 tracking-tight">Target Minggu Ini</h4>
                            <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-[11px] font-bold">WEEKLY</span>
@@ -516,7 +516,7 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
                     ) : null}
 
                     {/* Daily Block */}
-                    <div className={`rounded-[20px] p-5 w-[420px] shadow-sm border relative z-20 ${isToday ? 'bg-white border-rose-200 shadow-rose-100' : 'bg-white border-slate-200'}`}>
+                    <div className={`rounded-[20px] p-5 w-[340px] shadow-sm border relative z-20 ${isToday ? 'bg-white border-rose-200 shadow-rose-100' : 'bg-white border-slate-200'}`}>
                       {/* Header */}
                       <div className="flex justify-between items-center mb-5">
                         <div className="flex items-center gap-3">
