@@ -112,9 +112,9 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
   const totalAllGmv = totalOrganic + unattributedGmv + totalAdsGmv;
   const percentGmv = campaign?.target_gmv ? Math.round((totalAllGmv / campaign.target_gmv) * 100) : 0;
   
-  const trackedOrganic = totalOrganic;
-  const attributionGap = unattributedGmv;
-  const gapPercentage = totalOrganic > 0 ? Math.round((attributionGap / totalOrganic) * 100) : 0;
+  const trackedOrganic = totalOrganic + unattributedGmv;
+  const attributionGap = 0; // Hidden in portal
+  const gapPercentage = 0;
 
   const totalCampaignViews = rpc?.total_views !== undefined ? Number(rpc.total_views) : 0;
   const totalCampaignLikes = rpc?.total_likes !== undefined ? Number(rpc.total_likes) : 0;
