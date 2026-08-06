@@ -154,8 +154,8 @@ export async function getPortalData(campaignId: number) {
   const rpcPerf = rpcPerfArr?.[0] || {};
   if (rpcError) console.error("RPC Error:", rpcError);
 
-  const { data: fastCountsDataArr } = await supabase.rpc('get_campaign_creator_counts', rpcParams);
-  let fastCountsData = null;
+  const { data: fastCountsDataArr } = await supabase.rpc('get_campaign_creator_counts', { p_campaign_id: campaignId });
+  let fastCountsData: any = null;
   if (fastCountsDataArr && fastCountsDataArr.length > 0) {
     fastCountsData = {
       approved: Number(fastCountsDataArr[0].approved || 0),
@@ -164,8 +164,8 @@ export async function getPortalData(campaignId: number) {
     };
   }
 
-  const { data: fastVideoCountsDataArr } = await supabase.rpc('get_campaign_video_counts_fast', rpcParams);
-  let fastVideoCountsData = null;
+  const { data: fastVideoCountsDataArr } = await supabase.rpc('get_campaign_video_counts_fast', { p_campaign_id: campaignId });
+  let fastVideoCountsData: any = null;
   if (fastVideoCountsDataArr && fastVideoCountsDataArr.length > 0) {
     fastVideoCountsData = {
       total_approved: Number(fastVideoCountsDataArr[0].total_approved || 0),
@@ -201,6 +201,13 @@ export async function getPortalData(campaignId: number) {
     .eq('campaign_id', campaignId);
 
   // Hapus mapping rawSales dan adsPerf karena sudah dihandle oleh View
+  let fbApprovedCreators = 0;
+  let fbPendingCreators = 0;
+  let fbApprovedVideos = 0;
+  let fbPendingVideos = 0;
+  let fbLivestreams = 0;
+  let pendingCreatorsWithVideosCount = 0;
+
   const enrichedCcData = ccData?.map((cc: any) => {
     const creator = Array.isArray(cc.creators) ? cc.creators[0] : cc.creators;
     const snap = creator?.creator_snapshots 
@@ -254,6 +261,14 @@ export async function getPortalData(campaignId: number) {
     const totalVt = approvedVtCount + pendingVtCount;
     const totalLive = uniqueLiveIds.size;
 
+    if (cc.approval === 'approved') fbApprovedCreators++;
+    if (cc.approval === 'pending') fbPendingCreators++;
+    
+    fbApprovedVideos += approvedVtCount;
+    fbPendingVideos += pendingVtCount;
+    if (pendingVtCount > 0) pendingCreatorsWithVideosCount++;
+    fbLivestreams += totalLive;
+
     return {
       ...cc,
       followers: snap?.followers || 0,
@@ -269,6 +284,20 @@ export async function getPortalData(campaignId: number) {
       total_livestreams: totalLive
     };
   }) || [];
+
+  // Override counts if a global filter is active
+  if (filterType !== 'none') {
+    fastCountsData = {
+      approved: fbApprovedCreators,
+      pending: fbPendingCreators,
+      pending_with_videos: pendingCreatorsWithVideosCount
+    };
+    fastVideoCountsData = {
+      total_approved: fbApprovedVideos,
+      total_pending: fbPendingVideos,
+      total_livestream: fbLivestreams
+    };
+  }
 
   // Fetch creator addresses (Pengiriman sampel)
   // Strict filter: only show if client_approval is 'approved' (if required) or 'NOT_REQUIRED' (if not required)
