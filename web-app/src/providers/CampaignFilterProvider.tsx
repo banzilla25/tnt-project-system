@@ -38,7 +38,7 @@ export function CampaignFilterProvider({ children, initialFilterType = 'none', i
   const [appliedFilterType, setAppliedFilterType] = useState<FilterType>(initialFilterType);
   
   // parse initial usernames to array
-  const initialNames = (initialFilterUsernames || '').split('\n').map(n => n.trim().toLowerCase()).filter(n => n);
+  const initialNames = (initialFilterUsernames || '').split(/[\s,]+/).map(n => n.trim().toLowerCase()).filter(n => n);
   const [appliedFilterUsernames, setAppliedFilterUsernames] = useState<string[]>(initialNames);
 
   // Sync when props change (e.g. data loaded asynchronously)
@@ -46,7 +46,7 @@ export function CampaignFilterProvider({ children, initialFilterType = 'none', i
     setFilterType(initialFilterType);
     setFilterUsernames(initialFilterUsernames);
     setAppliedFilterType(initialFilterType);
-    setAppliedFilterUsernames((initialFilterUsernames || '').split('\n').map(n => n.trim().toLowerCase()).filter(n => n));
+    setAppliedFilterUsernames((initialFilterUsernames || '').split(/[\s,]+/).map(n => n.trim().toLowerCase()).filter(n => n));
   }, [initialFilterType, initialFilterUsernames]);
 
   const isCreatorVisible = (username: string | null | undefined) => {
@@ -110,7 +110,7 @@ export function CampaignFilterProvider({ children, initialFilterType = 'none', i
                       value={filterUsernames}
                       onChange={e => setFilterUsernames(e.target.value)}
                     ></textarea>
-                    <div className="text-right text-xs text-slate-400 mt-1">{(filterUsernames || '').split(/[\s,]+/).filter(n => n.trim()).length} usernames detected</div>
+                    <p className="text-xs text-slate-500 mt-2">Masukkan username TikTok yang ingin di-filter (pisahkan dengan koma, spasi, atau enter)</p>
                   </div>
                 </>
               )}
@@ -123,14 +123,11 @@ export function CampaignFilterProvider({ children, initialFilterType = 'none', i
               <button 
                 className="px-5 py-2 text-sm font-bold text-white bg-[#0e9f85] hover:bg-[#0c8a73] rounded-lg transition-colors shadow-sm"
                 onClick={async () => {
-                  setAppliedFilterType(filterType);
-                  const names = (filterUsernames || '').split('\n').map(n => n.trim().toLowerCase()).filter(n => n);
-                  setAppliedFilterUsernames(names);
-                  
                   if (onSaveFilter) {
                     await onSaveFilter(filterType, filterUsernames);
                   }
-                  
+                  setAppliedFilterType(filterType);
+                  setAppliedFilterUsernames((filterUsernames || '').split(/[\s,]+/).map(n => n.trim().toLowerCase()).filter(n => n));
                   setIsFilterModalOpen(false);
                 }}
               >
