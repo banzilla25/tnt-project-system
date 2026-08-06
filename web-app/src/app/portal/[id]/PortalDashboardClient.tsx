@@ -109,10 +109,12 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
   const totalAdsGmv = initialTotalAdsGmv || 0; 
   const unattributedGmv = rpc?.unattributed_gmv !== undefined ? Number(rpc.unattributed_gmv) : 0;
   
-  const totalAllGmv = totalOrganic + unattributedGmv + totalAdsGmv;
+  // In the Brand Portal, Total Achievement ONLY counts approved GMV (Organic + Ads).
+  // Pending creators (unattributed) are intentionally hidden until approved.
+  const totalAllGmv = totalOrganic + totalAdsGmv;
   const percentGmv = campaign?.target_gmv ? Math.round((totalAllGmv / campaign.target_gmv) * 100) : 0;
   
-  const trackedOrganic = totalOrganic + unattributedGmv;
+  const trackedOrganic = totalOrganic;
   const attributionGap = 0; // Hidden in portal
   const gapPercentage = 0;
 
