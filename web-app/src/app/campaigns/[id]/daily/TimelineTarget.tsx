@@ -461,32 +461,28 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
                           </div>
                         </div>
                         {/* Live Creator Weekly UI */}
-                        {targetCreatorLive > 0 && (
-                          <>
-                            <div className="text-[10px] text-purple-800 flex flex-col px-2 mt-1">
-                              <div className="flex justify-between">
-                                <span>Kr Live Ditambah:</span>
-                                <span className="font-medium text-amber-600">
-                                  {Math.round(day.weeklySummary.pendingLiveCreatorAchieve)}
-                                </span>
-                              </div>
-                              <div className="text-[9px] text-purple-600/70 mt-[2px] leading-tight">
-                                 N: {day.weeklySummary.pendingLiveNano} | Mi: {day.weeklySummary.pendingLiveMicro} | Ma: {day.weeklySummary.pendingLiveMacro} | Me: {day.weeklySummary.pendingLiveMega}
-                              </div>
-                            </div>
-                            <div className="text-[10px] text-purple-800 flex flex-col px-2 mt-1 border-t border-purple-200/50 pt-1">
-                              <div className="flex justify-between">
-                                <span>Kr Live Approve:</span>
-                                <span className={day.weeklySummary.liveCreatorAchieve >= day.weeklySummary.targetCreatorLive && targetCreatorLive > 0 ? 'text-emerald-700 font-bold' : 'font-medium'}>
-                                  {Math.round(day.weeklySummary.liveCreatorAchieve)} {targetCreatorLive > 0 ? `/ ${Math.round(day.weeklySummary.targetCreatorLive)}` : ''}
-                                </span>
-                              </div>
-                              <div className="text-[9px] text-purple-600/70 mt-[2px] leading-tight">
-                                 N: {day.weeklySummary.approvedLiveNano} | Mi: {day.weeklySummary.approvedLiveMicro} | Ma: {day.weeklySummary.approvedLiveMacro} | Me: {day.weeklySummary.approvedLiveMega}
-                              </div>
-                            </div>
-                          </>
-                        )}
+                        <div className="text-[10px] text-purple-800 flex flex-col px-2 mt-1">
+                          <div className="flex justify-between">
+                            <span>Kr Live Ditambah:</span>
+                            <span className="font-medium text-amber-600">
+                              {Math.round(day.weeklySummary.pendingLiveCreatorAchieve)}
+                            </span>
+                          </div>
+                          <div className="text-[9px] text-purple-600/70 mt-[2px] leading-tight">
+                             N: {day.weeklySummary.pendingLiveNano} | Mi: {day.weeklySummary.pendingLiveMicro} | Ma: {day.weeklySummary.pendingLiveMacro} | Me: {day.weeklySummary.pendingLiveMega}
+                          </div>
+                        </div>
+                        <div className="text-[10px] text-purple-800 flex flex-col px-2 mt-1 border-t border-purple-200/50 pt-1">
+                          <div className="flex justify-between">
+                            <span>Kr Live Approve:</span>
+                            <span className={day.weeklySummary.liveCreatorAchieve >= day.weeklySummary.targetCreatorLive && targetCreatorLive > 0 ? 'text-emerald-700 font-bold' : 'font-medium'}>
+                              {Math.round(day.weeklySummary.liveCreatorAchieve)} {targetCreatorLive > 0 ? `/ ${Math.round(day.weeklySummary.targetCreatorLive)}` : ''}
+                            </span>
+                          </div>
+                          <div className="text-[9px] text-purple-600/70 mt-[2px] leading-tight">
+                             N: {day.weeklySummary.approvedLiveNano} | Mi: {day.weeklySummary.approvedLiveMicro} | Ma: {day.weeklySummary.approvedLiveMacro} | Me: {day.weeklySummary.approvedLiveMega}
+                          </div>
+                        </div>
                       </div>
                     ) : isTop ? (
                       <div className={`rounded-lg p-3 w-[180px] shadow-sm relative z-20 ${isToday ? 'bg-rose-50 border border-rose-200' : 'bg-white border border-slate-200'}`}>
@@ -537,32 +533,28 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
                            </div>
                          </div>
                          {/* Live Creator Daily UI */}
-                         {targetCreatorLive > 0 && (
-                           <>
-                             <div className="text-[10px] text-purple-700 flex flex-col border-t border-purple-100 pt-1 mt-1">
-                               <div className="flex justify-between">
-                                 <span>Kr Live Ditambah:</span>
-                                 <span className="font-medium text-amber-600">
-                                   {Math.round(day.pendingLiveCreator)}
-                                 </span>
-                               </div>
-                               <div className="text-[9px] text-purple-400/80 mt-[2px] leading-tight">
-                                 N: {day.pendingLiveNano} | Mi: {day.pendingLiveMicro} | Ma: {day.pendingLiveMacro} | Me: {day.pendingLiveMega}
-                               </div>
-                             </div>
-                             <div className="text-[10px] text-purple-700 flex flex-col border-t border-purple-100 pt-1 mt-1">
-                               <div className="flex justify-between">
-                                 <span>Kr Live Approve:</span>
-                                 <span className={day.liveCreator >= day.targetCreatorLive && targetCreatorLive > 0 ? 'text-emerald-600 font-bold' : 'font-medium'}>
-                                   {Math.round(day.liveCreator)} {targetCreatorLive > 0 ? `/ ${Math.round(day.targetCreatorLive)}` : ''}
-                                 </span>
-                               </div>
-                               <div className="text-[9px] text-purple-400/80 mt-[2px] leading-tight">
-                                 N: {day.approvedLiveNano} | Mi: {day.approvedLiveMicro} | Ma: {day.approvedLiveMacro} | Me: {day.approvedLiveMega}
-                               </div>
-                             </div>
-                           </>
-                         )}
+                         <div className="text-[10px] text-purple-700 flex flex-col border-t border-purple-100 pt-1 mt-1">
+                           <div className="flex justify-between">
+                             <span>Kr Live Ditambah:</span>
+                             <span className="font-medium text-amber-600">
+                               {Math.round(day.pendingLiveCreator)}
+                             </span>
+                           </div>
+                           <div className="text-[9px] text-purple-400/80 mt-[2px] leading-tight">
+                             N: {day.pendingLiveNano} | Mi: {day.pendingLiveMicro} | Ma: {day.pendingLiveMacro} | Me: {day.pendingLiveMega}
+                           </div>
+                         </div>
+                         <div className="text-[10px] text-purple-700 flex flex-col border-t border-purple-100 pt-1 mt-1">
+                           <div className="flex justify-between">
+                             <span>Kr Live Approve:</span>
+                             <span className={day.liveCreator >= day.targetCreatorLive && targetCreatorLive > 0 ? 'text-emerald-600 font-bold' : 'font-medium'}>
+                               {Math.round(day.liveCreator)} {targetCreatorLive > 0 ? `/ ${Math.round(day.targetCreatorLive)}` : ''}
+                             </span>
+                           </div>
+                           <div className="text-[9px] text-purple-400/80 mt-[2px] leading-tight">
+                             N: {day.approvedLiveNano} | Mi: {day.approvedLiveMicro} | Ma: {day.approvedLiveMacro} | Me: {day.approvedLiveMega}
+                           </div>
+                         </div>
                       </div>
                     ) : null}
                   </div>
@@ -627,32 +619,28 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
                            </div>
                          </div>
                          {/* Live Creator Daily UI */}
-                         {targetCreatorLive > 0 && (
-                           <>
-                             <div className="text-[10px] text-purple-700 flex flex-col border-t border-purple-100 pt-1 mt-1">
-                               <div className="flex justify-between">
-                                 <span>Kr Live Ditambah:</span>
-                                 <span className="font-medium text-amber-600">
-                                   {Math.round(day.pendingLiveCreator)}
-                                 </span>
-                               </div>
-                               <div className="text-[9px] text-purple-400/80 mt-[2px] leading-tight">
-                                 N: {day.pendingLiveNano} | Mi: {day.pendingLiveMicro} | Ma: {day.pendingLiveMacro} | Me: {day.pendingLiveMega}
-                               </div>
-                             </div>
-                             <div className="text-[10px] text-purple-700 flex flex-col border-t border-purple-100 pt-1 mt-1">
-                               <div className="flex justify-between">
-                                 <span>Kr Live Approve:</span>
-                                 <span className={day.liveCreator >= day.targetCreatorLive && targetCreatorLive > 0 ? 'text-emerald-600 font-bold' : 'font-medium'}>
-                                   {Math.round(day.liveCreator)} {targetCreatorLive > 0 ? `/ ${Math.round(day.targetCreatorLive)}` : ''}
-                                 </span>
-                               </div>
-                               <div className="text-[9px] text-purple-400/80 mt-[2px] leading-tight">
-                                 N: {day.approvedLiveNano} | Mi: {day.approvedLiveMicro} | Ma: {day.approvedLiveMacro} | Me: {day.approvedLiveMega}
-                               </div>
-                             </div>
-                           </>
-                         )}
+                         <div className="text-[10px] text-purple-700 flex flex-col border-t border-purple-100 pt-1 mt-1">
+                           <div className="flex justify-between">
+                             <span>Kr Live Ditambah:</span>
+                             <span className="font-medium text-amber-600">
+                               {Math.round(day.pendingLiveCreator)}
+                             </span>
+                           </div>
+                           <div className="text-[9px] text-purple-400/80 mt-[2px] leading-tight">
+                             N: {day.pendingLiveNano} | Mi: {day.pendingLiveMicro} | Ma: {day.pendingLiveMacro} | Me: {day.pendingLiveMega}
+                           </div>
+                         </div>
+                         <div className="text-[10px] text-purple-700 flex flex-col border-t border-purple-100 pt-1 mt-1">
+                           <div className="flex justify-between">
+                             <span>Kr Live Approve:</span>
+                             <span className={day.liveCreator >= day.targetCreatorLive && targetCreatorLive > 0 ? 'text-emerald-600 font-bold' : 'font-medium'}>
+                               {Math.round(day.liveCreator)} {targetCreatorLive > 0 ? `/ ${Math.round(day.targetCreatorLive)}` : ''}
+                             </span>
+                           </div>
+                           <div className="text-[9px] text-purple-400/80 mt-[2px] leading-tight">
+                             N: {day.approvedLiveNano} | Mi: {day.approvedLiveMicro} | Ma: {day.approvedLiveMacro} | Me: {day.approvedLiveMega}
+                           </div>
+                         </div>
                       </div>
                     )}
                   </div>
