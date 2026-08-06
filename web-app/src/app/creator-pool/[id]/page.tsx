@@ -610,14 +610,12 @@ export default function CreatorProfilePage() {
                     value={snapForm.followers} 
                     onChange={e => {
                       const f = e.target.value;
-                      let newTier = snapForm.tier;
-                      if (f) {
-                        const numF = parseInt(f);
-                        if (numF < 10000) newTier = 'Nano';
-                        else if (numF < 100000) newTier = 'Micro';
-                        else if (numF < 1000000) newTier = 'Macro';
-                        else newTier = 'Mega';
-                      }
+                      let newTier = 'Nano';
+                      const numF = f ? parseInt(f) : 0;
+                      if (numF < 10000) newTier = 'Nano';
+                      else if (numF < 100000) newTier = 'Micro';
+                      else if (numF < 1000000) newTier = 'Macro';
+                      else newTier = 'Mega';
                       setSnapForm({...snapForm, followers: f, tier: newTier});
                     }} 
                     className="w-full p-2 border rounded" 

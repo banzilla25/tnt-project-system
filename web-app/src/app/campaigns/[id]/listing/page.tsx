@@ -1213,7 +1213,7 @@ function CampaignListingContent() {
       const campaignPayloads = allCreators.map(c => {
         const snap = snapshotMap.get(c.id);
         const followers = snap?.followers || 0;
-        const tier = followers > 0 ? calculateTier(followers) : (snap?.tier || 'Nano');
+        const tier = calculateTier(followers);
         
         return {
           campaign_id: campaignId,
