@@ -122,39 +122,51 @@ export async function getPortalData(campaignId: number) {
   }
   
   // Apply Global Creator Filter from Database
+  let filterType = 'none';
+  let filterValues: string[] = [];
+  
   if (campaign.creator_filter_type === 'include' || campaign.creator_filter_type === 'exclude') {
-    const filteredUsernames = (campaign.creator_filter_usernames || '').split(/[\s,]+/).map((u: string) => u.trim().toLowerCase()).filter((u: string) => u);
-    if (filteredUsernames.length > 0) {
+    filterType = campaign.creator_filter_type;
+    filterValues = (campaign.creator_filter_usernames || '').split(/[\s,]+/).map((u: string) => u.trim().toLowerCase()).filter((u: string) => u);
+    if (filterValues.length > 0) {
       ccData = ccData.filter((cc: any) => {
         const creator = Array.isArray(cc.creators) ? cc.creators[0] : cc.creators;
         const username = (creator?.username || '').toLowerCase();
-        const match = filteredUsernames.includes(username);
-        return campaign.creator_filter_type === 'include' ? match : !match;
+        const match = filterValues.includes(username);
+        return filterType === 'include' ? match : !match;
       });
+    } else {
+      filterType = 'none';
     }
+  }
+
+  const rpcParams: any = { p_campaign_id: campaignId };
+  if (filterType !== 'none' && filterValues.length > 0) {
+    rpcParams.p_filter_type = filterType;
+    rpcParams.p_filter_values = filterValues;
   }
   
   // Fetch performa summary dari RPC
-  const { data: creatorPerformance } = await supabase.rpc('get_campaign_creator_performance', { p_campaign_id: campaignId });
+  const { data: creatorPerformance } = await supabase.rpc('get_campaign_creator_performance', rpcParams);
 
   // Fetch RPC untuk Global Cards V2 (Mirror Internal Dashboard)
-  const { data: rpcPerfArr, error: rpcError } = await supabase.rpc('get_performance_summary_v2', { p_campaign_id: campaignId });
+  const { data: rpcPerfArr, error: rpcError } = await supabase.rpc('get_performance_summary_v2', rpcParams);
   const rpcPerf = rpcPerfArr?.[0] || {};
   if (rpcError) console.error("RPC Error:", rpcError);
 
-  const { data: fastCountsDataArr } = await supabase.rpc('get_campaign_creator_counts', { p_campaign_id: campaignId });
+  const { data: fastCountsDataArr } = await supabase.rpc('get_campaign_creator_counts', rpcParams);
   const fastCountsData = fastCountsDataArr?.[0] || {};
 
-  const { data: fastVideoCountsDataArr } = await supabase.rpc('get_campaign_video_counts_fast', { p_campaign_id: campaignId });
+  const { data: fastVideoCountsDataArr } = await supabase.rpc('get_campaign_video_counts_fast', rpcParams);
   const fastVideoCountsData = fastVideoCountsDataArr?.[0] || {};
 
   // Ambil semua sesi Live via RPC
-  const { data: rpcLives } = await supabase.rpc('get_campaign_live_stats', { p_campaign_id: campaignId });
+  const { data: rpcLives } = await supabase.rpc('get_campaign_live_stats', rpcParams);
   const actualLives: any[] = Array.isArray(rpcLives) ? rpcLives : [];
   const liveUids = new Set(actualLives.map((l: any) => l.content_uid).filter(Boolean));
 
   // Fetch stats for videos via new RPC
-  const { data: videoStats } = await supabase.rpc('get_campaign_video_stats', { p_campaign_id: campaignId });
+  const { data: videoStats } = await supabase.rpc('get_campaign_video_stats', rpcParams);
     
   const videoGmvMap = new Map();
   const videoViewsMap = new Map();
