@@ -568,9 +568,15 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                     <div className="flex justify-between items-start">
                       <div>
                         <p className="text-[13px] font-medium text-slate-500">Pencapaian Target Creator</p>
-                        <div className="flex items-center gap-[8px] mt-[8px]">
-                          <h3 className="text-[24px] font-bold text-slate-800">{totalApprovedCreators}</h3>
-                          <Badge variant="success" className="bg-emerald-100 text-emerald-800 border-none font-medium">kreator</Badge>
+                        <h3 className="text-[24px] font-bold mt-[8px] text-slate-800 flex items-center gap-2">
+                          {totalApprovedCreators} 
+                          <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200">kreator approved</span>
+                        </h3>
+                        <div className="flex items-center gap-3 text-[12px] mt-[6px] text-slate-500">
+                          <span className="flex items-center gap-2">
+                            {totalPendingCreators}
+                            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200">kreator pending</span>
+                          </span>
                         </div>
                       </div>
                       <div className="p-[8px] bg-orange-50 text-orange-600 rounded-[8px]"><Users className="w-5 h-5" /></div>
@@ -594,10 +600,11 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                     <div className="flex justify-between items-start">
                       <div>
                         <p className="text-[13px] font-medium text-slate-500">Pencapaian Target Video</p>
-                        <div className="flex items-center gap-[8px] mt-[8px]">
-                          <h3 className="text-[24px] font-bold text-slate-800">{totalApprovedVideos}</h3>
-                          <span className="text-[12px] text-slate-500 font-medium">video</span>
+                        <h3 className="text-[24px] font-bold mt-[8px] text-slate-800">{totalApprovedVideos} <span className="text-[13px] text-slate-500 font-normal">video approved</span></h3>
+                        <div className="flex items-center gap-3 text-[11px] mt-[4px] text-slate-500">
+                          <span>{totalPendingVideos} video pending dari {pendingCreatorsWithVideosCount} kreator</span>
                         </div>
+                        <p className="text-[11px] font-semibold text-slate-500 mt-[4px]">{totalCampaignLivestreams} <span className="font-normal">livestream</span></p>
                       </div>
                       <div className="p-[8px] bg-rose-50 text-rose-500 rounded-[8px]"><Video className="w-5 h-5" /></div>
                     </div>
