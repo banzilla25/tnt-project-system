@@ -210,7 +210,7 @@ export default function SpreadsheetImportCreatorClient() {
         }
       }
 
-      const columns: (keyof SpreadsheetRow)[] = ['username', 'no_wa', 'level', 'followers', 'gmv_30_days', 'rate_card', 'qty_vt', 'qty_live'];
+      const columns: (keyof SpreadsheetRow)[] = ['username', 'no_wa', 'followers', 'level', 'gmv_30_days', 'rate_card', 'qty_vt', 'qty_live'];
       const startColIdx = columns.indexOf(startColName);
       if (startColIdx === -1) return;
 
@@ -732,8 +732,8 @@ export default function SpreadsheetImportCreatorClient() {
                   <th className="w-12 px-2 py-2 bg-slate-100 border-b border-r border-slate-300 sticky top-0 z-10 text-center text-xs font-semibold text-slate-500">No</th>
                   <TableHeader title="Username *" width="w-48" />
                   <TableHeader title="No WA" width="w-40" />
-                  <TableHeader title="Level" width="w-24" />
                   <TableHeader title="Followers *" width="w-32" />
+                  <TableHeader title="Level" width="w-24" />
                   <TableHeader title="GMV 30 Days *" width="w-40" />
                   <TableHeader title="Rate Card (Rp)" width="w-40" />
                   <TableHeader title="Qty VT" width="w-24" />
@@ -762,16 +762,16 @@ export default function SpreadsheetImportCreatorClient() {
                         <div className="absolute right-0 bottom-0 w-2 h-2 bg-blue-500 cursor-crosshair opacity-0 group-hover:opacity-100 transition-opacity z-10" onMouseDown={(e) => { e.preventDefault(); handleDragFillStart(idx, 'no_wa', row.no_wa); }} />
                       </td>
                       
-                      {/* LEVEL */}
-                      <td className="relative p-0 border-b border-r border-slate-300 group" onMouseEnter={() => handleDragFillEnter(idx)}>
-                        <input type="text" value={row.level} onChange={(e) => updateCell(idx, 'level', e.target.value)} onPaste={(e) => handlePaste(e, idx, 'level')} className={`w-full h-full min-h-[36px] px-3 py-1 outline-none text-sm transition-colors focus:bg-blue-50 w-24`} />
-                        <div className="absolute right-0 bottom-0 w-2 h-2 bg-blue-500 cursor-crosshair opacity-0 group-hover:opacity-100 transition-opacity z-10" onMouseDown={(e) => { e.preventDefault(); handleDragFillStart(idx, 'level', row.level); }} />
-                      </td>
-                      
                       {/* FOLLOWERS */}
                       <td className="relative p-0 border-b border-r border-slate-300 group" onMouseEnter={() => handleDragFillEnter(idx)}>
                         <input type="text" value={row.followers} onChange={(e) => updateCell(idx, 'followers', e.target.value)} onPaste={(e) => handlePaste(e, idx, 'followers')} className={`w-full h-full min-h-[36px] px-3 py-1 outline-none text-sm transition-colors ${!row.followers && row.status === 'incomplete' ? 'bg-amber-50 text-amber-700' : 'focus:bg-blue-50'} w-32`} />
                         <div className="absolute right-0 bottom-0 w-2 h-2 bg-blue-500 cursor-crosshair opacity-0 group-hover:opacity-100 transition-opacity z-10" onMouseDown={(e) => { e.preventDefault(); handleDragFillStart(idx, 'followers', row.followers); }} />
+                      </td>
+
+                      {/* LEVEL */}
+                      <td className="relative p-0 border-b border-r border-slate-300 group" onMouseEnter={() => handleDragFillEnter(idx)}>
+                        <input type="text" value={row.level} onChange={(e) => updateCell(idx, 'level', e.target.value)} onPaste={(e) => handlePaste(e, idx, 'level')} className={`w-full h-full min-h-[36px] px-3 py-1 outline-none text-sm transition-colors focus:bg-blue-50 w-24`} />
+                        <div className="absolute right-0 bottom-0 w-2 h-2 bg-blue-500 cursor-crosshair opacity-0 group-hover:opacity-100 transition-opacity z-10" onMouseDown={(e) => { e.preventDefault(); handleDragFillStart(idx, 'level', row.level); }} />
                       </td>
                       
                       {/* GMV */}
