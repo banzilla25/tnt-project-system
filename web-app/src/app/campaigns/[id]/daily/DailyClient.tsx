@@ -46,7 +46,7 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
       while (hasMore_v) {
         const { data: ccData, error } = await supabase
           .from('campaign_creators')
-          .select('id, tier, created_at, approved_at, creators(username, creator_snapshots(tier, tanggal_update)), videos(id, created_at, link_video)')
+          .select('id, tier, created_at, approved_at, content_type, creators(username, creator_snapshots(tier, tanggal_update)), videos(id, created_at, link_video)')
           .eq('campaign_id', campaignId)
           .range(from_v, to_v);
 
