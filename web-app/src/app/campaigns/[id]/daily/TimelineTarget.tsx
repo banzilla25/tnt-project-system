@@ -464,33 +464,51 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
 
                         <div className="bg-white/50 rounded-[12px] p-3 border border-blue-100/50">
                            <div className="grid grid-cols-2 gap-4">
+                             {/* Kreator Ditambah */}
                              <div>
-                               <div className="flex justify-between items-center mb-1">
-                                 <span className="text-[11px] font-bold text-blue-900">Kreator Ditambah</span>
-                                 <span className="font-bold text-orange-600 text-[13px]">{Math.round(day.weeklySummary.achievedPendingCreator)}</span>
+                               <div className="flex items-center gap-1.5 mb-1">
+                                 <span className="text-[11px] font-bold text-blue-900 leading-tight">Kr Ditambah</span>
                                </div>
-                               <div className="text-[9px] text-blue-700/60 font-medium">N {day.weeklySummary.achievedPendingNano} | Mi {day.weeklySummary.achievedPendingMicro} | Ma {day.weeklySummary.achievedPendingMacro} | Me {day.weeklySummary.achievedPendingMega}</div>
+                               <div className="flex flex-col gap-1">
+                                 <span className="font-bold text-orange-600 text-[16px] leading-none">{Math.round(day.weeklySummary.achievedPendingCreator)}</span>
+                                 <div className="text-[9px] text-blue-700/60 font-medium">N {day.weeklySummary.achievedPendingNano} | Mi {day.weeklySummary.achievedPendingMicro} | Ma {day.weeklySummary.achievedPendingMacro} | Me {day.weeklySummary.achievedPendingMega}</div>
+                               </div>
                              </div>
+                             {/* Kr Approve */}
                              <div>
-                               <div className="flex justify-between items-center mb-1">
-                                 <span className="text-[11px] font-bold text-blue-900">Live Ditambah</span>
-                                 <span className="font-bold text-purple-600 text-[13px]">{Math.round(day.weeklySummary.pendingLiveCreatorAchieve)}</span>
+                               <div className="flex items-center gap-1.5 mb-1">
+                                 <span className="text-[11px] font-bold text-blue-900 leading-tight">Kr Approve</span>
                                </div>
-                               <div className="text-[9px] text-blue-700/60 font-medium">N {day.weeklySummary.pendingLiveNano} | Mi {day.weeklySummary.pendingLiveMicro} | Ma {day.weeklySummary.pendingLiveMacro} | Me {day.weeklySummary.pendingLiveMega}</div>
+                               <div className="flex flex-col gap-1">
+                                 <div className="flex items-end gap-1 leading-none">
+                                   <span className="font-bold text-emerald-600 text-[16px]">{Math.round(day.weeklySummary.achievedCreator)}</span>
+                                   <span className="font-bold text-emerald-600/60 text-[11px] mb-[1px]">/ {targetCreator > 0 ? Math.round(day.weeklySummary.targetCreator) : '0'}</span>
+                                 </div>
+                                 <div className="text-[9px] text-blue-700/60 font-medium">N {day.weeklySummary.achievedApprovedNano} | Mi {day.weeklySummary.achievedApprovedMicro} | Ma {day.weeklySummary.achievedApprovedMacro} | Me {day.weeklySummary.achievedApprovedMega}</div>
+                               </div>
                              </div>
+                             {/* Kr Live Ditambah */}
                              <div>
-                               <div className="flex justify-between items-center mb-1">
-                                 <span className="text-[11px] font-bold text-blue-900">Kreator Approve</span>
-                                 <span className="font-bold text-emerald-600 text-[13px]">{Math.round(day.weeklySummary.achievedCreator)}</span>
+                               <div className="flex items-center gap-1.5 mb-1">
+                                 <span className="text-[11px] font-bold text-blue-900 leading-tight">Kr Live Ditambah</span>
                                </div>
-                               <div className="text-[9px] text-blue-700/60 font-medium">N {day.weeklySummary.achievedApprovedNano} | Mi {day.weeklySummary.achievedApprovedMicro} | Ma {day.weeklySummary.achievedApprovedMacro} | Me {day.weeklySummary.achievedApprovedMega}</div>
+                               <div className="flex flex-col gap-1">
+                                 <span className="font-bold text-purple-600 text-[16px] leading-none">{Math.round(day.weeklySummary.pendingLiveCreatorAchieve)}</span>
+                                 <div className="text-[9px] text-blue-700/60 font-medium">N {day.weeklySummary.pendingLiveNano} | Mi {day.weeklySummary.pendingLiveMicro} | Ma {day.weeklySummary.pendingLiveMacro} | Me {day.weeklySummary.pendingLiveMega}</div>
+                               </div>
                              </div>
+                             {/* Kr Live Approve */}
                              <div>
-                               <div className="flex justify-between items-center mb-1">
-                                 <span className="text-[11px] font-bold text-blue-900">Live Approve</span>
-                                 <span className="font-bold text-purple-600 text-[13px]">{Math.round(day.weeklySummary.liveCreatorAchieve)}</span>
+                               <div className="flex items-center gap-1.5 mb-1">
+                                 <span className="text-[11px] font-bold text-blue-900 leading-tight">Kr Live Approve</span>
                                </div>
-                               <div className="text-[9px] text-blue-700/60 font-medium">N {day.weeklySummary.approvedLiveNano} | Mi {day.weeklySummary.approvedLiveMicro} | Ma {day.weeklySummary.approvedLiveMacro} | Me {day.weeklySummary.approvedLiveMega}</div>
+                               <div className="flex flex-col gap-1">
+                                 <div className="flex items-end gap-1 leading-none">
+                                   <span className="font-bold text-purple-600 text-[16px]">{Math.round(day.weeklySummary.liveCreatorAchieve)}</span>
+                                   <span className="font-bold text-purple-600/60 text-[11px] mb-[1px]">/ {targetCreatorLive > 0 ? Math.round(day.weeklySummary.targetCreatorLive) : '0'}</span>
+                                 </div>
+                                 <div className="text-[9px] text-blue-700/60 font-medium">N {day.weeklySummary.approvedLiveNano} | Mi {day.weeklySummary.approvedLiveMicro} | Ma {day.weeklySummary.approvedLiveMacro} | Me {day.weeklySummary.approvedLiveMega}</div>
+                               </div>
                              </div>
                            </div>
                         </div>
@@ -601,62 +619,65 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
                       {/* Detail Quadrants */}
                       <div className="border border-slate-100 rounded-[16px] bg-white overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,0.02)]">
                         <div className="grid grid-cols-2">
-                          {/* Top Left: Kreator Ditambah */}
+                          {/* Top Left: Kr Ditambah */}
                           <div className="p-3 border-b border-r border-slate-100 border-dashed">
-                            <div className="flex justify-between items-start mb-2 gap-1">
-                              <div className="flex items-center gap-1.5">
-                                <UserPlus size={14} className="text-orange-500 shrink-0" strokeWidth={2.5} />
-                                <span className="text-[11px] font-bold text-slate-700 leading-tight">Kr Ditambah</span>
-                              </div>
-                              <span className="text-[16px] font-bold text-orange-600 leading-none">{Math.round(day.achievedPendingCreator)}</span>
+                            <div className="flex items-center gap-1.5 mb-2">
+                              <UserPlus size={14} className="text-orange-500 shrink-0" strokeWidth={2.5} />
+                              <span className="text-[11px] font-bold text-slate-700 leading-tight">Kr Ditambah</span>
                             </div>
-                            <div className="text-[9px] text-slate-400 font-medium tracking-wide">
-                              N {day.achievedPendingNano} | Mi {day.achievedPendingMicro} | Ma {day.achievedPendingMacro} | Me {day.achievedPendingMega}
+                            <div className="flex flex-col gap-1">
+                              <span className="text-[18px] font-bold text-orange-600 leading-none">{Math.round(day.achievedPendingCreator)}</span>
+                              <div className="text-[9px] text-slate-400 font-medium tracking-wide">
+                                N {day.achievedPendingNano} | Mi {day.achievedPendingMicro} | Ma {day.achievedPendingMacro} | Me {day.achievedPendingMega}
+                              </div>
                             </div>
                           </div>
 
-                          {/* Top Right: Kreator Approve */}
+                          {/* Top Right: Kr Approve */}
                           <div className="p-3 border-b border-slate-100 border-dashed">
-                            <div className="flex justify-between items-start mb-2 gap-1">
-                              <div className="flex items-center gap-1.5">
-                                <CheckCircle2 size={14} className="text-emerald-500 shrink-0" strokeWidth={2.5} />
-                                <span className="text-[11px] font-bold text-slate-700 leading-tight">Kr Approve</span>
-                              </div>
-                              <div className="flex flex-col items-end gap-0.5">
-                                <span className="text-[16px] font-bold text-emerald-600 leading-none">{Math.round(day.achievedCreator)}</span>
-                                <span className="text-[10px] font-bold text-emerald-600/50 leading-none">/ {targetCreator > 0 ? Math.round(day.targetCreator) : '0'}</span>
-                              </div>
+                            <div className="flex items-center gap-1.5 mb-2">
+                              <CheckCircle2 size={14} className="text-emerald-500 shrink-0" strokeWidth={2.5} />
+                              <span className="text-[11px] font-bold text-slate-700 leading-tight">Kr Approve</span>
                             </div>
-                            <div className="text-[9px] text-slate-400 font-medium tracking-wide">
-                              N {day.achievedApprovedNano} | Mi {day.achievedApprovedMicro} | Ma {day.achievedApprovedMacro} | Me {day.achievedApprovedMega}
+                            <div className="flex flex-col gap-1">
+                              <div className="flex items-end gap-1 leading-none">
+                                <span className="text-[18px] font-bold text-emerald-600">{Math.round(day.achievedCreator)}</span>
+                                <span className="text-[11px] font-bold text-emerald-600/50 mb-[2px]">/ {targetCreator > 0 ? Math.round(day.targetCreator) : '0'}</span>
+                              </div>
+                              <div className="text-[9px] text-slate-400 font-medium tracking-wide">
+                                N {day.achievedApprovedNano} | Mi {day.achievedApprovedMicro} | Ma {day.achievedApprovedMacro} | Me {day.achievedApprovedMega}
+                              </div>
                             </div>
                           </div>
                           
-                          {/* Bottom Left: Live Ditambah */}
+                          {/* Bottom Left: Kr Live Ditambah */}
                           <div className="p-3 border-r border-slate-100 border-dashed">
-                            <div className="flex justify-between items-start mb-2 gap-1">
-                              <div className="flex items-center gap-1.5">
-                                <Radio size={14} className="text-purple-500 shrink-0" strokeWidth={2.5} />
-                                <span className="text-[11px] font-bold text-slate-700 leading-tight">Live Ditambah</span>
-                              </div>
-                              <span className="text-[16px] font-bold text-purple-600 leading-none">{Math.round(day.pendingLiveCreator)}</span>
+                            <div className="flex items-center gap-1.5 mb-2">
+                              <Radio size={14} className="text-purple-500 shrink-0" strokeWidth={2.5} />
+                              <span className="text-[11px] font-bold text-slate-700 leading-tight">Kr Live Ditambah</span>
                             </div>
-                            <div className="text-[9px] text-slate-400 font-medium tracking-wide">
-                              N {day.pendingLiveNano} | Mi {day.pendingLiveMicro} | Ma {day.pendingLiveMacro} | Me {day.pendingLiveMega}
+                            <div className="flex flex-col gap-1">
+                              <span className="text-[18px] font-bold text-purple-600 leading-none">{Math.round(day.pendingLiveCreator)}</span>
+                              <div className="text-[9px] text-slate-400 font-medium tracking-wide">
+                                N {day.pendingLiveNano} | Mi {day.pendingLiveMicro} | Ma {day.pendingLiveMacro} | Me {day.pendingLiveMega}
+                              </div>
                             </div>
                           </div>
 
-                          {/* Bottom Right: Live Approve */}
+                          {/* Bottom Right: Kr Live Approve */}
                           <div className="p-3">
-                            <div className="flex justify-between items-start mb-2 gap-1">
-                              <div className="flex items-center gap-1.5">
-                                <BadgeCheck size={14} className="text-purple-500 shrink-0" strokeWidth={2.5} />
-                                <span className="text-[11px] font-bold text-slate-700 leading-tight">Live Approve</span>
-                              </div>
-                              <span className="text-[16px] font-bold text-purple-600 leading-none">{Math.round(day.liveCreator)}</span>
+                            <div className="flex items-center gap-1.5 mb-2">
+                              <BadgeCheck size={14} className="text-purple-500 shrink-0" strokeWidth={2.5} />
+                              <span className="text-[11px] font-bold text-slate-700 leading-tight">Kr Live Approve</span>
                             </div>
-                            <div className="text-[9px] text-slate-400 font-medium tracking-wide">
-                              N {day.approvedLiveNano} | Mi {day.approvedLiveMicro} | Ma {day.approvedLiveMacro} | Me {day.approvedLiveMega}
+                            <div className="flex flex-col gap-1">
+                              <div className="flex items-end gap-1 leading-none">
+                                <span className="text-[18px] font-bold text-purple-600">{Math.round(day.liveCreator)}</span>
+                                <span className="text-[11px] font-bold text-purple-600/50 mb-[2px]">/ {targetCreatorLive > 0 ? Math.round(day.targetCreatorLive) : '0'}</span>
+                              </div>
+                              <div className="text-[9px] text-slate-400 font-medium tracking-wide">
+                                N {day.approvedLiveNano} | Mi {day.approvedLiveMicro} | Ma {day.approvedLiveMacro} | Me {day.approvedLiveMega}
+                              </div>
                             </div>
                           </div>
                         </div>
