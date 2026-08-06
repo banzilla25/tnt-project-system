@@ -24,6 +24,11 @@ export default function CampaignsPage() {
     target_creator_micro: '',
     target_creator_macro: '',
     target_creator_mega: '',
+    target_creator_live: '',
+    target_creator_live_nano: '',
+    target_creator_live_micro: '',
+    target_creator_live_macro: '',
+    target_creator_live_mega: '',
     target_views: '',
     budget_creator_plafon: '', budget_ads_plafon: '', require_client_approval: false
   });
@@ -63,6 +68,11 @@ export default function CampaignsPage() {
       target_creator_micro: formData.target_creator_micro ? Number(formData.target_creator_micro) : 0,
       target_creator_macro: formData.target_creator_macro ? Number(formData.target_creator_macro) : 0,
       target_creator_mega: formData.target_creator_mega ? Number(formData.target_creator_mega) : 0,
+      target_creator_live: formData.target_creator_live ? Number(formData.target_creator_live) : null,
+      target_creator_live_nano: formData.target_creator_live_nano ? Number(formData.target_creator_live_nano) : 0,
+      target_creator_live_micro: formData.target_creator_live_micro ? Number(formData.target_creator_live_micro) : 0,
+      target_creator_live_macro: formData.target_creator_live_macro ? Number(formData.target_creator_live_macro) : 0,
+      target_creator_live_mega: formData.target_creator_live_mega ? Number(formData.target_creator_live_mega) : 0,
       target_views: formData.target_views ? Number(formData.target_views) : null,
       budget_creator_plafon: Number(formData.budget_creator_plafon || 0),
       budget_ads_plafon: Number(formData.budget_ads_plafon || 0),
@@ -159,7 +169,7 @@ export default function CampaignsPage() {
                       <input type="number" min="0" className="input" value={formData.target_video} onChange={e => setFormData({...formData, target_video: e.target.value})} placeholder="Opsional" />
                     </div>
                     <div className="col-span-2 bg-slate-50 border border-slate-200 rounded-lg p-[16px] space-y-[12px]">
-                      <h5 className="font-semibold text-sm text-text">Detail Target Kreator</h5>
+                      <h5 className="font-semibold text-sm text-text">Detail Target Kreator (Umum/Video)</h5>
                       <div className="grid grid-cols-2 sm:grid-cols-5 gap-[12px]">
                         <div className="space-y-[6px]">
                           <label className="text-xs font-medium text-text-soft">Total</label>
@@ -180,6 +190,33 @@ export default function CampaignsPage() {
                         <div className="space-y-[6px]">
                           <label className="text-xs font-medium text-text-soft">Mega</label>
                           <input type="number" min="0" className="input text-sm" value={formData.target_creator_mega || ''} onChange={e => setFormData({...formData, target_creator_mega: e.target.value})} />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* NEW LIVE TARGET BLOCK */}
+                    <div className="col-span-2 bg-slate-50 border border-slate-200 rounded-lg p-[16px] space-y-[12px]">
+                      <h5 className="font-semibold text-sm text-text">Detail Target Creator Live</h5>
+                      <div className="grid grid-cols-2 sm:grid-cols-5 gap-[12px]">
+                        <div className="space-y-[6px]">
+                          <label className="text-xs font-medium text-text-soft">Total Live</label>
+                          <input type="number" min="0" className="input text-sm" value={formData.target_creator_live || ''} onChange={e => setFormData({...formData, target_creator_live: e.target.value})} />
+                        </div>
+                        <div className="space-y-[6px]">
+                          <label className="text-xs font-medium text-text-soft">Nano Live</label>
+                          <input type="number" min="0" className="input text-sm" value={formData.target_creator_live_nano || ''} onChange={e => setFormData({...formData, target_creator_live_nano: e.target.value})} />
+                        </div>
+                        <div className="space-y-[6px]">
+                          <label className="text-xs font-medium text-text-soft">Micro Live</label>
+                          <input type="number" min="0" className="input text-sm" value={formData.target_creator_live_micro || ''} onChange={e => setFormData({...formData, target_creator_live_micro: e.target.value})} />
+                        </div>
+                        <div className="space-y-[6px]">
+                          <label className="text-xs font-medium text-text-soft">Macro Live</label>
+                          <input type="number" min="0" className="input text-sm" value={formData.target_creator_live_macro || ''} onChange={e => setFormData({...formData, target_creator_live_macro: e.target.value})} />
+                        </div>
+                        <div className="space-y-[6px]">
+                          <label className="text-xs font-medium text-text-soft">Mega Live</label>
+                          <input type="number" min="0" className="input text-sm" value={formData.target_creator_live_mega || ''} onChange={e => setFormData({...formData, target_creator_live_mega: e.target.value})} />
                         </div>
                       </div>
                     </div>

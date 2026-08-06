@@ -16,6 +16,15 @@ export type Campaign = {
   target_gmv: number | null;
   target_video: number | null;
   target_creator: number | null;
+  target_creator_nano?: number | null;
+  target_creator_micro?: number | null;
+  target_creator_macro?: number | null;
+  target_creator_mega?: number | null;
+  target_creator_live?: number | null;
+  target_creator_live_nano?: number | null;
+  target_creator_live_micro?: number | null;
+  target_creator_live_macro?: number | null;
+  target_creator_live_mega?: number | null;
   target_views: number | null;
   budget_creator_plafon: number;
   budget_ads_plafon: number;
