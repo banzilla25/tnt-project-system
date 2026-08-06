@@ -12,7 +12,17 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const formatCompact = (num: number) => {
-    return Intl.NumberFormat('id-ID', { notation: "compact", maximumFractionDigits: 1 }).format(num);
+    if (!num) return '0';
+    if (num >= 1e9) {
+      return (num / 1e9).toLocaleString('id-ID', { maximumFractionDigits: 1 }) + ' B';
+    }
+    if (num >= 1e6) {
+      return (num / 1e6).toLocaleString('id-ID', { maximumFractionDigits: 1 }) + ' JT';
+    }
+    if (num >= 1e3) {
+      return (num / 1e3).toLocaleString('id-ID', { maximumFractionDigits: 1 }) + ' K';
+    }
+    return num.toLocaleString('id-ID');
   };
 
   const isAwareness = campaign.tipe_campaign === 'awareness';
@@ -425,11 +435,17 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
                            <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-[11px] font-bold">WEEKLY</span>
                         </div>
                         
-                        <div className="grid grid-cols-4 gap-2 mb-4">
+                        <div className="grid grid-cols-2 gap-2 mb-4">
                           <div className="bg-white/60 rounded-[10px] p-2 flex flex-col items-center justify-center text-center">
                             <span className="text-[10px] font-semibold text-blue-800 mb-1">GMV</span>
                             <span className={day.weeklySummary.achievedGmv >= day.weeklySummary.targetGmv && targetGmv > 0 ? 'text-emerald-700 font-bold text-[11px]' : 'font-bold text-blue-900 text-[11px]'}>
                               {formatCompact(day.weeklySummary.achievedGmv)} / {targetGmv > 0 ? formatCompact(day.weeklySummary.targetGmv) : '-'}
+                            </span>
+                          </div>
+                          <div className="bg-white/60 rounded-[10px] p-2 flex flex-col items-center justify-center text-center">
+                            <span className="text-[10px] font-semibold text-blue-800 mb-1">Kreator</span>
+                            <span className={day.weeklySummary.achievedCreator >= day.weeklySummary.targetCreator && targetCreator > 0 ? 'text-emerald-700 font-bold text-[11px]' : 'font-bold text-blue-900 text-[11px]'}>
+                              {Math.round(day.weeklySummary.achievedCreator)} / {targetCreator > 0 ? Math.round(day.weeklySummary.targetCreator) : '-'}
                             </span>
                           </div>
                           <div className="bg-white/60 rounded-[10px] p-2 flex flex-col items-center justify-center text-center">
@@ -442,12 +458,6 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
                             <span className="text-[10px] font-semibold text-blue-800 mb-1">Live</span>
                             <span className={day.weeklySummary.achievedLive >= day.weeklySummary.targetLive && targetLive > 0 ? 'text-emerald-700 font-bold text-[11px]' : 'font-bold text-blue-900 text-[11px]'}>
                               {Math.round(day.weeklySummary.achievedLive)} / {targetLive > 0 ? Math.round(day.weeklySummary.targetLive) : '-'}
-                            </span>
-                          </div>
-                          <div className="bg-white/60 rounded-[10px] p-2 flex flex-col items-center justify-center text-center">
-                            <span className="text-[10px] font-semibold text-blue-800 mb-1">Kreator</span>
-                            <span className={day.weeklySummary.achievedCreator >= day.weeklySummary.targetCreator && targetCreator > 0 ? 'text-emerald-700 font-bold text-[11px]' : 'font-bold text-blue-900 text-[11px]'}>
-                              {Math.round(day.weeklySummary.achievedCreator)} / {targetCreator > 0 ? Math.round(day.weeklySummary.targetCreator) : '-'}
                             </span>
                           </div>
                         </div>
@@ -509,8 +519,8 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
                         </button>
                       </div>
 
-                      {/* 4 Metric Grid */}
-                      <div className="grid grid-cols-4 gap-3 mb-5">
+                      {/* 2x2 Metric Grid */}
+                      <div className="grid grid-cols-2 gap-3 mb-5">
                         {/* GMV */}
                         <div className="border border-emerald-100/60 bg-emerald-50/30 rounded-[12px] p-3 flex flex-col justify-between">
                           <div className="flex justify-between items-start mb-2">
@@ -528,6 +538,24 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
                               <span className="font-medium text-emerald-700 truncate block" title={targetGmv > 0 ? Math.round(day.targetGmv).toLocaleString() : '- / -'}>
                                 {targetGmv > 0 ? formatCompact(day.targetGmv) : '- / -'}
                               </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Kreator */}
+                        <div className="border border-orange-100/60 bg-orange-50/30 rounded-[12px] p-3 flex flex-col justify-between">
+                          <div className="flex justify-between items-start mb-2">
+                            <span className="text-[12px] font-semibold text-orange-800">Kreator</span>
+                            <div className="bg-orange-100/80 text-orange-600 p-1.5 rounded-full">
+                              <User size={14} strokeWidth={2.5} />
+                            </div>
+                          </div>
+                          <div>
+                            <div className="text-[18px] font-bold text-orange-600 tracking-tight leading-none mb-1">
+                              {Math.round(day.achievedPendingCreator)}
+                            </div>
+                            <div className="text-[10px] text-orange-700/70 leading-tight">
+                              Total kreator
                             </div>
                           </div>
                         </div>
@@ -565,24 +593,6 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
                             </div>
                             <div className="text-[10px] text-purple-700/70 leading-tight">
                               Total sesi live
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Kreator */}
-                        <div className="border border-orange-100/60 bg-orange-50/30 rounded-[12px] p-3 flex flex-col justify-between">
-                          <div className="flex justify-between items-start mb-2">
-                            <span className="text-[12px] font-semibold text-orange-800">Kreator</span>
-                            <div className="bg-orange-100/80 text-orange-600 p-1.5 rounded-full">
-                              <User size={14} strokeWidth={2.5} />
-                            </div>
-                          </div>
-                          <div>
-                            <div className="text-[18px] font-bold text-orange-600 tracking-tight leading-none mb-1">
-                              {Math.round(day.achievedPendingCreator)}
-                            </div>
-                            <div className="text-[10px] text-orange-700/70 leading-tight">
-                              Total kreator
                             </div>
                           </div>
                         </div>
