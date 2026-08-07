@@ -207,6 +207,7 @@ export async function getPortalData(campaignId: number) {
   let fbPendingVideos = 0;
   let fbLivestreams = 0;
   let pendingCreatorsWithVideosCount = 0;
+  let fbAds = 0;
 
   const enrichedCcData = ccData?.map((cc: any) => {
     const creator = Array.isArray(cc.creators) ? cc.creators[0] : cc.creators;
@@ -268,6 +269,7 @@ export async function getPortalData(campaignId: number) {
     fbPendingVideos += pendingVtCount;
     if (pendingVtCount > 0) pendingCreatorsWithVideosCount++;
     fbLivestreams += totalLive;
+    fbAds += (perf?.gmv_ads || 0);
 
     return {
       ...cc,
@@ -460,6 +462,11 @@ export async function getPortalData(campaignId: number) {
       if (kurs < 1000) kurs = kurs * 1000;
       globalAdsGmv += (ad.gross_revenue_usd || 0) * kurs;
     }
+  }
+
+  // Override global ads GMV if a filter is active
+  if (filterType !== 'none') {
+    globalAdsGmv = fbAds;
   }
 
   return { 
