@@ -175,12 +175,12 @@ export async function getPortalData(campaignId: number) {
   }
 
   // Ambil semua sesi Live via RPC
-  const { data: rpcLives } = await supabase.rpc('get_campaign_live_stats', rpcParams);
+  const { data: rpcLives } = await supabase.rpc('get_campaign_live_stats', { p_campaign_id: campaignId });
   const actualLives: any[] = Array.isArray(rpcLives) ? rpcLives : [];
   const liveUids = new Set(actualLives.map((l: any) => l.content_uid).filter(Boolean));
 
   // Fetch stats for videos via new RPC
-  const { data: videoStats } = await supabase.rpc('get_campaign_video_stats', rpcParams);
+  const { data: videoStats } = await supabase.rpc('get_campaign_video_stats', { p_campaign_id: campaignId });
     
   const videoGmvMap = new Map();
   const videoViewsMap = new Map();

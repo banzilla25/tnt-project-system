@@ -40,8 +40,8 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
   const [performaSort, setPerformaSort] = useState<{key: string, direction: SortDirection}>({ key: 'total_gmv', direction: 'desc' });
   const [listingSort, setListingSort] = useState<{key: string, direction: SortDirection}>({ key: 'username', direction: 'asc' });
   const [sampleSort, setSampleSort] = useState<{key: string, direction: SortDirection}>({ key: 'tanggal_kirim', direction: 'desc' });
-  const [liveSort, setLiveSort] = useState<{key: string, direction: SortDirection}>({ key: 'tanggal_live', direction: 'asc' });
-  const [videoSort, setVideoSort] = useState<{key: string, direction: SortDirection}>({ key: 'total_views', direction: 'desc' });
+  const [liveSort, setLiveSort] = useState<{key: string, direction: SortDirection} | null>(null);
+  const [videoSort, setVideoSort] = useState<{key: string, direction: SortDirection} | null>(null);
 
   const handleSort = (tab: 'performa' | 'listing' | 'sample' | 'live' | 'video', key: string) => {
     const setterMap = { performa: setPerformaSort, listing: setListingSort, sample: setSampleSort, live: setLiveSort, video: setVideoSort };
