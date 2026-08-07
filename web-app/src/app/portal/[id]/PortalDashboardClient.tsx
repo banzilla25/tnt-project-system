@@ -65,6 +65,7 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
   const [samplePage, setSamplePage] = useState(0);
 
   const [liveSearch, setLiveSearch] = useState('');
+  const [liveFilterType, setLiveFilterType] = useState('all');
   const [livePage, setLivePage] = useState(0);
 
   const [videoSearch, setVideoSearch] = useState('');
@@ -415,12 +416,13 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
     if (liveSearch && !cc.creators?.username?.toLowerCase().includes(liveSearch.toLowerCase())) return false;
     return true;
   });
-  // Calculate latest date for each creator for default sorting
+  // Calculate latest date, total sessions, and GMV for each creator for sorting
   filteredLive.forEach((cc: any) => {
       const username = cc.creators?.username;
       const creatorSchedules = schedules.filter((s: any) => s.campaign_creator_id === cc.id);
       const creatorLives = data.actualLives?.filter((l: any) => l.creator_username === username) || [];
       let latestTime = 0;
+      let totalGmv = 0;
       creatorSchedules.forEach((s: any) => {
           const t = new Date(s.tanggal_live).getTime();
           if (t > latestTime) latestTime = t;
@@ -430,11 +432,18 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
               const t = new Date(l.start_time).getTime();
               if (t > latestTime) latestTime = t;
           }
+          totalGmv += (l.gmv || 0);
       });
       cc._latestLiveTime = latestTime;
+      cc._totalLiveSessions = creatorLives.length;
+      cc._totalLiveGmv = totalGmv;
   });
 
-  if (!liveSort) {
+  if (liveFilterType === 'most_lives') {
+      filteredLive.sort((a: any, b: any) => b._totalLiveSessions - a._totalLiveSessions);
+  } else if (liveFilterType === 'highest_gmv') {
+      filteredLive.sort((a: any, b: any) => b._totalLiveGmv - a._totalLiveGmv);
+  } else if (!liveSort) {
       filteredLive.sort((a: any, b: any) => b._latestLiveTime - a._latestLiveTime);
   } else {
       filteredLive = genericSort(filteredLive, liveSort, (cc) => {
@@ -1374,15 +1383,26 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                   <CardTitle>Jadwal Live Kreator</CardTitle>
                   <p className="text-sm text-slate-500 mt-1">Jadwal sesi live streaming yang telah disepakati.</p>
                 </div>
-                <div className="relative w-full sm:w-64">
-                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <input 
-                    type="text" 
-                    placeholder="Cari username..." 
-                    className="w-full pl-9 pr-3 py-1.5 text-sm border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
-                    value={liveSearch}
-                    onChange={(e) => { setLiveSearch(e.target.value); setLivePage(0); }}
-                  />
+                <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+                  <select 
+                    className="w-full sm:w-auto px-3 py-1.5 text-sm border border-slate-200 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    value={liveFilterType}
+                    onChange={(e) => { setLiveFilterType(e.target.value); setLivePage(0); }}
+                  >
+                    <option value="all">Semua</option>
+                    <option value="most_lives">Live Terbanyak</option>
+                    <option value="highest_gmv">GMV Tertinggi</option>
+                  </select>
+                  <div className="relative w-full sm:w-64">
+                    <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input 
+                      type="text" 
+                      placeholder="Cari username..." 
+                      className="w-full pl-9 pr-3 py-1.5 text-sm border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                      value={liveSearch}
+                      onChange={(e) => { setLiveSearch(e.target.value); setLivePage(0); }}
+                    />
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>
