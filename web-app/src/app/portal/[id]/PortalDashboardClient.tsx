@@ -1441,9 +1441,24 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                                 {sortedDates.length === 0 ? (
                                     <span className="text-sm text-slate-500 italic">Belum ada jadwal atau sesi live.</span>
                                 ) : (
-                                    <div className="flex flex-col gap-3">
-                                        {sortedDates.map(dateStr => {
-                                            const schedule = creatorSchedules.find((s: any) => new Date(s.tanggal_live).toISOString().substring(0, 10) === dateStr);
+                                    <div className="flex flex-col gap-4">
+                                        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                                            <div className="text-sm">
+                                                <span className="text-slate-500">Total Sesi Live:</span>
+                                                <span className="ml-2 font-bold text-slate-800">{cc._totalLiveSessions || 0}</span>
+                                            </div>
+                                            <div className="text-sm">
+                                                <span className="text-slate-500">Total GMV:</span>
+                                                <span className="ml-2 font-bold text-green-600">{fmtRp(cc._totalLiveGmv || 0)}</span>
+                                            </div>
+                                            <div className="text-sm">
+                                                <span className="text-slate-500">Total Views:</span>
+                                                <span className="ml-2 font-bold text-slate-800">{creatorLives.reduce((acc: number, l: any) => acc + (l.video_views || 0), 0).toLocaleString('id-ID')}</span>
+                                            </div>
+                                        </div>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                                            {sortedDates.map(dateStr => {
+                                                const schedule = creatorSchedules.find((s: any) => new Date(s.tanggal_live).toISOString().substring(0, 10) === dateStr);
                                             const livesOnDate = creatorLives.filter((l: any) => l.start_time && l.start_time.startsWith(dateStr));
                                             
                                             const totalViews = livesOnDate.reduce((sum: number, l: any) => sum + (l.video_views || 0), 0);
