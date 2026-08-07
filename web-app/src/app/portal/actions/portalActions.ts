@@ -147,7 +147,7 @@ export async function getPortalData(campaignId: number) {
   }
   
   // Fetch performa summary dari RPC
-  const { data: creatorPerformance } = await supabase.rpc('get_campaign_creator_performance', rpcParams);
+  const { data: creatorPerformance } = await supabase.rpc('get_campaign_creator_performance', { p_campaign_id: campaignId });
 
   // Fetch RPC untuk Global Cards V2 (Mirror Internal Dashboard)
   const { data: rpcPerfArr, error: rpcError } = await supabase.rpc('get_performance_summary_v2', rpcParams);
