@@ -9,12 +9,12 @@ import { submitClientApproval, updateResiByClient, batchUpdateResiByClient, type
 import { formatAbbreviated } from "@/utils/formatters";
 import { useRouter } from "next/navigation";
 
-const SortableHeader = ({ label, sortKey, currentSort, onSort, className = "" }: { label: string, sortKey: string, currentSort: {key: string, direction: 'asc'|'desc'}, onSort: (k: string) => void, className?: string }) => {
+const SortableHeader = ({ label, sortKey, currentSort, onSort, className = "" }: { label: string, sortKey: string, currentSort: {key: string, direction: 'asc'|'desc'} | null, onSort: (k: string) => void, className?: string }) => {
   return (
     <TableHead className={`py-[16px] cursor-pointer hover:bg-slate-50 transition-colors select-none group ${className}`} onClick={() => onSort(sortKey)}>
       <div className={`flex items-center gap-2 ${className.includes('text-right') ? 'justify-end' : className.includes('text-center') ? 'justify-center' : 'justify-start'}`}>
         {label}
-        {currentSort.key === sortKey ? (
+        {currentSort?.key === sortKey ? (
           currentSort.direction === 'asc' ? <ArrowUp className="w-4 h-4 text-blue-600" /> : <ArrowDown className="w-4 h-4 text-blue-600" />
         ) : (
           <ArrowUpDown className="w-4 h-4 text-slate-400 transition-opacity" />
@@ -45,14 +45,13 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
 
   const handleSort = (tab: 'performa' | 'listing' | 'sample' | 'live' | 'video', key: string) => {
     const setterMap = { performa: setPerformaSort, listing: setListingSort, sample: setSampleSort, live: setLiveSort, video: setVideoSort };
-    const stateMap = { performa: performaSort, listing: listingSort, sample: sampleSort, live: liveSort, video: videoSort };
-    const setter = setterMap[tab];
-    const currentState = stateMap[tab];
-    if (currentState.key === key) {
-      setter({ key, direction: currentState.direction === 'asc' ? 'desc' : 'asc' });
-    } else {
-      setter({ key, direction: 'desc' });
-    }
+    // @ts-ignore
+    setterMap[tab]((prev: any) => {
+      if (prev?.key === key) {
+        return { key, direction: prev.direction === 'asc' ? 'desc' : 'asc' };
+      }
+      return { key, direction: 'asc' };
+    });
   };
   const [performaSearch, setPerformaSearch] = useState('');
   const [performaPage, setPerformaPage] = useState(0);
