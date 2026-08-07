@@ -218,7 +218,7 @@ export async function getPortalData(campaignId: number) {
     const contacts = Array.isArray(creator?.creator_contacts) ? creator.creator_contacts : (creator?.creator_contacts ? [creator.creator_contacts] : []);
     const activeContact = contacts.find((c: any) => c.status === 'aktif') || contacts[0];
 
-    const perf = creatorPerformance?.find(p => p.campaign_creator_id === cc.id);
+    const perf = creatorPerformance?.find((p: any) => p.username?.toLowerCase() === username.toLowerCase());
 
     // Calculate Total VT and Total Live
     const creatorVideoStats = videoStats?.filter((v: any) => v.username === username.toLowerCase()) || [];
