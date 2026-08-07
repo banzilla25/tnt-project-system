@@ -1566,6 +1566,7 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                                             );
                                         })}
                                     </div>
+                                    </div>
                                 )}
                               </TableCell>
                             </TableRow>
