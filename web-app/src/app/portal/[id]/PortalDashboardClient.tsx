@@ -416,11 +416,34 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
     if (liveSearch && !cc.creators?.username?.toLowerCase().includes(liveSearch.toLowerCase())) return false;
     return true;
   });
-  filteredLive = genericSort(filteredLive, liveSort, (cc) => {
-    if (liveSort.key === 'username') return cc.creators?.username;
-    if (liveSort.key === 'tanggal_live') return cc.creators?.username;
-    return 0;
+  // Calculate latest date for each creator for default sorting
+  filteredLive.forEach((cc: any) => {
+      const username = cc.creators?.username;
+      const creatorSchedules = schedules.filter((s: any) => s.campaign_creator_id === cc.id);
+      const creatorLives = data.actualLives?.filter((l: any) => l.creator_username === username) || [];
+      let latestTime = 0;
+      creatorSchedules.forEach((s: any) => {
+          const t = new Date(s.tanggal_live).getTime();
+          if (t > latestTime) latestTime = t;
+      });
+      creatorLives.forEach((l: any) => {
+          if (l.start_time) {
+              const t = new Date(l.start_time).getTime();
+              if (t > latestTime) latestTime = t;
+          }
+      });
+      cc._latestLiveTime = latestTime;
   });
+
+  if (!liveSort) {
+      filteredLive.sort((a: any, b: any) => b._latestLiveTime - a._latestLiveTime);
+  } else {
+      filteredLive = genericSort(filteredLive, liveSort, (cc) => {
+        if (liveSort.key === 'username') return cc.creators?.username;
+        if (liveSort.key === 'tanggal_live') return cc._latestLiveTime;
+        return 0;
+      });
+  }
   const liveTotalPages = Math.ceil(filteredLive.length / PAGE_SIZE) || 1;
   const paginatedLive = filteredLive.slice(livePage * PAGE_SIZE, (livePage + 1) * PAGE_SIZE);
 
@@ -431,14 +454,22 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
     if (videoSearch && !v.creator_username?.toLowerCase().includes(videoSearch.toLowerCase())) return false;
     return true;
   });
-  filteredVideo = genericSort(filteredVideo, videoSort, (v) => {
-    if (videoSort.key === 'username') return v.creator_username;
-    if (videoSort.key === 'total_videos') return v.total_videos || 0;
-    if (videoSort.key === 'total_views') return v.total_views || 0;
-    if (videoSort.key === 'total_likes') return v.total_likes || 0;
-    if (videoSort.key === 'total_gmv') return v.total_gmv || 0;
-    return 0;
-  });
+  
+  if (!videoSort) {
+      filteredVideo.sort((a: any, b: any) => {
+          if (b.total_videos !== a.total_videos) return (b.total_videos || 0) - (a.total_videos || 0);
+          return (b.total_views || 0) - (a.total_views || 0);
+      });
+  } else {
+      filteredVideo = genericSort(filteredVideo, videoSort, (v) => {
+        if (videoSort.key === 'username') return v.creator_username;
+        if (videoSort.key === 'total_videos') return v.total_videos || 0;
+        if (videoSort.key === 'total_views') return v.total_views || 0;
+        if (videoSort.key === 'total_likes') return v.total_likes || 0;
+        if (videoSort.key === 'total_gmv') return v.total_gmv || 0;
+        return 0;
+      });
+  }
   const videoTotalPages = Math.ceil(filteredVideo.length / PAGE_SIZE) || 1;
   const paginatedVideo = filteredVideo.slice(videoPage * PAGE_SIZE, (videoPage + 1) * PAGE_SIZE);
 
