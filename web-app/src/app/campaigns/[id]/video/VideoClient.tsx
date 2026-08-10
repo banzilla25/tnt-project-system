@@ -175,27 +175,33 @@ export default function CampaignVideoPage({
   const handleVideoChange = (ccId: number, urutan: number, field: string, value: string) => {
     setLocalVideos((prev: any[]) => {
       const exists = prev.find(v => v.campaign_creator_id === ccId && v.urutan === urutan);
-      let finalValue = value;
-      
-      if (field === 'concept') {
-         // Menyimpan sebagai JSON string agar bisa melacak metadata tanpa mengubah skema database
-         finalValue = JSON.stringify({
-            value: value,
-            updated_at: new Date().toISOString(),
-            updated_by: profile?.nama || 'System'
-         });
-      }
 
       if (exists) {
-        return prev.map(v => 
-          v.campaign_creator_id === ccId && v.urutan === urutan ? { ...v, [field]: finalValue } : v
-        );
+        return prev.map(v => {
+          if (v.campaign_creator_id === ccId && v.urutan === urutan) {
+            if (field === 'concept') {
+              return { 
+                ...v, 
+                [field]: value,
+                concept_updated_at: new Date().toISOString(),
+                concept_updated_by: profile?.nama || 'System'
+              };
+            }
+            return { ...v, [field]: value };
+          }
+          return v;
+        });
       } else {
-        return [...prev, {
+        const newObj: any = {
           campaign_creator_id: ccId,
           urutan: urutan,
-          [field]: finalValue
-        }];
+          [field]: value
+        };
+        if (field === 'concept') {
+          newObj.concept_updated_at = new Date().toISOString();
+          newObj.concept_updated_by = profile?.nama || 'System';
+        }
+        return [...prev, newObj];
       }
     });
   };
@@ -270,6 +276,8 @@ export default function CampaignVideoPage({
         if (v.id && typeof v.id === 'number') {
           await supabase.from('videos').update({
             concept: v.concept,
+            concept_updated_at: v.concept_updated_at,
+            concept_updated_by: v.concept_updated_by,
             link_video: v.link_video,
             content_uid: finalContentUid,
             sku_id: v.sku_id ? Number(v.sku_id) : null
@@ -279,6 +287,8 @@ export default function CampaignVideoPage({
             campaign_creator_id: ccId,
             urutan: v.urutan,
             concept: v.concept,
+            concept_updated_at: v.concept_updated_at,
+            concept_updated_by: v.concept_updated_by,
             link_video: v.link_video,
             content_uid: finalContentUid,
             sku_id: v.sku_id ? Number(v.sku_id) : null,
@@ -1054,36 +1064,17 @@ export default function CampaignVideoPage({
                                         type="number"
                                         min="0"
                                         className="input pl-[72px] w-28 h-9 font-bold text-indigo-700 bg-indigo-50/70 border-indigo-200 shadow-sm focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400 transition-all text-center"
-                                        value={(() => {
-                                          if (!v.concept) return 0;
-                                          try {
-                                            const parsed = JSON.parse(v.concept);
-                                            return parsed.value || 0;
-                                          } catch {
-                                            return v.concept; // legacy text
-                                          }
-                                        })()}
+                                        value={v.concept || 0}
                                         onChange={(e) => handleVideoChange(cc.id, v.urutan, 'concept', e.target.value)}
                                         disabled={!hasAccess}
                                       />
                                     </div>
-                                    {(() => {
-                                      if (!v.concept) return null;
-                                      try {
-                                        const parsed = JSON.parse(v.concept);
-                                        if (parsed.updated_at && parsed.updated_by) {
-                                          return (
-                                            <p className="text-[10px] text-slate-400 leading-tight">
-                                              Diinput pd {new Date(parsed.updated_at).toLocaleDateString('id-ID')} <br/>
-                                              Oleh: <span className="font-medium text-slate-500">{parsed.updated_by}</span>
-                                            </p>
-                                          );
-                                        }
-                                      } catch {
-                                        return null;
-                                      }
-                                      return null;
-                                    })()}
+                                    {v.concept && v.concept_updated_at && v.concept_updated_by ? (
+                                      <p className="text-[10px] text-slate-400 leading-tight">
+                                        Diinput pd {new Date(v.concept_updated_at).toLocaleDateString('id-ID')} <br/>
+                                        Oleh: <span className="font-medium text-slate-500">{v.concept_updated_by}</span>
+                                      </p>
+                                    ) : null}
                                   </div>
                                 </td>
                                 <td>

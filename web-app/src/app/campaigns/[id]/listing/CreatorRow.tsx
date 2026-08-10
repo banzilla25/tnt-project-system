@@ -100,6 +100,8 @@ export const CreatorRow = React.memo(({
           id: `phantom_${nextUrutan}`,
           urutan: nextUrutan,
           concept: '',
+          concept_updated_at: null,
+          concept_updated_by: null,
           link_video: '',
           vt_approval: 'pending'
         });
@@ -526,15 +528,7 @@ export const CreatorRow = React.memo(({
                                   type="number"
                                   min="0"
                                   className="input pl-[64px] w-24 h-8 text-[13px] font-bold text-indigo-700 bg-indigo-50/70 border-indigo-200 shadow-sm focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400 transition-all text-center"
-                                  value={(() => {
-                                    if (!v.concept) return 0;
-                                    try {
-                                      const parsed = JSON.parse(v.concept);
-                                      return parsed.value || 0;
-                                    } catch {
-                                      return v.concept;
-                                    }
-                                  })()}
+                                  value={v.concept || 0}
                                   onChange={(e) => {
                                     if (hasAccess) {
                                       if (typeof v.id === 'string' && v.id.startsWith('phantom_')) {
@@ -552,23 +546,12 @@ export const CreatorRow = React.memo(({
                                   title={v.vt_approval === 'approved' ? "Tidak bisa diubah karena VT sudah di-approve" : "Ubah angka konsep"}
                                 />
                               </div>
-                              {(() => {
-                                if (!v.concept) return null;
-                                try {
-                                  const parsed = JSON.parse(v.concept);
-                                  if (parsed.updated_at && parsed.updated_by) {
-                                    return (
-                                      <p className="text-[9px] text-slate-400 leading-tight">
-                                        Diinput pd {new Date(parsed.updated_at).toLocaleDateString('id-ID')} <br/>
-                                        Oleh: <span className="font-medium text-slate-500">{parsed.updated_by}</span>
-                                      </p>
-                                    );
-                                  }
-                                } catch {
-                                  return null;
-                                }
-                                return null;
-                              })()}
+                              {v.concept && v.concept_updated_at && v.concept_updated_by ? (
+                                <p className="text-[9px] text-slate-400 leading-tight">
+                                  Diinput pd {new Date(v.concept_updated_at).toLocaleDateString('id-ID')} <br/>
+                                  Oleh: <span className="font-medium text-slate-500">{v.concept_updated_by}</span>
+                                </p>
+                              ) : null}
                             </div>
                           </td>
                           <td className="py-[8px]">

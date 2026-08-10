@@ -1031,6 +1031,9 @@ function CampaignListingContent() {
   };
 
   const updateVideoConcept = useCallback(async (videoId: number, ccId: number, value: string) => {
+    const updated_at = new Date().toISOString();
+    const updated_by = profile?.nama || 'System';
+
     setListingData((prev) => 
       prev.map(cc => {
         if (cc.id === ccId) {
@@ -1040,11 +1043,9 @@ function CampaignListingContent() {
               if (v.id === videoId) {
                 return { 
                   ...v, 
-                  concept: JSON.stringify({
-                    value: value,
-                    updated_at: new Date().toISOString(),
-                    updated_by: profile?.nama || 'System'
-                  })
+                  concept: value,
+                  concept_updated_at: updated_at,
+                  concept_updated_by: updated_by
                 };
               }
               return v;
@@ -1057,11 +1058,9 @@ function CampaignListingContent() {
 
     try {
       await supabase.from('videos').update({
-        concept: JSON.stringify({
-          value: value,
-          updated_at: new Date().toISOString(),
-          updated_by: profile?.nama || 'System'
-        })
+        concept: value,
+        concept_updated_at: updated_at,
+        concept_updated_by: updated_by
       }).eq('id', videoId);
     } catch (error) {
       console.error('Failed to update concept:', error);
@@ -1099,15 +1098,16 @@ function CampaignListingContent() {
 
   const addAndSetVideoConcept = useCallback(async (ccId: number, urutan: number, value: string) => {
     const tempId = `temp_${Date.now()}`;
+    const updated_at = new Date().toISOString();
+    const updated_by = profile?.nama || 'System';
+
     const newVideo = {
       id: tempId,
       campaign_creator_id: ccId,
       urutan,
-      concept: JSON.stringify({
-        value: value,
-        updated_at: new Date().toISOString(),
-        updated_by: profile?.nama || 'System'
-      }),
+      concept: value,
+      concept_updated_at: updated_at,
+      concept_updated_by: updated_by,
       link_video: '',
       vt_approval: 'pending'
     };
@@ -1123,7 +1123,9 @@ function CampaignListingContent() {
       const { data, error } = await supabase.from('videos').insert({
         campaign_creator_id: ccId,
         urutan,
-        concept: newVideo.concept,
+        concept: value,
+        concept_updated_at: updated_at,
+        concept_updated_by: updated_by,
         link_video: '',
         vt_approval: 'pending'
       }).select().single();
