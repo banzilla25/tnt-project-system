@@ -2,7 +2,7 @@ import React from "react";
 import Link from "next/link";
 import { ChevronDown, ChevronRight, Trash2, Edit2, Loader2 } from "lucide-react";
 import { formatAbbreviated } from "@/utils/formatters";
-import { getCreatorType, getJenisKerjasama } from "@/utils/computed";
+import { getCreatorType, getJenisKerjasama, getConceptColor } from "@/utils/computed";
 import { MultiSelect } from "@/components/MultiSelect";
 import { NotesTimeline } from "@/components/NotesTimeline";
 
@@ -522,12 +522,14 @@ export const CreatorRow = React.memo(({
                           <td className="py-[8px]">{v.urutan}</td>
                           <td className="py-[8px]">
                             <div className="flex flex-col gap-1 pr-4">
-                              <div className="relative flex items-center">
-                                <span className="absolute left-2 text-slate-500 text-[10px] font-bold uppercase tracking-wider pointer-events-none">Konsep #</span>
+                              <div className={`flex items-center rounded-md border shadow-sm transition-all overflow-hidden w-[100px] h-8 focus-within:ring-1 ${getConceptColor(v.concept)}`}>
+                                <span className="pl-2 pr-1 text-[10px] font-bold uppercase tracking-wider pointer-events-none opacity-70">
+                                  Konsep #
+                                </span>
                                 <input
                                   type="number"
                                   min="0"
-                                  className="input pl-[64px] w-24 h-8 text-[13px] font-bold text-indigo-700 bg-indigo-50/70 border-indigo-200 shadow-sm focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400 transition-all text-center"
+                                  className="w-full bg-transparent border-0 p-0 text-[13px] font-bold focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                   value={v.concept || 0}
                                   onChange={(e) => {
                                     if (hasAccess) {

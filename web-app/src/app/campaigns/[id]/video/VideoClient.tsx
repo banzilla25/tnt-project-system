@@ -5,6 +5,7 @@ import { useDatabaseStore } from "@/store/useDatabaseStore";
 import { useDraftLocalStorage } from "@/hooks/useDraftLocalStorage";
 // Replaced standard UI imports
 import { createClient } from "@/utils/supabase/client";
+import { getCreatorType, getConceptColor } from "@/utils/computed";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { AlertCircle, Link as LinkIcon, Save, Edit2, Loader2, ChevronDown, ChevronRight, Plus, PlayCircle, X } from "lucide-react";
@@ -1058,12 +1059,14 @@ export default function CampaignVideoPage({
                                 <td className="font-semibold text-center">{v.urutan}</td>
                                 <td>
                                   <div className="flex flex-col gap-1">
-                                    <div className="relative flex items-center">
-                                      <span className="absolute left-3 text-slate-500 text-[11px] font-bold uppercase tracking-wider pointer-events-none">Konsep #</span>
+                                    <div className={`flex items-center rounded-md border shadow-sm transition-all overflow-hidden w-[100px] h-9 focus-within:ring-1 ${getConceptColor(v.concept)}`}>
+                                      <span className="pl-2 pr-1 text-[11px] font-bold uppercase tracking-wider pointer-events-none opacity-70">
+                                        Konsep #
+                                      </span>
                                       <input
                                         type="number"
                                         min="0"
-                                        className="input pl-[72px] w-28 h-9 font-bold text-indigo-700 bg-indigo-50/70 border-indigo-200 shadow-sm focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400 transition-all text-center"
+                                        className="w-full bg-transparent border-0 p-0 text-[14px] font-bold focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                         value={v.concept || 0}
                                         onChange={(e) => handleVideoChange(cc.id, v.urutan, 'concept', e.target.value)}
                                         disabled={!hasAccess}
