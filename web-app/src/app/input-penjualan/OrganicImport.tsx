@@ -74,7 +74,7 @@ export default function OrganicImport({ mode = 'sales' }: { mode?: 'sales' | 'vi
     { key: 'time_created', label: 'Time Created', autoMatch: ['time created', 'created time', 'waktu pesanan', 'waktu dibuat', 'order creation time', 'waktu pembuatan pesanan', 'paid time', 'waktu dibayar'] },
     { key: 'price', label: 'Price', autoMatch: ['price', 'harga'] },
     { key: 'quantity', label: 'Quantity', autoMatch: ['quantity', 'jumlah'] },
-    { key: 'commission_gmv', label: 'Base Commission (GMV)', autoMatch: ['est. base commission', 'commission base', 'base commission', 'commission gmv', 'revenue', 'omzet', 'gmv', 'customer pay', 'payment amount', 'total pesanan', 'total order', 'settled amount'] },
+    { key: 'commission_gmv', label: 'Base Commission (GMV)', autoMatch: ['est. base commission', 'commission base', 'base commission'] },
     { key: 'refund_status', label: 'Refund Status', autoMatch: ['fully returned or refunded', 'refund', 'pengembalian'] },
     { key: 'tiktok_campaign_id', label: 'Campaign ID', autoMatch: ['partner campaign id', 'campaign id'] },
     { key: 'shop_code', label: 'Shop Code', autoMatch: ['shop code', 'shop id'] },
