@@ -1068,6 +1068,35 @@ function CampaignListingContent() {
     }
   }, [profile]);
 
+  const addEmptyVideoRow = useCallback(async (ccId: number) => {
+    try {
+      const cc = listingData.find(c => c.id === ccId);
+      if (!cc) return;
+      const currentVideos = cc.videos || [];
+      const nextUrutan = currentVideos.length > 0 ? Math.max(...currentVideos.map((v: any) => v.urutan)) + 1 : 1;
+      
+      const { data, error } = await supabase.from('videos').insert({
+        campaign_creator_id: ccId,
+        urutan: nextUrutan,
+        concept: '',
+        link_video: '',
+        vt_approval: 'pending'
+      }).select().single();
+      
+      if (error) throw error;
+      
+      setListingData(prev => prev.map(c => {
+        if (c.id === ccId) {
+          return { ...c, videos: [...(c.videos || []), data] };
+        }
+        return c;
+      }));
+    } catch (err) {
+      console.error('Failed to add empty video row', err);
+      alert('Gagal menambah slot konsep');
+    }
+  }, [listingData]);
+
   const handleDeleteCreator = async (ccId: number) => {
     if (!confirm('Yakin ingin mengeluarkan kreator ini dari campaign? Data performa campaign kreator ini akan ikut terhapus. (Kreator tetap ada di Pool)')) return;
     try {
@@ -2352,6 +2381,7 @@ function CampaignListingContent() {
                     fetchListing={fetchListing}
                     page={page}
                     updateVideoConcept={updateVideoConcept}
+                    addEmptyVideoRow={addEmptyVideoRow}
                   />
                 );
               })

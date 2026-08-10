@@ -17,7 +17,8 @@ const areEqual = (prev: any, next: any) => {
     prev.cc === next.cc &&
     prev.creatorVideos === next.creatorVideos &&
     prev.hasAccess === next.hasAccess &&
-    prev.updateVideoConcept === next.updateVideoConcept
+    prev.updateVideoConcept === next.updateVideoConcept &&
+    prev.addEmptyVideoRow === next.addEmptyVideoRow
   );
 };
 
@@ -50,7 +51,8 @@ export const CreatorRow = React.memo(({
   updateCampaignCreator,
   fetchListing,
   page,
-  updateVideoConcept
+  updateVideoConcept,
+  addEmptyVideoRow
 }: any) => {
   const parseNotes = React.useMemo(() => {
     return (raw: string, role: string) => {
@@ -469,7 +471,17 @@ export const CreatorRow = React.memo(({
           <td colSpan={isClientApprovalRequired ? 9 : 8} className="p-0 border-b-0">
             <div className="py-[16px] pr-[16px]">
               <div className="bg-white border border-line rounded-[12px] p-[16px]">
-                <h4 className="text-[12px] font-bold text-text-soft uppercase mb-[12px]">Daftar Video ({cc.qty_vt})</h4>
+                <div className="flex items-center justify-between mb-[12px]">
+                  <h4 className="text-[12px] font-bold text-text-soft uppercase">Daftar Video ({cc.qty_vt})</h4>
+                  {hasAccess && addEmptyVideoRow && creatorVideos.length > 0 && (
+                    <button 
+                      onClick={() => addEmptyVideoRow(cc.id)}
+                      className="text-xs font-semibold text-indigo-600 hover:text-indigo-800"
+                    >
+                      + Tambah Slot
+                    </button>
+                  )}
+                </div>
                 {creatorVideos.length > 0 ? (
                   <table className="w-full text-[13px]">
                     <thead>
@@ -546,10 +558,20 @@ export const CreatorRow = React.memo(({
                     </tbody>
                   </table>
                   ) : (
-                    <p className="text-[13px] text-text-soft text-center py-[8px]">Belum ada video ditambahkan.</p>
-                  )}
-
-                  {/* Tambahan Detail Sesuai Request */}
+                  <div className="flex flex-col items-center justify-center py-[24px] gap-3">
+                    <div className="text-text-soft text-[13px]">
+                      Belum ada data slot video untuk kreator ini.
+                    </div>
+                    {hasAccess && addEmptyVideoRow && (
+                      <button 
+                        onClick={() => addEmptyVideoRow(cc.id)}
+                        className="btn btn-outline border-indigo-200 text-indigo-700 hover:bg-indigo-50 text-xs px-3 py-1"
+                      >
+                        + Tambah Slot Konsep
+                      </button>
+                    )}
+                  </div>
+                )}
                   <div className="mt-[24px] pt-[16px] border-t border-line">
                     <h4 className="text-[12px] font-bold text-text-soft uppercase mb-[12px]">Detail & Catatan Kreator</h4>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-[16px]">
