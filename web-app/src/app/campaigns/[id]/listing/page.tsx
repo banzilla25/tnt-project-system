@@ -1097,6 +1097,53 @@ function CampaignListingContent() {
     }
   }, [listingData]);
 
+  const addAndSetVideoConcept = useCallback(async (ccId: number, urutan: number, value: string) => {
+    const tempId = `temp_${Date.now()}`;
+    const newVideo = {
+      id: tempId,
+      campaign_creator_id: ccId,
+      urutan,
+      concept: JSON.stringify({
+        value: value,
+        updated_at: new Date().toISOString(),
+        updated_by: profile?.nama || 'System'
+      }),
+      link_video: '',
+      vt_approval: 'pending'
+    };
+
+    setListingData(prev => prev.map(c => {
+      if (c.id === ccId) {
+        return { ...c, videos: [...(c.videos || []), newVideo] };
+      }
+      return c;
+    }));
+
+    try {
+      const { data, error } = await supabase.from('videos').insert({
+        campaign_creator_id: ccId,
+        urutan,
+        concept: newVideo.concept,
+        link_video: '',
+        vt_approval: 'pending'
+      }).select().single();
+      
+      if (error) throw error;
+      
+      setListingData(prev => prev.map(c => {
+        if (c.id === ccId) {
+          return {
+            ...c,
+            videos: (c.videos || []).map((v: any) => v.id === tempId ? data : v)
+          };
+        }
+        return c;
+      }));
+    } catch (err) {
+      console.error('Failed to insert concept row', err);
+    }
+  }, [profile]);
+
   const handleDeleteCreator = async (ccId: number) => {
     if (!confirm('Yakin ingin mengeluarkan kreator ini dari campaign? Data performa campaign kreator ini akan ikut terhapus. (Kreator tetap ada di Pool)')) return;
     try {
@@ -2382,6 +2429,7 @@ function CampaignListingContent() {
                     page={page}
                     updateVideoConcept={updateVideoConcept}
                     addEmptyVideoRow={addEmptyVideoRow}
+                    addAndSetVideoConcept={addAndSetVideoConcept}
                   />
                 );
               })

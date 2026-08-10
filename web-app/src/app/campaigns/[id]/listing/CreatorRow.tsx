@@ -18,7 +18,8 @@ const areEqual = (prev: any, next: any) => {
     prev.creatorVideos === next.creatorVideos &&
     prev.hasAccess === next.hasAccess &&
     prev.updateVideoConcept === next.updateVideoConcept &&
-    prev.addEmptyVideoRow === next.addEmptyVideoRow
+    prev.addEmptyVideoRow === next.addEmptyVideoRow &&
+    prev.addAndSetVideoConcept === next.addAndSetVideoConcept
   );
 };
 
@@ -52,7 +53,8 @@ export const CreatorRow = React.memo(({
   fetchListing,
   page,
   updateVideoConcept,
-  addEmptyVideoRow
+  addEmptyVideoRow,
+  addAndSetVideoConcept
 }: any) => {
   const parseNotes = React.useMemo(() => {
     return (raw: string, role: string) => {
@@ -86,6 +88,26 @@ export const CreatorRow = React.memo(({
       .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
       .slice(0, 3);
   }, [cc.notes_pic, parseNotes]);
+
+  const paddedVideos = React.useMemo(() => {
+    const vids = [...(creatorVideos || [])];
+    const target = cc.qty_vt || 0;
+    if (vids.length < target) {
+      const diff = target - vids.length;
+      let nextUrutan = vids.length > 0 ? Math.max(...vids.map(v => v.urutan)) + 1 : 1;
+      for (let i = 0; i < diff; i++) {
+        vids.push({
+          id: `phantom_${nextUrutan}`,
+          urutan: nextUrutan,
+          concept: '',
+          link_video: '',
+          vt_approval: 'pending'
+        });
+        nextUrutan++;
+      }
+    }
+    return vids;
+  }, [creatorVideos, cc.qty_vt]);
 
   return (
     <React.Fragment>
@@ -473,16 +495,16 @@ export const CreatorRow = React.memo(({
               <div className="bg-white border border-line rounded-[12px] p-[16px]">
                 <div className="flex items-center justify-between mb-[12px]">
                   <h4 className="text-[12px] font-bold text-text-soft uppercase">Daftar Video ({cc.qty_vt})</h4>
-                  {hasAccess && addEmptyVideoRow && creatorVideos.length > 0 && (
+                  {hasAccess && addEmptyVideoRow && (
                     <button 
                       onClick={() => addEmptyVideoRow(cc.id)}
                       className="text-xs font-semibold text-indigo-600 hover:text-indigo-800"
                     >
-                      + Tambah Slot
+                      + Tambah Slot Manual
                     </button>
                   )}
                 </div>
-                {creatorVideos.length > 0 ? (
+                {paddedVideos.length > 0 ? (
                   <table className="w-full text-[13px]">
                     <thead>
                       <tr className="text-text-soft border-b border-line">
@@ -493,7 +515,7 @@ export const CreatorRow = React.memo(({
                       </tr>
                     </thead>
                     <tbody>
-                      {creatorVideos.map((v: any) => (
+                      {paddedVideos.map((v: any) => (
                         <tr key={v.id} className="border-b border-line last:border-0">
                           <td className="py-[8px]">{v.urutan}</td>
                           <td className="py-[8px]">
@@ -514,8 +536,16 @@ export const CreatorRow = React.memo(({
                                     }
                                   })()}
                                   onChange={(e) => {
-                                    if (hasAccess && updateVideoConcept) {
-                                      updateVideoConcept(v.id, cc.id, e.target.value);
+                                    if (hasAccess) {
+                                      if (typeof v.id === 'string' && v.id.startsWith('phantom_')) {
+                                        if (addAndSetVideoConcept) {
+                                          addAndSetVideoConcept(cc.id, v.urutan, e.target.value);
+                                        }
+                                      } else {
+                                        if (updateVideoConcept) {
+                                          updateVideoConcept(v.id, cc.id, e.target.value);
+                                        }
+                                      }
                                     }
                                   }}
                                   disabled={!hasAccess || v.vt_approval === 'approved'}
