@@ -71,7 +71,7 @@ export default function OrganicImport({ mode = 'sales' }: { mode?: 'sales' | 'vi
     { key: 'product_id', label: 'Product ID', autoMatch: ['product id', 'id produk'] },
     { key: 'product_name', label: 'Product Name', autoMatch: ['product name', 'nama produk'] },
     { key: 'creator_username', label: 'Creator Username', autoMatch: ['creator username', 'creator', 'kreator', 'username'] },
-    { key: 'time_created', label: 'Time Created', autoMatch: ['time created', 'waktu pesanan'] },
+    { key: 'time_created', label: 'Time Created', autoMatch: ['time created', 'created time', 'waktu pesanan', 'waktu dibuat', 'order creation time', 'waktu pembuatan pesanan', 'paid time', 'waktu dibayar'] },
     { key: 'price', label: 'Price', autoMatch: ['price', 'harga'] },
     { key: 'quantity', label: 'Quantity', autoMatch: ['quantity', 'jumlah'] },
     { key: 'commission_gmv', label: 'Base Commission (GMV)', autoMatch: ['est. base commission', 'commission base', 'base commission', 'commission gmv', 'revenue', 'omzet', 'gmv'] },
@@ -310,7 +310,7 @@ export default function OrganicImport({ mode = 'sales' }: { mode?: 'sales' | 'vi
     let maxDate = new Date('1970-01-01').getTime();
 
     const parseTikTokDate = (dateStr: string) => {
-      if (!dateStr) return new Date().toISOString();
+      if (!dateStr) return new Date('1970-01-01T00:00:00Z').toISOString();
       try {
         let str = dateStr.trim();
         // 1. Remove range (e.g. LIVE time info)
@@ -358,9 +358,9 @@ export default function OrganicImport({ mode = 'sales' }: { mode?: 'sales' | 'vi
         const fallback = new Date(str.substring(0, 10));
         if (!isNaN(fallback.getTime())) return fallback.toISOString();
 
-        return new Date().toISOString();
+        return new Date('1970-01-01T00:00:00Z').toISOString();
       } catch (err) {
-        return new Date().toISOString();
+        return new Date('1970-01-01T00:00:00Z').toISOString();
       }
     };
 
