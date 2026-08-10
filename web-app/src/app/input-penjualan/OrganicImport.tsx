@@ -74,7 +74,7 @@ export default function OrganicImport({ mode = 'sales' }: { mode?: 'sales' | 'vi
     { key: 'time_created', label: 'Time Created', autoMatch: ['time created', 'created time', 'waktu pesanan', 'waktu dibuat', 'order creation time', 'waktu pembuatan pesanan', 'paid time', 'waktu dibayar'] },
     { key: 'price', label: 'Price', autoMatch: ['price', 'harga'] },
     { key: 'quantity', label: 'Quantity', autoMatch: ['quantity', 'jumlah'] },
-    { key: 'commission_gmv', label: 'Base Commission (GMV)', autoMatch: ['est. base commission', 'commission base', 'base commission', 'commission gmv', 'revenue', 'omzet', 'gmv'] },
+    { key: 'commission_gmv', label: 'Base Commission (GMV)', autoMatch: ['est. base commission', 'commission base', 'base commission', 'commission gmv', 'revenue', 'omzet', 'gmv', 'customer pay', 'payment amount', 'total pesanan', 'total order', 'settled amount'] },
     { key: 'refund_status', label: 'Refund Status', autoMatch: ['fully returned or refunded', 'refund', 'pengembalian'] },
     { key: 'tiktok_campaign_id', label: 'Campaign ID', autoMatch: ['partner campaign id', 'campaign id'] },
     { key: 'shop_code', label: 'Shop Code', autoMatch: ['shop code', 'shop id'] },
@@ -416,6 +416,24 @@ export default function OrganicImport({ mode = 'sales' }: { mode?: 'sales' | 'vi
         const skuIdStr = row[columnMapping['sku_id']]?.toString().trim() || '';
         orderId = `${orderIdRaw}_${skuIdStr}_${creatorUsername}_${rawProductId}`;
         orderStatus = row[columnMapping['order_status']]?.toString().trim() || '';
+        
+        const orderStatusLower = orderStatus.toLowerCase();
+        if (
+          orderStatusLower.includes('cancel') ||
+          orderStatusLower.includes('batal') ||
+          orderStatusLower.includes('unpaid') ||
+          orderStatusLower.includes('belum dibayar') ||
+          orderStatusLower.includes('refund') ||
+          orderStatusLower.includes('return') ||
+          orderStatusLower.includes('kembali') ||
+          orderStatusLower.includes('closed') ||
+          orderStatusLower.includes('tutup') ||
+          isRefund
+        ) {
+          gmv = 0;
+          quantity = 0;
+        }
+        
         commissionRate = row[columnMapping['commission_rate']]?.toString().trim() || '';
         attributionType = row[columnMapping['attribution_type']]?.toString().trim() || '';
       } else if (isLiveFormat) {
