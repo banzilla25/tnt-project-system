@@ -421,23 +421,6 @@ export default function OrganicImport({ mode = 'sales' }: { mode?: 'sales' | 'vi
         orderId = `${orderIdRaw}_${skuIdStr}_${creatorUsername}_${rawProductId}`;
         orderStatus = row[columnMapping['order_status']]?.toString().trim() || '';
         
-        const orderStatusLower = orderStatus.toLowerCase();
-        if (
-          orderStatusLower.includes('cancel') ||
-          orderStatusLower.includes('batal') ||
-          orderStatusLower.includes('unpaid') ||
-          orderStatusLower.includes('belum dibayar') ||
-          orderStatusLower.includes('refund') ||
-          orderStatusLower.includes('return') ||
-          orderStatusLower.includes('kembali') ||
-          orderStatusLower.includes('closed') ||
-          orderStatusLower.includes('tutup') ||
-          isRefund
-        ) {
-          gmv = 0;
-          quantity = 0;
-        }
-        
         commissionRate = row[columnMapping['commission_rate']]?.toString().trim() || '';
         attributionType = row[columnMapping['attribution_type']]?.toString().trim() || '';
       } else if (isLiveFormat) {
