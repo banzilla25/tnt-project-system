@@ -45,7 +45,7 @@ export default function CampaignVideoPage({
     campaigns
   } = useDatabaseStore();
 
-  const { canEditCampaign } = useAuth();
+  const { canEditCampaign, profile } = useAuth();
   const hasAccess = canEditCampaign(campaignId);
   const { isCreatorVisible } = useCampaignFilter();
 
@@ -175,15 +175,26 @@ export default function CampaignVideoPage({
   const handleVideoChange = (ccId: number, urutan: number, field: string, value: string) => {
     setLocalVideos((prev: any[]) => {
       const exists = prev.find(v => v.campaign_creator_id === ccId && v.urutan === urutan);
+      let finalValue = value;
+      
+      if (field === 'concept') {
+         // Menyimpan sebagai JSON string agar bisa melacak metadata tanpa mengubah skema database
+         finalValue = JSON.stringify({
+            value: value,
+            updated_at: new Date().toISOString(),
+            updated_by: profile?.nama || 'System'
+         });
+      }
+
       if (exists) {
         return prev.map(v => 
-          v.campaign_creator_id === ccId && v.urutan === urutan ? { ...v, [field]: value } : v
+          v.campaign_creator_id === ccId && v.urutan === urutan ? { ...v, [field]: finalValue } : v
         );
       } else {
         return [...prev, {
           campaign_creator_id: ccId,
           urutan: urutan,
-          [field]: value
+          [field]: finalValue
         }];
       }
     });
@@ -1036,13 +1047,44 @@ export default function CampaignVideoPage({
                               <tr key={v.urutan}>
                                 <td className="font-semibold text-center">{v.urutan}</td>
                                 <td>
-                                  <textarea 
-                                    className="input min-h-[60px]"
-                                    placeholder={isAwareness ? "Tulis brief/konsep..." : "Tulis ide konsep..."}
-                                    value={v.concept || ''}
-                                    onChange={(e) => handleVideoChange(cc.id, v.urutan, 'concept', e.target.value)}
-                                    disabled={!hasAccess}
-                                  />
+                                  <div className="flex flex-col gap-1">
+                                    <div className="relative flex items-center">
+                                      <span className="absolute left-3 text-slate-500 text-[11px] font-bold uppercase tracking-wider pointer-events-none">Konsep #</span>
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        className="input pl-[72px] w-28 h-9 font-bold text-indigo-700 bg-indigo-50/70 border-indigo-200 shadow-sm focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400 transition-all text-center"
+                                        value={(() => {
+                                          if (!v.concept) return 0;
+                                          try {
+                                            const parsed = JSON.parse(v.concept);
+                                            return parsed.value || 0;
+                                          } catch {
+                                            return v.concept; // legacy text
+                                          }
+                                        })()}
+                                        onChange={(e) => handleVideoChange(cc.id, v.urutan, 'concept', e.target.value)}
+                                        disabled={!hasAccess}
+                                      />
+                                    </div>
+                                    {(() => {
+                                      if (!v.concept) return null;
+                                      try {
+                                        const parsed = JSON.parse(v.concept);
+                                        if (parsed.updated_at && parsed.updated_by) {
+                                          return (
+                                            <p className="text-[10px] text-slate-400 leading-tight">
+                                              Diinput pd {new Date(parsed.updated_at).toLocaleDateString('id-ID')} <br/>
+                                              Oleh: <span className="font-medium text-slate-500">{parsed.updated_by}</span>
+                                            </p>
+                                          );
+                                        }
+                                      } catch {
+                                        return null;
+                                      }
+                                      return null;
+                                    })()}
+                                  </div>
                                 </td>
                                 <td>
                                   <div className="space-y-[8px]">

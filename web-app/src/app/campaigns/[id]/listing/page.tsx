@@ -1030,6 +1030,44 @@ function CampaignListingContent() {
     setEditingId(null);
   };
 
+  const updateVideoConcept = useCallback(async (videoId: number, ccId: number, value: string) => {
+    setListingData((prev) => 
+      prev.map(cc => {
+        if (cc.id === ccId) {
+          return {
+            ...cc,
+            videos: (cc.videos || []).map((v: any) => {
+              if (v.id === videoId) {
+                return { 
+                  ...v, 
+                  concept: JSON.stringify({
+                    value: value,
+                    updated_at: new Date().toISOString(),
+                    updated_by: profile?.nama || 'System'
+                  })
+                };
+              }
+              return v;
+            })
+          };
+        }
+        return cc;
+      })
+    );
+
+    try {
+      await supabase.from('videos').update({
+        concept: JSON.stringify({
+          value: value,
+          updated_at: new Date().toISOString(),
+          updated_by: profile?.nama || 'System'
+        })
+      }).eq('id', videoId);
+    } catch (error) {
+      console.error('Failed to update concept:', error);
+    }
+  }, [profile]);
+
   const handleDeleteCreator = async (ccId: number) => {
     if (!confirm('Yakin ingin mengeluarkan kreator ini dari campaign? Data performa campaign kreator ini akan ikut terhapus. (Kreator tetap ada di Pool)')) return;
     try {
@@ -2313,6 +2351,7 @@ function CampaignListingContent() {
                     updateCampaignCreator={updateCampaignCreator}
                     fetchListing={fetchListing}
                     page={page}
+                    updateVideoConcept={updateVideoConcept}
                   />
                 );
               })

@@ -16,7 +16,8 @@ const areEqual = (prev: any, next: any) => {
     prev.isBatchSaving === next.isBatchSaving &&
     prev.cc === next.cc &&
     prev.creatorVideos === next.creatorVideos &&
-    prev.hasAccess === next.hasAccess
+    prev.hasAccess === next.hasAccess &&
+    prev.updateVideoConcept === next.updateVideoConcept
   );
 };
 
@@ -48,7 +49,8 @@ export const CreatorRow = React.memo(({
   handleDeleteCreator,
   updateCampaignCreator,
   fetchListing,
-  page
+  page,
+  updateVideoConcept
 }: any) => {
   const parseNotes = React.useMemo(() => {
     return (raw: string, role: string) => {
@@ -482,7 +484,51 @@ export const CreatorRow = React.memo(({
                       {creatorVideos.map((v: any) => (
                         <tr key={v.id} className="border-b border-line last:border-0">
                           <td className="py-[8px]">{v.urutan}</td>
-                          <td className="py-[8px]">{v.concept || '-'}</td>
+                          <td className="py-[8px]">
+                            <div className="flex flex-col gap-1 pr-4">
+                              <div className="relative flex items-center">
+                                <span className="absolute left-2 text-slate-500 text-[10px] font-bold uppercase tracking-wider pointer-events-none">Konsep #</span>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  className="input pl-[64px] w-24 h-8 text-[13px] font-bold text-indigo-700 bg-indigo-50/70 border-indigo-200 shadow-sm focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400 transition-all text-center"
+                                  value={(() => {
+                                    if (!v.concept) return 0;
+                                    try {
+                                      const parsed = JSON.parse(v.concept);
+                                      return parsed.value || 0;
+                                    } catch {
+                                      return v.concept;
+                                    }
+                                  })()}
+                                  onChange={(e) => {
+                                    if (hasAccess && updateVideoConcept) {
+                                      updateVideoConcept(v.id, cc.id, e.target.value);
+                                    }
+                                  }}
+                                  disabled={!hasAccess || v.vt_approval === 'approved'}
+                                  title={v.vt_approval === 'approved' ? "Tidak bisa diubah karena VT sudah di-approve" : "Ubah angka konsep"}
+                                />
+                              </div>
+                              {(() => {
+                                if (!v.concept) return null;
+                                try {
+                                  const parsed = JSON.parse(v.concept);
+                                  if (parsed.updated_at && parsed.updated_by) {
+                                    return (
+                                      <p className="text-[9px] text-slate-400 leading-tight">
+                                        Diinput pd {new Date(parsed.updated_at).toLocaleDateString('id-ID')} <br/>
+                                        Oleh: <span className="font-medium text-slate-500">{parsed.updated_by}</span>
+                                      </p>
+                                    );
+                                  }
+                                } catch {
+                                  return null;
+                                }
+                                return null;
+                              })()}
+                            </div>
+                          </td>
                           <td className="py-[8px]">
                             {v.link_video ? (
                               <a href={v.link_video} target="_blank" rel="noreferrer" className="text-p300 hover:underline break-all">
