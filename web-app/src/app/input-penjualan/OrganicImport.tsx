@@ -1075,7 +1075,7 @@ export default function OrganicImport({ mode = 'sales' }: { mode?: 'sales' | 'vi
                 <div className="bg-slate-800/50 border border-slate-700/50 p-4 rounded-xl">
                   <p className="text-xs text-slate-400 font-medium mb-1">Baris Data Valid</p>
                   <p className="text-xl font-bold text-white">{stats.validRows.toLocaleString()}</p>
-                  <p className="text-[10px] text-slate-500 mt-1">{stats.refunds} refund dilewati</p>
+                  <p className="text-[10px] text-slate-500 mt-1">{stats.refunds} baris refund (GMV tetap masuk)</p>
                 </div>
                 <div className="bg-slate-800/50 border border-slate-700/50 p-4 rounded-xl">
                   <p className="text-xs text-slate-400 font-medium mb-1">Total Video Baru</p>
