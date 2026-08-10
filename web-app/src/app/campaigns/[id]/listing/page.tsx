@@ -555,7 +555,7 @@ function CampaignListingContent() {
         .select(`
           id, campaign_id, creator_id, price, qty_vt, approval, sample_progress, status_bayar, notes_manager, notes_pic,
           creators ( username ),
-          videos ( id, urutan, concept, link_video, vt_approval )
+          videos ( id, urutan, concept, concept_updated_at, concept_updated_by, link_video, vt_approval )
         `)
         .eq('campaign_id', campaignId)
         .order('id', { ascending: true })
@@ -795,7 +795,7 @@ function CampaignListingContent() {
           creator_niches${filterNiche ? '!inner' : ''} ( niche_id, niches ( nama ) )
         ),
         videos${filterPendingWithVideo ? '!inner' : ''} (
-          id, urutan, concept, link_video, vt_approval
+          id, urutan, concept, concept_updated_at, concept_updated_by, link_video, vt_approval
         )
       `;
 
