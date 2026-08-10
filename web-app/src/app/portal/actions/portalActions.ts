@@ -194,6 +194,16 @@ export async function getPortalData(campaignId: number) {
     }
   });
 
+  // Fetch ads performance to get per-creator Ads GMV
+  const { data: adsPerformance } = await supabase.from('ads_performance').select('creator_username, gmv_idr').eq('campaign_id', campaignId);
+  const adsGmvMap = new Map();
+  adsPerformance?.forEach((ad: any) => {
+    const u = (ad.creator_username || '').toLowerCase();
+    if (u) {
+      adsGmvMap.set(u, (adsGmvMap.get(u) || 0) + (ad.gmv_idr || 0));
+    }
+  });
+
   // Fetch SKUs for dropdown and filtering
   const { data: skusData } = await supabase
     .from('skus')
@@ -244,7 +254,8 @@ export async function getPortalData(campaignId: number) {
     });
 
     actualLives.forEach((l: any) => {
-      if (l.username === username.toLowerCase() && l.content_uid) {
+      const liveUsername = (l.creator_username || l.username || '').toLowerCase();
+      if (liveUsername === username.toLowerCase() && l.content_uid) {
          uniqueLiveIds.add(l.content_uid);
       }
     });
@@ -269,7 +280,9 @@ export async function getPortalData(campaignId: number) {
     fbPendingVideos += pendingVtCount;
     if (pendingVtCount > 0) pendingCreatorsWithVideosCount++;
     fbLivestreams += totalLive;
-    fbAds += (perf?.gmv_ads || 0);
+    
+    const gmvAds = adsGmvMap.get(username.toLowerCase()) || 0;
+    fbAds += gmvAds;
 
     return {
       ...cc,
@@ -279,7 +292,7 @@ export async function getPortalData(campaignId: number) {
       no_whatsapp: activeContact?.nomor || '',
       gmv_organic: perf?.gmv_organic || 0,
       items_sold: perf?.items_sold || 0,
-      gmv_ads: perf?.gmv_ads || 0,
+      gmv_ads: gmvAds,
       video_views: perf?.video_views || 0,
       video_likes: perf?.video_likes || 0,
       total_vt: totalVt,
