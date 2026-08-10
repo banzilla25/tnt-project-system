@@ -178,7 +178,11 @@ export default function OrganicImport({ mode = 'sales' }: { mode?: 'sales' | 'vi
           
           const initialMapping: Record<string, string> = {};
           REQUIRED_COLUMNS.forEach(col => {
-            const matchedHeader = headers.find(h => col.autoMatch.includes(h.toLowerCase().trim()));
+            let matchedHeader: string | undefined;
+            for (const matchAlias of col.autoMatch) {
+              matchedHeader = headers.find(h => h.toLowerCase().trim() === matchAlias);
+              if (matchedHeader) break;
+            }
             if (matchedHeader) {
               initialMapping[col.key] = matchedHeader;
             }
