@@ -104,13 +104,12 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
   const totalPendingVideos = fastVideoCountsData ? fastVideoCountsData.total_pending : 0;
   const totalCampaignLivestreams = fastVideoCountsData ? fastVideoCountsData.total_livestream : 0;
 
-  const totalOrganic = rpc?.organic_gmv !== undefined ? Number(rpc.organic_gmv) : 0;
+  const totalOrganic = (rpc?.organic_gmv !== undefined ? Number(rpc.organic_gmv) : 0) + (rpc?.unattributed_gmv !== undefined ? Number(rpc.unattributed_gmv) : 0);
   // Use initialTotalAdsGmv for global total consistency with internal dashboard & Ads Report
   const totalAdsGmv = initialTotalAdsGmv || 0; 
   const unattributedGmv = rpc?.unattributed_gmv !== undefined ? Number(rpc.unattributed_gmv) : 0;
   
-  // In the Brand Portal, Total Achievement ONLY counts approved GMV (Organic + Ads).
-  // Pending creators (unattributed) are intentionally hidden until approved.
+  // In the Brand Portal, Total Achievement counts ALL valid organic GMV + Ads GMV.
   const totalAllGmv = totalOrganic + totalAdsGmv;
   const percentGmv = campaign?.target_gmv ? Math.round((totalAllGmv / campaign.target_gmv) * 100) : 0;
   
