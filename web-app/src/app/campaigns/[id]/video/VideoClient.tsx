@@ -100,6 +100,7 @@ export default function CampaignVideoPage({
   const [filterSow, setFilterSow] = useState('all');
   const [filterSales, setFilterSales] = useState('all');
   const [filterSku, setFilterSku] = useState('all');
+  const [filterConcept, setFilterConcept] = useState('');
   const [sortBy, setSortBy] = useState('latest_post');
   const [expandedGroups, setExpandedGroups] = useState<Set<number>>(new Set());
   const [clientPage, setClientPage] = useState(1);
@@ -108,7 +109,7 @@ export default function CampaignVideoPage({
 
   useEffect(() => {
     setClientPage(1);
-  }, [filterSow, filterSales, filterSku, sortBy, debouncedSearch, viewMode]);
+  }, [filterSow, filterSales, filterSku, filterConcept, sortBy, debouncedSearch, viewMode]);
   
   const toggleGroup = (id: number) => {
     setExpandedGroups(prev => {
@@ -638,6 +639,13 @@ export default function CampaignVideoPage({
        });
     }
 
+    if (filterConcept) {
+       data = data.filter(cc => {
+          const creatorVideos = localVideos.filter(v => v.campaign_creator_id === cc.id);
+          return creatorVideos.some(v => v.concept === filterConcept);
+       });
+    }
+
     if (sortBy !== 'none') {
        data.sort((a, b) => {
           const ma = metricsMap.get(a.id);
@@ -676,7 +684,7 @@ export default function CampaignVideoPage({
     }
 
     return { data, metricsMap };
-  }, [listingData, localVideos, skus, campaignId, filterSow, filterSales, filterSku, sortBy, isCreatorVisible]);
+  }, [listingData, localVideos, skus, campaignId, filterSow, filterSales, filterSku, filterConcept, sortBy, isCreatorVisible]);
 
   const { data: finalListingData, metricsMap } = processedListingData;
   const visibleData = finalListingData.slice(0, clientPage * CLIENT_PAGE_SIZE);
@@ -750,6 +758,10 @@ export default function CampaignVideoPage({
        allVids = allVids.filter(v => v.sku_id === filterSku);
     }
 
+    if (filterConcept) {
+       allVids = allVids.filter(v => v.concept === filterConcept);
+    }
+
     if (sortBy !== 'none') {
        allVids.sort((a, b) => {
           if (sortBy === 'latest_post') {
@@ -774,7 +786,7 @@ export default function CampaignVideoPage({
     }
 
     return allVids;
-  }, [localVideos, listingData, metricsMap, filterSow, filterSales, filterSku, sortBy, isCreatorVisible]);
+  }, [localVideos, listingData, metricsMap, filterSow, filterSales, filterSku, filterConcept, sortBy, isCreatorVisible]);
 
   const visibleVideosData = processedVideosData.slice(0, clientPage * CLIENT_PAGE_SIZE);
   const hasMoreVideosClient = processedVideosData.length > visibleVideosData.length;
@@ -889,6 +901,15 @@ export default function CampaignVideoPage({
                       <option value="all">Semua Produk Campaign</option>
                       {skus.filter(s => s.campaign_id === campaignId).map(sku => (
                          <option key={sku.id} value={sku.product_id}>{sku.nama_produk || sku.product_id}</option>
+                      ))}
+                   </select>
+                </div>
+                <div className="space-y-2">
+                   <label className="text-xs font-semibold text-text-soft">Filter Konsep</label>
+                   <select className="select w-full max-w-[150px]" value={filterConcept} onChange={e => setFilterConcept(e.target.value)}>
+                      <option value="">Semua Konsep</option>
+                      {Array.from({length: 20}, (_, i) => (
+                         <option key={i+1} value={`${i+1}`}>Konsep {i+1}</option>
                       ))}
                    </select>
                 </div>
