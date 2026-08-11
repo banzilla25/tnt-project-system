@@ -321,6 +321,7 @@ function CampaignListingContent() {
   const [filterActionBy, setFilterActionBy] = useState<string>('');
   const [filterNotes, setFilterNotes] = useState<string>('');
   const [filterUnattributed, setFilterUnattributed] = useState(false);
+  const [filterConcept, setFilterConcept] = useState<string>('');
   const [staffProfiles, setStaffProfiles] = useState<{id: string, nama: string}[]>([]);
 
   useEffect(() => {
@@ -794,7 +795,7 @@ function CampaignListingContent() {
           creator_snapshots${filterTier || filterLevel ? '!inner' : ''} ( id, audience_age, level, gmv_30d, tanggal_update, followers, tier ),
           creator_niches${filterNiche ? '!inner' : ''} ( niche_id, niches ( nama ) )
         ),
-        videos${filterPendingWithVideo ? '!inner' : ''} (
+        videos${filterPendingWithVideo || filterConcept ? '!inner' : ''} (
           id, urutan, concept, concept_updated_at, concept_updated_by, link_video, vt_approval
         )
       `;
@@ -844,6 +845,9 @@ function CampaignListingContent() {
         } else if (filterContentType === 'Video & Live') {
           query = query.or('content_type.eq."Video & Live",and(content_type.in.("-",""),qty_vt.gte.1,qty_live.gte.1),and(content_type.is.null,qty_vt.gte.1,qty_live.gte.1)');
         }
+      }
+      if (filterConcept) {
+        query = query.eq('videos.concept', filterConcept);
       }
       
       if (filterNotes === 'Ada Notes') {
@@ -983,16 +987,16 @@ function CampaignListingContent() {
          setIsLoading(false);
       }
     }
-  }, [campaignId, filterType, statusFilter, debouncedSearch, sortConfig, filterTier, filterLevel, filterNiche, filterAddedBy, filterActionBy, filterPendingWithVideo, filterUnattributed, filterContentType, filterNotes]);
+  }, [campaignId, filterType, statusFilter, debouncedSearch, sortConfig, filterTier, filterLevel, filterNiche, filterAddedBy, filterActionBy, filterPendingWithVideo, filterUnattributed, filterContentType, filterNotes, filterConcept]);
 
   useEffect(() => {
     fetchListing(page);
-  }, [page, campaignId, filterType, statusFilter, debouncedSearch, sortConfig, filterTier, filterLevel, filterNiche, filterAddedBy, filterActionBy, filterPendingWithVideo, filterUnattributed, filterContentType, filterNotes]);
+  }, [page, campaignId, filterType, statusFilter, debouncedSearch, sortConfig, filterTier, filterLevel, filterNiche, filterAddedBy, filterActionBy, filterPendingWithVideo, filterUnattributed, filterContentType, filterNotes, filterConcept]);
 
   useEffect(() => {
     setPage(0);
     fetchListing(0, true);
-  }, [debouncedSearch, filterType, statusFilter, sortConfig, fetchListing, filterTier, filterLevel, filterNiche, filterAddedBy, filterActionBy, filterPendingWithVideo, filterUnattributed, filterContentType, filterNotes]);
+  }, [debouncedSearch, filterType, statusFilter, sortConfig, fetchListing, filterTier, filterLevel, filterNiche, filterAddedBy, filterActionBy, filterPendingWithVideo, filterUnattributed, filterContentType, filterNotes, filterConcept]);
 
   const handleLoadMore = () => {
     const next = page + 1;
@@ -1757,6 +1761,12 @@ function CampaignListingContent() {
             <option value="4">Level 4</option>
             <option value="5">Level 5</option>
           </select>
+          <select value={filterConcept} onChange={(e) => setFilterConcept(e.target.value)} className="select !mb-0 min-w-[120px] md:w-auto flex-1 text-sm py-1.5">
+            <option value="">Semua Konsep</option>
+            {Array.from({length: 20}, (_, i) => (
+              <option key={i+1} value={`${i+1}`}>Konsep {i+1}</option>
+            ))}
+          </select>
           <select value={filterContentType} onChange={(e) => setFilterContentType(e.target.value)} className="select !mb-0 min-w-[120px] md:w-auto flex-1 text-sm py-1.5">
             <option value="">Semua Tipe Konten</option>
             <option value="Video">Video</option>
@@ -1812,7 +1822,7 @@ function CampaignListingContent() {
             />
             <span className="font-medium whitespace-nowrap">Unattributed (Pending + GMV)</span>
           </label>
-          {(statusFilter !== 'all' || filterTier || filterLevel || filterNiche || filterAddedBy || filterActionBy || filterPendingWithVideo || filterUnattributed || filterContentType) && (
+          {(statusFilter !== 'all' || filterTier || filterLevel || filterNiche || filterAddedBy || filterActionBy || filterPendingWithVideo || filterUnattributed || filterContentType || filterConcept) && (
             <button 
               onClick={() => {
                 setStatusFilter('all');
@@ -1821,10 +1831,10 @@ function CampaignListingContent() {
                 setFilterNiche('');
                 setFilterAddedBy('');
                 setFilterActionBy('');
-                setFilterContentType('');
-                setFilterNotes('');
                 setFilterPendingWithVideo(false);
                 setFilterUnattributed(false);
+                setFilterContentType('');
+                setFilterConcept('');
               }} 
               className="btn btn-outline text-red-500 border-red-200 hover:bg-red-50 flex-1 md:flex-none"
             >
