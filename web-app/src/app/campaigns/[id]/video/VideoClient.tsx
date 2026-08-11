@@ -1224,6 +1224,7 @@ export default function CampaignVideoPage({
               <thead>
                 <tr>
                   <th className="p-4 border-b border-slate-200 bg-slate-50 text-xs font-semibold text-slate-500">Kreator</th>
+                  <th className="p-4 border-b border-slate-200 bg-slate-50 text-xs font-semibold text-slate-500">Konsep</th>
                   <th className="p-4 border-b border-slate-200 bg-slate-50 text-xs font-semibold text-slate-500 w-[300px]">Link Video TikTok</th>
                   <th className="p-4 border-b border-slate-200 bg-slate-50 text-xs font-semibold text-slate-500">Produk</th>
                   <th className="p-4 border-b border-slate-200 bg-slate-50 text-xs font-semibold text-slate-500">GMV & GPM</th>
@@ -1243,6 +1244,30 @@ export default function CampaignVideoPage({
                           </Link>
                         </div>
                         <div className="text-[11px] font-semibold text-slate-500 bg-slate-100 w-fit px-2 py-0.5 rounded mt-1">{v.creatorTier || 'Tier -'}</div>
+                      </td>
+                      <td className="p-4 align-top">
+                        <div className="flex flex-col gap-1 pr-4">
+                           <div className={`flex items-center rounded-md border shadow-sm transition-all overflow-hidden w-[100px] h-9 focus-within:ring-1 ${getConceptColor(v.concept)}`}>
+                             <span className="pl-2 pr-1 text-[11px] font-bold uppercase tracking-wider pointer-events-none opacity-70">
+                               Konsep #
+                             </span>
+                             <input
+                               type="number"
+                               min="0"
+                               className="w-full bg-transparent border-0 p-0 text-[14px] font-bold focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                               value={v.concept || 0}
+                               onChange={(e) => handleVideoChange(v.ccId, v.urutan, 'concept', e.target.value)}
+                               disabled={!hasAccess || v.vt_approval === 'approved'}
+                               title={v.vt_approval === 'approved' ? "Tidak bisa diubah karena VT sudah di-approve" : "Ubah angka konsep"}
+                             />
+                           </div>
+                           {v.concept && v.concept_updated_at && v.concept_updated_by ? (
+                             <p className="text-[9px] text-slate-400 leading-tight">
+                               Diinput pd {new Date(v.concept_updated_at).toLocaleDateString('id-ID')} <br/>
+                               Oleh: <span className="font-medium text-slate-500">{v.concept_updated_by}</span>
+                             </p>
+                           ) : null}
+                         </div>
                       </td>
                       <td className="p-4 align-top">
                         <div className="flex flex-col gap-2">
