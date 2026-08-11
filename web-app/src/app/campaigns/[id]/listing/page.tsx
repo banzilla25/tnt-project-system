@@ -1096,6 +1096,30 @@ function CampaignListingContent() {
     }
   }, [listingData]);
 
+  const deleteVideoRow = useCallback(async (ccId: number, videoId: string | number) => {
+    if (!confirm('Hapus slot video ini?')) return;
+    
+    // Optimistic update
+    setListingData(prev => prev.map(c => {
+      if (c.id === ccId) {
+        return {
+          ...c,
+          videos: (c.videos || []).filter((v: any) => v.id !== videoId)
+        };
+      }
+      return c;
+    }));
+
+    if (typeof videoId === 'number') {
+      try {
+        await supabase.from('videos').delete().eq('id', videoId);
+      } catch (err) {
+        console.error('Failed to delete video row', err);
+        alert('Gagal menghapus slot dari database');
+      }
+    }
+  }, []);
+
   const addAndSetVideoConcept = useCallback(async (ccId: number, urutan: number, value: string) => {
     const tempId = `temp_${Date.now()}`;
     const updated_at = new Date().toISOString();
@@ -2432,6 +2456,7 @@ function CampaignListingContent() {
                     updateVideoConcept={updateVideoConcept}
                     addEmptyVideoRow={addEmptyVideoRow}
                     addAndSetVideoConcept={addAndSetVideoConcept}
+                    deleteVideoRow={deleteVideoRow}
                   />
                 );
               })

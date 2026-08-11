@@ -19,9 +19,45 @@ const areEqual = (prev: any, next: any) => {
     prev.hasAccess === next.hasAccess &&
     prev.updateVideoConcept === next.updateVideoConcept &&
     prev.addEmptyVideoRow === next.addEmptyVideoRow &&
-    prev.addAndSetVideoConcept === next.addAndSetVideoConcept
+    prev.addAndSetVideoConcept === next.addAndSetVideoConcept &&
+    prev.deleteVideoRow === next.deleteVideoRow
   );
 };
+
+interface CreatorRowProps {
+  cc: any;
+  index: number;
+  creator: any;
+  snapshot?: any;
+  hasPending: boolean;
+  pendingChange?: any;
+  isExpanded: boolean;
+  activeEditingField: string | null;
+  creatorVideos?: any[];
+  hasAccess: boolean;
+  isSelected: boolean;
+  toggleSelectCreator: (id: string | number) => void;
+  toggleExpand: (id: string | number) => void;
+  setEditingCellId: (id: string | null) => void;
+  setCellChange: (ccId: string | number, field: string, value: any, cc: any) => void;
+  getPendingValue: (ccId: string | number, field: string, fallback: any) => any;
+  campaignSkus: any[];
+  setNicheEditCreatorId: (id: string | number) => void;
+  setNicheEditForm: (nicheIds: number[]) => void;
+  setNicheModalOpen: (open: boolean) => void;
+  staffProfiles: any[];
+  isClientApprovalRequired: boolean;
+  profile: any;
+  isBatchSaving: boolean;
+  handleDeleteCreator: (id: string | number) => void;
+  updateCampaignCreator: (ccId: string | number, data: any) => void;
+  fetchListing: () => void;
+  page: number;
+  updateVideoConcept?: (videoId: number, ccId: number, value: string) => void;
+  addEmptyVideoRow?: (ccId: number) => void;
+  addAndSetVideoConcept?: (ccId: number, urutan: number, value: string) => void;
+  deleteVideoRow?: (ccId: number, videoId: string | number) => void;
+}
 
 export const CreatorRow = React.memo(({
   cc,
@@ -54,8 +90,9 @@ export const CreatorRow = React.memo(({
   page,
   updateVideoConcept,
   addEmptyVideoRow,
-  addAndSetVideoConcept
-}: any) => {
+  addAndSetVideoConcept,
+  deleteVideoRow
+}: CreatorRowProps) => {
   const parseNotes = React.useMemo(() => {
     return (raw: string, role: string) => {
       if (!raw) return [];
@@ -514,6 +551,7 @@ export const CreatorRow = React.memo(({
                         <th className="font-semibold text-left pb-[8px]">Konsep</th>
                         <th className="font-semibold text-left pb-[8px]">Link Video</th>
                         <th className="font-semibold text-left pb-[8px] w-32">VT Approval</th>
+                        <th className="font-semibold text-left pb-[8px] w-8"></th>
                       </tr>
                     </thead>
                     <tbody>
@@ -567,6 +605,17 @@ export const CreatorRow = React.memo(({
                             <span className={`badge ${v.vt_approval === 'approved' ? 'b-success' : v.vt_approval === 'reject' ? 'b-destructive' : 'b-neutral'}`}>
                               {v.vt_approval}
                             </span>
+                          </td>
+                          <td className="py-[8px] text-right pr-2">
+                            {hasAccess && deleteVideoRow && v.urutan > (cc.qty_vt || 0) && (
+                              <button 
+                                onClick={() => deleteVideoRow(cc.id, v.id)}
+                                className="p-1 hover:bg-red-50 rounded text-slate-300 hover:text-red-500 transition-colors"
+                                title="Hapus slot video manual ini"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
                           </td>
                         </tr>
                       ))}
