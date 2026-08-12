@@ -455,9 +455,9 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
   
   const unattributedGmv = rpc.unattributed_gmv !== undefined ? Number(rpc.unattributed_gmv) : 0;
   
-  // Total All = Approved GMV (totalOrganic) + Ads GMV + Unattributed GMV (Pending/Gap)
-  // Matching the Brand Portal logic where Total Achievement = Gross GMV.
-  const totalAllGmv = totalOrganic + totalAdsGmv + unattributedGmv;
+  // Total All = Approved GMV (totalOrganic) + Ads GMV
+  // As per user request: unattributed GMV is kept separate and NOT included in Total Achievement
+  const totalAllGmv = totalOrganic + totalAdsGmv;
   const percentCapai = campaign?.target_gmv ? Math.round((totalAllGmv / campaign.target_gmv) * 100) : 0;
   
   const trackedOrganic = totalOrganic;
