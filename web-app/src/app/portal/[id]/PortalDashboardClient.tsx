@@ -931,7 +931,7 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                         <SortableHeader label="Tier" sortKey="tier" currentSort={listingSort} onSort={(k) => handleSort('listing', k)} />
                         <SortableHeader label="Tipe Konten" sortKey="content_type" currentSort={listingSort} onSort={(k) => handleSort('listing', k)} />
                         <SortableHeader label="Progres Sampel" sortKey="sample_progress" currentSort={listingSort} onSort={(k) => handleSort('listing', k)} />
-                        {campaign.require_client_approval && <SortableHeader label="Status Approval" sortKey="status_approval" currentSort={listingSort} onSort={(k) => handleSort('listing', k)} className="w-48 text-center" />}
+                        {campaign.require_client_approval && <SortableHeader label="Status Approval Client" sortKey="status_approval" currentSort={listingSort} onSort={(k) => handleSort('listing', k)} className="w-48 text-center" />}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -962,7 +962,15 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                             </TableCell>
                             {campaign.require_client_approval && (
                               <TableCell className="align-top text-center">
-                                {cc.client_approval === 'pending' ? (
+                                {cc.client_approval === 'approved' ? (
+                                  <Badge variant="success" className="uppercase shadow-sm">
+                                    DISETUJUI
+                                  </Badge>
+                                ) : cc.client_approval === 'rejected' ? (
+                                  <Badge variant="destructive" className="uppercase shadow-sm">
+                                    DITOLAK
+                                  </Badge>
+                                ) : (
                                   <div className="flex items-center justify-center gap-2">
                                     <button 
                                       onClick={() => handleApproval(cc.id, 'approved')}
@@ -979,14 +987,6 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                                       TOLAK
                                     </button>
                                   </div>
-                                ) : cc.client_approval === 'rejected' ? (
-                                  <Badge variant="destructive" className="uppercase shadow-sm">
-                                    DITOLAK
-                                  </Badge>
-                                ) : (
-                                  <Badge variant="success" className="uppercase shadow-sm">
-                                    DISETUJUI
-                                  </Badge>
                                 )}
                               </TableCell>
                             )}
