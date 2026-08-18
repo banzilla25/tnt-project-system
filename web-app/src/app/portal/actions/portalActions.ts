@@ -108,7 +108,7 @@ export async function getPortalData(campaignId: number) {
         tier,
         content_type,
         sample_progress,
-        creators(username, nama_asli, link_account, creator_snapshots(followers, level, tier), creator_contacts(nomor, status)),
+        creators(username, nama_asli, link_account, creator_snapshots(id, tanggal_update, followers, level, tier), creator_contacts(nomor, status)),
         videos(id, link_video, content_uid, vt_approval, urutan)
       `)
       .eq('campaign_id', campaignId)
