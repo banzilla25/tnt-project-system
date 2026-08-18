@@ -460,6 +460,15 @@ export const CreatorRow = React.memo(({
           )}
         </td>
         {isClientApprovalRequired && (
+          <td className="text-[12px] text-text max-w-[200px]">
+            {cc.notes_client ? (
+              <p className="whitespace-pre-wrap break-words leading-tight">{cc.notes_client}</p>
+            ) : (
+              <span className="text-slate-400 italic text-[11px]">Belum ada notes</span>
+            )}
+          </td>
+        )}
+        {isClientApprovalRequired && (
           <td>
             {activeEditingField === `client_approval` ? (
               <select 
@@ -529,7 +538,7 @@ export const CreatorRow = React.memo(({
         <tr className="bg-slate-50 hover:bg-slate-50">
           <td></td>
           <td></td>
-          <td colSpan={isClientApprovalRequired ? 9 : 8} className="p-0 border-b-0">
+          <td colSpan={isClientApprovalRequired ? 10 : 8} className="p-0 border-b-0">
             <div className="py-[16px] pr-[16px]">
               <div className="bg-white border border-line rounded-[12px] p-[16px]">
                 <div className="flex items-center justify-between mb-[12px]">

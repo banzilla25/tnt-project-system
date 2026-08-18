@@ -105,6 +105,7 @@ export async function getPortalData(campaignId: number) {
         approval,
         client_approval, 
         notes_pic, 
+        notes_client,
         tier,
         content_type,
         sample_progress,
@@ -654,5 +655,19 @@ export async function batchUpdateResiByClient(campaignId: number, updates: Batch
     }
   }
 
+  return { success: true };
+}
+
+export async function updateClientNotes(campaignId: number, ccId: number, notes: string) {
+  const { error } = await supabase
+    .from('campaign_creators')
+    .update({ notes_client: notes })
+    .eq('id', ccId)
+    .eq('campaign_id', campaignId);
+
+  if (error) {
+    console.error("Error updating client notes:", error);
+    return { success: false, error: error.message };
+  }
   return { success: true };
 }

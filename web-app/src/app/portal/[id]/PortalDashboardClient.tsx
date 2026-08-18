@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { TrendingUp, Video, Users, Package, Calendar, CheckCircle, CheckCircle2, XCircle, Activity, BarChart3, ChevronDown, ChevronUp, Search, ChevronLeft, ChevronRight, Filter, ArrowUp, ArrowDown, ArrowUpDown, Download, ShoppingCart, Loader2, Eye } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/Table";
-import { submitClientApproval, updateResiByClient, batchUpdateResiByClient, type BatchUpdateData } from "../actions/portalActions";
+import { submitClientApproval, updateResiByClient, batchUpdateResiByClient, type BatchUpdateData, updateClientNotes } from "../actions/portalActions";
 import { formatAbbreviated } from "@/utils/formatters";
 import { useRouter } from "next/navigation";
 
@@ -30,7 +30,9 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
   const [expandedVideos, setExpandedVideos] = useState<Record<string, boolean>>({});
   const [isApproving, setIsApproving] = useState<number | null>(null);
   const [editedSamples, setEditedSamples] = useState<Record<number, BatchUpdateData>>({});
+  const [editedNotesClient, setEditedNotesClient] = useState<Record<number, string>>({});
   const [autoSavingItems, setAutoSavingItems] = useState<Record<number, boolean>>({});
+  const [autoSavingNotes, setAutoSavingNotes] = useState<Record<number, boolean>>({});
   const [isSavingBatch, setIsSavingBatch] = useState(false);
   
   // Filter, Sort, & Pagination States
@@ -191,6 +193,18 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
       showToast("Gagal menyimpan perubahan", "error");
     } finally {
       setAutoSavingItems(prev => ({ ...prev, [addrId]: false }));
+    }
+  };
+
+  const handleNotesClientAutoSave = async (ccId: number, value: string) => {
+    setAutoSavingNotes(prev => ({ ...prev, [ccId]: true }));
+    try {
+      await updateClientNotes(campaignId, ccId, value);
+      router.refresh();
+    } catch (err) {
+      console.error("Failed to save client notes", err);
+    } finally {
+      setAutoSavingNotes(prev => ({ ...prev, [ccId]: false }));
     }
   };
 
@@ -931,13 +945,14 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                         <SortableHeader label="Tier" sortKey="tier" currentSort={listingSort} onSort={(k) => handleSort('listing', k)} />
                         <SortableHeader label="Tipe Konten" sortKey="content_type" currentSort={listingSort} onSort={(k) => handleSort('listing', k)} />
                         <SortableHeader label="Progres Sampel" sortKey="sample_progress" currentSort={listingSort} onSort={(k) => handleSort('listing', k)} />
+                        {campaign.require_client_approval && <SortableHeader label="Notes Klien" sortKey="notes_client" currentSort={listingSort} onSort={(k) => handleSort('listing', k)} className="w-48" />}
                         {campaign.require_client_approval && <SortableHeader label="Status Approval Client" sortKey="status_approval" currentSort={listingSort} onSort={(k) => handleSort('listing', k)} className="w-48 text-center" />}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {paginatedListing.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={campaign.require_client_approval ? 7 : 6} className="text-center py-8 text-slate-500">Belum ada kreator yang sesuai pencarian.</TableCell>
+                          <TableCell colSpan={campaign.require_client_approval ? 8 : 6} className="text-center py-8 text-slate-500">Belum ada kreator yang sesuai pencarian.</TableCell>
                         </TableRow>
                       ) : (
                         paginatedListing.map((cc: any) => (
@@ -961,33 +976,59 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                               {cc.sample_progress || 'Belum dikirim'}
                             </TableCell>
                             {campaign.require_client_approval && (
+                              <TableCell className="align-top">
+                                <div className="relative">
+                                  <textarea
+                                    className="w-full text-xs p-2 border rounded border-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none min-h-[60px]"
+                                    placeholder="Tulis notes (opsional)..."
+                                    value={editedNotesClient[cc.id] !== undefined ? editedNotesClient[cc.id] : (cc.notes_client || '')}
+                                    onChange={(e) => {
+                                      setEditedNotesClient(prev => ({ ...prev, [cc.id]: e.target.value }));
+                                      // Optional: Add debounce for auto-save if desired.
+                                      // We'll use onBlur to save for simplicity and fewer requests.
+                                    }}
+                                    onBlur={(e) => {
+                                      if (editedNotesClient[cc.id] !== undefined && editedNotesClient[cc.id] !== (cc.notes_client || '')) {
+                                        handleNotesClientAutoSave(cc.id, e.target.value);
+                                      }
+                                    }}
+                                  />
+                                  {autoSavingNotes[cc.id] && (
+                                    <div className="absolute right-2 bottom-2">
+                                      <Loader2 className="w-3 h-3 animate-spin text-blue-500" />
+                                    </div>
+                                  )}
+                                </div>
+                              </TableCell>
+                            )}
+                            {campaign.require_client_approval && (
                               <TableCell className="align-top text-center">
-                                {cc.client_approval === 'approved' ? (
-                                  <Badge variant="success" className="uppercase shadow-sm">
-                                    DISETUJUI
-                                  </Badge>
-                                ) : cc.client_approval === 'rejected' ? (
-                                  <Badge variant="destructive" className="uppercase shadow-sm">
-                                    DITOLAK
-                                  </Badge>
-                                ) : (
-                                  <div className="flex items-center justify-center gap-2">
+                                <div className="flex flex-col items-center justify-center gap-2">
+                                  <div className="flex gap-2">
                                     <button 
                                       onClick={() => handleApproval(cc.id, 'approved')}
-                                      disabled={isApproving === cc.id}
-                                      className="px-3 py-1.5 bg-green-100 hover:bg-green-200 text-green-700 text-xs font-semibold rounded-md transition-colors"
+                                      disabled={isApproving === cc.id || cc.client_approval === 'approved'}
+                                      className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
+                                        cc.client_approval === 'approved' 
+                                          ? 'bg-green-600 text-white cursor-default' 
+                                          : 'bg-slate-100 hover:bg-green-100 text-slate-600 hover:text-green-700'
+                                      }`}
                                     >
                                       SETUJUI
                                     </button>
                                     <button 
                                       onClick={() => handleApproval(cc.id, 'rejected')}
-                                      disabled={isApproving === cc.id}
-                                      className="px-3 py-1.5 bg-red-100 hover:bg-red-200 text-red-700 text-xs font-semibold rounded-md transition-colors"
+                                      disabled={isApproving === cc.id || cc.client_approval === 'rejected'}
+                                      className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
+                                        cc.client_approval === 'rejected' 
+                                          ? 'bg-red-600 text-white cursor-default' 
+                                          : 'bg-slate-100 hover:bg-red-100 text-slate-600 hover:text-red-700'
+                                      }`}
                                     >
                                       TOLAK
                                     </button>
                                   </div>
-                                )}
+                                </div>
                               </TableCell>
                             )}
                           </TableRow>

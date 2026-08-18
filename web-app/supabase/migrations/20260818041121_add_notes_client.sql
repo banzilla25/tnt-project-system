@@ -1,0 +1,1 @@
+ALTER TABLE campaign_creators ADD COLUMN IF NOT EXISTS notes_client TEXT;

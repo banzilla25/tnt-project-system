@@ -2403,6 +2403,7 @@ function CampaignListingContent() {
                   Approval <SortIcon col="approval" />
                 </button>
               </th>
+              {isClientApprovalRequired && <th>Notes Client</th>}
               {isClientApprovalRequired && <th>Client Status</th>}
               <th className="text-right">
                 <button onClick={() => toggleSort('gmv')} className="flex items-center justify-end font-semibold hover:text-p300 transition-colors w-full">
@@ -2416,7 +2417,7 @@ function CampaignListingContent() {
             {(() => {
               return displayData.length === 0 && !isLoading ? (
               <tr>
-                <td colSpan={isClientApprovalRequired ? 13 : 12} className="text-center py-[32px] text-text-soft">
+                <td colSpan={isClientApprovalRequired ? 14 : 12} className="text-center py-[32px] text-text-soft">
                   Belum ada creator di campaign ini.
                 </td>
               </tr>
