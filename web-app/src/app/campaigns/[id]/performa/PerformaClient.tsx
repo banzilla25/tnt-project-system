@@ -879,7 +879,7 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
                                 }}
                                 className="text-[10px] font-bold bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded border border-indigo-100/50 leading-none hover:bg-indigo-100 transition-colors"
                               >
-                                [{conceptNumber}]
+                                Konsep #{conceptNumber}
                               </button>
                             ))}
                           </div>
