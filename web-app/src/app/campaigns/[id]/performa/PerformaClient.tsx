@@ -238,6 +238,12 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
         const totalVt = approvedVtCount + pendingVtCount;
         const totalLive = Math.max(trackedLives, uniqueLiveIds.size);
 
+        const conceptsSet = new Set<string>();
+        dbVideos.forEach((v: any) => {
+           if (v.concept) conceptsSet.add(v.concept);
+        });
+        const concepts = Array.from(conceptsSet);
+
         return {
           ...cc,
           username,
@@ -252,7 +258,8 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
           videoViews,
           videoLikes,
           totalVt,
-          totalLive
+          totalLive,
+          concepts
         };
       });
 
@@ -852,9 +859,20 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
                 paginatedStats.map((c) => (
                   <tr key={c.id} className="transition-all duration-300 border-b border-line">
                     <td>
-                      <Link href={`/creator-pool/${c.creator_id}`} className="font-semibold text-blue-600 hover:underline">
-                        @{c.username}
-                      </Link>
+                      <div className="flex flex-col gap-1 items-start">
+                        <Link href={`/creator-pool/${c.creator_id}`} className="font-semibold text-blue-600 hover:underline">
+                          @{c.username}
+                        </Link>
+                        {c.concepts && c.concepts.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-0.5">
+                            {c.concepts.map((conceptNumber: string) => (
+                              <span key={conceptNumber} className="text-[10px] font-bold bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded border border-indigo-100/50 leading-none">
+                                [{conceptNumber}]
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </td>
                     
                     {isAwareness && (
