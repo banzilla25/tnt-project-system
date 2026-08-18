@@ -35,6 +35,8 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [fastCountsData, setFastCountsData] = useState<{ approved: number; pending: number; all: number } | null>(null);
   const [fastVideoCountsData, setFastVideoCountsData] = useState<{ approved: number; pending: number; livestream: number } | null>(null);
+  const [masterConcepts, setMasterConcepts] = useState<any[]>([]);
+  const [selectedConcept, setSelectedConcept] = useState<any>(null);
 
   // Filter Creator State from Global Context
   const { appliedFilterType, appliedFilterUsernames } = useCampaignFilter();
@@ -52,6 +54,9 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
   const _fetchDataInner = async () => {
       const { data: campaignData } = await supabase.from('campaigns').select('*').eq('id', campaignId).single();
       if (campaignData) setCampaign(campaignData);
+
+      const { data: conceptsData } = await supabase.from('campaign_concepts').select('*, skus(nama_produk)').eq('campaign_id', campaignId);
+      if (conceptsData) setMasterConcepts(conceptsData);
 
       let rpcParams: any = { p_campaign_id: campaignId };
       if (appliedFilterType !== 'none' && appliedFilterUsernames && appliedFilterUsernames.length > 0) {
@@ -866,9 +871,16 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
                         {c.concepts && c.concepts.length > 0 && (
                           <div className="flex flex-wrap gap-1 mt-0.5">
                             {c.concepts.map((conceptNumber: string) => (
-                              <span key={conceptNumber} className="text-[10px] font-bold bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded border border-indigo-100/50 leading-none">
+                              <button 
+                                key={conceptNumber} 
+                                onClick={() => {
+                                  const found = masterConcepts.find(mc => String(mc.no_konsep) === String(conceptNumber));
+                                  if (found) setSelectedConcept(found);
+                                }}
+                                className="text-[10px] font-bold bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded border border-indigo-100/50 leading-none hover:bg-indigo-100 transition-colors"
+                              >
                                 [{conceptNumber}]
-                              </span>
+                              </button>
                             ))}
                           </div>
                         )}
@@ -935,6 +947,54 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
           </div>
         )}
       </div>
+
+      {selectedConcept && (
+        <div className="fixed inset-0 bg-black/60 z-[9999] flex items-center justify-center p-4">
+          <div className="bg-white rounded-[24px] max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+            <div className="sticky top-0 bg-white/80 backdrop-blur-md border-b border-line px-6 py-4 flex items-center justify-between z-10">
+              <h3 className="text-xl font-bold text-slate-800">Detail Konsep [{selectedConcept.no_konsep}]</h3>
+              <button 
+                onClick={() => setSelectedConcept(null)}
+                className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-500 hover:text-slate-700"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-6">
+              <div className="bg-slate-50 rounded-xl p-5 border border-slate-100">
+                <div className="grid grid-cols-2 gap-4 text-sm mb-4 pb-4 border-b border-slate-200">
+                  <div>
+                    <p className="text-slate-500 mb-1">Produk</p>
+                    <p className="font-semibold">{selectedConcept.skus?.nama_produk || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-slate-500 mb-1">Tier</p>
+                    <p className="font-semibold">{selectedConcept.tier || '-'}</p>
+                  </div>
+                </div>
+                
+                <h4 className="font-bold text-lg text-slate-800 mb-2">{selectedConcept.judul_konsep}</h4>
+                <div className="space-y-4 mt-4">
+                  <div>
+                    <p className="text-xs font-bold text-indigo-600 uppercase tracking-wider mb-1">Hook</p>
+                    <p className="text-slate-700 whitespace-pre-wrap">{selectedConcept.hook}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-emerald-600 uppercase tracking-wider mb-1">Fitur / USP</p>
+                    <p className="text-slate-700 whitespace-pre-wrap">{selectedConcept.fitur_usp}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-orange-600 uppercase tracking-wider mb-1">Call to Action</p>
+                    <p className="text-slate-700 whitespace-pre-wrap">{selectedConcept.cta}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
