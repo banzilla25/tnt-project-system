@@ -887,19 +887,29 @@ export const CreatorRow = React.memo(({
       {playingDriveId && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md">
           <div className="bg-black rounded-xl shadow-2xl w-full max-w-4xl h-[80vh] flex flex-col relative border border-slate-700">
-            <div className="absolute -top-12 right-0">
+            <div className="absolute -top-12 right-0 flex items-center gap-2">
+              <a 
+                href={`https://drive.google.com/file/d/${playingDriveId}/view`}
+                target="_blank"
+                rel="noreferrer"
+                className="text-white/70 hover:text-white hover:bg-white/10 px-4 py-2 rounded-full transition-colors text-sm font-medium border border-white/20"
+              >
+                Buka di Tab Baru
+              </a>
               <button 
                 onClick={() => setPlayingDriveId(null)}
-                className="text-white/70 hover:text-white hover:bg-white/10 p-2 rounded-full transition-colors flex items-center gap-2"
+                className="text-white/70 hover:text-white hover:bg-white/10 px-4 py-2 rounded-full transition-colors flex items-center gap-2 text-sm font-medium border border-white/20"
               >
                 Tutup <span className="text-xl leading-none">&times;</span>
               </button>
             </div>
-            <div className="flex-1 w-full h-full rounded-xl overflow-hidden bg-black flex items-center justify-center">
+            <div className="flex-1 w-full h-full rounded-xl overflow-hidden bg-black flex items-center justify-center relative">
               <iframe 
                 src={`https://drive.google.com/file/d/${playingDriveId}/preview`} 
-                className="w-full h-full border-0"
-                allow="autoplay"
+                className="absolute inset-0 w-full h-full border-0 bg-transparent"
+                allow="autoplay; fullscreen; picture-in-picture"
+                allowFullScreen
+                referrerPolicy="no-referrer"
                 title="Google Drive Video Player"
               ></iframe>
             </div>

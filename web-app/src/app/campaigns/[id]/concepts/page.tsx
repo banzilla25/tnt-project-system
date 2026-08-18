@@ -61,7 +61,7 @@ export default function CampaignConceptsPage() {
   };
 
   const handleUpdateConcept = async (conceptId: number, field: string, value: any) => {
-    if (!isManager) return;
+    if ((field === 'status_approval' || field === 'notes') && !isManager) return;
     setSavingId(conceptId);
     
     // Optimistic update
@@ -87,7 +87,6 @@ export default function CampaignConceptsPage() {
   };
 
   const handleDeleteConcept = async (conceptId: number) => {
-    if (!isManager) return;
     if (!confirm("Yakin ingin menghapus konsep ini?")) return;
     
     setConcepts(prev => prev.filter(c => c.id !== conceptId));
@@ -103,13 +102,11 @@ export default function CampaignConceptsPage() {
       <div className="p-4 border-b border-line flex justify-between items-center bg-slate-50">
         <div>
           <h2 className="text-lg font-bold text-slate-800">Master Konsep (Brief)</h2>
-          <p className="text-sm text-slate-500">Buat dan kelola detail konsep video untuk campaign ini. Hanya Manager yang dapat melakukan edit dan approval.</p>
+          <p className="text-sm text-slate-500">Buat dan kelola detail konsep video untuk campaign ini. Approval dan Notes hanya dapat dilakukan oleh Manager.</p>
         </div>
-        {isManager && (
-          <button onClick={handleAddConcept} className="btn btn-primary flex items-center gap-2">
-            <Plus className="w-4 h-4" /> Tambah Konsep
-          </button>
-        )}
+        <button onClick={handleAddConcept} className="btn btn-primary flex items-center gap-2">
+          <Plus className="w-4 h-4" /> Tambah Konsep
+        </button>
       </div>
 
       <div className="overflow-x-auto">
@@ -125,7 +122,7 @@ export default function CampaignConceptsPage() {
               <th className="px-4 py-3 min-w-[250px]">CTA</th>
               <th className="px-4 py-3 min-w-[150px]">Status Approval</th>
               <th className="px-4 py-3 min-w-[250px]">Notes Revisi</th>
-              {isManager && <th className="px-4 py-3 min-w-[60px] text-center">Aksi</th>}
+              <th className="px-4 py-3 min-w-[60px] text-center">Aksi</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-line">
@@ -194,58 +191,81 @@ export default function CampaignConceptsPage() {
                       <span className="badge b-neutral">{concept.tier || '-'}</span>
                     )}
                   </td>
-                  <td className="px-4 py-3">
-                    {isManager ? (
-                      <textarea 
-                        className="input w-full !p-2 min-h-[80px] text-sm leading-relaxed" 
-                        defaultValue={concept.hook || ''}
-                        onBlur={(e) => handleUpdateConcept(concept.id, 'hook', e.target.value)}
-                        placeholder="Makeup sering pecah? Ini penyebabnya..."
-                      />
-                    ) : (
-                      <div className="whitespace-pre-wrap text-slate-700">{concept.hook}</div>
-                    )}
+                    <input 
+                      type="number" 
+                      className="input w-16 text-center !p-1.5 font-bold text-slate-700" 
+                      defaultValue={concept.no_konsep}
+                      onBlur={(e) => handleUpdateConcept(concept.id, 'no_konsep', Number(e.target.value))}
+                    />
                   </td>
                   <td className="px-4 py-3">
-                    {isManager ? (
-                      <textarea 
-                        className="input w-full !p-2 min-h-[80px] text-sm leading-relaxed" 
-                        defaultValue={concept.fitur_usp || ''}
-                        onBlur={(e) => handleUpdateConcept(concept.id, 'fitur_usp', e.target.value)}
-                        placeholder="Highlight sel kulit mati penyebab makeup ga nempel..."
-                      />
-                    ) : (
-                      <div className="whitespace-pre-wrap text-slate-700">{concept.fitur_usp}</div>
-                    )}
+                    <select 
+                      className="select w-full !p-1.5" 
+                      defaultValue={concept.sku_id || ''}
+                      onChange={(e) => handleUpdateConcept(concept.id, 'sku_id', e.target.value ? Number(e.target.value) : null)}
+                    >
+                      <option value="">Pilih Produk...</option>
+                      {skus.map(sku => (
+                        <option key={sku.id} value={sku.id}>{sku.nama_produk}</option>
+                      ))}
+                    </select>
                   </td>
                   <td className="px-4 py-3">
-                    {isManager ? (
-                      <textarea 
-                        className="input w-full !p-2 min-h-[80px] text-sm leading-relaxed" 
-                        defaultValue={concept.cta || ''}
-                        onBlur={(e) => handleUpdateConcept(concept.id, 'cta', e.target.value)}
-                        placeholder="Langsung checkout di keranjang kuning..."
-                      />
-                    ) : (
-                      <div className="whitespace-pre-wrap text-slate-700">{concept.cta}</div>
-                    )}
+                    <input 
+                      type="text" 
+                      className="input w-full !p-1.5" 
+                      defaultValue={concept.judul_konsep}
+                      onBlur={(e) => handleUpdateConcept(concept.id, 'judul_konsep', e.target.value)}
+                    />
+                  </td>
+                  <td className="px-4 py-3">
+                    <select 
+                      className="select w-full !p-1.5" 
+                      defaultValue={concept.tier || ''}
+                      onChange={(e) => handleUpdateConcept(concept.id, 'tier', e.target.value)}
+                    >
+                      <option value="">Pilih Tier...</option>
+                      <option value="TOFU">TOFU (Top of Funnel)</option>
+                      <option value="MOFU">MOFU (Middle of Funnel)</option>
+                      <option value="BOFU">BOFU (Bottom of Funnel)</option>
+                    </select>
+                  </td>
+                  <td className="px-4 py-3">
+                    <textarea 
+                      className="input w-full !p-1.5 min-h-[60px] resize-y" 
+                      defaultValue={concept.hook || ''}
+                      placeholder="Tulis hook video..."
+                      onBlur={(e) => handleUpdateConcept(concept.id, 'hook', e.target.value)}
+                    />
+                  </td>
+                  <td className="px-4 py-3">
+                    <textarea 
+                      className="input w-full !p-1.5 min-h-[60px] resize-y" 
+                      defaultValue={concept.fitur_usp || ''}
+                      placeholder="Tulis fitur/USP..."
+                      onBlur={(e) => handleUpdateConcept(concept.id, 'fitur_usp', e.target.value)}
+                    />
+                  </td>
+                  <td className="px-4 py-3">
+                    <textarea 
+                      className="input w-full !p-1.5 min-h-[60px] resize-y" 
+                      defaultValue={concept.cta || ''}
+                      placeholder="Tulis CTA..."
+                      onBlur={(e) => handleUpdateConcept(concept.id, 'cta', e.target.value)}
+                    />
                   </td>
                   <td className="px-4 py-3 text-center">
-                    {isManager ? (
-                      <select 
-                        className={`select !p-1.5 w-full font-semibold ${concept.status_approval === 'approved' ? 'text-emerald-700 bg-emerald-50 border-emerald-200' : concept.status_approval === 'revisi' ? 'text-amber-700 bg-amber-50 border-amber-200' : 'text-slate-600'}`}
-                        defaultValue={concept.status_approval || 'pending'}
-                        onChange={(e) => handleUpdateConcept(concept.id, 'status_approval', e.target.value)}
-                      >
-                        <option value="pending">Pending</option>
-                        <option value="approved">Approved</option>
-                        <option value="revisi">Revisi</option>
-                      </select>
-                    ) : (
-                      <span className={`badge ${concept.status_approval === 'approved' ? 'b-success' : concept.status_approval === 'revisi' ? 'b-warning' : 'b-neutral'}`}>
-                        {concept.status_approval}
-                      </span>
-                    )}
+                    <select 
+                      className={`select !p-1.5 w-full font-semibold ${concept.status_approval === 'approved' ? 'text-emerald-700 bg-emerald-50 border-emerald-200' : concept.status_approval === 'revisi' ? 'text-amber-700 bg-amber-50 border-amber-200' : 'text-slate-600'} ${!isManager ? 'opacity-70 cursor-not-allowed' : ''}`}
+                      defaultValue={concept.status_approval || 'pending'}
+                      onChange={(e) => handleUpdateConcept(concept.id, 'status_approval', e.target.value)}
+                      disabled={!isManager}
+                      title={!isManager ? "Hanya Manager yang bisa mengubah status" : ""}
+                    >
+                      <option value="pending">Pending</option>
+                      <option value="approved">Approved</option>
+                      <option value="revisi">Revisi</option>
+                    </select>
                     {concept.updated_by && (
                       <div className="mt-1 text-[10px] text-slate-400 leading-tight">
                         Oleh: {concept.updated_by}
@@ -253,29 +273,27 @@ export default function CampaignConceptsPage() {
                     )}
                   </td>
                   <td className="px-4 py-3">
-                    {isManager ? (
-                      <textarea 
-                        className="input w-full !p-2 min-h-[60px] text-sm text-red-700 bg-red-50/50" 
-                        defaultValue={concept.notes || ''}
-                        onBlur={(e) => handleUpdateConcept(concept.id, 'notes', e.target.value)}
-                        placeholder="Notes revisi untuk PIC..."
-                      />
-                    ) : (
-                      <div className="whitespace-pre-wrap text-red-600 text-xs italic">{concept.notes}</div>
-                    )}
+                    <textarea 
+                      className={`input w-full !p-2 min-h-[60px] text-sm text-red-700 bg-red-50/50 ${!isManager ? 'opacity-70 cursor-not-allowed' : ''}`} 
+                      defaultValue={concept.notes || ''}
+                      onBlur={(e) => handleUpdateConcept(concept.id, 'notes', e.target.value)}
+                      placeholder="Notes revisi untuk PIC..."
+                      disabled={!isManager}
+                      title={!isManager ? "Hanya Manager yang bisa memberikan notes" : ""}
+                    />
                   </td>
-                  {isManager && (
-                    <td className="px-4 py-3 text-center">
+                  <td className="px-4 py-3 text-center align-middle">
+                    <div className="flex items-center justify-center h-full">
                       <button 
-                        onClick={() => handleDeleteConcept(concept.id)} 
-                        className="p-1.5 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded transition-colors"
+                        onClick={() => handleDeleteConcept(concept.id)}
+                        className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
                         title="Hapus Konsep"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
-                      {savingId === concept.id && <Loader2 className="w-3 h-3 animate-spin text-p300 mx-auto mt-2" />}
-                    </td>
-                  )}
+                      {savingId === concept.id && <Loader2 className="w-3 h-3 animate-spin text-p300 ml-2" />}
+                    </div>
+                  </td>
                 </tr>
               ))
             )}
