@@ -282,6 +282,16 @@ export default function CampaignConceptsPage() {
           </tbody>
         </table>
       </div>
+      
+      {/* Auto-Save Toast Banner */}
+      {savingId !== null && (
+        <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[100] pointer-events-none animate-in slide-in-from-bottom-5 fade-in duration-300">
+          <div className="bg-slate-900/90 backdrop-blur-sm text-white px-5 py-3 rounded-full shadow-2xl flex items-center gap-3 border border-slate-700/50">
+            <Loader2 className="w-4 h-4 animate-spin text-slate-300" />
+            <span className="text-sm font-medium tracking-wide">Menyimpan perubahan ke database...</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

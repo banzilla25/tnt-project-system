@@ -1,6 +1,6 @@
 import React from "react";
 import Link from "next/link";
-import { ChevronDown, ChevronRight, Trash2, Edit2, Loader2 } from "lucide-react";
+import { ChevronDown, ChevronRight, Trash2, Edit2, Loader2, PlayCircle } from "lucide-react";
 import { formatAbbreviated } from "@/utils/formatters";
 import { getCreatorType, getJenisKerjasama, getConceptColor } from "@/utils/computed";
 import { MultiSelect } from "@/components/MultiSelect";
@@ -97,6 +97,13 @@ export const CreatorRow = React.memo(({
   masterConcepts = []
 }: CreatorRowProps) => {
   const [selectedConcept, setSelectedConcept] = React.useState<any>(null);
+  const [playingDriveId, setPlayingDriveId] = React.useState<string | null>(null);
+
+  const extractGDriveId = (url: string) => {
+    if (!url) return null;
+    const match = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) || url.match(/id=([a-zA-Z0-9_-]+)/);
+    return match ? match[1] : null;
+  };
 
   const parseNotes = React.useMemo(() => {
     return (raw: string, role: string) => {
@@ -621,27 +628,41 @@ export const CreatorRow = React.memo(({
                             <div className="flex flex-col gap-3 pr-4">
                               <div>
                                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Link Draft Video</label>
-                                {hasAccess && v.vt_approval !== 'approved' ? (
-                                  <input 
-                                    type="text" 
-                                    className="input w-full !text-[12px] !p-1.5"
-                                    placeholder="Tempel link GDrive..."
-                                    value={v.link_draft || ''}
-                                    onChange={(e) => {
-                                      if (isPhantom) {
-                                        if (addAndSetVideoField) addAndSetVideoField(cc.id, v.urutan, { link_draft: e.target.value });
-                                      } else {
-                                        if (updateVideoField) updateVideoField(v.id, cc.id, { link_draft: e.target.value });
-                                      }
-                                    }}
-                                  />
-                                ) : (
-                                  v.link_draft ? (
-                                    <a href={v.link_draft} target="_blank" rel="noreferrer" className="text-[12px] text-p300 hover:underline break-all">
-                                      {v.link_draft}
-                                    </a>
-                                  ) : <span className="text-slate-300">-</span>
-                                )}
+                                <div className="flex items-center gap-2">
+                                  {v.link_draft && extractGDriveId(v.link_draft) && (
+                                    <button
+                                      type="button"
+                                      onClick={() => setPlayingDriveId(extractGDriveId(v.link_draft))}
+                                      className="text-p300 hover:text-p400 shrink-0 hover:scale-110 transition-transform"
+                                      title="Putar Video Draft"
+                                    >
+                                      <PlayCircle className="w-5 h-5" />
+                                    </button>
+                                  )}
+                                  <div className="flex-1">
+                                    {hasAccess && v.vt_approval !== 'approved' ? (
+                                      <input 
+                                        type="text" 
+                                        className="input w-full !text-[12px] !p-1.5"
+                                        placeholder="Tempel link GDrive..."
+                                        value={v.link_draft || ''}
+                                        onChange={(e) => {
+                                          if (isPhantom) {
+                                            if (addAndSetVideoField) addAndSetVideoField(cc.id, v.urutan, { link_draft: e.target.value });
+                                          } else {
+                                            if (updateVideoField) updateVideoField(v.id, cc.id, { link_draft: e.target.value });
+                                          }
+                                        }}
+                                      />
+                                    ) : (
+                                      v.link_draft ? (
+                                        <a href={v.link_draft} target="_blank" rel="noreferrer" className="text-[12px] text-p300 hover:underline break-all">
+                                          {v.link_draft}
+                                        </a>
+                                      ) : <span className="text-slate-300">-</span>
+                                    )}
+                                  </div>
+                                </div>
                               </div>
                               <div>
                                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Link Final (TikTok)</label>
@@ -857,6 +878,30 @@ export const CreatorRow = React.memo(({
                   Mengerti & Tutup
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Video Player (GDrive) */}
+      {playingDriveId && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md">
+          <div className="bg-black rounded-xl shadow-2xl w-full max-w-4xl h-[80vh] flex flex-col relative border border-slate-700">
+            <div className="absolute -top-12 right-0">
+              <button 
+                onClick={() => setPlayingDriveId(null)}
+                className="text-white/70 hover:text-white hover:bg-white/10 p-2 rounded-full transition-colors flex items-center gap-2"
+              >
+                Tutup <span className="text-xl leading-none">&times;</span>
+              </button>
+            </div>
+            <div className="flex-1 w-full h-full rounded-xl overflow-hidden bg-black flex items-center justify-center">
+              <iframe 
+                src={`https://drive.google.com/file/d/${playingDriveId}/preview`} 
+                className="w-full h-full border-0"
+                allow="autoplay"
+                title="Google Drive Video Player"
+              ></iframe>
             </div>
           </div>
         </div>

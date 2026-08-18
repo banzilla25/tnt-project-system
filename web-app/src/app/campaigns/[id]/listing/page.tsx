@@ -106,6 +106,7 @@ function CampaignListingContent() {
   const [editingCellId, setEditingCellId] = useState<string | null>(null); // "ccId-field" e.g. "123-price"
   const [showUnsavedFirst, setShowUnsavedFirst] = useState(false);
   const [isBatchSaving, setIsBatchSaving] = useState(false);
+  const [isSavingVideo, setIsSavingVideo] = useState(false);
   const [batchSaveProgress, setBatchSaveProgress] = useState(0);
 
   // beforeunload protection
@@ -1046,6 +1047,7 @@ function CampaignListingContent() {
   };
 
   const updateVideoField = useCallback(async (videoId: number, ccId: number, fields: any) => {
+    setIsSavingVideo(true);
     // Optimistic update
     setListingData((prev) => 
       prev.map(cc => {
@@ -1074,6 +1076,7 @@ function CampaignListingContent() {
       console.error('Failed to update video:', error);
       fetchListing(0, true);
     }
+    setIsSavingVideo(false);
   }, [profile, fetchListing]);
 
   const addEmptyVideoRow = useCallback(async (ccId: number) => {
@@ -1130,6 +1133,7 @@ function CampaignListingContent() {
   }, []);
 
   const addAndSetVideoField = useCallback(async (ccId: number, urutan: number, fields: any) => {
+    setIsSavingVideo(true);
     const tempId = `temp_${Date.now()}`;
     const newVideo = {
       id: tempId,
@@ -1172,6 +1176,7 @@ function CampaignListingContent() {
       console.error('Failed to add and set video field', err);
       fetchListing(0, true);
     }
+    setIsSavingVideo(false);
   }, [profile, fetchListing]);
 
   const handleDeleteCreator = async (ccId: number) => {
@@ -2320,13 +2325,13 @@ function CampaignListingContent() {
       )}
 
       {/* Auto-Save Toast Banner */}
-      {(pendingChanges.size > 0 || isBatchSaving) && (
+      {(pendingChanges.size > 0 || isBatchSaving || isSavingVideo) && (
         <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[100] pointer-events-none animate-in slide-in-from-bottom-5 fade-in duration-300">
           <div className="bg-slate-900/90 backdrop-blur-sm text-white px-5 py-3 rounded-full shadow-2xl flex items-center gap-3 border border-slate-700/50">
-            {isBatchSaving ? (
+            {isBatchSaving || isSavingVideo ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin text-slate-300" />
-                <span className="text-sm font-medium tracking-wide">Menyimpan ke database... {batchSaveProgress}%</span>
+                <span className="text-sm font-medium tracking-wide">Menyimpan ke database... {batchSaveProgress > 0 ? `${batchSaveProgress}%` : ''}</span>
               </>
             ) : (
               <>
