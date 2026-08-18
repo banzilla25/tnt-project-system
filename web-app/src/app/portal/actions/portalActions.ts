@@ -221,9 +221,22 @@ export async function getPortalData(campaignId: number) {
 
   const enrichedCcData = ccData?.map((cc: any) => {
     const creator = Array.isArray(cc.creators) ? cc.creators[0] : cc.creators;
-    const snap = creator?.creator_snapshots 
-      ? (Array.isArray(creator.creator_snapshots) ? creator.creator_snapshots[0] : creator.creator_snapshots)
-      : null;
+    const extractLatestSnapshot = (c: any) => {
+      const snaps = c?.creator_snapshots;
+      const snapsArray = Array.isArray(snaps) ? snaps : (snaps ? [snaps] : []);
+      const sortedSnaps = [...snapsArray].sort((a:any, b:any) => {
+        const tDiff = new Date(b.tanggal_update || 0).getTime() - new Date(a.tanggal_update || 0).getTime();
+        if (tDiff !== 0) return tDiff;
+        return (b.id || 0) - (a.id || 0);
+      });
+      return sortedSnaps.reduce((acc: any, curr: any) => ({
+        followers: acc.followers ?? curr.followers,
+        tier: acc.tier ?? curr.tier,
+        level: acc.level ?? curr.level,
+      }), { followers: null, tier: null, level: null } as any);
+    };
+
+    const snap = extractLatestSnapshot(creator);
     const username = creator?.username || '';
     const creatorId = cc.creator_id;
     const contacts = Array.isArray(creator?.creator_contacts) ? creator.creator_contacts : (creator?.creator_contacts ? [creator.creator_contacts] : []);
