@@ -819,9 +819,9 @@ function CampaignListingContent() {
       if (filterType === 'regular') query = query.or('tier.neq.Auto-Detect,tier.is.null');
       
       if (filterPendingWithVideo) {
-        query = query.eq('approval', 'pending');
+        query = query.neq('approval', 'approved');
       } else if (filterUnattributed) {
-        query = query.eq('approval', 'pending');
+        query = query.neq('approval', 'approved');
         
         const { data: salesData } = await supabase
           .from('campaign_sales_summary')
@@ -1806,11 +1806,11 @@ function CampaignListingContent() {
               checked={filterPendingWithVideo}
               onChange={(e) => {
                 setFilterPendingWithVideo(e.target.checked);
-                if (e.target.checked) setStatusFilter('pending');
+                if (e.target.checked) setStatusFilter('all');
               }}
               className="rounded border-slate-300 text-p300 focus:ring-p300"
             />
-            <span className="font-medium whitespace-nowrap">Pending ber-Video (Sisa)</span>
+            <span className="font-medium whitespace-nowrap">Sisa ber-Video (Belum Approved)</span>
           </label>
           <label className="flex items-center gap-2 text-sm text-slate-700 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors">
             <input 
@@ -1819,13 +1819,13 @@ function CampaignListingContent() {
               onChange={(e) => {
                 setFilterUnattributed(e.target.checked);
                 if (e.target.checked) {
-                  setStatusFilter('pending');
+                  setStatusFilter('all');
                   setFilterPendingWithVideo(false);
                 }
               }}
               className="rounded border-slate-300 text-p300 focus:ring-p300"
             />
-            <span className="font-medium whitespace-nowrap">Unattributed (Pending + GMV)</span>
+            <span className="font-medium whitespace-nowrap">Unattributed (Sisa + GMV)</span>
           </label>
           {(statusFilter !== 'all' || filterTier || filterLevel || filterNiche || filterAddedBy || filterActionBy || filterPendingWithVideo || filterUnattributed || filterContentType || filterConcept) && (
             <button 
