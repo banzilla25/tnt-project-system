@@ -43,7 +43,6 @@ export default function CampaignConceptsPage() {
   }, [fetchConcepts]);
 
   const handleAddConcept = async () => {
-    if (!isManager) return;
     const nextNo = concepts.length > 0 ? Math.max(...concepts.map(c => c.no_konsep)) + 1 : 1;
     
     const newConcept = {
