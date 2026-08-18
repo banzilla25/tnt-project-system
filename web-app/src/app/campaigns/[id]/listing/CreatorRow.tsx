@@ -19,8 +19,9 @@ const areEqual = (prev: any, next: any) => {
     prev.hasAccess === next.hasAccess &&
     prev.updateVideoConcept === next.updateVideoConcept &&
     prev.addEmptyVideoRow === next.addEmptyVideoRow &&
-    prev.addAndSetVideoConcept === next.addAndSetVideoConcept &&
-    prev.deleteVideoRow === next.deleteVideoRow
+    prev.addAndSetVideoField === next.addAndSetVideoField &&
+    prev.deleteVideoRow === next.deleteVideoRow &&
+    prev.masterConcepts === next.masterConcepts
   );
 };
 
@@ -53,10 +54,11 @@ interface CreatorRowProps {
   updateCampaignCreator: (ccId: string | number, data: any) => void;
   fetchListing: () => void;
   page: number;
-  updateVideoConcept?: (videoId: number, ccId: number, value: string) => void;
+  updateVideoField?: (videoId: number, ccId: number, fields: any) => void;
   addEmptyVideoRow?: (ccId: number) => void;
-  addAndSetVideoConcept?: (ccId: number, urutan: number, value: string) => void;
+  addAndSetVideoField?: (ccId: number, urutan: number, fields: any) => void;
   deleteVideoRow?: (ccId: number, videoId: string | number) => void;
+  masterConcepts?: any[];
 }
 
 export const CreatorRow = React.memo(({
@@ -88,11 +90,14 @@ export const CreatorRow = React.memo(({
   updateCampaignCreator,
   fetchListing,
   page,
-  updateVideoConcept,
+  updateVideoField,
   addEmptyVideoRow,
-  addAndSetVideoConcept,
-  deleteVideoRow
+  addAndSetVideoField,
+  deleteVideoRow,
+  masterConcepts = []
 }: CreatorRowProps) => {
+  const [selectedConcept, setSelectedConcept] = React.useState<any>(null);
+
   const parseNotes = React.useMemo(() => {
     return (raw: string, role: string) => {
       if (!raw) return [];
@@ -531,8 +536,7 @@ export const CreatorRow = React.memo(({
             </div>
           ) : null}
         </td>
-      </tr>
-      
+    </tr>
       {/* Expandable Video Row */}
       {isExpanded && (
         <tr className="bg-slate-50 hover:bg-slate-50">
@@ -564,58 +568,122 @@ export const CreatorRow = React.memo(({
                       </tr>
                     </thead>
                     <tbody>
-                      {paddedVideos.map((v: any) => (
-                        <tr key={v.id} className="border-b border-line last:border-0">
-                          <td className="py-[8px]">{v.urutan}</td>
-                          <td className="py-[8px]">
-                            <div className="flex flex-col gap-1 pr-4">
-                              <div className={`flex items-center rounded-md border shadow-sm transition-all overflow-hidden w-[100px] h-8 focus-within:ring-1 ${getConceptColor(v.concept)}`}>
-                                <span className="pl-2 pr-1 text-[10px] font-bold uppercase tracking-wider pointer-events-none opacity-70">
+                      {paddedVideos.map((v: any) => {
+                        const isPhantom = typeof v.id === 'string' && v.id.startsWith('phantom_');
+                        const conceptNum = parseInt(v.concept);
+                        const matchedConcept = !isNaN(conceptNum) ? masterConcepts.find((c: any) => c.no_konsep === conceptNum) : null;
+                        const isConceptError = v.concept && !matchedConcept;
+
+                        return (
+                        <tr key={v.id} className="border-b border-line last:border-0 align-top">
+                          <td className="py-[12px]">{v.urutan}</td>
+                          <td className="py-[12px]">
+                            <div className="flex flex-col gap-1 pr-4 relative">
+                              <div className={`flex items-center rounded-md border shadow-sm transition-all overflow-hidden w-[100px] h-8 focus-within:ring-1 ${isConceptError ? 'border-red-400 bg-red-50' : getConceptColor(v.concept)}`}>
+                                <button
+                                  type="button" 
+                                  className="pl-2 pr-1 text-[10px] font-bold uppercase tracking-wider hover:bg-black/5 active:bg-black/10 transition-colors h-full flex items-center"
+                                  onClick={() => matchedConcept && setSelectedConcept(matchedConcept)}
+                                  disabled={!matchedConcept}
+                                  title={matchedConcept ? "Lihat Brief Konsep" : ""}
+                                >
                                   Konsep #
-                                </span>
+                                </button>
                                 <input
                                   type="number"
                                   min="0"
                                   className="w-full bg-transparent border-0 p-0 text-[13px] font-bold focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                  value={v.concept || 0}
+                                  value={v.concept || ''}
                                   onChange={(e) => {
                                     if (hasAccess) {
-                                      if (typeof v.id === 'string' && v.id.startsWith('phantom_')) {
-                                        if (addAndSetVideoConcept) {
-                                          addAndSetVideoConcept(cc.id, v.urutan, e.target.value);
-                                        }
+                                      if (isPhantom) {
+                                        if (addAndSetVideoField) addAndSetVideoField(cc.id, v.urutan, { concept: e.target.value });
                                       } else {
-                                        if (updateVideoConcept) {
-                                          updateVideoConcept(v.id, cc.id, e.target.value);
-                                        }
+                                        if (updateVideoField) updateVideoField(v.id, cc.id, { concept: e.target.value });
                                       }
                                     }
                                   }}
                                   disabled={!hasAccess || v.vt_approval === 'approved'}
-                                  title={v.vt_approval === 'approved' ? "Tidak bisa diubah karena VT sudah di-approve" : "Ubah angka konsep"}
                                 />
                               </div>
+                              {isConceptError && (
+                                <p className="text-[10px] text-red-500 leading-tight mt-1">Konsep tidak ada di master.</p>
+                              )}
                               {v.concept && v.concept_updated_at && v.concept_updated_by ? (
-                                <p className="text-[9px] text-slate-400 leading-tight">
+                                <p className="text-[9px] text-slate-400 leading-tight mt-1">
                                   Diinput pd {new Date(v.concept_updated_at).toLocaleDateString('id-ID')} <br/>
                                   Oleh: <span className="font-medium text-slate-500">{v.concept_updated_by}</span>
                                 </p>
                               ) : null}
                             </div>
                           </td>
-                          <td className="py-[8px]">
-                            {v.link_video ? (
-                              <a href={v.link_video} target="_blank" rel="noreferrer" className="text-p300 hover:underline break-all">
-                                {v.link_video}
-                              </a>
-                            ) : '-'}
+                          <td className="py-[12px]">
+                            <div className="flex flex-col gap-3 pr-4">
+                              <div>
+                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Link Draft Video</label>
+                                {hasAccess && v.vt_approval !== 'approved' ? (
+                                  <input 
+                                    type="text" 
+                                    className="input w-full !text-[12px] !p-1.5"
+                                    placeholder="Tempel link GDrive..."
+                                    value={v.link_draft || ''}
+                                    onChange={(e) => {
+                                      if (isPhantom) {
+                                        if (addAndSetVideoField) addAndSetVideoField(cc.id, v.urutan, { link_draft: e.target.value });
+                                      } else {
+                                        if (updateVideoField) updateVideoField(v.id, cc.id, { link_draft: e.target.value });
+                                      }
+                                    }}
+                                  />
+                                ) : (
+                                  v.link_draft ? (
+                                    <a href={v.link_draft} target="_blank" rel="noreferrer" className="text-[12px] text-p300 hover:underline break-all">
+                                      {v.link_draft}
+                                    </a>
+                                  ) : <span className="text-slate-300">-</span>
+                                )}
+                              </div>
+                              <div>
+                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Link Final (TikTok)</label>
+                                {v.link_video ? (
+                                  <a href={v.link_video} target="_blank" rel="noreferrer" className="text-[12px] text-p300 hover:underline break-all">
+                                    {v.link_video}
+                                  </a>
+                                ) : <span className="text-slate-300">-</span>}
+                              </div>
+                            </div>
                           </td>
-                          <td className="py-[8px]">
-                            <span className={`badge ${v.vt_approval === 'approved' ? 'b-success' : v.vt_approval === 'reject' ? 'b-destructive' : 'b-neutral'}`}>
-                              {v.vt_approval}
-                            </span>
+                          <td className="py-[12px]">
+                            {hasAccess ? (
+                              <div className="flex flex-col gap-1 pr-2">
+                                <select 
+                                  className={`select !p-1.5 w-[110px] font-semibold !text-[12px] ${v.vt_approval === 'approved' ? 'text-emerald-700 bg-emerald-50 border-emerald-200' : v.vt_approval === 'revisi' ? 'text-amber-700 bg-amber-50 border-amber-200' : 'text-slate-600'}`}
+                                  value={v.vt_approval || 'pending'}
+                                  onChange={(e) => {
+                                    if (isPhantom) {
+                                      if (addAndSetVideoField) addAndSetVideoField(cc.id, v.urutan, { vt_approval: e.target.value, vt_approved_by: profile?.nama, vt_approved_at: new Date().toISOString() });
+                                    } else {
+                                      if (updateVideoField) updateVideoField(v.id, cc.id, { vt_approval: e.target.value, vt_approved_by: profile?.nama, vt_approved_at: new Date().toISOString() });
+                                    }
+                                  }}
+                                >
+                                  <option value="pending">Pending</option>
+                                  <option value="approved">Approved</option>
+                                  <option value="revisi">Revisi</option>
+                                </select>
+                                {v.vt_approved_by && (
+                                  <p className="text-[9px] text-slate-400 leading-tight">
+                                    Oleh: {v.vt_approved_by}
+                                  </p>
+                                )}
+                              </div>
+                            ) : (
+                              <span className={`badge ${v.vt_approval === 'approved' ? 'b-success' : v.vt_approval === 'revisi' ? 'b-warning' : 'b-neutral'}`}>
+                                {v.vt_approval}
+                              </span>
+                            )}
                           </td>
-                          <td className="py-[8px] text-right pr-2">
+                          <td className="py-[12px] text-right pr-2">
                             {hasAccess && deleteVideoRow && v.urutan > (cc.qty_vt || 0) && (
                               <button 
                                 onClick={() => deleteVideoRow(cc.id, v.id)}
@@ -627,7 +695,7 @@ export const CreatorRow = React.memo(({
                             )}
                           </td>
                         </tr>
-                      ))}
+                      )})}
                     </tbody>
                   </table>
                   ) : (
@@ -737,6 +805,61 @@ export const CreatorRow = React.memo(({
             </div>
           </td>
         </tr>
+      )}
+
+      {/* Modal Brief Konsep */}
+      {selectedConcept && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto border border-line">
+            <div className="sticky top-0 bg-white border-b border-line px-6 py-4 flex items-center justify-between z-10">
+              <div>
+                <h3 className="text-lg font-bold text-slate-800">Brief Konsep #{selectedConcept.no_konsep}</h3>
+                <p className="text-sm text-slate-500">{selectedConcept.judul_konsep}</p>
+              </div>
+              <button 
+                onClick={() => setSelectedConcept(null)}
+                className="p-2 hover:bg-slate-100 text-slate-400 hover:text-slate-600 rounded-full transition-colors"
+              >
+                Tutup
+              </button>
+            </div>
+            <div className="p-6">
+              <table className="w-full text-sm text-left border border-line rounded-lg overflow-hidden">
+                <tbody className="divide-y divide-line">
+                  <tr className="bg-slate-50"><th className="px-4 py-3 w-1/4 font-semibold text-slate-600">Product</th><td className="px-4 py-3 bg-white">{campaignSkus.find(s => s.id === selectedConcept.sku_id)?.nama_produk || '-'}</td></tr>
+                  <tr className="bg-slate-50"><th className="px-4 py-3 font-semibold text-slate-600">Tier</th><td className="px-4 py-3 bg-white"><span className="badge b-neutral">{selectedConcept.tier || '-'}</span></td></tr>
+                  <tr className="bg-slate-50"><th className="px-4 py-3 font-semibold text-slate-600">Hook</th><td className="px-4 py-3 bg-white whitespace-pre-wrap">{selectedConcept.hook || '-'}</td></tr>
+                  <tr className="bg-slate-50"><th className="px-4 py-3 font-semibold text-slate-600">Fitur / USP</th><td className="px-4 py-3 bg-white whitespace-pre-wrap">{selectedConcept.fitur_usp || '-'}</td></tr>
+                  <tr className="bg-slate-50"><th className="px-4 py-3 font-semibold text-slate-600">CTA</th><td className="px-4 py-3 bg-white whitespace-pre-wrap">{selectedConcept.cta || '-'}</td></tr>
+                  <tr className="bg-slate-50">
+                    <th className="px-4 py-3 font-semibold text-slate-600">Status Approval Manager</th>
+                    <td className="px-4 py-3 bg-white">
+                      <span className={`badge ${selectedConcept.status_approval === 'approved' ? 'b-success' : selectedConcept.status_approval === 'revisi' ? 'b-warning' : 'b-neutral'}`}>
+                        {selectedConcept.status_approval || 'pending'}
+                      </span>
+                    </td>
+                  </tr>
+                  <tr className="bg-slate-50">
+                    <th className="px-4 py-3 font-semibold text-slate-600">Notes Revisi</th>
+                    <td className="px-4 py-3 bg-white">
+                      {selectedConcept.notes ? (
+                        <div className="whitespace-pre-wrap text-red-600 italic text-sm">{selectedConcept.notes}</div>
+                      ) : <span className="text-slate-400">-</span>}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+              <div className="mt-6 flex justify-end">
+                <button 
+                  onClick={() => setSelectedConcept(null)}
+                  className="btn btn-primary"
+                >
+                  Mengerti & Tutup
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </React.Fragment>
   );

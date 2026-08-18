@@ -72,6 +72,17 @@ function CampaignListingContent() {
   const campaignSkus = skus.filter(s => s.campaign_id === campaignId);
 
   const [expandedRows, setExpandedRows] = useState<Record<number, boolean>>({});
+  const [masterConcepts, setMasterConcepts] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (campaignId) {
+      supabase
+        .from('campaign_concepts')
+        .select('*')
+        .eq('campaign_id', campaignId)
+        .then(({ data }) => setMasterConcepts(data || []));
+    }
+  }, [campaignId]);
 
   // --- Batch Edit System ---
   type PendingChange = {
@@ -1034,10 +1045,8 @@ function CampaignListingContent() {
     setEditingId(null);
   };
 
-  const updateVideoConcept = useCallback(async (videoId: number, ccId: number, value: string) => {
-    const updated_at = new Date().toISOString();
-    const updated_by = profile?.nama || 'System';
-
+  const updateVideoField = useCallback(async (videoId: number, ccId: number, fields: any) => {
+    // Optimistic update
     setListingData((prev) => 
       prev.map(cc => {
         if (cc.id === ccId) {
@@ -1045,12 +1054,7 @@ function CampaignListingContent() {
             ...cc,
             videos: (cc.videos || []).map((v: any) => {
               if (v.id === videoId) {
-                return { 
-                  ...v, 
-                  concept: value,
-                  concept_updated_at: updated_at,
-                  concept_updated_by: updated_by
-                };
+                return { ...v, ...fields };
               }
               return v;
             })
@@ -1060,16 +1064,17 @@ function CampaignListingContent() {
       })
     );
 
-    try {
-      await supabase.from('videos').update({
-        concept: value,
-        concept_updated_at: updated_at,
-        concept_updated_by: updated_by
-      }).eq('id', videoId);
-    } catch (error) {
-      console.error('Failed to update concept:', error);
+    // Save to DB
+    const { error } = await supabase
+      .from('videos')
+      .update(fields)
+      .eq('id', videoId);
+    
+    if (error) {
+      console.error('Failed to update video:', error);
+      fetchListing(0, true);
     }
-  }, [profile]);
+  }, [profile, fetchListing]);
 
   const addEmptyVideoRow = useCallback(async (ccId: number) => {
     try {
@@ -1124,20 +1129,17 @@ function CampaignListingContent() {
     }
   }, []);
 
-  const addAndSetVideoConcept = useCallback(async (ccId: number, urutan: number, value: string) => {
+  const addAndSetVideoField = useCallback(async (ccId: number, urutan: number, fields: any) => {
     const tempId = `temp_${Date.now()}`;
-    const updated_at = new Date().toISOString();
-    const updated_by = profile?.nama || 'System';
-
     const newVideo = {
       id: tempId,
       campaign_creator_id: ccId,
       urutan,
-      concept: value,
-      concept_updated_at: updated_at,
-      concept_updated_by: updated_by,
+      concept: '',
       link_video: '',
-      vt_approval: 'pending'
+      link_draft: '',
+      vt_approval: 'pending',
+      ...fields
     };
 
     setListingData(prev => prev.map(c => {
@@ -1151,11 +1153,8 @@ function CampaignListingContent() {
       const { data, error } = await supabase.from('videos').insert({
         campaign_creator_id: ccId,
         urutan,
-        concept: value,
-        concept_updated_at: updated_at,
-        concept_updated_by: updated_by,
-        link_video: '',
-        vt_approval: 'pending'
+        ...fields,
+        vt_approval: fields.vt_approval || 'pending'
       }).select().single();
       
       if (error) throw error;
@@ -1170,9 +1169,10 @@ function CampaignListingContent() {
         return c;
       }));
     } catch (err) {
-      console.error('Failed to insert concept row', err);
+      console.error('Failed to add and set video field', err);
+      fetchListing(0, true);
     }
-  }, [profile]);
+  }, [profile, fetchListing]);
 
   const handleDeleteCreator = async (ccId: number) => {
     if (!confirm('Yakin ingin mengeluarkan kreator ini dari campaign? Data performa campaign kreator ini akan ikut terhapus. (Kreator tetap ada di Pool)')) return;
@@ -2464,10 +2464,11 @@ function CampaignListingContent() {
                     updateCampaignCreator={updateCampaignCreator}
                     fetchListing={fetchListing}
                     page={page}
-                    updateVideoConcept={updateVideoConcept}
+                    updateVideoField={updateVideoField}
                     addEmptyVideoRow={addEmptyVideoRow}
-                    addAndSetVideoConcept={addAndSetVideoConcept}
+                    addAndSetVideoField={addAndSetVideoField}
                     deleteVideoRow={deleteVideoRow}
+                    masterConcepts={masterConcepts}
                   />
                 );
               })

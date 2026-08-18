@@ -54,6 +54,7 @@ function CampaignLayoutInner({ children }: { children: React.ReactNode }) {
   const brand = brands.find(b => b.id === campaign?.brand_id);
 
   const tabs = [
+    { name: 'Konsep', href: `/campaigns/${campaignId}/concepts`, disabled: false },
     { name: 'Listing & Seleksi', href: `/campaigns/${campaignId}/listing`, disabled: false },
     { name: 'Video & VT', href: `/campaigns/${campaignId}/video`, disabled: false },
     { name: 'Live Stream', href: `/campaigns/${campaignId}/livestream`, disabled: false },
