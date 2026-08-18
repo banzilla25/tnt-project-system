@@ -136,61 +136,6 @@ export default function CampaignConceptsPage() {
               concepts.map((concept) => (
                 <tr key={concept.id} className="hover:bg-slate-50 align-top">
                   <td className="px-4 py-3 text-center">
-                    {isManager ? (
-                      <input 
-                        type="number" 
-                        className="input w-16 text-center !p-1.5 font-bold text-slate-700" 
-                        defaultValue={concept.no_konsep}
-                        onBlur={(e) => handleUpdateConcept(concept.id, 'no_konsep', Number(e.target.value))}
-                      />
-                    ) : (
-                      <span className="font-bold text-slate-700">{concept.no_konsep}</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    {isManager ? (
-                      <select 
-                        className="select !p-1.5 w-full"
-                        defaultValue={concept.sku_id || ''}
-                        onChange={(e) => handleUpdateConcept(concept.id, 'sku_id', e.target.value ? Number(e.target.value) : null)}
-                      >
-                        <option value="">-- Tanpa Produk --</option>
-                        {campaignSkus.map(sku => (
-                          <option key={sku.id} value={sku.id}>{sku.nama_produk}</option>
-                        ))}
-                      </select>
-                    ) : (
-                      <span>{campaignSkus.find(s => s.id === concept.sku_id)?.nama_produk || '-'}</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    {isManager ? (
-                      <textarea 
-                        className="input w-full !p-2 min-h-[60px] text-sm" 
-                        defaultValue={concept.judul_konsep || ''}
-                        onBlur={(e) => handleUpdateConcept(concept.id, 'judul_konsep', e.target.value)}
-                        placeholder="Contoh: Smooth Skin for Better Makeup"
-                      />
-                    ) : (
-                      <div className="whitespace-pre-wrap">{concept.judul_konsep}</div>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    {isManager ? (
-                      <select 
-                        className="select !p-1.5 w-full"
-                        defaultValue={concept.tier || ''}
-                        onChange={(e) => handleUpdateConcept(concept.id, 'tier', e.target.value)}
-                      >
-                        <option value="">-- Pilih Tier --</option>
-                        <option value="TOFU">TOFU</option>
-                        <option value="MOFU">MOFU</option>
-                        <option value="BOFU">BOFU</option>
-                      </select>
-                    ) : (
-                      <span className="badge b-neutral">{concept.tier || '-'}</span>
-                    )}
-                  </td>
                     <input 
                       type="number" 
                       className="input w-16 text-center !p-1.5 font-bold text-slate-700" 
@@ -205,7 +150,7 @@ export default function CampaignConceptsPage() {
                       onChange={(e) => handleUpdateConcept(concept.id, 'sku_id', e.target.value ? Number(e.target.value) : null)}
                     >
                       <option value="">Pilih Produk...</option>
-                      {skus.map(sku => (
+                      {campaignSkus.map(sku => (
                         <option key={sku.id} value={sku.id}>{sku.nama_produk}</option>
                       ))}
                     </select>
