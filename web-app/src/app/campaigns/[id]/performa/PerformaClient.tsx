@@ -75,7 +75,7 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
           .select(`
             *,
             creators(id, username, nama_asli, link_account, creator_snapshots(followers, level, tier)),
-            videos(id, link_video, content_uid, vt_approval, urutan)
+            videos(id, link_video, content_uid, vt_approval, urutan, concept)
           `)
           .eq('campaign_id', campaignId)
           .in('approval', ['approved', 'pending'])
