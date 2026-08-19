@@ -555,16 +555,28 @@ export default function OrganicImport({ mode = 'sales' }: { mode?: 'sales' | 'vi
       });
     }
 
-    // ====== DEDUP ANTAR FILE ======
-    // Jika user upload beberapa file, hapus baris duplikat berdasarkan composite key (order_id)
-    const seenOrderIds = new Set<string>();
-    const dedupedPayload = payload.filter(row => {
-      if (!row.order_id) return true; // baris tanpa order_id tetap diproses
-      if (seenOrderIds.has(row.order_id)) return false; // buang duplikat
-      seenOrderIds.add(row.order_id);
-      return true;
-    });
-    const dupCount = payload.length - dedupedPayload.length;
+    // ====== DEDUP ANTAR FILE (AGGREGATE, bukan buang) ======
+    // Jika ada baris duplikat berdasarkan order_id, jumlahkan GMV dan quantity-nya
+    const orderIdMap = new Map<string, typeof payload[0]>();
+    let dupCount = 0;
+    for (const row of payload) {
+      if (!row.order_id) {
+        // baris tanpa order_id tetap diproses apa adanya
+        const key = `__no_oid_${Math.random()}`;
+        orderIdMap.set(key, row);
+        continue;
+      }
+      if (orderIdMap.has(row.order_id)) {
+        // Aggregate: jumlahkan GMV dan quantity ke row yang sudah ada
+        const existing = orderIdMap.get(row.order_id)!;
+        existing.gmv = (existing.gmv || 0) + (row.gmv || 0);
+        existing.quantity = (existing.quantity || 0) + (row.quantity || 0);
+        dupCount++;
+      } else {
+        orderIdMap.set(row.order_id, { ...row });
+      }
+    }
+    const dedupedPayload = Array.from(orderIdMap.values());
 
     // Top 3 Creators by GMV
     const topCreators = Array.from(creatorGmvMap.entries())
