@@ -99,25 +99,27 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
     let cumulativeGmv = 0;
     let cumulativeVideo = 0;
     let cumulativeLive = 0;
-    let cumulativeCreator = 0;
+    let cumulativeVideoCreator = 0;
+    let cumulativeApprovedCreator = 0;
     let cumulativePendingCreator = 0;
     let cumulativeLiveCreator = 0;
     let cumulativePendingLiveCreator = 0;
 
     const data = [];
 
-    // Weekly aggregates
+    let currentWeekWorkingDaysCount = 0;
     let currentWeekGmvTargetVelocity = 0;
     let currentWeekVideoTargetVelocity = 0;
     let currentWeekLiveTargetVelocity = 0;
-    let currentWeekCreatorTargetVelocity = 0;
+    let currentWeekVideoCreatorTargetVelocity = 0;
+    let currentWeekApprovedCreatorTargetVelocity = 0;
     let currentWeekLiveCreatorTargetVelocity = 0;
-    let currentWeekWorkingDaysCount = 0;
 
     let currentWeekGmvAchieve = 0;
     let currentWeekVideoAchieve = 0;
     let currentWeekLiveAchieve = 0;
-    let currentWeekCreatorAchieve = 0;
+    let currentWeekVideoCreatorAchieve = 0;
+    let currentWeekApprovedCreatorAchieve = 0;
     let currentWeekPendingCreatorAchieve = 0;
     let currentWeekPendingNano = 0;
     let currentWeekPendingMicro = 0;
@@ -151,11 +153,11 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
       
       const achievedToday = achievedMap.get(time) || { gmv: 0, video: 0, live: 0, creator: 0, pendingCreator: 0 };
 
-      // Accumulate achievements (EVERY day)
       currentWeekGmvAchieve += achievedToday.gmv;
       currentWeekVideoAchieve += achievedToday.video;
       currentWeekLiveAchieve += achievedToday.live;
-      currentWeekCreatorAchieve += achievedToday.creator;
+      currentWeekVideoCreatorAchieve += (achievedToday.videoCreator || 0);
+      currentWeekApprovedCreatorAchieve += achievedToday.creator;
       currentWeekPendingCreatorAchieve += achievedToday.pendingCreator;
       currentWeekPendingNano += achievedToday.pendingNano;
       currentWeekPendingMicro += achievedToday.pendingMicro;
@@ -179,14 +181,16 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
       let targetForTodayGmv = 0;
       let targetForTodayVideo = 0;
       let targetForTodayLive = 0;
-      let targetForTodayCreator = 0;
+      let targetForTodayVideoCreator = 0;
+      let targetForTodayApprovedCreator = 0;
       let targetForTodayLiveCreator = 0;
 
       if (!isWeekend) {
         const remGmv = Math.max(0, targetGmv - cumulativeGmv);
         const remVideo = Math.max(0, targetVideo - cumulativeVideo);
         const remLive = Math.max(0, targetLive - cumulativeLive);
-        const remCreator = Math.max(0, targetCreator - cumulativeCreator);
+        const remVideoCreator = Math.max(0, targetCreator - cumulativeVideoCreator);
+        const remApprovedCreator = Math.max(0, targetCreator - cumulativeApprovedCreator);
         const remLiveCreator = Math.max(0, targetCreatorLive - cumulativeLiveCreator);
 
         const divisor = isPastEndDate ? 1 : Math.max(1, remainingWorkingDays);
@@ -194,15 +198,16 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
         targetForTodayGmv = remGmv / divisor;
         targetForTodayVideo = remVideo / divisor;
         targetForTodayLive = remLive / divisor;
-        targetForTodayCreator = remCreator / divisor;
+        targetForTodayVideoCreator = remVideoCreator / divisor;
+        targetForTodayApprovedCreator = remApprovedCreator / divisor;
         targetForTodayLiveCreator = remLiveCreator / divisor;
 
-        // If this is the first working day of the week, lock in the weekly velocity
         if (currentWeekWorkingDaysCount === 0) {
           currentWeekGmvTargetVelocity = targetForTodayGmv;
           currentWeekVideoTargetVelocity = targetForTodayVideo;
           currentWeekLiveTargetVelocity = targetForTodayLive;
-          currentWeekCreatorTargetVelocity = targetForTodayCreator;
+          currentWeekVideoCreatorTargetVelocity = targetForTodayVideoCreator;
+          currentWeekApprovedCreatorTargetVelocity = targetForTodayApprovedCreator;
           currentWeekLiveCreatorTargetVelocity = targetForTodayLiveCreator;
         }
         currentWeekWorkingDaysCount++;
@@ -216,7 +221,8 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
         targetGmv: targetForTodayGmv,
         targetVideo: targetForTodayVideo,
         targetLive: targetForTodayLive,
-        targetCreator: targetForTodayCreator,
+        targetVideoCreator: targetForTodayVideoCreator,
+        targetApprovedCreator: targetForTodayApprovedCreator,
         targetCreatorLive: targetForTodayLiveCreator,
         achievedGmv: achievedToday.gmv,
         achievedVideo: achievedToday.video,
@@ -248,14 +254,13 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
       data.push(node);
       lastNodeIndex = data.length - 1;
 
-      // Update cumulatives for NEXT day calculation
       cumulativeGmv += achievedToday.gmv;
       cumulativeVideo += achievedToday.video;
       cumulativeLive += achievedToday.live;
-      cumulativeCreator += achievedToday.creator;
+      cumulativeVideoCreator += (achievedToday.videoCreator || 0);
+      cumulativeApprovedCreator += achievedToday.creator;
       cumulativePendingCreator += achievedToday.pendingCreator;
 
-      // End of week logic: Sunday is the true end of the week, or it's the absolute last day of timeline
       const isSunday = dayOfWeek === 0;
       const isLastDay = curr.getTime() === lastTimelineDate.getTime();
       
@@ -265,12 +270,14 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
             targetGmv: currentWeekGmvTargetVelocity * currentWeekWorkingDaysCount,
             targetVideo: currentWeekVideoTargetVelocity * currentWeekWorkingDaysCount,
             targetLive: currentWeekLiveTargetVelocity * currentWeekWorkingDaysCount,
-            targetCreator: currentWeekCreatorTargetVelocity * currentWeekWorkingDaysCount,
+            targetVideoCreator: currentWeekVideoCreatorTargetVelocity * currentWeekWorkingDaysCount,
+            targetApprovedCreator: currentWeekApprovedCreatorTargetVelocity * currentWeekWorkingDaysCount,
             targetCreatorLive: currentWeekLiveCreatorTargetVelocity * currentWeekWorkingDaysCount,
             achievedGmv: currentWeekGmvAchieve,
             achievedVideo: currentWeekVideoAchieve,
             achievedLive: currentWeekLiveAchieve,
-            achievedCreator: currentWeekCreatorAchieve,
+            achievedVideoCreator: currentWeekVideoCreatorAchieve,
+            achievedApprovedCreator: currentWeekApprovedCreatorAchieve,
             achievedPendingCreator: currentWeekPendingCreatorAchieve,
             achievedPendingNano: currentWeekPendingNano,
             achievedPendingMicro: currentWeekPendingMicro,
@@ -297,14 +304,16 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
         currentWeekGmvTargetVelocity = 0;
         currentWeekVideoTargetVelocity = 0;
         currentWeekLiveTargetVelocity = 0;
-        currentWeekCreatorTargetVelocity = 0;
+        currentWeekVideoCreatorTargetVelocity = 0;
+        currentWeekApprovedCreatorTargetVelocity = 0;
         currentWeekLiveCreatorTargetVelocity = 0;
         currentWeekWorkingDaysCount = 0;
 
         currentWeekGmvAchieve = 0;
         currentWeekVideoAchieve = 0;
         currentWeekLiveAchieve = 0;
-        currentWeekCreatorAchieve = 0;
+        currentWeekVideoCreatorAchieve = 0;
+        currentWeekApprovedCreatorAchieve = 0;
         currentWeekPendingCreatorAchieve = 0;
         currentWeekPendingNano = 0;
         currentWeekPendingMicro = 0;
@@ -445,9 +454,9 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
                             </span>
                           </div>
                           <div className="bg-white/60 rounded-[10px] p-2 flex flex-col items-center justify-center text-center">
-                            <span className="text-[10px] font-semibold text-blue-800 mb-1">Kreator</span>
-                            <span className={day.weeklySummary.achievedCreator >= day.weeklySummary.targetCreator && targetCreator > 0 ? 'text-emerald-700 font-bold text-[11px]' : 'font-bold text-blue-900 text-[11px]'}>
-                              {Math.round(day.weeklySummary.achievedCreator)} / {targetCreator > 0 ? Math.round(day.weeklySummary.targetCreator) : '-'}
+                            <span className="text-[10px] font-semibold text-blue-800 mb-1">Kreator w/ VT</span>
+                            <span className={day.weeklySummary.achievedVideoCreator >= day.weeklySummary.targetVideoCreator && targetCreator > 0 ? 'text-emerald-700 font-bold text-[11px]' : 'font-bold text-blue-900 text-[11px]'}>
+                              {Math.round(day.weeklySummary.achievedVideoCreator)} / {targetCreator > 0 ? Math.round(day.weeklySummary.targetVideoCreator) : '-'}
                             </span>
                           </div>
                           <div className="bg-white/60 rounded-[10px] p-2 flex flex-col items-center justify-center text-center">
@@ -483,8 +492,8 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
                                </div>
                                <div className="flex flex-col gap-1">
                                  <div className="flex items-end gap-1 leading-none">
-                                   <span className="font-bold text-emerald-600 text-[16px]">{Math.round(day.weeklySummary.achievedCreator)}</span>
-                                   <span className="font-bold text-emerald-600/60 text-[11px] mb-[1px]">/ {targetCreator > 0 ? Math.round(day.weeklySummary.targetCreator) : '0'}</span>
+                                   <span className="font-bold text-emerald-600 text-[16px]">{Math.round(day.weeklySummary.achievedApprovedCreator)}</span>
+                                   <span className="font-bold text-emerald-600/60 text-[11px] mb-[1px]">/ {targetCreator > 0 ? Math.round(day.weeklySummary.targetApprovedCreator) : '0'}</span>
                                  </div>
                                  <div className="text-[9px] text-blue-700/60 font-medium">N {day.weeklySummary.achievedApprovedNano} | Mi {day.weeklySummary.achievedApprovedMicro} | Ma {day.weeklySummary.achievedApprovedMacro} | Me {day.weeklySummary.achievedApprovedMega}</div>
                                </div>
@@ -575,7 +584,8 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
                               {Math.round(day.achievedVideoCreator)}
                             </div>
                             <div className="text-[10px] text-orange-700/70 leading-tight">
-                              Total kreator ber-VT
+                              dari target <br/>
+                              <span className="font-medium text-orange-700">{targetCreator > 0 ? Math.round(day.targetVideoCreator) : '- / -'}</span>
                             </div>
                           </div>
                         </div>
