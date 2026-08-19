@@ -8,6 +8,14 @@ import TimelineTarget from "./TimelineTarget";
 
 const supabase = createClient();
 
+const toWIBDateStr = (utcString: string | null | undefined): string | null => {
+  if (!utcString) return null;
+  const d = new Date(utcString);
+  if (isNaN(d.getTime())) return null;
+  const wibTime = new Date(d.getTime() + (7 * 60 * 60 * 1000));
+  return wibTime.toISOString().substring(0, 10);
+};
+
 export default function CampaignDailyPerformanceClient({ campaignId }: { campaignId: number }) {
 
   const [loading, setLoading] = useState(true);
@@ -158,12 +166,12 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
           const isLiveCreator = cType.toLowerCase().includes('live');
 
           if (cc.created_at) {
-            const addedDateStr = cc.created_at.substring(0, 10);
+            const addedDateStr = toWIBDateStr(cc.created_at);
             let countAdded = true;
-            if (campaignStartStr && addedDateStr < campaignStartStr) countAdded = false;
-            if (campaignEndStr && addedDateStr > campaignEndStr) countAdded = false;
+            if (addedDateStr && campaignStartStr && addedDateStr < campaignStartStr) countAdded = false;
+            if (addedDateStr && campaignEndStr && addedDateStr > campaignEndStr) countAdded = false;
             
-            if (countAdded) {
+            if (countAdded && addedDateStr) {
               if (!grouped[addedDateStr]) grouped[addedDateStr] = { gmv: 0, gmvAds: 0, creators: new Map(), pendingCreators: new Map(), videos: new Set(), videoCreators: new Set(), gmvLive: 0, gmvVT: 0, ordersLive: 0, ordersVT: 0, liveSessions: new Set(), liveCreators: new Map(), pendingLiveCreators: new Map() };
               grouped[addedDateStr].pendingCreators.set(username, resolvedTier);
               if (isLiveCreator) {
@@ -180,12 +188,12 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
           }
 
           if (cc.approved_at) {
-            const approvedDateStr = cc.approved_at.substring(0, 10);
+            const approvedDateStr = toWIBDateStr(cc.approved_at);
             let countCreator = true;
-            if (campaignStartStr && approvedDateStr < campaignStartStr) countCreator = false;
-            if (campaignEndStr && approvedDateStr > campaignEndStr) countCreator = false;
+            if (approvedDateStr && campaignStartStr && approvedDateStr < campaignStartStr) countCreator = false;
+            if (approvedDateStr && campaignEndStr && approvedDateStr > campaignEndStr) countCreator = false;
             
-            if (countCreator) {
+            if (countCreator && approvedDateStr) {
               if (!grouped[approvedDateStr]) grouped[approvedDateStr] = { gmv: 0, gmvAds: 0, creators: new Map(), pendingCreators: new Map(), videos: new Set(), videoCreators: new Set(), gmvLive: 0, gmvVT: 0, ordersLive: 0, ordersVT: 0, liveSessions: new Set(), liveCreators: new Map(), pendingLiveCreators: new Map() };
               grouped[approvedDateStr].creators.set(username, resolvedTier);
               if (isLiveCreator) {
@@ -204,7 +212,8 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
           if (!cc.videos || cc.videos.length === 0) return;
           cc.videos.forEach((v: any) => {
             if (!v.created_at || !v.link_video) return; 
-            const dateStr = v.created_at.substring(0, 10);
+            const dateStr = toWIBDateStr(v.created_at);
+            if (!dateStr) return;
             if (campaignStartStr && dateStr < campaignStartStr) return;
             if (campaignEndStr && dateStr > campaignEndStr) return;
             
@@ -247,7 +256,8 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
 
         allOrganicVideos.forEach(v => {
           if (!v.post_time || !v.content_uid) return;
-          const dateStr = String(v.post_time).substring(0, 10);
+          const dateStr = toWIBDateStr(String(v.post_time));
+          if (!dateStr) return;
           if (campaignStartStr && dateStr < campaignStartStr) return;
           if (campaignEndStr && dateStr > campaignEndStr) return;
 
@@ -270,7 +280,8 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
       if (allLiveSessions.length > 0) {
         allLiveSessions.forEach((l: any) => {
           if (!l.start_time) return;
-          const dateStr = String(l.start_time).substring(0, 10);
+          const dateStr = toWIBDateStr(String(l.start_time));
+          if (!dateStr) return;
           if (campaignStartStr && dateStr < campaignStartStr) return;
           if (campaignEndStr && dateStr > campaignEndStr) return;
           
@@ -287,7 +298,8 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
         const previousAdValues: Record<string, number> = {};
         allAds.forEach(ad => {
           if (!ad.tanggal || !ad.ad_id) return;
-          const dateStr = ad.tanggal.substring(0, 10);
+          const dateStr = toWIBDateStr(ad.tanggal);
+          if (!dateStr) return;
           
           const currentGmv = ad.gross_revenue_usd || 0;
           const prevGmv = previousAdValues[ad.ad_id] || 0;
