@@ -428,44 +428,118 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
         </div>
       </div>
 
-      {!loading && monthlyData.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-[24px] mb-[24px]">
+      {!loading && monthlyData.length > 0 && (() => {
+        const targetGmv = Number(campaign.target_gmv) || 0;
+        const targetVideo = Number(campaign.target_video) || 0;
+        const targetLive = Number(campaign.target_live) || 0;
+        const targetCreator = Number(campaign.target_creator) || 0;
+        const targetCreatorLive = Number(campaign.target_creator_live) || 0;
+        
+        const formatCompact = (num: number) => {
+          if (num >= 1000000000) return (num / 1000000000).toFixed(1) + 'M'; // Milyar
+          if (num >= 1000000) return (num / 1000000).toFixed(1) + 'JT'; // Juta
+          if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+          return num.toString();
+        };
+
+        return (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-[24px] mb-[24px]">
           {monthlyData.map((m, idx) => {
             const dateObj = new Date(m.month + '-01');
             const monthName = dateObj.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
             return (
-              <div key={idx} className="ccard bg-gradient-to-br from-indigo-50 to-blue-100/50 border-indigo-100">
-                <div className="p-[24px]">
-                  <p className="text-[11px] font-medium uppercase tracking-wider text-indigo-800">{monthName}</p>
+              <div key={idx} className="ccard bg-gradient-to-br from-indigo-50 to-blue-100/50 border-indigo-100 min-w-[340px]">
+                <div className="p-[20px]">
+                  <div className="flex justify-between items-center mb-4">
+                     <h4 className="text-sm font-bold text-indigo-900 tracking-tight">{monthName}</h4>
+                     <span className="bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full text-[11px] font-bold">MONTHLY</span>
+                  </div>
                   
-                  <div className="mt-[12px] flex gap-[16px] pb-3 border-b border-indigo-100/50">
-                    <div>
-                      <h3 className="text-[18px] font-bold text-indigo-900">{m.totalVideos} <span className="text-[11px] font-normal text-indigo-700">VT</span></h3>
+                  <div className="grid grid-cols-2 gap-2 mb-4">
+                    <div className="bg-white/60 rounded-[10px] p-2 flex flex-col items-center justify-center text-center">
+                      <span className="text-[10px] font-semibold text-indigo-800 mb-1">GMV</span>
+                      <span className="font-bold text-indigo-900 text-[11px]">
+                        {formatCompact((m.gmvOrganic || 0) + (m.gmvAds || 0))} / {targetGmv > 0 ? formatCompact(targetGmv) : '-'}
+                      </span>
                     </div>
-                    <div>
-                      <h3 className="text-[18px] font-bold text-rose-700">{m.totalLiveSessions || 0} <span className="text-[11px] font-normal text-rose-600">Live</span></h3>
+                    <div className="bg-white/60 rounded-[10px] p-2 flex flex-col items-center justify-center text-center">
+                      <span className="text-[10px] font-semibold text-indigo-800 mb-1">Kreator</span>
+                      <span className="font-bold text-indigo-900 text-[11px]">
+                        {m.totalCreators} / {targetCreator > 0 ? targetCreator : '-'}
+                      </span>
                     </div>
-                    <div>
-                      <h3 className="text-[18px] font-bold text-indigo-900">{m.totalCreators} <span className="text-[11px] font-normal text-indigo-700">Kreator</span></h3>
+                    <div className="bg-white/60 rounded-[10px] p-2 flex flex-col items-center justify-center text-center">
+                      <span className="text-[10px] font-semibold text-indigo-800 mb-1">VT</span>
+                      <span className="font-bold text-indigo-900 text-[11px]">
+                        {m.totalVideos} / {targetVideo > 0 ? targetVideo : '-'}
+                      </span>
+                    </div>
+                    <div className="bg-white/60 rounded-[10px] p-2 flex flex-col items-center justify-center text-center">
+                      <span className="text-[10px] font-semibold text-indigo-800 mb-1">Live</span>
+                      <span className="font-bold text-indigo-900 text-[11px]">
+                        {m.totalLiveSessions} / {targetLive > 0 ? targetLive : '-'}
+                      </span>
                     </div>
                   </div>
 
-                  <div className="mt-[12px] space-y-2">
-                    <div className="flex justify-between items-center">
-                      <span className="text-[11px] text-slate-500">GMV Organik</span>
-                      <span className="text-[13px] font-bold text-emerald-600">Rp {(m.gmvOrganic || 0).toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-[11px] text-slate-500">GMV Ads</span>
-                      <span className="text-[13px] font-bold text-blue-600">Rp {(m.gmvAds || 0).toLocaleString()}</span>
-                    </div>
+                  <div className="bg-white/50 rounded-[12px] p-3 border border-indigo-100/50">
+                     <div className="grid grid-cols-2 gap-4">
+                       {/* Kreator Ditambah */}
+                       <div>
+                         <div className="flex items-center gap-1.5 mb-1">
+                           <span className="text-[11px] font-bold text-indigo-900 leading-tight">Kr Ditambah</span>
+                         </div>
+                         <div className="flex flex-col gap-1">
+                           <span className="font-bold text-orange-600 text-[16px] leading-none">{m.totalPendingCreators}</span>
+                           <div className="text-[9px] text-indigo-700/60 font-medium">N {m.pendingNano} | Mi {m.pendingMicro} | Ma {m.pendingMacro} | Me {m.pendingMega}</div>
+                         </div>
+                       </div>
+                       {/* Kr Approve */}
+                       <div>
+                         <div className="flex items-center gap-1.5 mb-1">
+                           <span className="text-[11px] font-bold text-indigo-900 leading-tight">Kr Approve</span>
+                         </div>
+                         <div className="flex flex-col gap-1">
+                           <div className="flex items-end gap-1 leading-none">
+                             <span className="font-bold text-emerald-600 text-[16px]">{m.totalCreators}</span>
+                             <span className="font-bold text-emerald-600/60 text-[11px] mb-[1px]">/ {targetCreator > 0 ? targetCreator : '0'}</span>
+                           </div>
+                           <div className="text-[9px] text-indigo-700/60 font-medium">N {m.approvedNano} | Mi {m.approvedMicro} | Ma {m.approvedMacro} | Me {m.approvedMega}</div>
+                         </div>
+                       </div>
+                       {/* Kr Live Ditambah */}
+                       <div>
+                         <div className="flex items-center gap-1.5 mb-1">
+                           <span className="text-[11px] font-bold text-indigo-900 leading-tight">Kr Live Ditambah</span>
+                         </div>
+                         <div className="flex flex-col gap-1">
+                           <span className="font-bold text-purple-600 text-[16px] leading-none">{m.totalPendingLiveCreators}</span>
+                           <div className="text-[9px] text-indigo-700/60 font-medium">N {m.pendingLiveNano} | Mi {m.pendingLiveMicro} | Ma {m.pendingLiveMacro} | Me {m.pendingLiveMega}</div>
+                         </div>
+                       </div>
+                       {/* Kr Live Approve */}
+                       <div>
+                         <div className="flex items-center gap-1.5 mb-1">
+                           <span className="text-[11px] font-bold text-indigo-900 leading-tight">Kr Live Approve</span>
+                         </div>
+                         <div className="flex flex-col gap-1">
+                           <div className="flex items-end gap-1 leading-none">
+                             <span className="font-bold text-pink-600 text-[16px]">{m.totalLiveCreators}</span>
+                             <span className="font-bold text-pink-600/60 text-[11px] mb-[1px]">/ {targetCreatorLive > 0 ? targetCreatorLive : '0'}</span>
+                           </div>
+                           <div className="text-[9px] text-indigo-700/60 font-medium">N {m.approvedLiveNano} | Mi {m.approvedLiveMicro} | Ma {m.approvedLiveMacro} | Me {m.approvedLiveMega}</div>
+                         </div>
+                       </div>
+                     </div>
                   </div>
+
                 </div>
               </div>
             );
           })}
-        </div>
-      )}
+          </div>
+        );
+      })()}
 
       <TimelineTarget campaign={campaign} dailyData={dailyData} />
 
