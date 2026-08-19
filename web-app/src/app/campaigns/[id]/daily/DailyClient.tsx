@@ -440,7 +440,8 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
         let runningGmv = 0;
         let runningVideo = 0;
         let runningLive = 0;
-        let runningCreator = 0;
+        let runningVideoCreator = 0;
+        let runningApprovedCreator = 0;
         let runningCreatorLive = 0;
         
         const monthlyTargets: Record<string, any> = {};
@@ -450,14 +451,16 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
             targetGmv: Math.max(0, targetGmv - runningGmv),
             targetVideo: Math.max(0, targetVideo - runningVideo),
             targetLive: Math.max(0, targetLive - runningLive),
-            targetCreator: Math.max(0, targetCreator - runningCreator),
+            targetVideoCreator: Math.max(0, targetCreator - runningVideoCreator),
+            targetApprovedCreator: Math.max(0, targetCreator - runningApprovedCreator),
             targetCreatorLive: Math.max(0, targetCreatorLive - runningCreatorLive),
           };
           
           runningGmv += (m.gmvOrganic || 0) + (m.gmvAds || 0);
           runningVideo += m.totalVideos || 0;
           runningLive += m.totalLiveSessions || 0;
-          runningCreator += m.totalCreators || 0;
+          runningVideoCreator += m.totalVideoCreators || 0;
+          runningApprovedCreator += m.totalCreators || 0;
           runningCreatorLive += m.totalLiveCreators || 0;
         });
         
@@ -493,7 +496,7 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
                     <div className="bg-white/60 rounded-[10px] p-2 flex flex-col items-center justify-center text-center">
                       <span className="text-[10px] font-semibold text-indigo-800 mb-1">Kreator w/ VT</span>
                       <span className="font-bold text-indigo-900 text-[11px]">
-                        {m.totalVideoCreators} / {tgts.targetCreator > 0 ? tgts.targetCreator : '-'}
+                        {m.totalVideoCreators} / {tgts.targetVideoCreator > 0 ? tgts.targetVideoCreator : '-'}
                       </span>
                     </div>
                     <div className="bg-white/60 rounded-[10px] p-2 flex flex-col items-center justify-center text-center">
@@ -530,7 +533,7 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
                          <div className="flex flex-col gap-1">
                            <div className="flex items-end gap-1 leading-none">
                              <span className="font-bold text-emerald-600 text-[16px]">{m.totalCreators}</span>
-                             <span className="font-bold text-emerald-600/60 text-[11px] mb-[1px]">/ {tgts.targetCreator > 0 ? tgts.targetCreator : '0'}</span>
+                             <span className="font-bold text-emerald-600/60 text-[11px] mb-[1px]">/ {tgts.targetApprovedCreator > 0 ? tgts.targetApprovedCreator : '0'}</span>
                            </div>
                            <div className="text-[9px] text-indigo-700/60 font-medium">N {m.approvedNano} | Mi {m.approvedMicro} | Ma {m.approvedMacro} | Me {m.approvedMega}</div>
                          </div>
