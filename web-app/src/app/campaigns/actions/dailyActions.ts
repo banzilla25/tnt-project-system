@@ -96,7 +96,7 @@ export async function getDailyData(campaignId: number) {
   const monthlyGrouped: Record<string, { gmv: number; gmvAds: number; creators: Set<string>; videos: Set<string>; gmvLive: number; gmvVT: number; ordersLive: number; ordersVT: number; liveSessions: Set<string> }> = {};
 
   const campaignStartStr = campaign.start_date || '';
-  const campaignEndStr = campaign.status === 'selesai' ? campaign.end_date || '' : '';
+  const campaignEndStr = ''; // End date hanya pengingat, tidak filter data
 
   if (allSalesStats.length > 0) {
     allSalesStats.forEach((stat: any) => {

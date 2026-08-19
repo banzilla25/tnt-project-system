@@ -41,8 +41,7 @@ BEGIN
     FROM sales s
     WHERE s.campaign_id = p_campaign_id
       AND s.is_refund = FALSE
-      AND (v_start_date IS NULL OR s.tanggal >= v_start_date)
-      AND (v_end_date IS NULL OR s.tanggal <= v_end_date)
+      AND (v_start_date IS NULL OR s.tanggal >= v_start_date::date)
       AND s.product_id IN (
           SELECT product_id FROM skus WHERE campaign_id = p_campaign_id
       );
@@ -53,8 +52,7 @@ BEGIN
     FROM sales s
     WHERE s.campaign_id = p_campaign_id
       AND s.is_refund = FALSE
-      AND (v_start_date IS NULL OR s.tanggal >= v_start_date)
-      AND (v_end_date IS NULL OR s.tanggal <= v_end_date)
+      AND (v_start_date IS NULL OR s.tanggal >= v_start_date::date)
       AND s.product_id IN (
           SELECT product_id FROM skus WHERE campaign_id = p_campaign_id
       )

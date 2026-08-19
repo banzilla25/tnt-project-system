@@ -6,7 +6,6 @@ WITH organic_sales AS (
     JOIN campaigns c ON s.campaign_id = c.id
     WHERE s.is_refund = false 
     AND s.tanggal >= c.start_date::text 
-    AND s.tanggal <= c.end_date::text
     GROUP BY s.campaign_id
 ),
 ads_sales AS (
@@ -78,5 +77,4 @@ FROM sales s
 JOIN campaigns c ON s.campaign_id = c.id
 WHERE s.is_refund = false
 AND s.tanggal >= c.start_date::text 
-AND s.tanggal <= c.end_date::text
 GROUP BY s.campaign_id, s.creator_username;

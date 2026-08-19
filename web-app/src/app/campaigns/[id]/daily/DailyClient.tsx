@@ -106,7 +106,7 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
       const monthlyGrouped: Record<string, { gmv: number; gmvAds: number; creators: Map<string, string>; pendingCreators: Map<string, string>; videos: Set<string>; videoCreators: Set<string>; gmvLive: number; gmvVT: number; ordersLive: number; ordersVT: number; liveSessions: Set<string>; liveCreators: Map<string, string>; pendingLiveCreators: Map<string, string> }> = {};
 
       const campaignStartStr = campaignData.start_date || '';
-      const campaignEndStr = campaignData.status === 'selesai' ? campaignData.end_date || '' : '';
+      const campaignEndStr = ''; // End date diabaikan sesuai request user
 
       if (allSalesStats.length > 0) {
         allSalesStats.forEach((stat: any) => {
@@ -114,7 +114,6 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
           const dateStr = stat.date_str;
           
           if (campaignStartStr && dateStr < campaignStartStr) return;
-          if (campaignEndStr && dateStr > campaignEndStr) return;
 
           if (!grouped[dateStr]) grouped[dateStr] = { gmv: 0, gmvAds: 0, creators: new Map(), pendingCreators: new Map(), videos: new Set(), videoCreators: new Set(), gmvLive: 0, gmvVT: 0, ordersLive: 0, ordersVT: 0, liveSessions: new Set(), liveCreators: new Map(), pendingLiveCreators: new Map() };
           
