@@ -434,6 +434,32 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
         const targetLive = Number(campaign.target_live) || 0;
         const targetCreator = Number(campaign.target_creator) || 0;
         const targetCreatorLive = Number(campaign.target_creator_live) || 0;
+
+        // Calculate chronological achievements
+        const chronologicalMonths = [...monthlyData].reverse(); // Oldest first
+        let runningGmv = 0;
+        let runningVideo = 0;
+        let runningLive = 0;
+        let runningCreator = 0;
+        let runningCreatorLive = 0;
+        
+        const monthlyTargets: Record<string, any> = {};
+        
+        chronologicalMonths.forEach(m => {
+          monthlyTargets[m.month] = {
+            targetGmv: Math.max(0, targetGmv - runningGmv),
+            targetVideo: Math.max(0, targetVideo - runningVideo),
+            targetLive: Math.max(0, targetLive - runningLive),
+            targetCreator: Math.max(0, targetCreator - runningCreator),
+            targetCreatorLive: Math.max(0, targetCreatorLive - runningCreatorLive),
+          };
+          
+          runningGmv += (m.gmvOrganic || 0) + (m.gmvAds || 0);
+          runningVideo += m.totalVideos || 0;
+          runningLive += m.totalLiveSessions || 0;
+          runningCreator += m.totalCreators || 0;
+          runningCreatorLive += m.totalLiveCreators || 0;
+        });
         
         const formatCompact = (num: number) => {
           if (num >= 1000000000) return (num / 1000000000).toFixed(1) + 'M'; // Milyar
@@ -447,6 +473,8 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
           {monthlyData.map((m, idx) => {
             const dateObj = new Date(m.month + '-01');
             const monthName = dateObj.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+            const tgts = monthlyTargets[m.month];
+            
             return (
               <div key={idx} className="ccard bg-gradient-to-br from-indigo-50 to-blue-100/50 border-indigo-100 min-w-[340px]">
                 <div className="p-[20px]">
@@ -459,25 +487,25 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
                     <div className="bg-white/60 rounded-[10px] p-2 flex flex-col items-center justify-center text-center">
                       <span className="text-[10px] font-semibold text-indigo-800 mb-1">GMV</span>
                       <span className="font-bold text-indigo-900 text-[11px]">
-                        {formatCompact((m.gmvOrganic || 0) + (m.gmvAds || 0))} / {targetGmv > 0 ? formatCompact(targetGmv) : '-'}
+                        {formatCompact((m.gmvOrganic || 0) + (m.gmvAds || 0))} / {tgts.targetGmv > 0 ? formatCompact(tgts.targetGmv) : '-'}
                       </span>
                     </div>
                     <div className="bg-white/60 rounded-[10px] p-2 flex flex-col items-center justify-center text-center">
-                      <span className="text-[10px] font-semibold text-indigo-800 mb-1">Kreator</span>
+                      <span className="text-[10px] font-semibold text-indigo-800 mb-1">Kreator w/ VT</span>
                       <span className="font-bold text-indigo-900 text-[11px]">
-                        {m.totalCreators} / {targetCreator > 0 ? targetCreator : '-'}
+                        {m.totalVideoCreators} / {tgts.targetCreator > 0 ? tgts.targetCreator : '-'}
                       </span>
                     </div>
                     <div className="bg-white/60 rounded-[10px] p-2 flex flex-col items-center justify-center text-center">
                       <span className="text-[10px] font-semibold text-indigo-800 mb-1">VT</span>
                       <span className="font-bold text-indigo-900 text-[11px]">
-                        {m.totalVideos} / {targetVideo > 0 ? targetVideo : '-'}
+                        {m.totalVideos} / {tgts.targetVideo > 0 ? tgts.targetVideo : '-'}
                       </span>
                     </div>
                     <div className="bg-white/60 rounded-[10px] p-2 flex flex-col items-center justify-center text-center">
                       <span className="text-[10px] font-semibold text-indigo-800 mb-1">Live</span>
                       <span className="font-bold text-indigo-900 text-[11px]">
-                        {m.totalLiveSessions} / {targetLive > 0 ? targetLive : '-'}
+                        {m.totalLiveSessions} / {tgts.targetLive > 0 ? tgts.targetLive : '-'}
                       </span>
                     </div>
                   </div>
@@ -502,7 +530,7 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
                          <div className="flex flex-col gap-1">
                            <div className="flex items-end gap-1 leading-none">
                              <span className="font-bold text-emerald-600 text-[16px]">{m.totalCreators}</span>
-                             <span className="font-bold text-emerald-600/60 text-[11px] mb-[1px]">/ {targetCreator > 0 ? targetCreator : '0'}</span>
+                             <span className="font-bold text-emerald-600/60 text-[11px] mb-[1px]">/ {tgts.targetCreator > 0 ? tgts.targetCreator : '0'}</span>
                            </div>
                            <div className="text-[9px] text-indigo-700/60 font-medium">N {m.approvedNano} | Mi {m.approvedMicro} | Ma {m.approvedMacro} | Me {m.approvedMega}</div>
                          </div>
@@ -525,7 +553,7 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
                          <div className="flex flex-col gap-1">
                            <div className="flex items-end gap-1 leading-none">
                              <span className="font-bold text-pink-600 text-[16px]">{m.totalLiveCreators}</span>
-                             <span className="font-bold text-pink-600/60 text-[11px] mb-[1px]">/ {targetCreatorLive > 0 ? targetCreatorLive : '0'}</span>
+                             <span className="font-bold text-pink-600/60 text-[11px] mb-[1px]">/ {tgts.targetCreatorLive > 0 ? tgts.targetCreatorLive : '0'}</span>
                            </div>
                            <div className="text-[9px] text-indigo-700/60 font-medium">N {m.approvedLiveNano} | Mi {m.approvedLiveMicro} | Ma {m.approvedLiveMacro} | Me {m.approvedLiveMega}</div>
                          </div>
