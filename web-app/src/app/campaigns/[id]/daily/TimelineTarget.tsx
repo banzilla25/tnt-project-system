@@ -74,6 +74,7 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
         live: Number(d.totalLiveSessions) || 0,
         creator: Number(d.totalCreators) || 0,
         pendingCreator: Number(d.totalPendingCreators) || 0,
+        videoCreator: Number(d.totalVideoCreators) || 0,
         pendingNano: Number(d.pendingNano) || 0,
         pendingMicro: Number(d.pendingMicro) || 0,
         pendingMacro: Number(d.pendingMacro) || 0,
@@ -222,6 +223,7 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
         achievedLive: achievedToday.live,
         achievedCreator: achievedToday.creator,
         achievedPendingCreator: achievedToday.pendingCreator,
+        achievedVideoCreator: achievedToday.videoCreator || 0,
         achievedPendingNano: achievedToday.pendingNano,
         achievedPendingMicro: achievedToday.pendingMicro,
         achievedPendingMacro: achievedToday.pendingMacro,
@@ -570,10 +572,10 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
                           </div>
                           <div>
                             <div className="text-[18px] font-bold text-orange-600 tracking-tight leading-none mb-1">
-                              {Math.round(day.achievedPendingCreator)}
+                              {Math.round(day.achievedVideoCreator)}
                             </div>
                             <div className="text-[10px] text-orange-700/70 leading-tight">
-                              Total kreator
+                              Total kreator ber-VT
                             </div>
                           </div>
                         </div>
