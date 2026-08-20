@@ -151,7 +151,7 @@ export default function TimelineTarget({ campaign, dailyData }: TimelineTargetPr
       const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
       const isPastEndDate = time > endDate.getTime();
       
-      const achievedToday = achievedMap.get(time) || { gmv: 0, video: 0, live: 0, creator: 0, pendingCreator: 0 };
+      const achievedToday = achievedMap.get(time) || { gmv: 0, video: 0, live: 0, creator: 0, pendingCreator: 0, videoCreator: 0, liveCreator: 0, pendingLiveCreator: 0, pendingNano: 0, pendingMicro: 0, pendingMacro: 0, pendingMega: 0, approvedNano: 0, approvedMicro: 0, approvedMacro: 0, approvedMega: 0, pendingLiveNano: 0, pendingLiveMicro: 0, pendingLiveMacro: 0, pendingLiveMega: 0, approvedLiveNano: 0, approvedLiveMicro: 0, approvedLiveMacro: 0, approvedLiveMega: 0 };
 
       currentWeekGmvAchieve += achievedToday.gmv;
       currentWeekVideoAchieve += achievedToday.video;
