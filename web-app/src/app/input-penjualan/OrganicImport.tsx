@@ -418,7 +418,7 @@ export default function OrganicImport({ mode = 'sales' }: { mode?: 'sales' | 'vi
         tanggal = parseTikTokDate(row[columnMapping['time_created']]?.toString().trim() || '');
         const orderIdRaw = row[columnMapping['order_id']]?.toString().trim() || '';
         const skuIdStr = row[columnMapping['sku_id']]?.toString().trim() || '';
-        orderId = `${orderIdRaw}_${skuIdStr}_${creatorUsername}_${rawProductId}`;
+        orderId = `${orderIdRaw}_${skuIdStr}_${rawProductId}_${tiktokCampaignId}`;
         orderStatus = row[columnMapping['order_status']]?.toString().trim() || '';
         
         commissionRate = row[columnMapping['commission_rate']]?.toString().trim() || '';
