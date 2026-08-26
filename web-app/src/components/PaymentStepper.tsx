@@ -89,8 +89,8 @@ export function PaymentStepper({
     {
       id: 'ready_to_pay',
       label: 'Siap Bayar',
-      actor: payerName,
-      date: payDate,
+      actor: null,
+      date: null,
       isCompleted: status === 'paid',
       isActive: status === 'ready_to_pay',
       isRejected: false,
@@ -98,8 +98,8 @@ export function PaymentStepper({
     {
       id: 'paid',
       label: 'Selesai (Paid)',
-      actor: null,
-      date: null,
+      actor: payerName,
+      date: payDate,
       isCompleted: status === 'paid',
       isActive: false,
       isRejected: false,
