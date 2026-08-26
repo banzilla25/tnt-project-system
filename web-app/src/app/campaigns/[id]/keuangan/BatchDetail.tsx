@@ -575,6 +575,42 @@ export function BatchDetail({ batch, onBack, onRefresh }: { batch: any, onBack: 
               <Upload className="w-5 h-5" /> Konfirmasi Import Pembayaran
             </h3>
             <p className="text-sm text-indigo-700 mb-4">Ditemukan <strong>{importedIds.length} item</strong> yang ditandai DIBAYAR di file Excel. Masukkan bukti transfer untuk menandai mereka selesai secara bersamaan.</p>
+            
+            {/* Rincian item yang akan diimport */}
+            <div className="mb-4 bg-white border border-indigo-100 rounded-md overflow-hidden max-h-48 overflow-y-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-indigo-50 border-b border-indigo-100 sticky top-0">
+                  <tr>
+                    <th className="px-3 py-2 font-medium text-indigo-900">Kreator</th>
+                    <th className="px-3 py-2 font-medium text-indigo-900">Bank</th>
+                    <th className="px-3 py-2 font-medium text-indigo-900">No. Rekening</th>
+                    <th className="px-3 py-2 font-medium text-indigo-900">Atas Nama</th>
+                    <th className="px-3 py-2 text-right font-medium text-indigo-900">Total Nominal</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {importedIds.map(id => {
+                    const it = batch.payment_items?.find((i: any) => i.id === id);
+                    if (!it) return null;
+                    const b = it.creator_bank_accounts;
+                    const bName = b?.bank_name || it.metode_pembayaran || '-';
+                    const accNum = b?.account_number || it.nomor_rekening || '-';
+                    const accHolder = b?.account_holder || it.nama_penerima || '-';
+                    const totNominal = Number(it.nominal || 0) + Number(it.biaya_transfer || 0);
+                    return (
+                      <tr key={id} className="hover:bg-slate-50">
+                        <td className="px-3 py-2 font-medium text-slate-700">@{it.campaign_creators?.creators?.username || '-'}</td>
+                        <td className="px-3 py-2 text-slate-600">{bName}</td>
+                        <td className="px-3 py-2 text-slate-600 font-mono">{accNum}</td>
+                        <td className="px-3 py-2 text-slate-600">{accHolder}</td>
+                        <td className="px-3 py-2 text-right font-bold text-slate-700">Rp {totNominal.toLocaleString()}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Tanggal Aktual Transfer</label>
