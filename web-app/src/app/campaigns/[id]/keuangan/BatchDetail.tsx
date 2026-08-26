@@ -1,15 +1,15 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { PaymentStepper } from "@/components/PaymentStepper";
 import { 
   managerApproveItem, managerRejectItem, managerFinalizeReview, 
   financeToggleItem, financeSubmitToExecutive, financeMarkPaid, 
   executiveApproveItem, executiveRejectItem, executiveFinalizeReview,
-  deletePaymentItem, deletePaymentBatch, updatePaymentItem
+  deletePaymentItem, deletePaymentBatch, updatePaymentItem, submitBatchToManager
 } from "../../actions/paymentActions";
 import { useAuth } from "@/providers/AuthProvider";
-import { Check, X, Loader2, ArrowLeft, Send, Trash2, Pencil } from "lucide-react";
+import { Check, X, Loader2, ArrowLeft, Send, Trash2, Pencil, Save } from "lucide-react";
 
 export function BatchDetail({ batch, onBack, onRefresh }: { batch: any, onBack: () => void, onRefresh: () => void }) {
   const { profile } = useAuth();
@@ -18,17 +18,16 @@ export function BatchDetail({ batch, onBack, onRefresh }: { batch: any, onBack: 
   const [rejectReason, setRejectReason] = useState("");
   const [rejectingId, setRejectingId] = useState<number | null>(null);
 
-  // Edit Form State
+  // Edit Form State (Modal)
   const [editingItemId, setEditingItemId] = useState<number | null>(null);
-  const [editNominal, setEditNominal] = useState<number>(0);
-  const [editBiayaTF, setEditBiayaTF] = useState<number>(0);
+  const [editForm, setEditForm] = useState<any>({});
 
   // Mark Paid form state
   const [showPaidForm, setShowPaidForm] = useState(false);
   const [payDate, setPayDate] = useState("");
   const [buktiUrl, setBuktiUrl] = useState("");
   
-  const handleAction = async (id: number, action: () => Promise<void>) => {
+  const handleAction = async (id: number | string, action: () => Promise<void>) => {
     setLoadingIds(prev => ({ ...prev, [id]: true }));
     try {
       await action();
@@ -51,6 +50,13 @@ export function BatchDetail({ batch, onBack, onRefresh }: { batch: any, onBack: 
     } finally {
       setIsFinalizing(false);
     }
+  };
+
+  const handleSubmitDraft = async () => {
+    if (!confirm("Ajukan batch ini ke Manager untuk di-review?")) return;
+    handleAction('submit_draft', async () => {
+      await submitBatchToManager(batch.id);
+    });
   };
 
   const handleRejectSubmit = async () => {
@@ -88,7 +94,6 @@ export function BatchDetail({ batch, onBack, onRefresh }: { batch: any, onBack: 
     try {
       await deletePaymentBatch(batch.id);
       onBack();
-      // Wait for re-render in parent to fetch data without this batch
     } catch (err: any) {
       alert("Gagal menghapus batch: " + err.message);
       setIsFinalizing(false);
@@ -102,21 +107,53 @@ export function BatchDetail({ batch, onBack, onRefresh }: { batch: any, onBack: 
     });
   };
 
-  const handleSaveEditItem = async (itemId: number) => {
-    handleAction(itemId, async () => {
-      await updatePaymentItem(itemId, {
-        nominal: editNominal,
-        biaya_transfer: editBiayaTF
-      });
+  const handleOpenEdit = (item: any) => {
+    setEditingItemId(item.id);
+    setEditForm({
+      payment_type: item.payment_type || '100_akhir',
+      nominal: item.nominal || 0,
+      biaya_transfer: item.biaya_transfer || 0,
+      metode_pembayaran: item.metode_pembayaran || item.creator_bank_accounts?.bank_name || '',
+      nomor_rekening: item.nomor_rekening || item.creator_bank_accounts?.account_number || '',
+      nama_penerima: item.nama_penerima || item.creator_bank_accounts?.account_holder || '',
+      nama_wa_pic: item.nama_wa_pic || '',
+      nomor_wa_dealing: item.nomor_wa_dealing || '',
+      alamat_ktp: item.alamat_ktp || '',
+      nik: item.nik || '',
+      link_ktp: item.link_ktp || '',
+      link_kontrak: item.link_kontrak || '',
+      bank_account_id: item.bank_account_id || '' // If they edit bank details we'll nullify this to force manual update
+    });
+  };
+
+  const handleSaveEditItem = async () => {
+    if (!editingItemId) return;
+    
+    // If user edited the bank details manually, we clear bank_account_id so backend processes it as manual entry
+    let finalBankId = editForm.bank_account_id;
+    const originalItem = batch.payment_items.find((i: any) => i.id === editingItemId);
+    const originalBankName = originalItem?.metode_pembayaran || originalItem?.creator_bank_accounts?.bank_name || '';
+    const originalRekening = originalItem?.nomor_rekening || originalItem?.creator_bank_accounts?.account_number || '';
+    
+    if (editForm.metode_pembayaran !== originalBankName || editForm.nomor_rekening !== originalRekening) {
+      finalBankId = null;
+    }
+
+    const payload = {
+      ...editForm,
+      bank_account_id: finalBankId
+    };
+
+    handleAction(editingItemId, async () => {
+      await updatePaymentItem(editingItemId, payload);
       setEditingItemId(null);
     });
   };
 
-  // We only allow edit/delete if batch is in draft or rejected, OR if you are testing we just show it for draft
   const canEditOrDelete = batch.status === 'draft' || batch.status === 'cancelled';
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative">
       <button onClick={onBack} className="btn btn-outline flex items-center gap-2">
         <ArrowLeft className="w-4 h-4" /> Kembali
       </button>
@@ -138,7 +175,7 @@ export function BatchDetail({ batch, onBack, onRefresh }: { batch: any, onBack: 
             <p className="text-sm text-slate-500 mt-1">Campaign: {batch.campaigns?.nama}</p>
           </div>
           <div className="text-right">
-            <p className="text-sm font-semibold text-slate-700">Total Nominal: Rp {(batch.payment_items || []).reduce((acc: number, item: any) => acc + Number(item.nominal) + Number(item.biaya_transfer), 0).toLocaleString()}</p>
+            <p className="text-sm font-semibold text-slate-700">Total Nominal: Rp {(batch.payment_items || []).reduce((acc: number, item: any) => acc + Number(item.nominal || 0) + Number(item.biaya_transfer || 0), 0).toLocaleString()}</p>
             <p className="text-xs text-slate-500 mt-1">{(batch.payment_items || []).length} Kreator diajukan</p>
           </div>
         </div>
@@ -173,9 +210,8 @@ export function BatchDetail({ batch, onBack, onRefresh }: { batch: any, onBack: 
             </thead>
             <tbody className="divide-y divide-slate-100">
               {(batch.payment_items || []).map((item: any) => {
-                const totalTrx = Number(item.nominal) + Number(item.biaya_transfer);
+                const totalTrx = Number(item.nominal || 0) + Number(item.biaya_transfer || 0);
                 const bank = item.creator_bank_accounts;
-                const isEditing = editingItemId === item.id;
 
                 return (
                   <tr key={item.id} className="hover:bg-slate-50">
@@ -187,34 +223,14 @@ export function BatchDetail({ batch, onBack, onRefresh }: { batch: any, onBack: 
                       {item.payment_type?.replace('_', ' ') || '-'}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      {isEditing ? (
-                        <input 
-                          type="number" 
-                          className="w-24 px-2 py-1 border border-slate-300 rounded text-right"
-                          value={editNominal}
-                          onChange={e => setEditNominal(Number(e.target.value))}
-                        />
-                      ) : (
-                        <>
-                          {item.ratecard_awal && <div className="text-xs text-slate-400 line-through">Rp {Number(item.ratecard_awal).toLocaleString()}</div>}
-                          <div className="font-semibold text-slate-700">Rp {Number(item.nominal).toLocaleString()}</div>
-                        </>
-                      )}
+                      {item.ratecard_awal && <div className="text-xs text-slate-400 line-through">Rp {Number(item.ratecard_awal).toLocaleString()}</div>}
+                      <div className="font-semibold text-slate-700">Rp {Number(item.nominal || 0).toLocaleString()}</div>
                     </td>
                     <td className="px-4 py-3 text-right text-slate-500">
-                      {isEditing ? (
-                        <input 
-                          type="number" 
-                          className="w-20 px-2 py-1 border border-slate-300 rounded text-right"
-                          value={editBiayaTF}
-                          onChange={e => setEditBiayaTF(Number(e.target.value))}
-                        />
-                      ) : (
-                        `Rp ${Number(item.biaya_transfer).toLocaleString()}`
-                      )}
+                      Rp {Number(item.biaya_transfer || 0).toLocaleString()}
                     </td>
                     <td className="px-4 py-3 text-right font-bold text-blue-700">
-                      Rp {(isEditing ? editNominal + editBiayaTF : totalTrx).toLocaleString()}
+                      Rp {totalTrx.toLocaleString()}
                     </td>
                     <td className="px-4 py-3 text-xs">
                       {bank ? (
@@ -288,33 +304,17 @@ export function BatchDetail({ batch, onBack, onRefresh }: { batch: any, onBack: 
                           </div>
                         )}
 
-                        {/* GENERAL EDIT & DELETE ACTIONS (For testing/draft) */}
-                        <div className="flex justify-center gap-2 mt-1">
-                          {isEditing ? (
-                            <>
-                              <button onClick={() => handleSaveEditItem(item.id)} disabled={loadingIds[item.id]} className="p-1.5 bg-green-100 text-green-600 rounded hover:bg-green-200" title="Simpan">
-                                {loadingIds[item.id] ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                              </button>
-                              <button onClick={() => setEditingItemId(null)} disabled={loadingIds[item.id]} className="p-1.5 bg-slate-100 text-slate-600 rounded hover:bg-slate-200" title="Batal">
-                                <X className="w-4 h-4" />
-                              </button>
-                            </>
-                          ) : (
-                            <>
-                              <button onClick={() => {
-                                setEditingItemId(item.id);
-                                setEditNominal(Number(item.nominal));
-                                setEditBiayaTF(Number(item.biaya_transfer));
-                              }} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded" title="Edit Nominal">
-                                <Pencil className="w-4 h-4" />
-                              </button>
-                              <button onClick={() => handleDeleteItem(item.id)} disabled={loadingIds[item.id]} className="p-1.5 text-red-500 hover:bg-red-50 rounded" title="Hapus Kreator dari Batch">
-                                {loadingIds[item.id] ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                              </button>
-                            </>
-                          )}
-                        </div>
-
+                        {/* GENERAL EDIT & DELETE ACTIONS (For draft / testing) */}
+                        {canEditOrDelete && (
+                          <div className="flex justify-center gap-2 mt-1">
+                            <button onClick={() => handleOpenEdit(item)} disabled={loadingIds[item.id]} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded" title="Edit Data Lengkap">
+                              <Pencil className="w-4 h-4" />
+                            </button>
+                            <button onClick={() => handleDeleteItem(item.id)} disabled={loadingIds[item.id]} className="p-1.5 text-red-500 hover:bg-red-50 rounded" title="Hapus Kreator dari Batch">
+                              {loadingIds[item.id] ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -324,31 +324,13 @@ export function BatchDetail({ batch, onBack, onRefresh }: { batch: any, onBack: 
           </table>
         </div>
 
-        {/* Reject Modal */}
-        {rejectingId && (
-          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-lg p-6 w-full max-w-md">
-              <h3 className="text-lg font-bold text-slate-800 mb-4">Tolak Pembayaran</h3>
-              <textarea 
-                className="w-full border border-slate-300 rounded-md p-3 text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none"
-                placeholder="Alasan penolakan..."
-                rows={3}
-                value={rejectReason}
-                onChange={e => setRejectReason(e.target.value)}
-              />
-              <div className="flex justify-end gap-3 mt-4">
-                <button onClick={() => { setRejectingId(null); setRejectReason(""); }} className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-md">Batal</button>
-                <button onClick={handleRejectSubmit} disabled={loadingIds[rejectingId]} className="px-4 py-2 text-sm font-medium bg-red-600 text-white rounded-md hover:bg-red-700 flex items-center">
-                  {loadingIds[rejectingId] ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                  Tolak
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Action Bar */}
         <div className="flex justify-end pt-6 border-t border-slate-100 gap-4">
+          {batch.status === 'draft' && (
+            <button onClick={handleSubmitDraft} disabled={loadingIds['submit_draft']} className="btn btn-primary flex items-center gap-2 bg-blue-600 hover:bg-blue-700">
+              {loadingIds['submit_draft'] ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Ajukan ke Manager
+            </button>
+          )}
           {batch.status === 'pending_manager' && (profile?.role === 'manager' || profile?.role === 'executive') && (
             <button onClick={() => handleFinalize(() => managerFinalizeReview(batch.id))} disabled={isFinalizing} className="btn btn-primary flex items-center gap-2">
               {isFinalizing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Finalize Review & Submit ke Finance
@@ -395,6 +377,119 @@ export function BatchDetail({ batch, onBack, onRefresh }: { batch: any, onBack: 
         )}
 
       </div>
+
+      {/* Edit Full Modal */}
+      {editingItemId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center sticky top-0 bg-white z-10 rounded-t-xl">
+              <h3 className="text-xl font-bold text-slate-800">Edit Data Detail Kreator</h3>
+              <button onClick={() => setEditingItemId(null)} className="text-slate-400 hover:text-slate-600">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            
+            <div className="p-6 overflow-y-auto flex-1 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <h4 className="font-semibold text-slate-700 border-b pb-2">Informasi Pembayaran</h4>
+                  
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Tipe Pembayaran</label>
+                    <select className="w-full p-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" 
+                      value={editForm.payment_type} onChange={e => setEditForm({...editForm, payment_type: e.target.value})}>
+                      <option value="100_akhir">100% Akhir</option>
+                      <option value="50_awal">50% Awal</option>
+                      <option value="50_akhir">50% Akhir</option>
+                      <option value="ads">Ads / Ekstra</option>
+                    </select>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-600 mb-1">Nominal (Rp)</label>
+                      <input type="number" className="w-full p-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" 
+                        value={editForm.nominal} onChange={e => setEditForm({...editForm, nominal: Number(e.target.value)})} />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-600 mb-1">Biaya Transfer (Rp)</label>
+                      <input type="number" className="w-full p-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" 
+                        value={editForm.biaya_transfer} onChange={e => setEditForm({...editForm, biaya_transfer: Number(e.target.value)})} />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Bank / E-Wallet</label>
+                    <input type="text" className="w-full p-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" 
+                      placeholder="BCA / Mandiri / GoPay"
+                      value={editForm.metode_pembayaran} onChange={e => setEditForm({...editForm, metode_pembayaran: e.target.value})} />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Nomor Rekening</label>
+                    <input type="text" className="w-full p-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" 
+                      value={editForm.nomor_rekening} onChange={e => setEditForm({...editForm, nomor_rekening: e.target.value})} />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Nama Penerima</label>
+                    <input type="text" className="w-full p-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" 
+                      value={editForm.nama_penerima} onChange={e => setEditForm({...editForm, nama_penerima: e.target.value})} />
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <h4 className="font-semibold text-slate-700 border-b pb-2">Informasi Administrasi</h4>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-600 mb-1">Nama WA PIC</label>
+                      <input type="text" className="w-full p-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" 
+                        value={editForm.nama_wa_pic} onChange={e => setEditForm({...editForm, nama_wa_pic: e.target.value})} />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-600 mb-1">Nomor WA</label>
+                      <input type="text" className="w-full p-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" 
+                        value={editForm.nomor_wa_dealing} onChange={e => setEditForm({...editForm, nomor_wa_dealing: e.target.value})} />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">NIK</label>
+                    <input type="text" className="w-full p-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" 
+                      value={editForm.nik} onChange={e => setEditForm({...editForm, nik: e.target.value})} />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Alamat Sesuai KTP</label>
+                    <textarea className="w-full p-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" rows={2}
+                      value={editForm.alamat_ktp} onChange={e => setEditForm({...editForm, alamat_ktp: e.target.value})} />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Link KTP (GDrive)</label>
+                    <input type="url" className="w-full p-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" 
+                      value={editForm.link_ktp} onChange={e => setEditForm({...editForm, link_ktp: e.target.value})} />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Link Kontrak (GDrive)</label>
+                    <input type="url" className="w-full p-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" 
+                      value={editForm.link_kontrak} onChange={e => setEditForm({...editForm, link_kontrak: e.target.value})} />
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="p-6 border-t border-slate-100 flex justify-end gap-3 bg-slate-50 rounded-b-xl">
+              <button onClick={() => setEditingItemId(null)} className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-200 rounded-md">Batal</button>
+              <button onClick={handleSaveEditItem} disabled={loadingIds[editingItemId]} className="px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center gap-2">
+                {loadingIds[editingItemId] ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                Simpan Perubahan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
