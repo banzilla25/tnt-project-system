@@ -16,6 +16,7 @@ export function BatchForm({ campaignId, creators, onCancel, onSuccess }: { campa
   const [searchQuery, setSearchQuery] = useState("");
   const [showBulkSelect, setShowBulkSelect] = useState(false);
   const [bulkText, setBulkText] = useState("");
+  const [bulkNotFoundWarning, setBulkNotFoundWarning] = useState<string[]>([]);
 
   const handleToggleCreator = async (cc: any, isChecked: boolean) => {
     if (!isChecked) {
@@ -84,17 +85,19 @@ export function BatchForm({ campaignId, creators, onCancel, onSuccess }: { campa
       }
     });
     
-    if (notFound.length > 0) {
-      alert(`Kreator berikut tidak ditemukan atau belum di-approve di campaign ini:\n\n${notFound.join('\n')}`);
-    }
-    
     // Process additions
     toAdd.forEach(cc => {
       handleToggleCreator(cc, true);
     });
-    
-    setBulkText("");
-    setShowBulkSelect(false);
+
+    if (notFound.length > 0) {
+      setBulkNotFoundWarning(notFound);
+      setBulkText(notFound.join('\n'));
+    } else {
+      setBulkNotFoundWarning([]);
+      setBulkText("");
+      setShowBulkSelect(false);
+    }
   };
 
   const filteredCreators = creators.filter(c => 
@@ -206,12 +209,20 @@ export function BatchForm({ campaignId, creators, onCancel, onSuccess }: { campa
 
           {showBulkSelect && (
             <div className="mb-4 bg-slate-50 p-4 rounded-lg border border-slate-200">
+              {bulkNotFoundWarning.length > 0 && (
+                <div className="mb-3 p-3 bg-red-50 border border-red-200 text-red-600 rounded text-xs font-medium">
+                  Kreator {bulkNotFoundWarning.map(u => `@${u}`).join(', ')} tidak ada di daftar campaign, bisa anda tambahkan dulu di menu listing.
+                </div>
+              )}
               <label className="block text-xs font-semibold text-slate-600 mb-2">Paste list username (dipisah enter atau koma)</label>
               <textarea 
                 className="w-full p-3 border border-slate-300 rounded-md outline-none focus:ring-2 focus:ring-blue-500 text-sm h-32"
                 placeholder="@budi, @andi&#10;@cindy"
                 value={bulkText}
-                onChange={e => setBulkText(e.target.value)}
+                onChange={e => {
+                  setBulkText(e.target.value);
+                  if (bulkNotFoundWarning.length > 0) setBulkNotFoundWarning([]);
+                }}
               />
               <div className="flex justify-end mt-2">
                 <button onClick={handleProcessBulk} className="btn btn-primary btn-sm flex items-center gap-2 px-3 py-1.5 text-xs">
