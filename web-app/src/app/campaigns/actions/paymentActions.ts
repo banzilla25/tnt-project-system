@@ -333,12 +333,15 @@ export async function financeBulkMarkPaidItems(batchId: number, itemIds: number[
   if (itemsErr) throw new Error(itemsErr.message);
 
   // Check if all items in batch are now paid, rejected or cancelled
-  const { data: remainingItems } = await supabase.from('payment_items')
-    .select('id')
-    .eq('batch_id', batchId)
-    .not('final_status', 'in', '("paid", "rejected", "cancelled")');
+  const { data: allItems } = await supabase.from('payment_items')
+    .select('id, final_status')
+    .eq('batch_id', batchId);
   
-  if (remainingItems && remainingItems.length === 0) {
+  const remainingItems = (allItems || []).filter(item => 
+    !['paid', 'rejected', 'cancelled'].includes(item.final_status)
+  );
+  
+  if (remainingItems.length === 0) {
     // All items are finalized, close the batch
     const { error: batchErr } = await supabase.from('payment_batches').update({
       status: 'paid',
