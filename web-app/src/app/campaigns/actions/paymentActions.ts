@@ -38,7 +38,7 @@ export async function getPaymentBatchDetail(batchId: number) {
     payment_items(
       *,
       campaign_creators(
-        id, tier, price, qty_vt, creators(id, username, nama_asli, type, followers)
+        id, tier, price, qty_vt, creators(id, username, nama_asli)
       ),
       creator_bank_accounts(bank_name, account_number, account_holder)
     )
