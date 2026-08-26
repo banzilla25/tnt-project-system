@@ -246,7 +246,7 @@ export function BatchDetail({ batch, onBack, onRefresh }: { batch: any, onBack: 
                     <td className="px-4 py-3 text-center">
                       <div className="flex flex-col items-center gap-2">
                         {/* MANAGER ACTIONS */}
-                        {batch.status === 'pending_manager' && profile?.role === 'manager' && item.final_status === 'pending' && (
+                        {batch.status === 'pending_manager' && (profile?.role === 'manager' || profile?.role === 'executive') && item.final_status === 'pending' && (
                           <div className="flex justify-center gap-2">
                             <button onClick={() => handleAction(item.id, () => managerApproveItem(item.id))} disabled={loadingIds[item.id]} className="p-1.5 bg-emerald-100 text-emerald-600 rounded hover:bg-emerald-200">
                               {loadingIds[item.id] ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
@@ -258,7 +258,7 @@ export function BatchDetail({ batch, onBack, onRefresh }: { batch: any, onBack: 
                         )}
 
                         {/* FINANCE ACTIONS */}
-                        {batch.status === 'pending_finance' && profile?.role === 'finance' && item.final_status === 'manager_approved' && (
+                        {batch.status === 'pending_finance' && (profile?.role === 'finance' || profile?.role === 'executive') && item.final_status === 'manager_approved' && (
                           <label className="flex items-center justify-center cursor-pointer">
                             <input type="checkbox" className="w-5 h-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500" 
                               onChange={(e) => handleAction(item.id, () => financeToggleItem(item.id, e.target.checked))} 
@@ -266,7 +266,7 @@ export function BatchDetail({ batch, onBack, onRefresh }: { batch: any, onBack: 
                             />
                           </label>
                         )}
-                        {batch.status === 'pending_finance' && profile?.role === 'finance' && item.final_status === 'finance_selected' && (
+                        {batch.status === 'pending_finance' && (profile?.role === 'finance' || profile?.role === 'executive') && item.final_status === 'finance_selected' && (
                           <label className="flex items-center justify-center cursor-pointer">
                             <input type="checkbox" className="w-5 h-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500" 
                               checked={true}
@@ -349,12 +349,12 @@ export function BatchDetail({ batch, onBack, onRefresh }: { batch: any, onBack: 
 
         {/* Action Bar */}
         <div className="flex justify-end pt-6 border-t border-slate-100 gap-4">
-          {batch.status === 'pending_manager' && profile?.role === 'manager' && (
+          {batch.status === 'pending_manager' && (profile?.role === 'manager' || profile?.role === 'executive') && (
             <button onClick={() => handleFinalize(() => managerFinalizeReview(batch.id))} disabled={isFinalizing} className="btn btn-primary flex items-center gap-2">
               {isFinalizing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Finalize Review & Submit ke Finance
             </button>
           )}
-          {batch.status === 'pending_finance' && profile?.role === 'finance' && (
+          {batch.status === 'pending_finance' && (profile?.role === 'finance' || profile?.role === 'executive') && (
             <button onClick={() => handleFinalize(() => financeSubmitToExecutive(batch.id))} disabled={isFinalizing} className="btn btn-primary flex items-center gap-2">
               {isFinalizing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Request Approval Executive
             </button>
@@ -364,7 +364,7 @@ export function BatchDetail({ batch, onBack, onRefresh }: { batch: any, onBack: 
               {isFinalizing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />} Finalize & Tandai Siap Bayar
             </button>
           )}
-          {batch.status === 'ready_to_pay' && profile?.role === 'finance' && !showPaidForm && (
+          {batch.status === 'ready_to_pay' && (profile?.role === 'finance' || profile?.role === 'executive') && !showPaidForm && (
             <button onClick={() => setShowPaidForm(true)} className="btn btn-primary flex items-center gap-2 bg-blue-600 hover:bg-blue-700">
               <Check className="w-4 h-4" /> Tandai Sudah Dibayar
             </button>
