@@ -271,6 +271,40 @@ export async function financeMarkPaid(batchId: number, payload: { actualPaymentD
   revalidatePath('/budgeting');
 }
 
+export async function financeBulkMarkPaidItems(batchId: number, itemIds: number[], payload: { actualPaymentDate: string, buktiTransferUrl: string, senderAccountId: number }) {
+  const supabase = await createClient();
+  const { data: user } = await supabase.auth.getUser();
+  
+  // Update specific items to paid
+  const { error: itemsErr } = await supabase.from('payment_items').update({
+    final_status: 'paid',
+    // Could also store bukti transfer per item if schema supported it, but we'll stick to updating status
+  }).in('id', itemIds).eq('batch_id', batchId);
+  if (itemsErr) throw new Error(itemsErr.message);
+
+  // Check if all items in batch are now paid, rejected or cancelled
+  const { data: remainingItems } = await supabase.from('payment_items')
+    .select('id')
+    .eq('batch_id', batchId)
+    .not('final_status', 'in', '("paid", "rejected", "cancelled")');
+  
+  if (remainingItems && remainingItems.length === 0) {
+    // All items are finalized, close the batch
+    const { error: batchErr } = await supabase.from('payment_batches').update({
+      status: 'paid',
+      paid_by: user?.user?.id,
+      paid_at: new Date().toISOString(),
+      actual_payment_date: payload.actualPaymentDate,
+      bukti_transfer_url: payload.buktiTransferUrl,
+      sender_account_id: payload.senderAccountId
+    }).eq('id', batchId);
+    if (batchErr) throw new Error(batchErr.message);
+  }
+
+  revalidatePath('/budgeting');
+}
+
+
 // ==========================================
 // EXECUTIVE ACTIONS
 // ==========================================

@@ -6,10 +6,11 @@ import {
   managerApproveItem, managerRejectItem, managerFinalizeReview, 
   financeToggleItem, financeSubmitToExecutive, financeMarkPaid, 
   executiveApproveItem, executiveRejectItem, executiveFinalizeReview,
-  deletePaymentItem, deletePaymentBatch, updatePaymentItem, submitBatchToManager, revertBatchStatus
+  deletePaymentItem, deletePaymentBatch, updatePaymentItem, submitBatchToManager, revertBatchStatus, financeBulkMarkPaidItems
 } from "../../actions/paymentActions";
 import { useAuth } from "@/providers/AuthProvider";
-import { Check, X, Loader2, ArrowLeft, Send, Trash2, Pencil, Save } from "lucide-react";
+import { Check, X, Loader2, ArrowLeft, Send, Trash2, Pencil, Save, ChevronDown, ChevronRight, Download, Upload } from "lucide-react";
+import * as XLSX from "xlsx";
 
 export function BatchDetail({ batch, onBack, onRefresh }: { batch: any, onBack: () => void, onRefresh: () => void }) {
   const { profile } = useAuth();
@@ -26,7 +27,23 @@ export function BatchDetail({ batch, onBack, onRefresh }: { batch: any, onBack: 
   const [showPaidForm, setShowPaidForm] = useState(false);
   const [payDate, setPayDate] = useState("");
   const [buktiUrl, setBuktiUrl] = useState("");
+
+  // Accordion state
+  const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
+
+  // Excel bulk import state
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importedIds, setImportedIds] = useState<number[]>([]);
   
+  const toggleRow = (id: number) => {
+    setExpandedRows(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
   const handleAction = async (id: number | string, action: () => Promise<void>) => {
     setLoadingIds(prev => ({ ...prev, [id]: true }));
     try {
@@ -105,6 +122,90 @@ export function BatchDetail({ batch, onBack, onRefresh }: { batch: any, onBack: 
     } finally {
       setIsFinalizing(false);
     }
+  };
+
+  const handleBulkMarkPaid = async () => {
+    if (!payDate || !buktiUrl) return alert("Lengkapi data pembayaran");
+    setIsFinalizing(true);
+    try {
+      await financeBulkMarkPaidItems(batch.id, importedIds, {
+        actualPaymentDate: payDate,
+        buktiTransferUrl: buktiUrl,
+        senderAccountId: 1
+      });
+      await onRefresh();
+      setShowImportModal(false);
+      setImportedIds([]);
+      setPayDate("");
+      setBuktiUrl("");
+    } catch (err: any) {
+      alert("Error: " + err.message);
+    } finally {
+      setIsFinalizing(false);
+    }
+  };
+
+  const handleExportExcel = () => {
+    const data = (batch.payment_items || []).map((item: any) => {
+      const bank = item.creator_bank_accounts;
+      const bankName = bank?.bank_name || item.metode_pembayaran || '';
+      const accNumber = bank?.account_number || item.nomor_rekening || '';
+      const accHolder = bank?.account_holder || item.nama_penerima || '';
+      const totalTrx = Number(item.nominal || 0) + Number(item.biaya_transfer || 0);
+      
+      return {
+        "ID Sistem": item.id,
+        "Kreator": item.campaign_creators?.creators?.username,
+        "Tipe Pembayaran": item.payment_type?.replace('_', ' ') || '-',
+        "Nominal": Number(item.nominal || 0),
+        "Biaya Transfer": Number(item.biaya_transfer || 0),
+        "Total Ditransfer": totalTrx,
+        "Bank / Metode": bankName,
+        "Nomor Rekening": accNumber,
+        "Atas Nama": accHolder,
+        "Status Pembayaran": item.final_status
+      };
+    });
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Data Pembayaran");
+    XLSX.writeFile(wb, `Batch_${batch.batch_label}_Export.xlsx`);
+  };
+
+  const handleImportExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const bstr = evt.target?.result;
+      const wb = XLSX.read(bstr, { type: 'binary' });
+      const wsname = wb.SheetNames[0];
+      const ws = wb.Sheets[wsname];
+      const data = XLSX.utils.sheet_to_json(ws);
+      
+      const idsToPay: number[] = [];
+      data.forEach((row: any) => {
+        const id = row["ID Sistem"];
+        const status = String(row["Status Pembayaran"] || "").toUpperCase();
+        if (id && (status === 'PAID' || status === 'DIBAYAR' || status === 'SUDAH DIBAYAR')) {
+          const existingItem = batch.payment_items?.find((i: any) => i.id === id);
+          if (existingItem && existingItem.final_status !== 'paid') {
+            idsToPay.push(id);
+          }
+        }
+      });
+
+      if (idsToPay.length > 0) {
+        setImportedIds(idsToPay);
+        setShowImportModal(true);
+      } else {
+        alert("Tidak ditemukan baris dengan status 'PAID' yang baru (atau ID tidak valid).");
+      }
+    };
+    reader.readAsBinaryString(file);
+    e.target.value = '';
   };
 
   const handleDeleteBatch = async () => {
@@ -225,6 +326,7 @@ export function BatchDetail({ batch, onBack, onRefresh }: { batch: any, onBack: 
           <table className="w-full text-left text-sm">
             <thead className="bg-slate-50 text-slate-600 font-medium">
               <tr>
+                <th className="px-3 py-3 w-10"></th>
                 <th className="px-4 py-3">Kreator</th>
                 <th className="px-4 py-3">Tipe Pembayaran</th>
                 <th className="px-4 py-3 text-right">Ratecard / Final</th>
@@ -239,9 +341,14 @@ export function BatchDetail({ batch, onBack, onRefresh }: { batch: any, onBack: 
               {(batch.payment_items || []).map((item: any) => {
                 const totalTrx = Number(item.nominal || 0) + Number(item.biaya_transfer || 0);
                 const bank = item.creator_bank_accounts;
+                const isExpanded = expandedRows.has(item.id);
 
                 return (
-                  <tr key={item.id} className="hover:bg-slate-50">
+                  <React.Fragment key={item.id}>
+                  <tr className="hover:bg-slate-50 transition-colors">
+                    <td className="px-3 py-3 cursor-pointer text-slate-400 hover:text-slate-700" onClick={() => toggleRow(item.id)}>
+                      {isExpanded ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
+                    </td>
                     <td className="px-4 py-3 font-medium">
                       @{item.campaign_creators?.creators?.username}
                       <div className="text-xs text-slate-400 font-normal">{item.nama_penerima || bank?.account_holder}</div>
@@ -345,6 +452,42 @@ export function BatchDetail({ batch, onBack, onRefresh }: { batch: any, onBack: 
                       </div>
                     </td>
                   </tr>
+                  
+                  {isExpanded && (
+                    <tr className="bg-slate-50/50">
+                      <td colSpan={9} className="p-0 border-b border-slate-200">
+                        <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
+                          <div className="space-y-3">
+                            <p className="font-semibold text-slate-700 border-b pb-1">Detail Administrasi</p>
+                            <div className="grid grid-cols-3 gap-2">
+                              <span className="text-slate-500">NIK:</span>
+                              <span className="col-span-2 font-medium">{item.nik || '-'}</span>
+                              <span className="text-slate-500">Alamat KTP:</span>
+                              <span className="col-span-2 font-medium">{item.alamat_ktp || '-'}</span>
+                              <span className="text-slate-500">PIC WA:</span>
+                              <span className="col-span-2 font-medium">{item.nama_wa_pic || '-'} ({item.nomor_wa_dealing || '-'})</span>
+                              <span className="text-slate-500">Link KTP:</span>
+                              <span className="col-span-2 font-medium">{item.link_ktp ? <a href={item.link_ktp} target="_blank" className="text-blue-600 hover:underline">Lihat KTP</a> : '-'}</span>
+                              <span className="text-slate-500">Link Kontrak:</span>
+                              <span className="col-span-2 font-medium">{item.link_kontrak ? <a href={item.link_kontrak} target="_blank" className="text-blue-600 hover:underline">Lihat Kontrak</a> : '-'}</span>
+                            </div>
+                          </div>
+                          <div className="space-y-3">
+                            <p className="font-semibold text-slate-700 border-b pb-1">Detail Bank Lengkap</p>
+                            <div className="grid grid-cols-3 gap-2">
+                              <span className="text-slate-500">Nama Bank:</span>
+                              <span className="col-span-2 font-medium">{bank ? bank.bank_name : (item.metode_pembayaran || '-')}</span>
+                              <span className="text-slate-500">No. Rekening:</span>
+                              <span className="col-span-2 font-medium">{bank ? bank.account_number : (item.nomor_rekening || '-')}</span>
+                              <span className="text-slate-500">Atas Nama:</span>
+                              <span className="col-span-2 font-medium">{bank ? bank.account_holder : (item.nama_penerima || '-')}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                  </React.Fragment>
                 )
               })}
             </tbody>
@@ -352,12 +495,23 @@ export function BatchDetail({ batch, onBack, onRefresh }: { batch: any, onBack: 
         </div>
 
         {/* Action Bar */}
-        <div className="flex justify-between items-center pt-6 border-t border-slate-100">
-          <div>
+        <div className="flex justify-between items-center pt-6 border-t border-slate-100 flex-wrap gap-4">
+          <div className="flex gap-2 items-center flex-wrap">
             {['pending_finance', 'pending_executive', 'ready_to_pay'].includes(batch.status) && (profile?.role === 'executive' || profile?.role === 'manager' || profile?.role === 'finance') && (
-              <button onClick={handleRevertStatus} disabled={isFinalizing} className="btn btn-outline text-slate-600 hover:bg-slate-100 flex items-center gap-2">
-                {isFinalizing ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowLeft className="w-4 h-4" />} Kembalikan ke Tahap Sebelumnya
+              <button onClick={handleRevertStatus} disabled={isFinalizing} className="btn btn-outline text-slate-600 hover:bg-slate-100 flex items-center gap-2 text-xs">
+                {isFinalizing ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowLeft className="w-4 h-4" />} Kembalikan
               </button>
+            )}
+            {['pending_finance', 'pending_executive', 'ready_to_pay'].includes(batch.status) && (profile?.role === 'executive' || profile?.role === 'finance') && (
+              <>
+                <button onClick={handleExportExcel} className="btn btn-outline text-emerald-700 hover:bg-emerald-50 border-emerald-200 flex items-center gap-2 text-xs">
+                  <Download className="w-4 h-4" /> Export Excel
+                </button>
+                <label className="btn btn-outline text-blue-700 hover:bg-blue-50 border-blue-200 flex items-center gap-2 text-xs cursor-pointer">
+                  <Upload className="w-4 h-4" /> Import Update
+                  <input type="file" accept=".xlsx, .xls, .csv" className="hidden" onChange={handleImportExcel} />
+                </label>
+              </>
             )}
           </div>
           <div className="flex gap-4">
@@ -413,6 +567,32 @@ export function BatchDetail({ batch, onBack, onRefresh }: { batch: any, onBack: 
         )}
 
       </div>
+
+        {/* Import Confirm Form Modal */}
+        {showImportModal && (
+          <div className="bg-indigo-50 p-6 rounded-lg border border-indigo-200 mt-4 shadow-inner">
+            <h3 className="font-bold text-indigo-900 mb-2 flex items-center gap-2">
+              <Upload className="w-5 h-5" /> Konfirmasi Import Pembayaran
+            </h3>
+            <p className="text-sm text-indigo-700 mb-4">Ditemukan <strong>{importedIds.length} item</strong> yang ditandai DIBAYAR di file Excel. Masukkan bukti transfer untuk menandai mereka selesai secara bersamaan.</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Tanggal Aktual Transfer</label>
+                <input type="date" value={payDate} onChange={e => setPayDate(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-md outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Link Bukti Transfer (GDrive)</label>
+                <input type="url" placeholder="https://drive.google.com/..." value={buktiUrl} onChange={e => setBuktiUrl(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-md outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 mt-6">
+              <button onClick={() => {setShowImportModal(false); setImportedIds([]);}} className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-200 rounded-md">Batal</button>
+              <button onClick={handleBulkMarkPaid} disabled={isFinalizing} className="px-4 py-2 text-sm font-medium bg-indigo-600 text-white rounded-md hover:bg-indigo-700 flex items-center">
+                {isFinalizing ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Check className="w-4 h-4 mr-2" />} Simpan Pembayaran
+              </button>
+            </div>
+          </div>
+        )}
 
       {/* Edit Full Modal */}
       {editingItemId && (
