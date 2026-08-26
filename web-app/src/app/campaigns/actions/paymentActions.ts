@@ -304,10 +304,10 @@ export async function financeMarkPaid(batchId: number, payload: { actualPaymentD
   }).eq('id', batchId);
   if (batchErr) throw new Error(batchErr.message);
 
-  // 2. Update item final_status for all exec_approved items
+  // 2. Update item final_status for all executive_approved items
   const { error: itemsErr } = await supabase.from('payment_items').update({
     final_status: 'paid'
-  }).eq('batch_id', batchId).eq('final_status', 'exec_approved');
+  }).eq('batch_id', batchId).eq('final_status', 'executive_approved');
   if (itemsErr) throw new Error(itemsErr.message);
 
   revalidatePath('/budgeting');
@@ -356,7 +356,7 @@ export async function executiveApproveItem(itemId: number) {
   const { data: user } = await supabase.auth.getUser();
   const { error } = await supabase.from('payment_items').update({
     executive_status: 'approved',
-    final_status: 'exec_approved',
+    final_status: 'executive_approved',
     executive_acted_by: user?.user?.id,
     executive_acted_at: new Date().toISOString()
   }).eq('id', itemId);
