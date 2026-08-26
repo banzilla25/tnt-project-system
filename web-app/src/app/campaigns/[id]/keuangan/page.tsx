@@ -210,9 +210,13 @@ function CampaignKeuanganContent() {
   };
 
   const handleViewDetail = async (batchId: number) => {
-    setViewState('detail');
-    const detail = await getPaymentBatchDetail(batchId);
-    setSelectedBatch(detail);
+    try {
+      const detail = await getPaymentBatchDetail(batchId);
+      setSelectedBatch(detail);
+      setViewState('detail');
+    } catch (err: any) {
+      alert("Gagal memuat detail: " + err.message);
+    }
   };
 
   const getBatchStatusBadge = (status: string) => {
