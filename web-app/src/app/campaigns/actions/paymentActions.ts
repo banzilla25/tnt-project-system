@@ -30,6 +30,7 @@ export async function getPaymentBatchDetail(batchId: number) {
     *,
     submitter:profiles!submitted_by(nama),
     manager:profiles!manager_reviewed_by(nama),
+    executive1:profiles!executive_reviewed_1_by(nama),
     finance:profiles!finance_reviewed_by(nama),
     executive:profiles!executive_reviewed_by(nama),
     payer:profiles!paid_by(nama),

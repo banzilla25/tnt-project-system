@@ -338,11 +338,13 @@ export function BatchDetail({ batch, onBack, onRefresh }: { batch: any, onBack: 
             submitDate={batch.submitted_at}
             managerName={batch.manager?.nama}
             managerDate={batch.manager_reviewed_at}
+            executive1Name={batch.executive1?.nama}
+            executive1Date={batch.executive_reviewed_1_at}
             financeName={batch.finance?.nama}
             financeDate={batch.finance_reviewed_at}
             executiveName={batch.executive?.nama}
             executiveDate={batch.executive_reviewed_at}
-            payerName={batch.finance?.nama} 
+            payerName={batch.payer?.nama} 
             payDate={batch.paid_at}
           />
         </div>
