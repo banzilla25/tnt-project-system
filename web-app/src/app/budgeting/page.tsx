@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Loader2, ArrowRight, Wallet, CheckCircle2, Clock, AlertCircle } from "lucide-react";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { getPaymentBatches } from "../campaigns/actions/paymentActions";
+import { getPaymentBatches, getBudgetSummary } from "../campaigns/actions/paymentActions";
 import { useRouter } from "next/navigation";
 
 export default function GlobalBudgetingPage() {
@@ -24,7 +24,6 @@ function GlobalBudgetingContent() {
   const fetchBatches = useCallback(async () => {
     setIsLoading(true);
     try {
-      const { getBudgetSummary } = await import('../campaigns/actions/paymentActions');
       const [data, sumData] = await Promise.all([
         getPaymentBatches(),
         getBudgetSummary()
