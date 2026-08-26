@@ -533,7 +533,7 @@ export function BatchDetail({ batch, onBack, onRefresh }: { batch: any, onBack: 
                   )}
                   </React.Fragment>
                 )
-              })}
+              }))}
             </tbody>
           </table>
         </div>
