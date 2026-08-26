@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { PaymentStepper } from "@/components/PaymentStepper";
-import { managerApproveItem, managerRejectItem, managerFinalizeReview, financeToggleItem, financeSubmitToExecutive, financeMarkPaid, executiveApproveItem, executiveRejectItem, executiveFinalizeReview } from "../actions/paymentActions";
+import { managerApproveItem, managerRejectItem, managerFinalizeReview, financeToggleItem, financeSubmitToExecutive, financeMarkPaid, executiveApproveItem, executiveRejectItem, executiveFinalizeReview } from "../../actions/paymentActions";
 import { useAuth } from "@/providers/AuthProvider";
 import { Check, X, Loader2, ArrowLeft, Send } from "lucide-react";
 

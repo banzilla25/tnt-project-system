@@ -9,7 +9,7 @@ import { createClient } from "@/utils/supabase/client";
 import { useAuth } from "@/providers/AuthProvider";
 import { BatchForm } from "./BatchForm";
 import { BatchDetail } from "./BatchDetail";
-import { getPaymentBatches, getPaymentBatchDetail } from "../actions/paymentActions";
+import { getPaymentBatches, getPaymentBatchDetail } from "../../actions/paymentActions";
 
 const supabase = createClient();
 

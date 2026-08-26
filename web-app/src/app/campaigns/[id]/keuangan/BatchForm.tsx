@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { createPaymentBatch, addPaymentItem, submitBatchToManager, getCreatorBankAccounts } from "../actions/paymentActions";
+import { createPaymentBatch, addPaymentItem, submitBatchToManager, getCreatorBankAccounts } from "../../actions/paymentActions";
 import { Loader2, Plus, Trash2, Save, Send, ArrowLeft } from "lucide-react";
 
 export function BatchForm({ campaignId, creators, onCancel, onSuccess }: { campaignId: number, creators: any[], onCancel: () => void, onSuccess: () => void }) {
