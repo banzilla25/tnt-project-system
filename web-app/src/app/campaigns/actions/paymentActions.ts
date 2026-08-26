@@ -172,7 +172,8 @@ export async function revertBatchStatus(batchId: number) {
   let newStatus = '';
   if (batch.status === 'ready_to_pay') newStatus = 'pending_executive';
   else if (batch.status === 'pending_executive') newStatus = 'pending_finance';
-  else if (batch.status === 'pending_finance') newStatus = 'pending_manager';
+  else if (batch.status === 'pending_finance') newStatus = 'pending_executive_1';
+  else if (batch.status === 'pending_executive_1') newStatus = 'pending_manager';
   else throw new Error('Status tidak dapat dikembalikan lagi');
 
   const { error } = await supabase.from('payment_batches').update({ status: newStatus }).eq('id', batchId);
@@ -213,9 +214,50 @@ export async function managerFinalizeReview(batchId: number) {
   const supabase = await createClient();
   const { data: user } = await supabase.auth.getUser();
   const { error } = await supabase.from('payment_batches').update({
-    status: 'pending_finance',
+    status: 'pending_executive_1',
     manager_reviewed_by: user?.user?.id,
     manager_reviewed_at: new Date().toISOString()
+  }).eq('id', batchId);
+  if (error) throw new Error(error.message);
+  revalidatePath('/budgeting');
+}
+
+// ==========================================
+// EXECUTIVE REVIEW 1 ACTIONS
+// ==========================================
+
+export async function executiveApproveItem1(itemId: number) {
+  const supabase = await createClient();
+  const { data: user } = await supabase.auth.getUser();
+  const { error } = await supabase.from('payment_items').update({
+    executive_1_status: 'approved',
+    final_status: 'executive_1_approved',
+    executive_1_acted_by: user?.user?.id,
+    executive_1_acted_at: new Date().toISOString()
+  }).eq('id', itemId);
+  if (error) throw new Error(error.message);
+}
+
+export async function executiveRejectItem1(itemId: number, reason: string) {
+  const supabase = await createClient();
+  const { data: user } = await supabase.auth.getUser();
+  const { error } = await supabase.from('payment_items').update({
+    executive_1_status: 'rejected',
+    final_status: 'rejected',
+    executive_1_note: reason,
+    executive_1_acted_by: user?.user?.id,
+    executive_1_acted_at: new Date().toISOString()
+  }).eq('id', itemId);
+  if (error) throw new Error(error.message);
+}
+
+export async function executiveFinalizeReview1(batchId: number) {
+  const supabase = await createClient();
+  const { data: user } = await supabase.auth.getUser();
+  const { error } = await supabase.from('payment_batches').update({
+    status: 'pending_finance',
+    executive_reviewed_1_by: user?.user?.id,
+    executive_reviewed_1_at: new Date().toISOString()
   }).eq('id', batchId);
   if (error) throw new Error(error.message);
   revalidatePath('/budgeting');
@@ -227,7 +269,7 @@ export async function managerFinalizeReview(batchId: number) {
 
 export async function financeToggleItem(itemId: number, selected: boolean) {
   const supabase = await createClient();
-  const finalStatus = selected ? 'finance_selected' : 'manager_approved';
+  const finalStatus = selected ? 'finance_selected' : 'executive_1_approved';
   const { error } = await supabase.from('payment_items').update({
     finance_selected: selected,
     final_status: finalStatus

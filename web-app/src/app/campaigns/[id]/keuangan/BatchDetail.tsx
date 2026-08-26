@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { PaymentStepper } from "@/components/PaymentStepper";
 import { 
   managerApproveItem, managerRejectItem, managerFinalizeReview, 
+  executiveApproveItem1, executiveRejectItem1, executiveFinalizeReview1,
   financeToggleItem, financeSubmitToExecutive, financeMarkPaid, 
   executiveApproveItem, executiveRejectItem, executiveFinalizeReview,
   deletePaymentItem, deletePaymentBatch, updatePaymentItem, submitBatchToManager, revertBatchStatus, financeBulkMarkPaidItems
@@ -45,7 +46,8 @@ export function BatchDetail({ batch, onBack, onRefresh }: { batch: any, onBack: 
   const getFilteredItems = () => {
     const allItems = batch.payment_items || [];
     if (activeFunnel === 'draft' || activeFunnel === 'pending_manager') return allItems;
-    if (activeFunnel === 'pending_finance') return allItems.filter((i: any) => ['manager_approved', 'finance_selected', 'executive_approved', 'ready_to_pay', 'paid'].includes(i.final_status) || (i.final_status === 'rejected' && i.manager_status === 'approved'));
+    if (activeFunnel === 'pending_executive_1') return allItems.filter((i: any) => ['manager_approved', 'executive_1_approved', 'finance_selected', 'executive_approved', 'ready_to_pay', 'paid'].includes(i.final_status) || (i.final_status === 'rejected' && i.manager_status === 'approved'));
+    if (activeFunnel === 'pending_finance') return allItems.filter((i: any) => ['executive_1_approved', 'finance_selected', 'executive_approved', 'ready_to_pay', 'paid'].includes(i.final_status) || (i.final_status === 'rejected' && i.executive_1_status === 'approved'));
     if (activeFunnel === 'pending_executive') return allItems.filter((i: any) => ['finance_selected', 'executive_approved', 'ready_to_pay', 'paid'].includes(i.final_status) || (i.final_status === 'rejected' && i.finance_selected));
     if (activeFunnel === 'ready_to_pay' || activeFunnel === 'paid') return allItems.filter((i: any) => ['executive_approved', 'ready_to_pay', 'paid'].includes(i.final_status) || (i.final_status === 'rejected' && i.executive_status === 'approved'));
     return allItems;
@@ -437,8 +439,20 @@ export function BatchDetail({ batch, onBack, onRefresh }: { batch: any, onBack: 
                           </div>
                         )}
 
+                        {/* EXECUTIVE 1 ACTIONS */}
+                        {batch.status === 'pending_executive_1' && profile?.role === 'executive' && item.final_status === 'manager_approved' && (
+                          <div className="flex justify-center gap-2">
+                            <button onClick={() => handleAction(item.id, () => executiveApproveItem1(item.id))} disabled={loadingIds[item.id]} className="p-1.5 bg-emerald-100 text-emerald-600 rounded hover:bg-emerald-200">
+                              {loadingIds[item.id] ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                            </button>
+                            <button onClick={() => setRejectingId(item.id)} disabled={loadingIds[item.id]} className="p-1.5 bg-red-100 text-red-600 rounded hover:bg-red-200">
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        )}
+
                         {/* FINANCE ACTIONS */}
-                        {batch.status === 'pending_finance' && (profile?.role === 'finance' || profile?.role === 'executive') && item.final_status === 'manager_approved' && (
+                        {batch.status === 'pending_finance' && (profile?.role === 'finance' || profile?.role === 'executive') && item.final_status === 'executive_1_approved' && (
                           <label className="flex items-center justify-center cursor-pointer">
                             <input type="checkbox" className="w-5 h-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500" 
                               onChange={(e) => handleAction(item.id, () => financeToggleItem(item.id, e.target.checked))} 
@@ -552,6 +566,11 @@ export function BatchDetail({ batch, onBack, onRefresh }: { batch: any, onBack: 
             )}
             {batch.status === 'pending_manager' && (profile?.role === 'manager' || profile?.role === 'executive') && (
               <button onClick={() => handleFinalize(() => managerFinalizeReview(batch.id))} disabled={isFinalizing} className="btn btn-primary flex items-center gap-2">
+                {isFinalizing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Finalize Review & Submit ke Executive 1
+              </button>
+            )}
+            {batch.status === 'pending_executive_1' && profile?.role === 'executive' && (
+              <button onClick={() => handleFinalize(() => executiveFinalizeReview1(batch.id))} disabled={isFinalizing} className="btn btn-primary flex items-center gap-2">
                 {isFinalizing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Finalize Review & Submit ke Finance
               </button>
             )}

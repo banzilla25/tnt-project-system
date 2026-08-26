@@ -2,7 +2,7 @@
 
 import { Check, Clock, X, Circle, Loader2 } from "lucide-react";
 
-export type PaymentBatchStatus = 'draft' | 'pending_manager' | 'pending_finance' | 'pending_executive' | 'ready_to_pay' | 'paid' | 'cancelled';
+export type PaymentBatchStatus = 'draft' | 'pending_manager' | 'pending_executive_1' | 'pending_finance' | 'pending_executive' | 'ready_to_pay' | 'paid' | 'cancelled';
 
 interface StepperProps {
   status: PaymentBatchStatus;
@@ -12,6 +12,8 @@ interface StepperProps {
   submitDate?: string;
   managerName?: string;
   managerDate?: string;
+  executive1Name?: string;
+  executive1Date?: string;
   financeName?: string;
   financeDate?: string;
   executiveName?: string;
@@ -28,6 +30,8 @@ export function PaymentStepper({
   submitDate,
   managerName,
   managerDate,
+  executive1Name,
+  executive1Date,
   financeName,
   financeDate,
   executiveName,
@@ -51,9 +55,18 @@ export function PaymentStepper({
       label: 'Manager Review',
       actor: managerName,
       date: managerDate,
-      isCompleted: ['pending_finance', 'pending_executive', 'ready_to_pay', 'paid'].includes(status),
+      isCompleted: ['pending_executive_1', 'pending_finance', 'pending_executive', 'ready_to_pay', 'paid'].includes(status),
       isActive: status === 'pending_manager',
       isRejected: false, // If rejected, it usually goes back or cancelled, but batch level rejection might be cancelled
+    },
+    {
+      id: 'pending_executive_1',
+      label: 'Executive Review 1',
+      actor: executive1Name,
+      date: executive1Date,
+      isCompleted: ['pending_finance', 'pending_executive', 'ready_to_pay', 'paid'].includes(status),
+      isActive: status === 'pending_executive_1',
+      isRejected: false,
     },
     {
       id: 'pending_finance',
