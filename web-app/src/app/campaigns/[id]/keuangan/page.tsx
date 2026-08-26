@@ -93,8 +93,24 @@ function CampaignKeuanganContent() {
         .select(`*, creators(username)`)
         .eq('campaign_id', campaignId)
         .eq('approval', 'approved');
-      setCreators(ccData || []);
 
+      // Filter out creators with 0 price or already paid
+      const paidCreatorIds = new Set<number>();
+      data?.forEach(b => {
+        b.payment_items?.forEach((item: any) => {
+          if (item.final_status === 'paid') {
+            paidCreatorIds.add(item.campaign_creator_id);
+          }
+        });
+      });
+
+      const filteredCreators = (ccData || []).filter(cc => {
+        const hasRatecard = Number(cc.price || 0) > 0;
+        const isNotPaid = !paidCreatorIds.has(cc.id);
+        return hasRatecard && isNotPaid;
+      });
+
+      setCreators(filteredCreators);
     } catch (err) {
       console.error(err);
     } finally {
