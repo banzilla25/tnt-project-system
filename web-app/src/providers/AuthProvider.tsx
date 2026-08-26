@@ -22,6 +22,10 @@ type AuthContextType = {
   userCampaigns: UserCampaign[];
   isLoading: boolean;
   canEditCampaign: (campaignId: number) => boolean;
+  isManager: boolean;
+  isFinance: boolean;
+  isExecutive: boolean;
+  isAnggota: boolean;
 };
 
 const AuthContext = createContext<AuthContextType>({
@@ -29,6 +33,10 @@ const AuthContext = createContext<AuthContextType>({
   userCampaigns: [],
   isLoading: true,
   canEditCampaign: () => false,
+  isManager: false,
+  isFinance: false,
+  isExecutive: false,
+  isAnggota: false,
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -85,15 +93,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const canEditCampaign = (campaignId: number) => {
     if (isLoading) return false;
     if (!profile) return false;
-    if (profile.role === 'manager') return true;
+    if (['manager', 'finance', 'executive'].includes(profile.role)) return true;
     
     // Anggota checks
     if (userCampaigns.some(uc => uc.all_campaigns)) return true;
     return userCampaigns.some(uc => uc.campaign_id === campaignId);
   };
 
+  const isManager = profile?.role === 'manager';
+  const isFinance = profile?.role === 'finance';
+  const isExecutive = profile?.role === 'executive';
+  const isAnggota = profile?.role === 'anggota';
+
   return (
-    <AuthContext.Provider value={{ profile, userCampaigns, isLoading, canEditCampaign }}>
+    <AuthContext.Provider value={{ profile, userCampaigns, isLoading, canEditCampaign, isManager, isFinance, isExecutive, isAnggota }}>
       {children}
     </AuthContext.Provider>
   );

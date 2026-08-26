@@ -209,7 +209,7 @@ export default function ManajemenAkunClient({
                           </div>
                         </td>
                         <td className="px-4 py-3">
-                          <span className={`px-2 py-1 rounded text-xs font-medium ${user.role === 'manager' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}`}>
+                          <span className={`px-2 py-1 rounded text-xs font-medium ${user.role === 'manager' ? 'bg-amber-100 text-amber-700' : user.role === 'executive' ? 'bg-purple-100 text-purple-700' : user.role === 'finance' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}`}>
                             {user.role}
                           </span>
                         </td>
@@ -301,6 +301,8 @@ export default function ManajemenAkunClient({
                   >
                     <option value="anggota">Anggota (Staff)</option>
                     <option value="manager">Manager</option>
+                    <option value="finance">Finance</option>
+                    <option value="executive">Executive</option>
                   </select>
                 </div>
                 <Button 
@@ -340,7 +342,7 @@ export default function ManajemenAkunClient({
                           <td className="px-4 py-3 font-medium text-slate-900">{wl.email}</td>
                           <td className="px-4 py-3 text-slate-500">{wl.nama}</td>
                           <td className="px-4 py-3">
-                            <span className={`px-2 py-1 text-xs rounded-full font-medium ${wl.role === 'manager' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+                            <span className={`px-2 py-1 text-xs rounded-full font-medium ${wl.role === 'manager' ? 'bg-amber-100 text-amber-700' : wl.role === 'executive' ? 'bg-purple-100 text-purple-700' : wl.role === 'finance' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}`}>
                               {wl.role}
                             </span>
                           </td>

@@ -15,7 +15,6 @@ const navItems = [
   { name: 'Master Produk', href: '/skus', icon: Package, activePhase: true },
   { name: 'Input Penjualan', href: '/input-penjualan', icon: Receipt, activePhase: true },
   { name: 'Ads Report', href: '/ads-report', icon: FolderKanban, activePhase: true },
-  { name: 'Budgeting & Topup', href: '/budgeting', icon: Wallet, activePhase: true },
   { name: 'Unduh Ekstensi', href: '/extension', icon: Puzzle, activePhase: true },
   { name: 'Pengaturan', href: '/settings', icon: Settings, activePhase: true },
 ];
@@ -144,22 +143,27 @@ export function Sidebar() {
             );
           })}
           
-          {/* Khusus Manager */}
-          {profile?.role === 'manager' && (
+          {/* Khusus Manager, Finance, Executive */}
+          {['manager', 'finance', 'executive'].includes(profile?.role) && (
             <div className="mt-2">
               <div className="navsection">Manager Tools</div>
-              <Link
-                href="/manajemen-akun"
-                className={cn(
-                  'navitem tool',
-                  pathname.startsWith('/manajemen-akun') && 'active'
-                )}
-                onMouseEnter={(e) => handleMouseEnter(e, 'Manajemen Akun', true)}
-                onMouseLeave={handleMouseLeave}
-              >
-                <Shield className="ico" />
-                {isExpanded && <span>Manajemen Akun</span>}
-              </Link>
+              
+              {/* Manajemen Akun: Hanya Manager & Executive */}
+              {['manager', 'executive'].includes(profile?.role) && (
+                <Link
+                  href="/manajemen-akun"
+                  className={cn(
+                    'navitem tool',
+                    pathname.startsWith('/manajemen-akun') && 'active'
+                  )}
+                  onMouseEnter={(e) => handleMouseEnter(e, 'Manajemen Akun', true)}
+                  onMouseLeave={handleMouseLeave}
+                >
+                  <Shield className="ico" />
+                  {isExpanded && <span>Manajemen Akun</span>}
+                </Link>
+              )}
+              
               <Link
                 href="/activity-log"
                 className={cn(
@@ -171,6 +175,25 @@ export function Sidebar() {
               >
                 <Activity className="ico" />
                 {isExpanded && <span>Activity Log</span>}
+              </Link>
+            </div>
+          )}
+
+          {/* Khusus Finance & Executive */}
+          {['finance', 'executive'].includes(profile?.role) && (
+            <div className="mt-2">
+              <div className="navsection">Finance</div>
+              <Link
+                href="/budgeting"
+                className={cn(
+                  'navitem tool text-emerald-400 hover:text-emerald-300',
+                  pathname.startsWith('/budgeting') && 'active bg-emerald-500/20 text-emerald-300'
+                )}
+                onMouseEnter={(e) => handleMouseEnter(e, 'Dashboard Pembayaran', true)}
+                onMouseLeave={handleMouseLeave}
+              >
+                <Wallet className="ico text-emerald-400" />
+                {isExpanded && <span>Dashboard Pembayaran</span>}
               </Link>
             </div>
           )}
