@@ -364,7 +364,7 @@ export async function getBudgetSummary() {
   // Ambil semua payment items yang berstatus paid
   const { data: paidItems, error: itemsErr } = await supabase
     .from('payment_items')
-    .select('campaign_id, payment_type, nominal, biaya_transfer')
+    .select('payment_type, nominal, biaya_transfer, payment_batches!inner(campaign_id)')
     .eq('final_status', 'paid');
     
   if (itemsErr) throw new Error(itemsErr.message);
@@ -375,7 +375,8 @@ export async function getBudgetSummary() {
     let terpakaiAds = 0;
     
     paidItems?.forEach(item => {
-      if (item.campaign_id === camp.id) {
+      const itemCampaignId = (item.payment_batches as any)?.campaign_id;
+      if (itemCampaignId === camp.id) {
         if (item.payment_type === 'ads') {
           terpakaiAds += Number(item.nominal || 0);
         } else {
