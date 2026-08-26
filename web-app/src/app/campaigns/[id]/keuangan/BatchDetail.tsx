@@ -2,9 +2,14 @@
 
 import React, { useState } from "react";
 import { PaymentStepper } from "@/components/PaymentStepper";
-import { managerApproveItem, managerRejectItem, managerFinalizeReview, financeToggleItem, financeSubmitToExecutive, financeMarkPaid, executiveApproveItem, executiveRejectItem, executiveFinalizeReview } from "../../actions/paymentActions";
+import { 
+  managerApproveItem, managerRejectItem, managerFinalizeReview, 
+  financeToggleItem, financeSubmitToExecutive, financeMarkPaid, 
+  executiveApproveItem, executiveRejectItem, executiveFinalizeReview,
+  deletePaymentItem, deletePaymentBatch, updatePaymentItem
+} from "../../actions/paymentActions";
 import { useAuth } from "@/providers/AuthProvider";
-import { Check, X, Loader2, ArrowLeft, Send } from "lucide-react";
+import { Check, X, Loader2, ArrowLeft, Send, Trash2, Pencil } from "lucide-react";
 
 export function BatchDetail({ batch, onBack, onRefresh }: { batch: any, onBack: () => void, onRefresh: () => void }) {
   const { profile } = useAuth();
@@ -13,13 +18,15 @@ export function BatchDetail({ batch, onBack, onRefresh }: { batch: any, onBack: 
   const [rejectReason, setRejectReason] = useState("");
   const [rejectingId, setRejectingId] = useState<number | null>(null);
 
+  // Edit Form State
+  const [editingItemId, setEditingItemId] = useState<number | null>(null);
+  const [editNominal, setEditNominal] = useState<number>(0);
+  const [editBiayaTF, setEditBiayaTF] = useState<number>(0);
+
   // Mark Paid form state
   const [showPaidForm, setShowPaidForm] = useState(false);
   const [payDate, setPayDate] = useState("");
   const [buktiUrl, setBuktiUrl] = useState("");
-  
-  // TODO: sender accounts should be fetched, but for simplicity here we assume 1 (PT TNT) or hardcoded unless we pass it down
-  // Since we need senderAccountId, we could pass it or fetch it. Let's assume ID 1 for now if not selected, or we should fetch it.
   
   const handleAction = async (id: number, action: () => Promise<void>) => {
     setLoadingIds(prev => ({ ...prev, [id]: true }));
@@ -64,7 +71,7 @@ export function BatchDetail({ batch, onBack, onRefresh }: { batch: any, onBack: 
       await financeMarkPaid(batch.id, {
         actualPaymentDate: payDate,
         buktiTransferUrl: buktiUrl,
-        senderAccountId: 1 // Default to 1 (PT TNT)
+        senderAccountId: 1
       });
       await onRefresh();
       setShowPaidForm(false);
@@ -75,6 +82,39 @@ export function BatchDetail({ batch, onBack, onRefresh }: { batch: any, onBack: 
     }
   };
 
+  const handleDeleteBatch = async () => {
+    if (!confirm("YAKIN INGIN MENGHAPUS BATCH INI BESERTA SELURUH ITEM DI DALAMNYA? Data yang dihapus tidak bisa dikembalikan.")) return;
+    setIsFinalizing(true);
+    try {
+      await deletePaymentBatch(batch.id);
+      onBack();
+      // Wait for re-render in parent to fetch data without this batch
+    } catch (err: any) {
+      alert("Gagal menghapus batch: " + err.message);
+      setIsFinalizing(false);
+    }
+  };
+
+  const handleDeleteItem = async (itemId: number) => {
+    if (!confirm("Yakin ingin menghapus kreator ini dari batch?")) return;
+    handleAction(itemId, async () => {
+      await deletePaymentItem(itemId);
+    });
+  };
+
+  const handleSaveEditItem = async (itemId: number) => {
+    handleAction(itemId, async () => {
+      await updatePaymentItem(itemId, {
+        nominal: editNominal,
+        biaya_transfer: editBiayaTF
+      });
+      setEditingItemId(null);
+    });
+  };
+
+  // We only allow edit/delete if batch is in draft or rejected, OR if you are testing we just show it for draft
+  const canEditOrDelete = batch.status === 'draft' || batch.status === 'cancelled';
+
   return (
     <div className="space-y-6">
       <button onClick={onBack} className="btn btn-outline flex items-center gap-2">
@@ -84,7 +124,17 @@ export function BatchDetail({ batch, onBack, onRefresh }: { batch: any, onBack: 
       <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-8">
         <div className="flex justify-between items-start border-b border-slate-100 pb-6">
           <div>
-            <h2 className="text-xl font-bold text-slate-800">{batch.batch_label}</h2>
+            <h2 className="text-xl font-bold text-slate-800 flex items-center gap-3">
+              {batch.batch_label}
+              <button 
+                onClick={handleDeleteBatch} 
+                disabled={isFinalizing}
+                className="text-red-500 hover:bg-red-50 p-2 rounded-lg transition-colors"
+                title="Hapus Batch"
+              >
+                {isFinalizing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+              </button>
+            </h2>
             <p className="text-sm text-slate-500 mt-1">Campaign: {batch.campaigns?.nama}</p>
           </div>
           <div className="text-right">
@@ -125,6 +175,8 @@ export function BatchDetail({ batch, onBack, onRefresh }: { batch: any, onBack: 
               {batch.payment_items.map((item: any) => {
                 const totalTrx = Number(item.nominal) + Number(item.biaya_transfer);
                 const bank = item.creator_bank_accounts;
+                const isEditing = editingItemId === item.id;
+
                 return (
                   <tr key={item.id} className="hover:bg-slate-50">
                     <td className="px-4 py-3 font-medium">
@@ -135,11 +187,35 @@ export function BatchDetail({ batch, onBack, onRefresh }: { batch: any, onBack: 
                       {item.payment_type.replace('_', ' ')}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      {item.ratecard_awal && <div className="text-xs text-slate-400 line-through">Rp {Number(item.ratecard_awal).toLocaleString()}</div>}
-                      <div className="font-semibold text-slate-700">Rp {Number(item.nominal).toLocaleString()}</div>
+                      {isEditing ? (
+                        <input 
+                          type="number" 
+                          className="w-24 px-2 py-1 border border-slate-300 rounded text-right"
+                          value={editNominal}
+                          onChange={e => setEditNominal(Number(e.target.value))}
+                        />
+                      ) : (
+                        <>
+                          {item.ratecard_awal && <div className="text-xs text-slate-400 line-through">Rp {Number(item.ratecard_awal).toLocaleString()}</div>}
+                          <div className="font-semibold text-slate-700">Rp {Number(item.nominal).toLocaleString()}</div>
+                        </>
+                      )}
                     </td>
-                    <td className="px-4 py-3 text-right text-slate-500">Rp {Number(item.biaya_transfer).toLocaleString()}</td>
-                    <td className="px-4 py-3 text-right font-bold text-blue-700">Rp {totalTrx.toLocaleString()}</td>
+                    <td className="px-4 py-3 text-right text-slate-500">
+                      {isEditing ? (
+                        <input 
+                          type="number" 
+                          className="w-20 px-2 py-1 border border-slate-300 rounded text-right"
+                          value={editBiayaTF}
+                          onChange={e => setEditBiayaTF(Number(e.target.value))}
+                        />
+                      ) : (
+                        `Rp ${Number(item.biaya_transfer).toLocaleString()}`
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-right font-bold text-blue-700">
+                      Rp {(isEditing ? editNominal + editBiayaTF : totalTrx).toLocaleString()}
+                    </td>
                     <td className="px-4 py-3 text-xs">
                       {bank ? (
                         <>
@@ -168,48 +244,78 @@ export function BatchDetail({ batch, onBack, onRefresh }: { batch: any, onBack: 
                       ) : null}
                     </td>
                     <td className="px-4 py-3 text-center">
-                      {/* MANAGER ACTIONS */}
-                      {batch.status === 'pending_manager' && profile?.role === 'manager' && item.final_status === 'pending' && (
-                        <div className="flex justify-center gap-2">
-                          <button onClick={() => handleAction(item.id, () => managerApproveItem(item.id))} disabled={loadingIds[item.id]} className="p-1.5 bg-emerald-100 text-emerald-600 rounded hover:bg-emerald-200">
-                            {loadingIds[item.id] ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                          </button>
-                          <button onClick={() => setRejectingId(item.id)} disabled={loadingIds[item.id]} className="p-1.5 bg-red-100 text-red-600 rounded hover:bg-red-200">
-                            <X className="w-4 h-4" />
-                          </button>
-                        </div>
-                      )}
+                      <div className="flex flex-col items-center gap-2">
+                        {/* MANAGER ACTIONS */}
+                        {batch.status === 'pending_manager' && profile?.role === 'manager' && item.final_status === 'pending' && (
+                          <div className="flex justify-center gap-2">
+                            <button onClick={() => handleAction(item.id, () => managerApproveItem(item.id))} disabled={loadingIds[item.id]} className="p-1.5 bg-emerald-100 text-emerald-600 rounded hover:bg-emerald-200">
+                              {loadingIds[item.id] ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                            </button>
+                            <button onClick={() => setRejectingId(item.id)} disabled={loadingIds[item.id]} className="p-1.5 bg-red-100 text-red-600 rounded hover:bg-red-200">
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        )}
 
-                      {/* FINANCE ACTIONS */}
-                      {batch.status === 'pending_finance' && profile?.role === 'finance' && item.final_status === 'manager_approved' && (
-                        <label className="flex items-center justify-center cursor-pointer">
-                          <input type="checkbox" className="w-5 h-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500" 
-                            onChange={(e) => handleAction(item.id, () => financeToggleItem(item.id, e.target.checked))} 
-                            disabled={loadingIds[item.id]}
-                          />
-                        </label>
-                      )}
-                      {batch.status === 'pending_finance' && profile?.role === 'finance' && item.final_status === 'finance_selected' && (
-                        <label className="flex items-center justify-center cursor-pointer">
-                          <input type="checkbox" className="w-5 h-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500" 
-                            checked={true}
-                            onChange={(e) => handleAction(item.id, () => financeToggleItem(item.id, e.target.checked))} 
-                            disabled={loadingIds[item.id]}
-                          />
-                        </label>
-                      )}
+                        {/* FINANCE ACTIONS */}
+                        {batch.status === 'pending_finance' && profile?.role === 'finance' && item.final_status === 'manager_approved' && (
+                          <label className="flex items-center justify-center cursor-pointer">
+                            <input type="checkbox" className="w-5 h-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500" 
+                              onChange={(e) => handleAction(item.id, () => financeToggleItem(item.id, e.target.checked))} 
+                              disabled={loadingIds[item.id]}
+                            />
+                          </label>
+                        )}
+                        {batch.status === 'pending_finance' && profile?.role === 'finance' && item.final_status === 'finance_selected' && (
+                          <label className="flex items-center justify-center cursor-pointer">
+                            <input type="checkbox" className="w-5 h-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500" 
+                              checked={true}
+                              onChange={(e) => handleAction(item.id, () => financeToggleItem(item.id, e.target.checked))} 
+                              disabled={loadingIds[item.id]}
+                            />
+                          </label>
+                        )}
 
-                      {/* EXECUTIVE ACTIONS */}
-                      {batch.status === 'pending_executive' && profile?.role === 'executive' && item.final_status === 'finance_selected' && (
-                        <div className="flex justify-center gap-2">
-                          <button onClick={() => handleAction(item.id, () => executiveApproveItem(item.id))} disabled={loadingIds[item.id]} className="p-1.5 bg-emerald-100 text-emerald-600 rounded hover:bg-emerald-200">
-                            {loadingIds[item.id] ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                          </button>
-                          <button onClick={() => setRejectingId(item.id)} disabled={loadingIds[item.id]} className="p-1.5 bg-red-100 text-red-600 rounded hover:bg-red-200">
-                            <X className="w-4 h-4" />
-                          </button>
+                        {/* EXECUTIVE ACTIONS */}
+                        {batch.status === 'pending_executive' && profile?.role === 'executive' && item.final_status === 'finance_selected' && (
+                          <div className="flex justify-center gap-2">
+                            <button onClick={() => handleAction(item.id, () => executiveApproveItem(item.id))} disabled={loadingIds[item.id]} className="p-1.5 bg-emerald-100 text-emerald-600 rounded hover:bg-emerald-200">
+                              {loadingIds[item.id] ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                            </button>
+                            <button onClick={() => setRejectingId(item.id)} disabled={loadingIds[item.id]} className="p-1.5 bg-red-100 text-red-600 rounded hover:bg-red-200">
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        )}
+
+                        {/* GENERAL EDIT & DELETE ACTIONS (For testing/draft) */}
+                        <div className="flex justify-center gap-2 mt-1">
+                          {isEditing ? (
+                            <>
+                              <button onClick={() => handleSaveEditItem(item.id)} disabled={loadingIds[item.id]} className="p-1.5 bg-green-100 text-green-600 rounded hover:bg-green-200" title="Simpan">
+                                {loadingIds[item.id] ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                              </button>
+                              <button onClick={() => setEditingItemId(null)} disabled={loadingIds[item.id]} className="p-1.5 bg-slate-100 text-slate-600 rounded hover:bg-slate-200" title="Batal">
+                                <X className="w-4 h-4" />
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button onClick={() => {
+                                setEditingItemId(item.id);
+                                setEditNominal(Number(item.nominal));
+                                setEditBiayaTF(Number(item.biaya_transfer));
+                              }} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded" title="Edit Nominal">
+                                <Pencil className="w-4 h-4" />
+                              </button>
+                              <button onClick={() => handleDeleteItem(item.id)} disabled={loadingIds[item.id]} className="p-1.5 text-red-500 hover:bg-red-50 rounded" title="Hapus Kreator dari Batch">
+                                {loadingIds[item.id] ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                              </button>
+                            </>
+                          )}
                         </div>
-                      )}
+
+                      </div>
                     </td>
                   </tr>
                 )

@@ -146,6 +146,14 @@ export async function deletePaymentItem(itemId: number) {
   if (error) throw new Error(error.message);
 }
 
+export async function deletePaymentBatch(batchId: number) {
+  const supabase = await createClient();
+  // hapus items dulu (kalau db belum cascade)
+  await supabase.from('payment_items').delete().eq('batch_id', batchId);
+  const { error } = await supabase.from('payment_batches').delete().eq('id', batchId);
+  if (error) throw new Error(error.message);
+}
+
 export async function submitBatchToManager(batchId: number) {
   const supabase = await createClient();
   const { error } = await supabase.from('payment_batches').update({
