@@ -12,6 +12,10 @@ export function BatchForm({ campaignId, creators, onCancel, onSuccess }: { campa
   const [forms, setForms] = useState<Record<number, any>>({});
   const [bankAccounts, setBankAccounts] = useState<Record<number, any[]>>({});
   const [loadingBanks, setLoadingBanks] = useState<Record<number, boolean>>({});
+  
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showBulkSelect, setShowBulkSelect] = useState(false);
+  const [bulkText, setBulkText] = useState("");
 
   const handleToggleCreator = async (cc: any, isChecked: boolean) => {
     if (!isChecked) {
@@ -19,29 +23,34 @@ export function BatchForm({ campaignId, creators, onCancel, onSuccess }: { campa
       return;
     }
     
-    if (selectedCreators.find(s => s.id === cc.id)) return;
+    setSelectedCreators(prev => {
+      if (prev.find(s => s.id === cc.id)) return prev;
+      return [...prev, cc];
+    });
     
-    setSelectedCreators(prev => [...prev, cc]);
-    setForms(prev => ({
-      ...prev,
-      [cc.id]: {
-        campaign_creator_id: cc.id,
-        payment_type: '100_akhir',
-        ratecard_awal: cc.price || 0,
-        nominal: cc.price || 0,
-        biaya_transfer: 0,
-        bank_account_id: '',
-        metode_pembayaran: '',
-        nomor_rekening: '',
-        nama_penerima: '',
-        nama_wa_pic: '',
-        nomor_wa_dealing: '',
-        alamat_ktp: '',
-        nik: '',
-        link_ktp: '',
-        link_kontrak: '',
-      }
-    }));
+    setForms(prev => {
+      if (prev[cc.id]) return prev;
+      return {
+        ...prev,
+        [cc.id]: {
+          campaign_creator_id: cc.id,
+          payment_type: '100_akhir',
+          ratecard_awal: cc.price || 0,
+          nominal: cc.price || 0,
+          biaya_transfer: 0,
+          bank_account_id: '',
+          metode_pembayaran: '',
+          nomor_rekening: '',
+          nama_penerima: '',
+          nama_wa_pic: '',
+          nomor_wa_dealing: '',
+          alamat_ktp: '',
+          nik: '',
+          link_ktp: '',
+          link_kontrak: '',
+        }
+      };
+    });
 
     // Fetch bank accounts for this creator
     if (!bankAccounts[cc.creator_id]) {
@@ -56,6 +65,42 @@ export function BatchForm({ campaignId, creators, onCancel, onSuccess }: { campa
       }
     }
   };
+
+  const handleProcessBulk = () => {
+    if (!bulkText.trim()) return;
+    const rawList = bulkText.split(/[\n,]+/).map(s => s.trim().replace(/^@/, '').toLowerCase()).filter(s => s);
+    const uniqueRawList = Array.from(new Set(rawList));
+    const approvedCreators = creators.filter(c => c.approval === 'approved');
+    
+    const notFound: string[] = [];
+    const toAdd: any[] = [];
+    
+    uniqueRawList.forEach(username => {
+      const cc = approvedCreators.find(c => c.creators?.username?.toLowerCase() === username);
+      if (cc) {
+        toAdd.push(cc);
+      } else {
+        notFound.push(username);
+      }
+    });
+    
+    if (notFound.length > 0) {
+      alert(`Kreator berikut tidak ditemukan atau belum di-approve di campaign ini:\n\n${notFound.join('\n')}`);
+    }
+    
+    // Process additions
+    toAdd.forEach(cc => {
+      handleToggleCreator(cc, true);
+    });
+    
+    setBulkText("");
+    setShowBulkSelect(false);
+  };
+
+  const filteredCreators = creators.filter(c => 
+    c.approval === 'approved' && 
+    (!searchQuery || c.creators?.username?.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
 
   const handleRemoveCreator = (ccId: number) => {
     setSelectedCreators(prev => prev.filter(c => c.id !== ccId));
@@ -141,10 +186,44 @@ export function BatchForm({ campaignId, creators, onCancel, onSuccess }: { campa
         </div>
 
         <div className="border-t border-slate-100 pt-6">
-          <label className="block text-sm font-semibold text-slate-700 mb-2">Pilih Kreator</label>
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-4">
+            <div className="flex-1">
+              <label className="block text-sm font-semibold text-slate-700 mb-2">Pilih Kreator</label>
+              <input 
+                type="text" 
+                placeholder="Cari username..." 
+                className="w-full md:w-1/2 px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+              />
+            </div>
+            <div>
+              <button onClick={() => setShowBulkSelect(v => !v)} className="btn btn-outline flex items-center gap-2 text-sm whitespace-nowrap">
+                <Plus className="w-4 h-4" /> {showBulkSelect ? 'Tutup Input Bulk' : 'Tempel List Kreator'}
+              </button>
+            </div>
+          </div>
+
+          {showBulkSelect && (
+            <div className="mb-4 bg-slate-50 p-4 rounded-lg border border-slate-200">
+              <label className="block text-xs font-semibold text-slate-600 mb-2">Paste list username (dipisah enter atau koma)</label>
+              <textarea 
+                className="w-full p-3 border border-slate-300 rounded-md outline-none focus:ring-2 focus:ring-blue-500 text-sm h-32"
+                placeholder="@budi, @andi&#10;@cindy"
+                value={bulkText}
+                onChange={e => setBulkText(e.target.value)}
+              />
+              <div className="flex justify-end mt-2">
+                <button onClick={handleProcessBulk} className="btn btn-primary btn-sm flex items-center gap-2 px-3 py-1.5 text-xs">
+                  <Plus className="w-3 h-3" /> Tambahkan ke Batch
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="overflow-x-auto border border-slate-200 rounded-lg max-h-64 overflow-y-auto">
             <table className="w-full text-left text-sm">
-              <thead className="bg-slate-50 border-b border-slate-100 text-slate-600 font-medium sticky top-0">
+              <thead className="bg-slate-50 border-b border-slate-100 text-slate-600 font-medium sticky top-0 z-10">
                 <tr>
                   <th className="px-4 py-2 text-center w-12">Pilih</th>
                   <th className="px-4 py-2">Username</th>
@@ -152,7 +231,7 @@ export function BatchForm({ campaignId, creators, onCancel, onSuccess }: { campa
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {creators.filter(c => c.approval === 'approved').map(c => {
+                {filteredCreators.map(c => {
                   const isSelected = !!selectedCreators.find(s => s.id === c.id);
                   return (
                     <tr key={c.id} className={`hover:bg-slate-50 ${isSelected ? 'bg-blue-50/50' : ''}`}>
@@ -169,10 +248,10 @@ export function BatchForm({ campaignId, creators, onCancel, onSuccess }: { campa
                     </tr>
                   )
                 })}
-                {creators.filter(c => c.approval === 'approved').length === 0 && (
+                {filteredCreators.length === 0 && (
                   <tr>
                     <td colSpan={3} className="px-4 py-8 text-center text-slate-500">
-                      Belum ada kreator yang di-approve di campaign ini.
+                      {searchQuery ? "Kreator tidak ditemukan" : "Belum ada kreator yang di-approve di campaign ini."}
                     </td>
                   </tr>
                 )}
