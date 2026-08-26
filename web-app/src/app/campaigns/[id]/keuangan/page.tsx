@@ -2,13 +2,18 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { useDatabaseStore } from "@/store/useDatabaseStore";
-import { Loader2, Save, Search, ArrowUp, ArrowDown, ArrowUpDown, Plus, Trash2, Pencil, X, Check, StickyNote } from "lucide-react";
+import { Loader2, Plus, ArrowRight, Wallet, Activity, CheckCircle2, Search, X, Check, Trash2, Pencil, StickyNote } from "lucide-react";
 import { useParams } from "next/navigation";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { createClient } from "@/utils/supabase/client";
 import { useAuth } from "@/providers/AuthProvider";
+import { BatchForm } from "./BatchForm";
+import { BatchDetail } from "./BatchDetail";
+import { getPaymentBatches, getPaymentBatchDetail } from "../actions/paymentActions";
 
 const supabase = createClient();
+
+type ViewState = 'list' | 'form' | 'detail';
 
 type AdsEntry = {
   id: number;
@@ -35,20 +40,23 @@ function CampaignKeuanganContent() {
   const campaignId = Number(id);
   const { campaigns } = useDatabaseStore();
   const campaign = campaigns.find(c => c.id === campaignId);
-
   const { canEditCampaign, profile } = useAuth();
   const hasAccess = canEditCampaign(campaignId);
 
-  // Tab state
+  // View state for Creator Tab
+  const [viewState, setViewState] = useState<ViewState>('list');
   const [activeTab, setActiveTab] = useState<'creator' | 'ads'>('creator');
+  
+  // Batch Data
+  const [batches, setBatches] = useState<any[]>([]);
+  const [selectedBatch, setSelectedBatch] = useState<any>(null);
+  const [isLoadingBatches, setIsLoadingBatches] = useState(true);
 
-  // ===================== CREATOR STATE =====================
+  // Creators Data for Form
   const [creators, setCreators] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [saving, setSaving] = useState<Record<number, boolean>>({});
-  const [editForms, setEditForms] = useState<Record<number, { price: string; nominal_pelunasan: string; status_bayar: string; tgl_pembayaran: string }>>({});
-  const [searchQuery, setSearchQuery] = useState('');
-  const [sortConfig, setSortConfig] = useState<{ key: string; dir: 'asc' | 'desc' }>({ key: '', dir: 'asc' });
+  
+  // KPI Data
+  const [totalTerpakai, setTotalTerpakai] = useState(0);
 
   // ===================== ADS STATE =====================
   const [adsEntries, setAdsEntries] = useState<AdsEntry[]>([]);
@@ -61,113 +69,56 @@ function CampaignKeuanganContent() {
   const [newAds, setNewAds] = useState({ detail: '', nominal: '', status_bayar: 'not_yet', tanggal: '', notes: '' });
   const [addingAds, setAddingAds] = useState(false);
 
-  const toggleSort = (key: string) => {
-    setSortConfig(prev =>
-      prev.key === key
-        ? { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' }
-        : { key, dir: 'asc' }
-    );
-  };
-
-  const SortIcon = ({ col }: { col: string }) => {
-    if (sortConfig.key !== col) return <ArrowUpDown className="w-3.5 h-3.5 ml-1 inline text-slate-400" />;
-    return sortConfig.dir === 'asc'
-      ? <ArrowUp className="w-3.5 h-3.5 ml-1 inline text-blue-600" />
-      : <ArrowDown className="w-3.5 h-3.5 ml-1 inline text-blue-600" />;
-  };
-
-  // ===================== CREATOR DATA =====================
-  const fetchCreatorData = useCallback(async () => {
-    setIsLoading(true);
+  const fetchData = useCallback(async () => {
+    setIsLoadingBatches(true);
     try {
-      const fetchAll = async (baseQuery: any) => {
-        let all: any[] = [];
-        let from = 0;
-        while (true) {
-          const { data, error } = await baseQuery.range(from, from + 999);
-          if (error) throw error;
-          if (!data || data.length === 0) break;
-          all = all.concat(data);
-          if (data.length < 1000) break;
-          from += 1000;
-        }
-        return all;
-      };
-
-      const data = await fetchAll(supabase
-        .from('campaign_creators')
-        .select(`id, price, status_bayar, nominal_pelunasan, tgl_pembayaran, payment_updated_at, payment_updated_by_profile:profiles!campaign_creators_payment_updated_by_fkey(nama), creators ( username )`)
-        .eq('campaign_id', campaignId)
-        .eq('approval', 'approved'));
-      setCreators(data || []);
-      const forms: Record<number, any> = {};
-      (data || []).forEach(cc => {
-        forms[cc.id] = {
-          price: cc.price?.toString() || '0',
-          nominal_pelunasan: cc.nominal_pelunasan?.toString() || '0',
-          status_bayar: cc.status_bayar || 'belum',
-          tgl_pembayaran: cc.tgl_pembayaran || ''
-        };
+      // Fetch batches
+      const data = await getPaymentBatches(campaignId);
+      setBatches(data || []);
+      
+      // Calculate Total Terpakai
+      let terpakai = 0;
+      data?.forEach(b => {
+        b.payment_items?.forEach((item: any) => {
+          if (item.final_status === 'paid' && item.payment_type !== 'ads') {
+            terpakai += Number(item.nominal) + Number(item.biaya_transfer);
+          }
+        });
       });
-      setEditForms(forms);
+      setTotalTerpakai(terpakai);
+
+      // Fetch approved creators for form
+      const { data: ccData } = await supabase
+        .from('campaign_creators')
+        .select(`*, creators(username)`)
+        .eq('campaign_id', campaignId)
+        .eq('approval', 'approved');
+      setCreators(ccData || []);
+
     } catch (err) {
       console.error(err);
     } finally {
-      setIsLoading(false);
+      setIsLoadingBatches(false);
     }
   }, [campaignId]);
 
-  // ===================== ADS DATA =====================
   const fetchAdsData = useCallback(async () => {
     setAdsLoading(true);
     const { data } = await supabase
       .from('ads_spends')
-      .select('*, last_updated_by_profile:profiles!ads_spends_last_updated_by_fkey(nama)')
+      .select('*, last_updated_by_profile_name:profiles!ads_spends_last_updated_by_fkey(nama)')
       .eq('campaign_id', campaignId)
       .order('tanggal', { ascending: false });
-    setAdsEntries(data || []);
+    setAdsEntries((data as unknown as AdsEntry[]) || []);
     setAdsLoading(false);
   }, [campaignId]);
 
   useEffect(() => {
     if (campaignId) {
-      fetchCreatorData();
+      fetchData();
       fetchAdsData();
     }
-  }, [campaignId, fetchCreatorData, fetchAdsData]);
-
-  // ===================== CREATOR HANDLERS =====================
-  const handleFormChange = (ccId: number, field: string, value: string) => {
-    setEditForms(prev => ({ ...prev, [ccId]: { ...prev[ccId], [field]: value } }));
-  };
-
-  const handleSave = async (ccId: number) => {
-    setSaving(prev => ({ ...prev, [ccId]: true }));
-    try {
-      const form = editForms[ccId];
-      const nominal = form.nominal_pelunasan ? parseInt(form.nominal_pelunasan.replace(/[^0-9]/g, '')) : 0;
-      const price = form.price ? parseInt(form.price.replace(/[^0-9]/g, '')) : 0;
-      const { error } = await supabase
-        .from('campaign_creators')
-        .update({ 
-          price, 
-          status_bayar: form.status_bayar as any, 
-          nominal_pelunasan: nominal, 
-          tgl_pembayaran: form.tgl_pembayaran || null,
-          payment_updated_by: profile?.id,
-          payment_updated_at: new Date().toISOString()
-        })
-        .eq('id', ccId);
-      if (error) throw error;
-      setCreators(prev => prev.map(c => c.id === ccId ? { ...c, price, status_bayar: form.status_bayar, nominal_pelunasan: nominal, tgl_pembayaran: form.tgl_pembayaran } : c));
-      alert('Berhasil disimpan');
-    } catch (err) {
-      alert('Gagal menyimpan');
-    } finally {
-      setSaving(prev => ({ ...prev, [ccId]: false }));
-      await fetchCreatorData();
-    }
-  };
+  }, [campaignId, fetchData, fetchAdsData]);
 
   // ===================== ADS HANDLERS =====================
   const handleAddAds = async () => {
@@ -242,26 +193,30 @@ function CampaignKeuanganContent() {
     }
   };
 
+  const handleViewDetail = async (batchId: number) => {
+    setViewState('detail');
+    const detail = await getPaymentBatchDetail(batchId);
+    setSelectedBatch(detail);
+  };
+
+  const getBatchStatusBadge = (status: string) => {
+    switch(status) {
+      case 'draft': return <span className="px-2 py-1 bg-slate-100 text-slate-600 rounded text-xs font-bold uppercase">Draft</span>;
+      case 'pending_manager': return <span className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded text-xs font-bold uppercase">Menunggu Manager</span>;
+      case 'pending_finance': return <span className="px-2 py-1 bg-orange-100 text-orange-700 rounded text-xs font-bold uppercase">Menunggu Finance</span>;
+      case 'pending_executive': return <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs font-bold uppercase">Menunggu Executive</span>;
+      case 'ready_to_pay': return <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-bold uppercase">Siap Bayar</span>;
+      case 'paid': return <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-bold uppercase">Paid Off</span>;
+      case 'cancelled': return <span className="px-2 py-1 bg-red-100 text-red-700 rounded text-xs font-bold uppercase">Dibatalkan</span>;
+      default: return <span className="px-2 py-1 bg-slate-100 text-slate-600 rounded text-xs font-bold uppercase">{status}</span>;
+    }
+  }
+
   if (!campaign) return null;
 
-  // ===================== CREATOR CALCULATIONS =====================
   const budgetPlafon = Number(campaign.budget_creator_plafon || 0);
-  const totalRatecard = creators.reduce((sum, c) => sum + (Number(c.price) || 0), 0);
-  const sisaBudgetCampaign = budgetPlafon - totalRatecard;
-  const totalPelunasan = creators.reduce((sum, c) => sum + (Number(c.nominal_pelunasan) || 0), 0);
-  const sisaBelumTerbayar = totalRatecard - totalPelunasan;
-
-  const filteredCreators = creators.filter(cc => !searchQuery || cc.creators?.username?.toLowerCase().includes(searchQuery.toLowerCase()));
-  const sortedCreators = [...filteredCreators].sort((a, b) => {
-    if (!sortConfig.key) return 0;
-    if (sortConfig.key === 'username') {
-      const vA = a.creators?.username ?? '', vB = b.creators?.username ?? '';
-      return sortConfig.dir === 'asc' ? String(vA).localeCompare(String(vB)) : String(vB).localeCompare(String(vA));
-    }
-    const vA = Number(sortConfig.key === 'price' ? a.price : a.nominal_pelunasan) || 0;
-    const vB = Number(sortConfig.key === 'price' ? b.price : b.nominal_pelunasan) || 0;
-    return sortConfig.dir === 'asc' ? vA - vB : vB - vA;
-  });
+  const sisaBudget = budgetPlafon - totalTerpakai;
+  const progressPercent = budgetPlafon > 0 ? Math.min((totalTerpakai / budgetPlafon) * 100, 100) : 0;
 
   // ===================== ADS CALCULATIONS =====================
   const adsBudgetPlafon = Number(campaign.budget_ads_plafon || 0);
@@ -271,149 +226,153 @@ function CampaignKeuanganContent() {
   return (
     <div className="space-y-[24px] pb-[80px]">
       {/* TAB SWITCHER */}
-      <div className="flex border-b border-line">
-        <button
-          onClick={() => setActiveTab('creator')}
-          className={`px-[24px] py-[12px] text-[13px] font-semibold border-b-2 transition-colors ${activeTab === 'creator' ? 'border-blue-600 text-blue-600' : 'border-transparent text-text-soft hover:text-text'}`}
-        >
-          💰 Budget Creator
-        </button>
-        <button
-          onClick={() => setActiveTab('ads')}
-          className={`px-[24px] py-[12px] text-[13px] font-semibold border-b-2 transition-colors ${activeTab === 'ads' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-text-soft hover:text-text'}`}
-        >
-          📢 Budget Ads
-        </button>
-      </div>
+      {viewState === 'list' && (
+        <div className="flex border-b border-line">
+          <button
+            onClick={() => setActiveTab('creator')}
+            className={`px-[24px] py-[12px] text-[13px] font-semibold border-b-2 transition-colors ${activeTab === 'creator' ? 'border-blue-600 text-blue-600' : 'border-transparent text-text-soft hover:text-text'}`}
+          >
+            💰 Budget Creator
+          </button>
+          <button
+            onClick={() => setActiveTab('ads')}
+            className={`px-[24px] py-[12px] text-[13px] font-semibold border-b-2 transition-colors ${activeTab === 'ads' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-text-soft hover:text-text'}`}
+          >
+            📢 Budget Ads
+          </button>
+        </div>
+      )}
 
       {/* ===================== CREATOR TAB ===================== */}
       {activeTab === 'creator' && (
         <div className="space-y-[24px]">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-[24px]">
-            <div className="ccard bg-slate-900 text-white !border-slate-800">
-              <div className="p-[24px]">
-                <p className="text-slate-400 text-[13px] font-medium mb-[4px]">Budget Campaign (Plafon)</p>
-                <h3 className="text-[24px] font-bold">Rp {budgetPlafon.toLocaleString()}</h3>
-              </div>
-            </div>
-            <div className="ccard">
-              <div className="p-[24px]">
-                <p className="text-text-soft text-[13px] font-medium mb-[4px]">Sisa Budget Campaign</p>
-                <h3 className={`text-[24px] font-bold ${sisaBudgetCampaign < 0 ? 'text-red-600' : 'text-text'}`}>
-                  Rp {sisaBudgetCampaign.toLocaleString()}
-                </h3>
-                <p className="text-[11px] text-text-soft mt-[4px]">Plafon dikurangi Total Ratecard</p>
-              </div>
-            </div>
-            <div className="ccard bg-blue-50 border-blue-100">
-              <div className="p-[24px]">
-                <p className="text-blue-600 text-[13px] font-medium mb-[4px]">Total Ratecard Kreator (SOW)</p>
-                <h3 className="text-[24px] font-bold text-blue-900">Rp {totalRatecard.toLocaleString()}</h3>
-                <p className="text-[11px] text-blue-500 mt-[4px]">Total dari {creators.length} Kreator</p>
-              </div>
-            </div>
-            <div className="ccard space-y-[8px]">
-              <div className="p-[24px] space-y-[8px]">
-                <div className="flex justify-between items-center">
-                  <span className="text-[11px] text-text-soft">Sudah Terbayar</span>
-                  <span className="text-[13px] font-semibold text-green-600">Rp {totalPelunasan.toLocaleString()}</span>
+          {viewState === 'list' && (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-[24px]">
+                <div className="bg-slate-900 rounded-xl p-6 text-white shadow-sm">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="text-slate-400 text-[13px] font-medium mb-[4px]">Budget Plafon Creator</p>
+                      <h3 className="text-[24px] font-bold">Rp {budgetPlafon.toLocaleString()}</h3>
+                    </div>
+                    <Wallet className="w-8 h-8 text-slate-700" />
+                  </div>
                 </div>
-                <div className="w-full bg-slate-100 h-[8px] rounded-full overflow-hidden">
-                  <div className="bg-green-500 h-full" style={{ width: `${totalRatecard > 0 ? Math.min((totalPelunasan / totalRatecard) * 100, 100) : 0}%` }}></div>
+                <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="text-slate-500 text-[13px] font-medium mb-[4px]">Total Terpakai (Paid)</p>
+                      <h3 className="text-[24px] font-bold text-slate-800">Rp {totalTerpakai.toLocaleString()}</h3>
+                    </div>
+                    <Activity className="w-8 h-8 text-slate-300" />
+                  </div>
                 </div>
-                <div className="flex justify-between items-center pt-[4px] border-t border-line">
-                  <span className="text-[11px] text-text-soft">Sisa Belum Dibayar</span>
-                  <span className="text-[13px] font-semibold text-red-500">Rp {sisaBelumTerbayar.toLocaleString()}</span>
+                <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-6 shadow-sm">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="text-emerald-600 text-[13px] font-medium mb-[4px]">Sisa Budget</p>
+                      <h3 className="text-[24px] font-bold text-emerald-700">Rp {sisaBudget.toLocaleString()}</h3>
+                    </div>
+                    <CheckCircle2 className="w-8 h-8 text-emerald-200" />
+                  </div>
+                </div>
+                <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm flex flex-col justify-center">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-xs font-semibold text-slate-500">Persentase Terpakai</span>
+                    <span className="text-xs font-bold text-slate-700">{progressPercent.toFixed(1)}%</span>
+                  </div>
+                  <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+                    <div className="bg-blue-500 h-full transition-all duration-500" style={{ width: `${progressPercent}%` }}></div>
+                  </div>
                 </div>
               </div>
-            </div>
-          </div>
 
-          <div className="ccard !p-0 overflow-hidden">
-            <div className="p-[16px] border-b border-line flex flex-col md:flex-row justify-between items-start md:items-center bg-slate-50 gap-[16px]">
-              <h3 className="font-semibold text-text">Detail Pembayaran per Kreator</h3>
-              <div className="flex items-center gap-[8px] bg-white border border-line rounded-[8px] px-[12px] py-[6px] focus-within:ring-2 focus-within:ring-blue-500 w-full md:w-72">
-                <Search className="w-4 h-4 text-text-soft" />
-                <input
-                  type="text"
-                  placeholder="Cari berdasarkan Username..."
-                  className="w-full text-[13px] outline-none bg-transparent"
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                />
-              </div>
-            </div>
-            <div className="tbl-wrap !border-0 !rounded-none">
-              <table className="w-full">
-                <thead className="border-b border-line">
-                  <tr>
-                    <th className="w-12 text-center py-[16px]">No</th>
-                    <th className="py-[16px]"><button onClick={() => toggleSort('username')} className="flex items-center gap-0.5 hover:text-blue-600 transition-colors font-semibold">Username ID<SortIcon col="username" /></button></th>
-                    <th className="py-[16px] text-right"><button onClick={() => toggleSort('price')} className="flex items-center gap-0.5 hover:text-blue-600 transition-colors font-semibold ml-auto">Total Rate Card<SortIcon col="price" /></button></th>
-                    <th className="w-48 py-[16px]"><button onClick={() => toggleSort('pelunasan')} className="flex items-center gap-0.5 hover:text-blue-600 transition-colors font-semibold">Pelunasan<SortIcon col="pelunasan" /></button></th>
-                    <th className="w-40 py-[16px]">Status Bayar</th>
-                    <th className="w-40 py-[16px]">Tgl Pembayaran</th>
-                    <th className="w-24 text-center py-[16px]">Aksi</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {isLoading ? (
-                    <tr><td colSpan={7} className="h-32 text-center"><Loader2 className="w-6 h-6 animate-spin mx-auto text-text-soft" /></td></tr>
-                  ) : sortedCreators.length === 0 ? (
-                    <tr><td colSpan={7} className="h-32 text-center text-text-soft">{creators.length === 0 ? 'Belum ada kreator yang di-Approve.' : 'Tidak ditemukan kreator dengan username tersebut.'}</td></tr>
-                  ) : (
-                    sortedCreators.map((cc, idx) => {
-                      const form = editForms[cc.id];
-                      if (!form) return null;
-                      return (
-                        <tr key={cc.id} className="hover:bg-slate-50/50 border-b border-line">
-                          <td className="text-center text-text-soft">{idx + 1}</td>
-                          <td className="font-medium">@{cc.creators?.username}</td>
-                          <td className="text-right">
-                            <input type="text" className="input w-full text-right font-bold text-blue-700 disabled:bg-slate-50 disabled:text-text-soft !py-[6px]" value={form.price} onChange={e => handleFormChange(cc.id, 'price', e.target.value)} disabled={!hasAccess} />
-                          </td>
-                          <td>
-                            <input type="text" className="input w-full text-right font-medium disabled:bg-slate-50 disabled:text-text-soft !py-[6px]" value={form.nominal_pelunasan} onChange={e => handleFormChange(cc.id, 'nominal_pelunasan', e.target.value)} disabled={!hasAccess} />
-                          </td>
-                          <td>
-                            <select className={`input w-full font-semibold disabled:bg-slate-50 disabled:text-text-soft !py-[6px] ${form.status_bayar === 'lunas' ? 'bg-green-100 text-green-800 border-green-300' : form.status_bayar === 'sebagian' ? 'bg-yellow-100 text-yellow-800 border-yellow-300' : form.status_bayar === 'no_payment' ? 'bg-slate-800 text-white border-slate-700' : 'bg-red-50 text-red-700 border-red-200'}`} value={form.status_bayar} onChange={e => handleFormChange(cc.id, 'status_bayar', e.target.value)} disabled={!hasAccess}>
-                              <option value="belum">Not Yet</option>
-                              <option value="sebagian">Half Paid</option>
-                              <option value="lunas">Paid Off</option>
-                              <option value="no_payment">No Payment</option>
-                            </select>
-                          </td>
-                          <td>
-                            <input type="date" className="input w-full bg-white disabled:bg-slate-50 disabled:text-text-soft !py-[6px]" value={form.tgl_pembayaran} onChange={e => handleFormChange(cc.id, 'tgl_pembayaran', e.target.value)} disabled={!hasAccess} />
-                          </td>
-                          <td className="text-center">
-                            {hasAccess && (
-                              <button onClick={() => handleSave(cc.id)} disabled={saving[cc.id]} className="btn btn-primary w-full !py-[6px] !text-[12px] flex justify-center items-center">
-                                {saving[cc.id] ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4 mr-[4px]" />}
-                                {saving[cc.id] ? '' : 'Simpan'}
-                              </button>
-                            )}
-                            {cc.payment_updated_at && (
-                              <div className="text-[10px] text-text-soft mt-[8px] leading-tight">
-                                Terakhir diupdate oleh:<br/>
-                                <span className="font-semibold">{cc.payment_updated_by_profile?.nama || 'Sistem'}</span><br/>
-                                {new Date(cc.payment_updated_at).toLocaleDateString('id-ID')}
-                              </div>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })
+              <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                  <h3 className="font-bold text-slate-800">Daftar Batch Pembayaran</h3>
+                  {hasAccess && (
+                    <button 
+                      onClick={() => setViewState('form')}
+                      className="btn btn-primary flex items-center gap-2 text-sm px-4 py-2"
+                    >
+                      <Plus className="w-4 h-4" /> Ajukan Pembayaran Baru
+                    </button>
                   )}
-                </tbody>
-              </table>
-            </div>
-          </div>
+                </div>
+                
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm">
+                    <thead className="bg-slate-50 border-b border-slate-100 text-slate-600 font-medium">
+                      <tr>
+                        <th className="px-4 py-3 text-center w-12">No</th>
+                        <th className="px-4 py-3">Batch Label</th>
+                        <th className="px-4 py-3">PIC Submit</th>
+                        <th className="px-4 py-3 text-center">Jml Kreator</th>
+                        <th className="px-4 py-3 text-right">Total Nominal</th>
+                        <th className="px-4 py-3 text-center">Status</th>
+                        <th className="px-4 py-3 text-center">Aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50">
+                      {isLoadingBatches ? (
+                        <tr><td colSpan={7} className="h-32 text-center"><Loader2 className="w-6 h-6 animate-spin mx-auto text-slate-400" /></td></tr>
+                      ) : batches.length === 0 ? (
+                        <tr><td colSpan={7} className="h-32 text-center text-slate-500">Belum ada batch pembayaran yang diajukan.</td></tr>
+                      ) : (
+                        batches.map((b, idx) => {
+                          const totalItem = b.payment_items?.length || 0;
+                          const totalNominal = b.payment_items?.reduce((acc: number, cur: any) => acc + Number(cur.nominal) + Number(cur.biaya_transfer), 0) || 0;
+                          return (
+                            <tr key={b.id} className="hover:bg-slate-50/80 transition-colors">
+                              <td className="px-4 py-3 text-center text-slate-400">{idx + 1}</td>
+                              <td className="px-4 py-3 font-semibold text-slate-700">{b.batch_label}
+                                <div className="text-xs font-normal text-slate-400">{new Date(b.created_at).toLocaleDateString('id-ID')}</div>
+                              </td>
+                              <td className="px-4 py-3 font-medium text-slate-600">{b.submitter?.nama}</td>
+                              <td className="px-4 py-3 text-center font-bold text-slate-600">{totalItem}</td>
+                              <td className="px-4 py-3 text-right font-bold text-slate-700">Rp {totalNominal.toLocaleString()}</td>
+                              <td className="px-4 py-3 text-center">{getBatchStatusBadge(b.status)}</td>
+                              <td className="px-4 py-3 text-center">
+                                <button onClick={() => handleViewDetail(b.id)} className="text-blue-600 hover:text-blue-800 font-semibold text-xs flex items-center justify-center gap-1 mx-auto bg-blue-50 px-3 py-1.5 rounded-full hover:bg-blue-100 transition-colors">
+                                  Lihat Detail <ArrowRight className="w-3 h-3" />
+                                </button>
+                              </td>
+                            </tr>
+                          )
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
+          )}
+
+          {viewState === 'form' && (
+            <BatchForm 
+              campaignId={campaignId} 
+              creators={creators} 
+              onCancel={() => setViewState('list')} 
+              onSuccess={() => { setViewState('list'); fetchData(); }} 
+            />
+          )}
+
+          {viewState === 'detail' && selectedBatch && (
+            <BatchDetail 
+              batch={selectedBatch} 
+              onBack={() => { setViewState('list'); setSelectedBatch(null); }} 
+              onRefresh={async () => {
+                const detail = await getPaymentBatchDetail(selectedBatch.id);
+                setSelectedBatch(detail);
+                fetchData();
+              }} 
+            />
+          )}
         </div>
       )}
 
       {/* ===================== ADS TAB ===================== */}
-      {activeTab === 'ads' && (
+      {activeTab === 'ads' && viewState === 'list' && (
         <div className="space-y-[24px]">
           {/* Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-[24px]">
@@ -468,7 +427,7 @@ function CampaignKeuanganContent() {
                   </div>
                   <div>
                     <label className="text-[11px] font-semibold text-text-soft mb-[4px] block">Status Bayar</label>
-                    <select className={`input w-full font-semibold ${getStatusStyle(newAds.status_bayar)}`} value={newAds.status_bayar} onChange={e => setNewAds(p => ({ ...p, status_bayar: e.target.value }))}>
+                    <select className={`input w-full font-semibold ${getStatusStyle(newAds.status_bayar)}`} value={newAds.status_bayar} onChange={e => setNewAds(p => ({ ...p, status_bayar: e.target.value as any }))}>
                       <option value="not_yet">Not Yet</option>
                       <option value="half_paid">Half Paid</option>
                       <option value="pay_off">Paid Off</option>

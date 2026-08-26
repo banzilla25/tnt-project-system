@@ -8,7 +8,7 @@ import { revalidatePath } from 'next/cache';
 // ==========================================
 
 export async function getPaymentBatches(campaignId?: number, status?: string) {
-  const supabase = createClient();
+  const supabase = await createClient();
   let query = supabase.from('payment_batches').select(`
     *,
     submitter:profiles!submitted_by(nama),
@@ -24,7 +24,7 @@ export async function getPaymentBatches(campaignId?: number, status?: string) {
 }
 
 export async function getPaymentBatchDetail(batchId: number) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data, error } = await supabase.from('payment_batches').select(`
     *,
     submitter:profiles!submitted_by(nama),
@@ -48,7 +48,7 @@ export async function getPaymentBatchDetail(batchId: number) {
 }
 
 export async function getCreatorBankAccounts(creatorId: number) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data, error } = await supabase.from('creator_bank_accounts')
     .select('*')
     .eq('creator_id', creatorId);
@@ -57,7 +57,7 @@ export async function getCreatorBankAccounts(creatorId: number) {
 }
 
 export async function getSenderAccounts() {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data, error } = await supabase.from('sender_accounts').select('*');
   if (error) throw new Error(error.message);
   return data;
@@ -68,7 +68,7 @@ export async function getSenderAccounts() {
 // ==========================================
 
 export async function createPaymentBatch(campaignId: number, batchLabel: string) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data: userData } = await supabase.auth.getUser();
   if (!userData.user) throw new Error('Not authenticated');
 
@@ -86,7 +86,7 @@ export async function createPaymentBatch(campaignId: number, batchLabel: string)
 }
 
 export async function addPaymentItem(batchId: number, itemData: any) {
-  const supabase = createClient();
+  const supabase = await createClient();
   
   // Jika rekening diketik manual, kita harus insert ke creator_bank_accounts dulu
   let bankAccountId = itemData.bank_account_id;
@@ -134,19 +134,19 @@ export async function addPaymentItem(batchId: number, itemData: any) {
 }
 
 export async function updatePaymentItem(itemId: number, itemData: any) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { error } = await supabase.from('payment_items').update(itemData).eq('id', itemId);
   if (error) throw new Error(error.message);
 }
 
 export async function deletePaymentItem(itemId: number) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { error } = await supabase.from('payment_items').delete().eq('id', itemId);
   if (error) throw new Error(error.message);
 }
 
 export async function submitBatchToManager(batchId: number) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { error } = await supabase.from('payment_batches').update({
     status: 'pending_manager',
     submitted_at: new Date().toISOString()
@@ -160,7 +160,7 @@ export async function submitBatchToManager(batchId: number) {
 // ==========================================
 
 export async function managerApproveItem(itemId: number) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data: user } = await supabase.auth.getUser();
   const { error } = await supabase.from('payment_items').update({
     manager_status: 'approved',
@@ -172,7 +172,7 @@ export async function managerApproveItem(itemId: number) {
 }
 
 export async function managerRejectItem(itemId: number, reason: string) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data: user } = await supabase.auth.getUser();
   const { error } = await supabase.from('payment_items').update({
     manager_status: 'rejected',
@@ -185,7 +185,7 @@ export async function managerRejectItem(itemId: number, reason: string) {
 }
 
 export async function managerFinalizeReview(batchId: number) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data: user } = await supabase.auth.getUser();
   const { error } = await supabase.from('payment_batches').update({
     status: 'pending_finance',
@@ -201,7 +201,7 @@ export async function managerFinalizeReview(batchId: number) {
 // ==========================================
 
 export async function financeToggleItem(itemId: number, selected: boolean) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const finalStatus = selected ? 'finance_selected' : 'manager_approved';
   const { error } = await supabase.from('payment_items').update({
     finance_selected: selected,
@@ -211,7 +211,7 @@ export async function financeToggleItem(itemId: number, selected: boolean) {
 }
 
 export async function financeSubmitToExecutive(batchId: number) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data: user } = await supabase.auth.getUser();
   const { error } = await supabase.from('payment_batches').update({
     status: 'pending_executive',
@@ -223,7 +223,7 @@ export async function financeSubmitToExecutive(batchId: number) {
 }
 
 export async function financeMarkPaid(batchId: number, payload: { actualPaymentDate: string, buktiTransferUrl: string, senderAccountId: number }) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data: user } = await supabase.auth.getUser();
   
   // 1. Update batch status
@@ -251,7 +251,7 @@ export async function financeMarkPaid(batchId: number, payload: { actualPaymentD
 // ==========================================
 
 export async function executiveApproveItem(itemId: number) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data: user } = await supabase.auth.getUser();
   const { error } = await supabase.from('payment_items').update({
     executive_status: 'approved',
@@ -263,7 +263,7 @@ export async function executiveApproveItem(itemId: number) {
 }
 
 export async function executiveRejectItem(itemId: number, reason: string) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data: user } = await supabase.auth.getUser();
   const { error } = await supabase.from('payment_items').update({
     executive_status: 'rejected',
@@ -276,7 +276,7 @@ export async function executiveRejectItem(itemId: number, reason: string) {
 }
 
 export async function executiveFinalizeReview(batchId: number) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data: user } = await supabase.auth.getUser();
   const { error } = await supabase.from('payment_batches').update({
     status: 'ready_to_pay',
