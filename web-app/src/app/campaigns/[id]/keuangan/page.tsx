@@ -307,7 +307,7 @@ function CampaignKeuanganContent() {
                         <th className="px-4 py-3 text-center w-12">No</th>
                         <th className="px-4 py-3">Batch Label</th>
                         <th className="px-4 py-3">PIC Submit</th>
-                        <th className="px-4 py-3 text-center">Jml Kreator</th>
+                        <th className="px-4 py-3 text-center">Status Kreator</th>
                         <th className="px-4 py-3 text-right">Total Nominal</th>
                         <th className="px-4 py-3 text-center">Status</th>
                         <th className="px-4 py-3 text-center">Aksi</th>
@@ -321,6 +321,8 @@ function CampaignKeuanganContent() {
                       ) : (
                         batches.map((b, idx) => {
                           const totalItem = b.payment_items?.length || 0;
+                          const totalDibayar = b.payment_items?.filter((i: any) => i.final_status === 'paid').length || 0;
+                          const totalDitolak = b.payment_items?.filter((i: any) => i.final_status === 'rejected').length || 0;
                           const totalNominal = b.payment_items?.reduce((acc: number, cur: any) => acc + Number(cur.nominal) + Number(cur.biaya_transfer), 0) || 0;
                           return (
                             <tr key={b.id} className="hover:bg-slate-50/80 transition-colors">
@@ -329,7 +331,13 @@ function CampaignKeuanganContent() {
                                 <div className="text-xs font-normal text-slate-400">{new Date(b.created_at).toLocaleDateString('id-ID')}</div>
                               </td>
                               <td className="px-4 py-3 font-medium text-slate-600">{b.submitter?.nama}</td>
-                              <td className="px-4 py-3 text-center font-bold text-slate-600">{totalItem}</td>
+                              <td className="px-4 py-3">
+                                <div className="flex flex-col gap-1 items-center text-[10px] w-24 mx-auto">
+                                  <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-semibold w-full text-center">Diajukan: {totalItem}</span>
+                                  {totalDibayar > 0 && <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded font-semibold w-full text-center">Dibayar: {totalDibayar}</span>}
+                                  {totalDitolak > 0 && <span className="bg-red-100 text-red-700 px-2 py-0.5 rounded font-semibold w-full text-center">Ditolak: {totalDitolak}</span>}
+                                </div>
+                              </td>
                               <td className="px-4 py-3 text-right font-bold text-slate-700">Rp {totalNominal.toLocaleString()}</td>
                               <td className="px-4 py-3 text-center">{getBatchStatusBadge(b.status)}</td>
                               <td className="px-4 py-3 text-center">

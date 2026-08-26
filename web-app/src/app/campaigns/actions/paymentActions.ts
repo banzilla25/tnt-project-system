@@ -164,6 +164,22 @@ export async function submitBatchToManager(batchId: number) {
   revalidatePath('/budgeting');
 }
 
+export async function revertBatchStatus(batchId: number) {
+  const supabase = await createClient();
+  const { data: batch, error: getErr } = await supabase.from('payment_batches').select('status').eq('id', batchId).single();
+  if (getErr) throw new Error(getErr.message);
+
+  let newStatus = '';
+  if (batch.status === 'ready_to_pay') newStatus = 'pending_executive';
+  else if (batch.status === 'pending_executive') newStatus = 'pending_finance';
+  else if (batch.status === 'pending_finance') newStatus = 'pending_manager';
+  else throw new Error('Status tidak dapat dikembalikan lagi');
+
+  const { error } = await supabase.from('payment_batches').update({ status: newStatus }).eq('id', batchId);
+  if (error) throw new Error(error.message);
+  revalidatePath('/budgeting');
+}
+
 // ==========================================
 // MANAGER ACTIONS
 // ==========================================

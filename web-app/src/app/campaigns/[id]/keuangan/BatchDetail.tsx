@@ -6,7 +6,7 @@ import {
   managerApproveItem, managerRejectItem, managerFinalizeReview, 
   financeToggleItem, financeSubmitToExecutive, financeMarkPaid, 
   executiveApproveItem, executiveRejectItem, executiveFinalizeReview,
-  deletePaymentItem, deletePaymentBatch, updatePaymentItem, submitBatchToManager
+  deletePaymentItem, deletePaymentBatch, updatePaymentItem, submitBatchToManager, revertBatchStatus
 } from "../../actions/paymentActions";
 import { useAuth } from "@/providers/AuthProvider";
 import { Check, X, Loader2, ArrowLeft, Send, Trash2, Pencil, Save } from "lucide-react";
@@ -68,6 +68,25 @@ export function BatchDetail({ batch, onBack, onRefresh }: { batch: any, onBack: 
     await handleAction(rejectingId, action);
     setRejectingId(null);
     setRejectReason("");
+  };
+
+  const handleRevertStatus = async () => {
+    let confirmMsg = "";
+    if (batch.status === 'pending_finance') confirmMsg = "Kembalikan batch ini ke tahap Manager Review?";
+    else if (batch.status === 'pending_executive') confirmMsg = "Kembalikan batch ini ke tahap Finance Review?";
+    else if (batch.status === 'ready_to_pay') confirmMsg = "Kembalikan batch ini ke tahap Executive Approval?";
+    
+    if (!confirm(confirmMsg)) return;
+    
+    setIsFinalizing(true);
+    try {
+      await revertBatchStatus(batch.id);
+      await onRefresh();
+    } catch (err: any) {
+      alert("Error: " + err.message);
+    } finally {
+      setIsFinalizing(false);
+    }
   };
 
   const handleMarkPaid = async () => {
@@ -175,8 +194,16 @@ export function BatchDetail({ batch, onBack, onRefresh }: { batch: any, onBack: 
             <p className="text-sm text-slate-500 mt-1">Campaign: {batch.campaigns?.nama}</p>
           </div>
           <div className="text-right">
-            <p className="text-sm font-semibold text-slate-700">Total Nominal: Rp {(batch.payment_items || []).reduce((acc: number, item: any) => acc + Number(item.nominal || 0) + Number(item.biaya_transfer || 0), 0).toLocaleString()}</p>
-            <p className="text-xs text-slate-500 mt-1">{(batch.payment_items || []).length} Kreator diajukan</p>
+            <p className="text-sm font-semibold text-slate-700 mb-2">Total Nominal: Rp {(batch.payment_items || []).reduce((acc: number, item: any) => acc + Number(item.nominal || 0) + Number(item.biaya_transfer || 0), 0).toLocaleString()}</p>
+            <div className="flex gap-2 justify-end text-xs">
+              <span className="bg-slate-100 text-slate-700 px-2 py-1 rounded font-semibold">Diajukan: {(batch.payment_items || []).length}</span>
+              {(batch.payment_items || []).filter((i: any) => i.final_status === 'paid').length > 0 && (
+                <span className="bg-green-100 text-green-700 px-2 py-1 rounded font-semibold">Dibayar: {(batch.payment_items || []).filter((i: any) => i.final_status === 'paid').length}</span>
+              )}
+              {(batch.payment_items || []).filter((i: any) => i.final_status === 'rejected' || i.final_status === 'cancelled').length > 0 && (
+                <span className="bg-red-100 text-red-700 px-2 py-1 rounded font-semibold">Ditolak: {(batch.payment_items || []).filter((i: any) => i.final_status === 'rejected' || i.final_status === 'cancelled').length}</span>
+              )}
+            </div>
           </div>
         </div>
 
@@ -325,32 +352,41 @@ export function BatchDetail({ batch, onBack, onRefresh }: { batch: any, onBack: 
         </div>
 
         {/* Action Bar */}
-        <div className="flex justify-end pt-6 border-t border-slate-100 gap-4">
-          {batch.status === 'draft' && (
-            <button onClick={handleSubmitDraft} disabled={loadingIds['submit_draft']} className="btn btn-primary flex items-center gap-2 bg-blue-600 hover:bg-blue-700">
-              {loadingIds['submit_draft'] ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Ajukan ke Manager
-            </button>
-          )}
-          {batch.status === 'pending_manager' && (profile?.role === 'manager' || profile?.role === 'executive') && (
-            <button onClick={() => handleFinalize(() => managerFinalizeReview(batch.id))} disabled={isFinalizing} className="btn btn-primary flex items-center gap-2">
-              {isFinalizing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Finalize Review & Submit ke Finance
-            </button>
-          )}
-          {batch.status === 'pending_finance' && (profile?.role === 'finance' || profile?.role === 'executive') && (
-            <button onClick={() => handleFinalize(() => financeSubmitToExecutive(batch.id))} disabled={isFinalizing} className="btn btn-primary flex items-center gap-2">
-              {isFinalizing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Request Approval Executive
-            </button>
-          )}
-          {batch.status === 'pending_executive' && profile?.role === 'executive' && (
-            <button onClick={() => handleFinalize(() => executiveFinalizeReview(batch.id))} disabled={isFinalizing} className="btn btn-primary flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700">
-              {isFinalizing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />} Finalize & Tandai Siap Bayar
-            </button>
-          )}
-          {batch.status === 'ready_to_pay' && (profile?.role === 'finance' || profile?.role === 'executive') && !showPaidForm && (
-            <button onClick={() => setShowPaidForm(true)} className="btn btn-primary flex items-center gap-2 bg-blue-600 hover:bg-blue-700">
-              <Check className="w-4 h-4" /> Tandai Sudah Dibayar
-            </button>
-          )}
+        <div className="flex justify-between items-center pt-6 border-t border-slate-100">
+          <div>
+            {['pending_finance', 'pending_executive', 'ready_to_pay'].includes(batch.status) && (profile?.role === 'executive' || profile?.role === 'manager' || profile?.role === 'finance') && (
+              <button onClick={handleRevertStatus} disabled={isFinalizing} className="btn btn-outline text-slate-600 hover:bg-slate-100 flex items-center gap-2">
+                {isFinalizing ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowLeft className="w-4 h-4" />} Kembalikan ke Tahap Sebelumnya
+              </button>
+            )}
+          </div>
+          <div className="flex gap-4">
+            {batch.status === 'draft' && (
+              <button onClick={handleSubmitDraft} disabled={loadingIds['submit_draft']} className="btn btn-primary flex items-center gap-2 bg-blue-600 hover:bg-blue-700">
+                {loadingIds['submit_draft'] ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Ajukan ke Manager
+              </button>
+            )}
+            {batch.status === 'pending_manager' && (profile?.role === 'manager' || profile?.role === 'executive') && (
+              <button onClick={() => handleFinalize(() => managerFinalizeReview(batch.id))} disabled={isFinalizing} className="btn btn-primary flex items-center gap-2">
+                {isFinalizing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Finalize Review & Submit ke Finance
+              </button>
+            )}
+            {batch.status === 'pending_finance' && (profile?.role === 'finance' || profile?.role === 'executive') && (
+              <button onClick={() => handleFinalize(() => financeSubmitToExecutive(batch.id))} disabled={isFinalizing} className="btn btn-primary flex items-center gap-2">
+                {isFinalizing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Request Approval Executive
+              </button>
+            )}
+            {batch.status === 'pending_executive' && profile?.role === 'executive' && (
+              <button onClick={() => handleFinalize(() => executiveFinalizeReview(batch.id))} disabled={isFinalizing} className="btn btn-primary flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700">
+                {isFinalizing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />} Finalize & Tandai Siap Bayar
+              </button>
+            )}
+            {batch.status === 'ready_to_pay' && (profile?.role === 'finance' || profile?.role === 'executive') && !showPaidForm && (
+              <button onClick={() => setShowPaidForm(true)} className="btn btn-primary flex items-center gap-2 bg-blue-600 hover:bg-blue-700">
+                <Check className="w-4 h-4" /> Tandai Sudah Dibayar
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Paid Form */}
