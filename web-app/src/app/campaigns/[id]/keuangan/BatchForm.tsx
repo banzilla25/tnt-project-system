@@ -13,20 +13,19 @@ export function BatchForm({ campaignId, creators, onCancel, onSuccess }: { campa
   const [bankAccounts, setBankAccounts] = useState<Record<number, any[]>>({});
   const [loadingBanks, setLoadingBanks] = useState<Record<number, boolean>>({});
 
-  const handleSelectCreator = async (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const ccId = Number(e.target.value);
-    if (!ccId) return;
+  const handleToggleCreator = async (cc: any, isChecked: boolean) => {
+    if (!isChecked) {
+      handleRemoveCreator(cc.id);
+      return;
+    }
     
-    const cc = creators.find(c => c.id === ccId);
-    if (!cc) return;
-    
-    if (selectedCreators.find(s => s.id === ccId)) return; // Already selected
+    if (selectedCreators.find(s => s.id === cc.id)) return;
     
     setSelectedCreators(prev => [...prev, cc]);
     setForms(prev => ({
       ...prev,
-      [ccId]: {
-        campaign_creator_id: ccId,
+      [cc.id]: {
+        campaign_creator_id: cc.id,
         payment_type: '100_akhir',
         ratecard_awal: cc.price || 0,
         nominal: cc.price || 0,
@@ -142,15 +141,44 @@ export function BatchForm({ campaignId, creators, onCancel, onSuccess }: { campa
         </div>
 
         <div className="border-t border-slate-100 pt-6">
-          <label className="block text-sm font-semibold text-slate-700 mb-2">Pilih Kreator (Bisa pilih lebih dari satu)</label>
-          <select className="w-full md:w-1/2 px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-slate-50" onChange={handleSelectCreator} value="">
-            <option value="" disabled>-- Klik untuk memilih kreator --</option>
-            {creators.filter(c => c.approval === 'approved').map(c => (
-              <option key={c.id} value={c.id}>
-                @{c.creators?.username} - Ratecard: Rp {Number(c.price || 0).toLocaleString()}
-              </option>
-            ))}
-          </select>
+          <label className="block text-sm font-semibold text-slate-700 mb-2">Pilih Kreator</label>
+          <div className="overflow-x-auto border border-slate-200 rounded-lg max-h-64 overflow-y-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-slate-50 border-b border-slate-100 text-slate-600 font-medium sticky top-0">
+                <tr>
+                  <th className="px-4 py-2 text-center w-12">Pilih</th>
+                  <th className="px-4 py-2">Username</th>
+                  <th className="px-4 py-2 text-right">Ratecard (Rp)</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {creators.filter(c => c.approval === 'approved').map(c => {
+                  const isSelected = !!selectedCreators.find(s => s.id === c.id);
+                  return (
+                    <tr key={c.id} className={`hover:bg-slate-50 ${isSelected ? 'bg-blue-50/50' : ''}`}>
+                      <td className="px-4 py-2 text-center">
+                        <input 
+                          type="checkbox" 
+                          className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500 cursor-pointer"
+                          checked={isSelected}
+                          onChange={(e) => handleToggleCreator(c, e.target.checked)}
+                        />
+                      </td>
+                      <td className="px-4 py-2 font-medium">@{c.creators?.username}</td>
+                      <td className="px-4 py-2 text-right font-semibold text-slate-700">{Number(c.price || 0).toLocaleString()}</td>
+                    </tr>
+                  )
+                })}
+                {creators.filter(c => c.approval === 'approved').length === 0 && (
+                  <tr>
+                    <td colSpan={3} className="px-4 py-8 text-center text-slate-500">
+                      Belum ada kreator yang di-approve di campaign ini.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         {selectedCreators.length > 0 && (
