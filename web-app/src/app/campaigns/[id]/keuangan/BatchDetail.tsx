@@ -138,8 +138,8 @@ export function BatchDetail({ batch, onBack, onRefresh }: { batch: any, onBack: 
             <p className="text-sm text-slate-500 mt-1">Campaign: {batch.campaigns?.nama}</p>
           </div>
           <div className="text-right">
-            <p className="text-sm font-semibold text-slate-700">Total Nominal: Rp {batch.payment_items.reduce((acc: number, item: any) => acc + Number(item.nominal) + Number(item.biaya_transfer), 0).toLocaleString()}</p>
-            <p className="text-xs text-slate-500 mt-1">{batch.payment_items.length} Kreator diajukan</p>
+            <p className="text-sm font-semibold text-slate-700">Total Nominal: Rp {(batch.payment_items || []).reduce((acc: number, item: any) => acc + Number(item.nominal) + Number(item.biaya_transfer), 0).toLocaleString()}</p>
+            <p className="text-xs text-slate-500 mt-1">{(batch.payment_items || []).length} Kreator diajukan</p>
           </div>
         </div>
 
@@ -172,7 +172,7 @@ export function BatchDetail({ batch, onBack, onRefresh }: { batch: any, onBack: 
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {batch.payment_items.map((item: any) => {
+              {(batch.payment_items || []).map((item: any) => {
                 const totalTrx = Number(item.nominal) + Number(item.biaya_transfer);
                 const bank = item.creator_bank_accounts;
                 const isEditing = editingItemId === item.id;
@@ -184,7 +184,7 @@ export function BatchDetail({ batch, onBack, onRefresh }: { batch: any, onBack: 
                       <div className="text-xs text-slate-400 font-normal">{item.nama_penerima || bank?.account_holder}</div>
                     </td>
                     <td className="px-4 py-3 uppercase text-xs font-bold text-slate-500">
-                      {item.payment_type.replace('_', ' ')}
+                      {item.payment_type?.replace('_', ' ') || '-'}
                     </td>
                     <td className="px-4 py-3 text-right">
                       {isEditing ? (
@@ -235,7 +235,7 @@ export function BatchDetail({ batch, onBack, onRefresh }: { batch: any, onBack: 
                         item.final_status === 'rejected' ? 'bg-red-100 text-red-700' :
                         'bg-slate-100 text-slate-600'
                       }`}>
-                        {item.final_status.replace('_', ' ')}
+                        {item.final_status?.replace('_', ' ') || 'pending'}
                       </span>
                       {item.manager_note || item.executive_note ? (
                         <div className="text-[10px] text-red-500 mt-1 max-w-[150px] truncate" title={item.manager_note || item.executive_note}>
