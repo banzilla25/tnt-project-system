@@ -328,22 +328,25 @@ function CampaignKeuanganContent() {
                         <th className="px-4 py-3">Batch Label</th>
                         <th className="px-4 py-3">PIC Submit</th>
                         <th className="px-4 py-3 text-center">Status Kreator</th>
-                        <th className="px-4 py-3 text-right">Total Nominal</th>
+                        <th className="px-4 py-3 text-right">Total Nominal Diajukan</th>
+                        <th className="px-4 py-3 text-right">Total Nominal Dibayar</th>
                         <th className="px-4 py-3 text-center">Status</th>
                         <th className="px-4 py-3 text-center">Aksi</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50">
                       {isLoadingBatches ? (
-                        <tr><td colSpan={7} className="h-32 text-center"><Loader2 className="w-6 h-6 animate-spin mx-auto text-slate-400" /></td></tr>
+                        <tr><td colSpan={8} className="h-32 text-center"><Loader2 className="w-6 h-6 animate-spin mx-auto text-slate-400" /></td></tr>
                       ) : batches.length === 0 ? (
-                        <tr><td colSpan={7} className="h-32 text-center text-slate-500">Belum ada batch pembayaran yang diajukan.</td></tr>
+                        <tr><td colSpan={8} className="h-32 text-center text-slate-500">Belum ada batch pembayaran yang diajukan.</td></tr>
                       ) : (
                         batches.map((b, idx) => {
                           const totalItem = b.payment_items?.length || 0;
                           const totalDibayar = b.payment_items?.filter((i: any) => i.final_status === 'paid').length || 0;
                           const totalDitolak = b.payment_items?.filter((i: any) => i.final_status === 'rejected').length || 0;
                           const totalNominal = b.payment_items?.reduce((acc: number, cur: any) => acc + Number(cur.nominal) + Number(cur.biaya_transfer), 0) || 0;
+                          const nominalDibayar = b.payment_items?.filter((i: any) => i.final_status === 'paid').reduce((acc: number, cur: any) => acc + Number(cur.nominal) + Number(cur.biaya_transfer), 0) || 0;
+                          
                           return (
                             <tr key={b.id} className="hover:bg-slate-50/80 transition-colors">
                               <td className="px-4 py-3 text-center text-slate-400">{idx + 1}</td>
@@ -359,6 +362,7 @@ function CampaignKeuanganContent() {
                                 </div>
                               </td>
                               <td className="px-4 py-3 text-right font-bold text-slate-700">Rp {totalNominal.toLocaleString()}</td>
+                              <td className="px-4 py-3 text-right font-bold text-green-600">Rp {nominalDibayar.toLocaleString()}</td>
                               <td className="px-4 py-3 text-center">{getBatchStatusBadge(b.status)}</td>
                               <td className="px-4 py-3 text-center">
                                 <button onClick={() => handleViewDetail(b.id)} className="text-blue-600 hover:text-blue-800 font-semibold text-xs flex items-center justify-center gap-1 mx-auto bg-blue-50 px-3 py-1.5 rounded-full hover:bg-blue-100 transition-colors">
