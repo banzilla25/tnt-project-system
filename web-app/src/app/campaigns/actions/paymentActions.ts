@@ -12,6 +12,7 @@ export async function getPaymentBatches(campaignId?: number, status?: string) {
   let query = supabase.from('payment_batches').select(`
     *,
     submitter:profiles!submitted_by(nama),
+    campaigns(nama),
     payment_items(id, nominal, biaya_transfer, final_status, payment_type)
   `).order('created_at', { ascending: false });
 
