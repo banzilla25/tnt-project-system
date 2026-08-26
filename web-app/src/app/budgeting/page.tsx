@@ -16,15 +16,21 @@ export default function GlobalBudgetingPage() {
 
 function GlobalBudgetingContent() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<'semua' | 'tindakan'>('tindakan');
+  const [activeTab, setActiveTab] = useState<'semua' | 'tindakan' | 'ringkasan'>('tindakan');
   const [batches, setBatches] = useState<any[]>([]);
+  const [summaries, setSummaries] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchBatches = useCallback(async () => {
     setIsLoading(true);
     try {
-      const data = await getPaymentBatches();
+      const { getBudgetSummary } = await import('../campaigns/actions/paymentActions');
+      const [data, sumData] = await Promise.all([
+        getPaymentBatches(),
+        getBudgetSummary()
+      ]);
       setBatches(data || []);
+      setSummaries(sumData || []);
     } catch (err) {
       console.error(err);
     } finally {
@@ -123,8 +129,15 @@ function GlobalBudgetingContent() {
         >
           <Wallet className="w-4 h-4" /> Semua Ajuan
         </button>
+        <button
+          onClick={() => setActiveTab('ringkasan')}
+          className={`px-[24px] py-[12px] text-[13px] font-semibold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'ringkasan' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
+        >
+          <Wallet className="w-4 h-4" /> Ringkasan Budget
+        </button>
       </div>
 
+      {activeTab !== 'ringkasan' ? (
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
@@ -193,6 +206,57 @@ function GlobalBudgetingContent() {
           </table>
         </div>
       </div>
+      ) : (
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-slate-50 border-b border-slate-100 text-slate-600 font-medium">
+                <tr>
+                  <th className="px-4 py-4 w-12 text-center">No</th>
+                  <th className="px-4 py-4">Campaign</th>
+                  <th className="px-4 py-4 text-right">Plafon Creator</th>
+                  <th className="px-4 py-4 text-right">Terpakai Creator</th>
+                  <th className="px-4 py-4 text-right">Sisa Creator</th>
+                  <th className="px-4 py-4 text-right">Plafon Ads</th>
+                  <th className="px-4 py-4 text-right">Terpakai Ads</th>
+                  <th className="px-4 py-4 text-right">Sisa Ads</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {isLoading ? (
+                  <tr>
+                    <td colSpan={8} className="h-48 text-center">
+                      <div className="flex flex-col items-center justify-center h-full">
+                        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+                        <p className="mt-2 text-slate-500">Memuat data...</p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : summaries.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="h-48 text-center text-slate-500">
+                      Tidak ada data ringkasan budget.
+                    </td>
+                  </tr>
+                ) : (
+                  summaries.map((sum, idx) => (
+                    <tr key={sum.campaign_id} className="hover:bg-slate-50">
+                      <td className="px-4 py-3 text-center text-slate-500">{idx + 1}</td>
+                      <td className="px-4 py-3 font-semibold text-slate-800">{sum.campaign_nama}</td>
+                      <td className="px-4 py-3 text-right">Rp {sum.budget_creator.toLocaleString()}</td>
+                      <td className="px-4 py-3 text-right text-red-600">Rp {sum.terpakai_creator.toLocaleString()}</td>
+                      <td className="px-4 py-3 text-right font-bold text-emerald-600">Rp {sum.sisa_creator.toLocaleString()}</td>
+                      <td className="px-4 py-3 text-right">Rp {sum.budget_ads.toLocaleString()}</td>
+                      <td className="px-4 py-3 text-right text-red-600">Rp {sum.terpakai_ads.toLocaleString()}</td>
+                      <td className="px-4 py-3 text-right font-bold text-emerald-600">Rp {sum.sisa_ads.toLocaleString()}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

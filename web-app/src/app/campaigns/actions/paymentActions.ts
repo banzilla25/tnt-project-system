@@ -345,3 +345,60 @@ export async function executiveFinalizeReview(batchId: number) {
   if (error) throw new Error(error.message);
   revalidatePath('/budgeting');
 }
+
+// ==========================================
+// READ / SUMMARY ACTIONS
+// ==========================================
+
+export async function getBudgetSummary() {
+  const supabase = await createClient();
+  
+  // Ambil semua campaigns yang aktif
+  const { data: campaigns, error: campErr } = await supabase
+    .from('campaigns')
+    .select('id, nama, budget_creator_plafon, budget_ads_plafon, status')
+    .neq('status', 'draft');
+    
+  if (campErr) throw new Error(campErr.message);
+
+  // Ambil semua payment items yang berstatus paid
+  const { data: paidItems, error: itemsErr } = await supabase
+    .from('payment_items')
+    .select('campaign_id, payment_type, nominal, biaya_transfer')
+    .eq('final_status', 'paid');
+    
+  if (itemsErr) throw new Error(itemsErr.message);
+
+  // Kalkulasi per campaign
+  const summary = campaigns.map(camp => {
+    let terpakaiCreator = 0;
+    let terpakaiAds = 0;
+    
+    paidItems?.forEach(item => {
+      if (item.campaign_id === camp.id) {
+        if (item.payment_type === 'ads') {
+          terpakaiAds += Number(item.nominal || 0);
+        } else {
+          terpakaiCreator += Number(item.nominal || 0) + Number(item.biaya_transfer || 0);
+        }
+      }
+    });
+    
+    const budgetCreator = Number(camp.budget_creator_plafon || 0);
+    const budgetAds = Number(camp.budget_ads_plafon || 0);
+    
+    return {
+      campaign_id: camp.id,
+      campaign_nama: camp.nama,
+      status: camp.status,
+      budget_creator: budgetCreator,
+      terpakai_creator: terpakaiCreator,
+      sisa_creator: budgetCreator - terpakaiCreator,
+      budget_ads: budgetAds,
+      terpakai_ads: terpakaiAds,
+      sisa_ads: budgetAds - terpakaiAds
+    };
+  });
+
+  return summary;
+}
