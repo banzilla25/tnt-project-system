@@ -10,7 +10,7 @@ import { useAuth } from "@/providers/AuthProvider";
 export default function CampaignsPage() {
   const { campaigns, brands, addCampaign, addBrand } = useDatabaseStore();
   const { profile } = useAuth();
-  const isManager = profile?.role === 'manager';
+  const isManager = profile?.role === 'manager' || profile?.role === 'executive';
   const [isOpen, setIsOpen] = useState(false);
   const [isAddingNewBrand, setIsAddingNewBrand] = useState(false);
   const [newBrandName, setNewBrandName] = useState('');

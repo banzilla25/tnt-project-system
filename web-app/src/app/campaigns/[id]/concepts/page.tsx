@@ -16,7 +16,7 @@ export default function CampaignConceptsPage() {
   const { skus } = useDatabaseStore();
   
   const campaignSkus = skus.filter(s => s.campaign_id === campaignId);
-  const isManager = profile?.role === 'manager';
+  const isManager = profile?.role === 'manager' || profile?.role === 'executive';
 
   const [concepts, setConcepts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);

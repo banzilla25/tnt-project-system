@@ -9,7 +9,7 @@ import { exportToExcel } from "@/utils/exportToExcel";
 export default function Dashboard() {
   const { vw_campaign_summary } = useDatabaseStore();
   const { profile } = useAuth();
-  const isManager = profile?.role === 'manager';
+  const isManager = profile?.role === 'manager' || profile?.role === 'executive';
 
   const getCountdown = (endDateStr: string) => {
     const end = new Date(endDateStr).getTime();

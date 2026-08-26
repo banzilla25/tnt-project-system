@@ -365,7 +365,7 @@ export default function AdsReportPage() {
   const [appliedCampaignAdsName, setAppliedCampaignAdsName] = useState<string>('');
   
   const { profile } = useAuth();
-  const isManager = profile?.role === 'manager';
+  const isManager = profile?.role === 'manager' || profile?.role === 'executive';
 
   const supabase = createClient();
   const [displayLimit, setDisplayLimit] = useState(100);

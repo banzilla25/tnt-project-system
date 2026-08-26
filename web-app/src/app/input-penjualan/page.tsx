@@ -16,7 +16,7 @@ export default function InputPenjualanPage() {
   const [activeTab, setActiveTab] = useState<'organik_sales' | 'awareness_video' | 'awareness_live' | 'ads' | 'live'>('organik_sales');
   const { profile } = useAuth();
   
-  const isManager = profile?.role === 'manager';
+  const isManager = profile?.role === 'manager' || profile?.role === 'executive';
 
   return (
     <div className="space-y-6">
