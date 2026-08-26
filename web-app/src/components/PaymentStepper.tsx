@@ -6,6 +6,8 @@ export type PaymentBatchStatus = 'draft' | 'pending_manager' | 'pending_finance'
 
 interface StepperProps {
   status: PaymentBatchStatus;
+  activeStepId?: PaymentBatchStatus;
+  onClickStep?: (stepId: PaymentBatchStatus) => void;
   submitterName?: string;
   submitDate?: string;
   managerName?: string;
@@ -20,6 +22,8 @@ interface StepperProps {
 
 export function PaymentStepper({
   status,
+  activeStepId,
+  onClickStep,
   submitterName,
   submitDate,
   managerName,
@@ -96,7 +100,7 @@ export function PaymentStepper({
         <div className="absolute top-4 left-0 w-full h-0.5 bg-slate-200 z-0"></div>
 
         {steps.map((step, index) => {
-          // Determine colors
+          const isCurrentlyActive = activeStepId ? activeStepId === step.id : step.isActive;
           let circleColor = "bg-slate-100 border-slate-300 text-slate-400";
           let icon = <Circle className="w-4 h-4" />;
           
@@ -106,7 +110,7 @@ export function PaymentStepper({
           } else if (step.isRejected) {
             circleColor = "bg-red-500 border-red-500 text-white";
             icon = <X className="w-4 h-4" />;
-          } else if (step.isActive) {
+          } else if (isCurrentlyActive) {
             circleColor = "bg-blue-500 border-blue-500 text-white shadow-sm ring-4 ring-blue-100";
             icon = <Loader2 className="w-4 h-4 animate-spin" />;
           }
@@ -116,7 +120,11 @@ export function PaymentStepper({
 
           return (
             <div key={step.id} className="relative z-10 flex flex-col items-center flex-1">
-              <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center transition-colors duration-300 bg-white ${circleColor}`}>
+              <div 
+                onClick={() => onClickStep && onClickStep(step.id as PaymentBatchStatus)}
+                className={`w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all bg-white ${circleColor} ${onClickStep ? 'cursor-pointer hover:scale-110' : ''}`}
+                title={step.label}
+              >
                 {icon}
               </div>
               <div className="mt-3 text-center">

@@ -35,6 +35,24 @@ export function BatchDetail({ batch, onBack, onRefresh }: { batch: any, onBack: 
   const [showImportModal, setShowImportModal] = useState(false);
   const [importedIds, setImportedIds] = useState<number[]>([]);
   
+  // Clickable Funnel state
+  const [activeFunnel, setActiveFunnel] = useState<string>(batch.status);
+
+  useEffect(() => {
+    setActiveFunnel(batch.status);
+  }, [batch.status]);
+
+  const getFilteredItems = () => {
+    const allItems = batch.payment_items || [];
+    if (activeFunnel === 'draft' || activeFunnel === 'pending_manager') return allItems;
+    if (activeFunnel === 'pending_finance') return allItems.filter((i: any) => ['manager_approved', 'finance_selected', 'executive_approved', 'ready_to_pay', 'paid'].includes(i.final_status) || (i.final_status === 'rejected' && i.manager_status === 'approved'));
+    if (activeFunnel === 'pending_executive') return allItems.filter((i: any) => ['finance_selected', 'executive_approved', 'ready_to_pay', 'paid'].includes(i.final_status) || (i.final_status === 'rejected' && i.finance_selected));
+    if (activeFunnel === 'ready_to_pay' || activeFunnel === 'paid') return allItems.filter((i: any) => ['executive_approved', 'ready_to_pay', 'paid'].includes(i.final_status) || (i.final_status === 'rejected' && i.executive_status === 'approved'));
+    return allItems;
+  };
+  
+  const filteredItems = getFilteredItems();
+
   const toggleRow = (id: number) => {
     setExpandedRows(prev => {
       const next = new Set(prev);
@@ -308,19 +326,24 @@ export function BatchDetail({ batch, onBack, onRefresh }: { batch: any, onBack: 
           </div>
         </div>
 
-        <PaymentStepper 
-          status={batch.status}
-          submitterName={batch.submitter?.nama}
-          submitDate={batch.submitted_at}
-          managerName={batch.manager?.nama}
-          managerDate={batch.manager_reviewed_at}
-          financeName={batch.finance?.nama}
-          financeDate={batch.finance_reviewed_at}
-          executiveName={batch.executive?.nama}
-          executiveDate={batch.executive_reviewed_at}
-          payerName={batch.payer?.nama}
-          payDate={batch.paid_at}
-        />
+        {/* Progress Tracker */}
+        <div className="mb-10 px-4 md:px-8">
+          <PaymentStepper 
+            status={batch.status} 
+            activeStepId={activeFunnel as any}
+            onClickStep={(stepId) => setActiveFunnel(stepId)}
+            submitterName={batch.submitter?.nama}
+            submitDate={batch.submitted_at}
+            managerName={batch.manager?.nama}
+            managerDate={batch.manager_reviewed_at}
+            financeName={batch.finance?.nama}
+            financeDate={batch.finance_reviewed_at}
+            executiveName={batch.executive?.nama}
+            executiveDate={batch.executive_reviewed_at}
+            payerName={batch.finance?.nama} 
+            payDate={batch.paid_at}
+          />
+        </div>
 
         <div className="overflow-x-auto border border-slate-200 rounded-lg">
           <table className="w-full text-left text-sm">
@@ -338,7 +361,14 @@ export function BatchDetail({ batch, onBack, onRefresh }: { batch: any, onBack: 
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {(batch.payment_items || []).map((item: any) => {
+              {filteredItems.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="px-4 py-8 text-center text-slate-500">
+                    Tidak ada kreator di tahap ini.
+                  </td>
+                </tr>
+              ) : (
+                filteredItems.map((item: any) => {
                 const totalTrx = Number(item.nominal || 0) + Number(item.biaya_transfer || 0);
                 const bank = item.creator_bank_accounts;
                 const isExpanded = expandedRows.has(item.id);
@@ -502,7 +532,7 @@ export function BatchDetail({ batch, onBack, onRefresh }: { batch: any, onBack: 
                 {isFinalizing ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowLeft className="w-4 h-4" />} Kembalikan
               </button>
             )}
-            {['pending_finance', 'pending_executive', 'ready_to_pay'].includes(batch.status) && (profile?.role === 'executive' || profile?.role === 'finance') && (
+            {activeFunnel === 'ready_to_pay' && (profile?.role === 'executive' || profile?.role === 'finance') && (
               <>
                 <button onClick={handleExportExcel} className="btn btn-outline text-emerald-700 hover:bg-emerald-50 border-emerald-200 flex items-center gap-2 text-xs">
                   <Download className="w-4 h-4" /> Export Excel
