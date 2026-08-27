@@ -175,8 +175,8 @@ export function BatchDetail({ batch, onBack, onRefresh }: { batch: any, onBack: 
       
       return {
         "ID Sistem": item.id,
-        "Kreator": item.campaign_creators?.creators?.username,
-        "Tipe Pembayaran": item.payment_type?.replace('_', ' ') || '-',
+        "Kreator": item.payment_type === 'ads' ? 'TOP UP ADS' : item.campaign_creators?.creators?.username,
+        "Tipe Pembayaran": item.payment_type === 'ads' ? 'TOP UP ADS' : (item.payment_type?.replace('_', ' ') || '-'),
         "Nominal": Number(item.nominal || 0),
         "Biaya Transfer": Number(item.biaya_transfer || 0),
         "Total Ditransfer": totalTrx,

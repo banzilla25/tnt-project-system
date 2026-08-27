@@ -118,7 +118,7 @@ export async function addPaymentItem(batchId: number, itemData: any) {
 
   const payload = {
     batch_id: batchId,
-    campaign_creator_id: itemData.campaign_creator_id,
+    campaign_creator_id: itemData.campaign_creator_id || null, // Allow null for Ads Top Up
     payment_type: itemData.payment_type,
     ratecard_awal: itemData.ratecard_awal || null,
     nominal: itemData.nominal,
@@ -127,12 +127,12 @@ export async function addPaymentItem(batchId: number, itemData: any) {
     metode_pembayaran: itemData.metode_pembayaran || null,
     nomor_rekening: itemData.nomor_rekening || null,
     nama_penerima: itemData.nama_penerima || null,
-    nama_wa_pic: itemData.nama_wa_pic,
-    nomor_wa_dealing: itemData.nomor_wa_dealing,
-    alamat_ktp: itemData.alamat_ktp,
-    nik: itemData.nik,
-    link_ktp: itemData.link_ktp,
-    link_kontrak: itemData.link_kontrak,
+    nama_wa_pic: itemData.nama_wa_pic || null,
+    nomor_wa_dealing: itemData.nomor_wa_dealing || null,
+    alamat_ktp: itemData.alamat_ktp || null,
+    nik: itemData.nik || null,
+    link_ktp: itemData.link_ktp || null,
+    link_kontrak: itemData.link_kontrak || null,
     manager_status: 'pending',
     executive_status: 'pending',
     final_status: 'pending'
