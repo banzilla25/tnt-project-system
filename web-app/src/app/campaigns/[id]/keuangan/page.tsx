@@ -43,6 +43,7 @@ function CampaignKeuanganContent() {
 
   // Creators Data for Form
   const [creators, setCreators] = useState<any[]>([]);
+  const [activePayments, setActivePayments] = useState<Record<number, string[]>>({});
   
   // KPI Data
   const [totalTerpakai, setTotalTerpakai] = useState(0);
@@ -72,23 +73,29 @@ function CampaignKeuanganContent() {
         .eq('campaign_id', campaignId)
         .eq('approval', 'approved');
 
-      // Filter out creators with 0 price or already paid
-      const paidCreatorIds = new Set<number>();
+      // Filter out creators with 0 price or fully paid/submitted
+      const activePayments: Record<number, string[]> = {};
       data?.forEach(b => {
         b.payment_items?.forEach((item: any) => {
-          if (item.final_status === 'paid') {
-            paidCreatorIds.add(item.campaign_creator_id);
+          if (item.final_status !== 'rejected' && item.campaign_creator_id) {
+            if (!activePayments[item.campaign_creator_id]) {
+              activePayments[item.campaign_creator_id] = [];
+            }
+            activePayments[item.campaign_creator_id].push(item.payment_type);
           }
         });
       });
 
       const filteredCreators = (ccData || []).filter(cc => {
         const hasRatecard = Number(cc.price || 0) > 0;
-        const isNotPaid = !paidCreatorIds.has(cc.id);
-        return hasRatecard && isNotPaid;
+        const types = activePayments[cc.id] || [];
+        const isFullyPaid = types.includes('100_akhir') || (types.includes('50_awal') && types.includes('50_akhir'));
+        return hasRatecard && !isFullyPaid;
       });
 
       setCreators(filteredCreators);
+      // We also need to store activePayments in state so we can pass it down
+      setActivePayments(activePayments);
     } catch (err) {
       console.error(err);
     } finally {
@@ -287,6 +294,7 @@ function CampaignKeuanganContent() {
             <BatchForm 
               campaignId={campaignId} 
               creators={creators} 
+              activePayments={activePayments}
               onCancel={() => setViewState('list')} 
               onSuccess={() => { setViewState('list'); fetchData(); }} 
             />

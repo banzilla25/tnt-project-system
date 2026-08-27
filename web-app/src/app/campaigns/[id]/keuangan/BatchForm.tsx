@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { createPaymentBatch, addPaymentItem, submitBatchToManager, getCreatorBankAccounts } from "../../actions/paymentActions";
 import { Loader2, Plus, Trash2, Save, Send, ArrowLeft } from "lucide-react";
 
-export function BatchForm({ campaignId, creators, onCancel, onSuccess }: { campaignId: number, creators: any[], onCancel: () => void, onSuccess: () => void }) {
+export function BatchForm({ campaignId, creators, activePayments, onCancel, onSuccess }: { campaignId: number, creators: any[], activePayments: Record<number, string[]>, onCancel: () => void, onSuccess: () => void }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [batchLabel, setBatchLabel] = useState(`Batch - ${new Date().toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}`);
   
@@ -31,13 +31,17 @@ export function BatchForm({ campaignId, creators, onCancel, onSuccess }: { campa
     
     setForms(prev => {
       if (prev[cc.id]) return prev;
+      const types = activePayments[cc.id] || [];
+      let defaultType = '100_akhir';
+      if (types.includes('50_awal')) defaultType = '50_akhir';
+
       return {
         ...prev,
         [cc.id]: {
           campaign_creator_id: cc.id,
-          payment_type: '100_akhir',
+          payment_type: defaultType,
           ratecard_awal: cc.price || 0,
-          nominal: cc.price || 0,
+          nominal: defaultType === '50_akhir' ? (cc.price || 0) / 2 : (cc.price || 0),
           biaya_transfer: 0,
           bank_account_id: '',
           metode_pembayaran: '',
@@ -297,9 +301,9 @@ export function BatchForm({ campaignId, creators, onCancel, onSuccess }: { campa
                         <div>
                           <label className="block text-xs font-medium text-slate-600 mb-1">Tipe Pembayaran</label>
                           <select className="w-full p-2 border border-slate-300 rounded text-sm outline-none focus:border-blue-500" value={f.payment_type} onChange={e => handleChange(cc.id, 'payment_type', e.target.value)}>
-                            <option value="100_akhir">100% Akhir</option>
-                            <option value="50_awal">DP 50% Awal</option>
-                            <option value="50_akhir">Pelunasan 50% Akhir</option>
+                            <option value="100_akhir" disabled={activePayments[cc.id]?.includes('100_akhir') || activePayments[cc.id]?.includes('50_awal') || activePayments[cc.id]?.includes('50_akhir')}>100% Akhir</option>
+                            <option value="50_awal" disabled={activePayments[cc.id]?.includes('50_awal') || activePayments[cc.id]?.includes('100_akhir')}>DP 50% Awal</option>
+                            <option value="50_akhir" disabled={activePayments[cc.id]?.includes('50_akhir') || activePayments[cc.id]?.includes('100_akhir') || !activePayments[cc.id]?.includes('50_awal')}>Pelunasan 50% Akhir</option>
                             <option value="ads">Top Up ADS</option>
                             <option value="crm">Biaya CRM</option>
                             <option value="lion">Ongkir Lion Parcel</option>
