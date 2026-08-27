@@ -65,16 +65,27 @@ export default function CreatorProfilePage() {
           return;
         }
 
-        const [
-          { data: snapshots },
-          { data: contacts },
-          { data: creatorNiches },
-          { data: notes },
-          { data: ccs },
-          { data: ads },
-          { data: addressBookResult },
-          { data: auditLogsResult }
-        ] = await Promise.all([
+        // Helper: chunk an array into sub-arrays of max `size`
+        const chunk = <T,>(arr: T[], size: number): T[][] => {
+          const chunks: T[][] = [];
+          for (let i = 0; i < arr.length; i += size) {
+            chunks.push(arr.slice(i, i + size));
+          }
+          return chunks;
+        };
+
+        // Helper: sequential .in() fetch with chunking (avoids connection pool exhaustion)
+        const fetchInChunks = async (table: string, column: string, ids: (string | number)[], chunkSize = 100) => {
+          let results: any[] = [];
+          for (const batch of chunk(ids, chunkSize)) {
+            const { data } = await supabase.from(table).select('*').in(column, batch);
+            if (data) results = [...results, ...data];
+          }
+          return results;
+        };
+
+        // Phase 1: All independent queries (no dependencies) via Promise.allSettled
+        const settled = await Promise.allSettled([
           supabase.from('creator_snapshots').select('*').eq('creator_id', creatorId),
           supabase.from('creator_contacts').select('*').eq('creator_id', creatorId),
           supabase.from('creator_niches').select('*').eq('creator_id', creatorId),
@@ -83,62 +94,71 @@ export default function CreatorProfilePage() {
           supabase.from('ads_performance').select('*').eq('creator_id', creatorId),
           supabase.from('creator_address_book').select('*').eq('creator_id', creatorId).order('id', { ascending: false }),
           supabase.from('audit_logs').select('*').eq('table_name', 'creators').eq('record_id', creatorId.toString()).order('created_at', { ascending: false }),
-          supabase.from('live_sessions').select('*').ilike('creator_username', creator.username).order('start_time', { ascending: false })
+          supabase.from('live_sessions').select('*').ilike('creator_username', creator.username).order('start_time', { ascending: false }),
+          supabase.from('organic_videos').select('*').ilike('creator_username', creator.username).order('post_time', { ascending: false }),
+          supabase.from('sales').select('*').eq('creator_username', creator.username),
         ]);
 
+        // Extract results safely — failed queries return empty arrays instead of crashing
+        const extract = (idx: number) => {
+          const r = settled[idx];
+          return r.status === 'fulfilled' ? (r.value.data || []) : [];
+        };
+
+        const snapshots = extract(0);
+        const contacts = extract(1);
+        const creatorNiches = extract(2);
+        const notes = extract(3);
+        const ccs = extract(4);
+        const ads = extract(5);
+        const addressBookResult = extract(6);
+        const auditLogsResult = extract(7);
+        const liveSess = extract(8);
+        const orgVids = extract(9);
+        const salesByUsername = extract(10);
+
+        // Phase 2: Dependent queries (need ccs/liveSess results) — sequential with chunking
         let vids: any[] = [];
-        if (ccs && ccs.length > 0) {
+        if (ccs.length > 0) {
           const ccIds = ccs.map((c: any) => c.id);
-          const { data: fetchedVids } = await supabase.from('videos').select('*').in('campaign_creator_id', ccIds);
-          vids = fetchedVids || [];
+          vids = await fetchInChunks('videos', 'campaign_creator_id', ccIds, 100);
         }
 
-        let sls: any[] = [];
+        let sls: any[] = [...salesByUsername];
         const contentUids = vids.map(v => v.content_uid).filter(Boolean);
         if (contentUids.length > 0) {
-          const chunkSize = 100;
-          let allSls: any[] = [];
-          for (let i = 0; i < contentUids.length; i += chunkSize) {
-            const chunk = contentUids.slice(i, i + chunkSize);
-            const { data: sData } = await supabase.from('sales').select('*').in('content_uid', chunk);
-            if (sData) allSls = [...allSls, ...sData];
-          }
-          sls = allSls;
+          const salesByContent = await fetchInChunks('sales', 'content_uid', contentUids, 100);
+          sls = [...sls, ...salesByContent];
         }
-
-        const { data: salesByUsername } = await supabase.from('sales').select('*').eq('creator_username', creator.username);
-        if (salesByUsername) {
-          sls = [...sls, ...salesByUsername];
-        }
+        // Deduplicate sales by id
+        const seenSaleIds = new Set<number>();
+        sls = sls.filter(s => {
+          if (seenSaleIds.has(s.id)) return false;
+          seenSaleIds.add(s.id);
+          return true;
+        });
 
         let liveProducts: any[] = [];
-        const { data: liveSess } = await supabase.from('live_sessions').select('*').ilike('creator_username', creator.username).order('start_time', { ascending: false });
-        if (liveSess && liveSess.length > 0) {
+        if (liveSess.length > 0) {
           const roomIds = liveSess.map((ls: any) => ls.livestream_room_id);
-          for (let i = 0; i < roomIds.length; i += 100) {
-            const chunk = roomIds.slice(i, i + 100);
-            const { data: lp } = await supabase.from('live_session_products').select('*').in('livestream_room_id', chunk);
-            if (lp) liveProducts = [...liveProducts, ...lp];
-          }
+          liveProducts = await fetchInChunks('live_session_products', 'livestream_room_id', roomIds, 100);
         }
-
-        const { data: orgVids } = await supabase.from('organic_videos').select('*').ilike('creator_username', creator.username).order('post_time', { ascending: false });
 
         setLocalData({
           creator,
-          snapshots: snapshots || [],
-          contacts: contacts || [],
-          creatorNiches: creatorNiches || [],
-          notes: notes || [],
-          ccs: ccs || [],
+          snapshots,
+          contacts,
+          creatorNiches,
+          notes,
+          ccs,
           videos: vids,
           sales: sls,
-          ads: ads || [],
-          addressBook: addressBookResult || [],
-          auditLogs: auditLogsResult || [],
-          liveSessions: liveSess || [],
-          liveProducts: liveProducts || [],
-          organicVideos: orgVids || []
+          ads,
+          addressBook: addressBookResult,
+          auditLogs: auditLogsResult,
+          liveSessions: liveSess,
+          liveProducts,
+          organicVideos: orgVids,
         });
       } catch (err) {
         console.error("Error fetching creator data:", err);
