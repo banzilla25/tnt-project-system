@@ -1,10 +1,13 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { Loader2, ArrowRight, Wallet, CheckCircle2, Clock, AlertCircle } from "lucide-react";
+import { Loader2, ArrowRight, Wallet, CheckCircle2, Clock, AlertCircle, Pencil, Check, X } from "lucide-react";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { getPaymentBatches, getBudgetSummary } from "../campaigns/actions/paymentActions";
 import { useRouter } from "next/navigation";
+import { createClient } from "@/utils/supabase/client";
+
+const supabase = createClient();
 
 export default function GlobalBudgetingPage() {
   return (
@@ -20,6 +23,11 @@ function GlobalBudgetingContent() {
   const [batches, setBatches] = useState<any[]>([]);
   const [summaries, setSummaries] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Inline edit state
+  const [editingCell, setEditingCell] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState('');
+  const [savingCell, setSavingCell] = useState<string | null>(null);
 
   const fetchBatches = useCallback(async () => {
     setIsLoading(true);
@@ -40,6 +48,47 @@ function GlobalBudgetingContent() {
   useEffect(() => {
     fetchBatches();
   }, [fetchBatches]);
+
+  const startEditing = (campaignId: number, field: string, currentValue: number) => {
+    setEditingCell(`${campaignId}_${field}`);
+    setEditValue(currentValue.toString());
+  };
+
+  const cancelEditing = () => {
+    setEditingCell(null);
+    setEditValue('');
+  };
+
+  const saveEdit = async (campaignId: number, field: 'budget_creator_plafon' | 'budget_ads_plafon') => {
+    const cellKey = `${campaignId}_${field}`;
+    setSavingCell(cellKey);
+    try {
+      const newValue = Number(editValue.replace(/[^0-9]/g, '') || 0);
+      const { error } = await supabase.from('campaigns').update({ [field]: newValue }).eq('id', campaignId);
+      if (error) throw error;
+
+      // Update local summaries so sisa recalculates instantly
+      setSummaries(prev => prev.map(s => {
+        if (s.campaign_id !== campaignId) return s;
+        if (field === 'budget_creator_plafon') {
+          return { ...s, budget_creator: newValue, sisa_creator: newValue - s.terpakai_creator };
+        } else {
+          return { ...s, budget_ads: newValue, sisa_ads: newValue - s.terpakai_ads };
+        }
+      }));
+      setEditingCell(null);
+      setEditValue('');
+    } catch (err: any) {
+      alert('Gagal menyimpan: ' + err.message);
+    } finally {
+      setSavingCell(null);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent, campaignId: number, field: 'budget_creator_plafon' | 'budget_ads_plafon') => {
+    if (e.key === 'Enter') saveEdit(campaignId, field);
+    if (e.key === 'Escape') cancelEditing();
+  };
 
   const getBatchStatusBadge = (status: string) => {
     switch(status) {
@@ -65,6 +114,42 @@ function GlobalBudgetingContent() {
   const totalActionNeeded = batches.filter(b => actionStatuses.includes(b.status)).length;
   const totalPaid = batches.filter(b => b.status === 'paid').length;
   const totalAll = batches.length;
+
+  // Inline editable cell component
+  const EditableCell = ({ campaignId, field, value }: { campaignId: number, field: 'budget_creator_plafon' | 'budget_ads_plafon', value: number }) => {
+    const cellKey = `${campaignId}_${field}`;
+    const isEditing = editingCell === cellKey;
+    const isSaving = savingCell === cellKey;
+
+    if (isEditing) {
+      return (
+        <div className="flex items-center gap-1 justify-end">
+          <span className="text-xs text-slate-400">Rp</span>
+          <input
+            type="text"
+            autoFocus
+            className="w-28 px-2 py-1 text-right text-sm border border-blue-400 rounded outline-none focus:ring-2 focus:ring-blue-200 bg-blue-50"
+            value={Number(editValue.replace(/[^0-9]/g, '') || 0).toLocaleString()}
+            onChange={e => setEditValue(e.target.value.replace(/[^0-9]/g, ''))}
+            onKeyDown={e => handleKeyDown(e, campaignId, field)}
+          />
+          <button onClick={() => saveEdit(campaignId, field)} disabled={isSaving} className="p-1 text-emerald-600 hover:bg-emerald-50 rounded transition-colors" title="Simpan">
+            {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+          </button>
+          <button onClick={cancelEditing} className="p-1 text-red-500 hover:bg-red-50 rounded transition-colors" title="Batal">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      );
+    }
+
+    return (
+      <div className="group flex items-center gap-1.5 justify-end cursor-pointer" onClick={() => startEditing(campaignId, field, value)}>
+        <span>Rp {value.toLocaleString()}</span>
+        <Pencil className="w-3 h-3 text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-[24px] pb-[80px]">
@@ -213,10 +298,10 @@ function GlobalBudgetingContent() {
                 <tr>
                   <th className="px-4 py-4 w-12 text-center">No</th>
                   <th className="px-4 py-4">Campaign</th>
-                  <th className="px-4 py-4 text-right">Plafon Creator</th>
+                  <th className="px-4 py-4 text-right">Plafon Creator <Pencil className="w-3 h-3 inline ml-1 text-slate-300" /></th>
                   <th className="px-4 py-4 text-right">Terpakai Creator</th>
                   <th className="px-4 py-4 text-right">Sisa Creator</th>
-                  <th className="px-4 py-4 text-right">Plafon Ads</th>
+                  <th className="px-4 py-4 text-right">Plafon Ads <Pencil className="w-3 h-3 inline ml-1 text-slate-300" /></th>
                   <th className="px-4 py-4 text-right">Terpakai Ads</th>
                   <th className="px-4 py-4 text-right">Sisa Ads</th>
                 </tr>
@@ -242,10 +327,14 @@ function GlobalBudgetingContent() {
                     <tr key={sum.campaign_id} className="hover:bg-slate-50">
                       <td className="px-4 py-3 text-center text-slate-500">{idx + 1}</td>
                       <td className="px-4 py-3 font-semibold text-slate-800">{sum.campaign_nama}</td>
-                      <td className="px-4 py-3 text-right">Rp {sum.budget_creator.toLocaleString()}</td>
+                      <td className="px-4 py-3 text-right">
+                        <EditableCell campaignId={sum.campaign_id} field="budget_creator_plafon" value={sum.budget_creator} />
+                      </td>
                       <td className="px-4 py-3 text-right text-red-600">Rp {sum.terpakai_creator.toLocaleString()}</td>
                       <td className="px-4 py-3 text-right font-bold text-emerald-600">Rp {sum.sisa_creator.toLocaleString()}</td>
-                      <td className="px-4 py-3 text-right">Rp {sum.budget_ads.toLocaleString()}</td>
+                      <td className="px-4 py-3 text-right">
+                        <EditableCell campaignId={sum.campaign_id} field="budget_ads_plafon" value={sum.budget_ads} />
+                      </td>
                       <td className="px-4 py-3 text-right text-red-600">Rp {sum.terpakai_ads.toLocaleString()}</td>
                       <td className="px-4 py-3 text-right font-bold text-emerald-600">Rp {sum.sisa_ads.toLocaleString()}</td>
                     </tr>
