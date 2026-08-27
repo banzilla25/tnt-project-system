@@ -141,8 +141,19 @@ export async function addPaymentItem(batchId: number, itemData: any) {
   
   // Jika rekening diketik manual, kita harus insert ke creator_bank_accounts dulu
   let bankAccountId = itemData.bank_account_id;
+  let bankName = itemData.metode_pembayaran || null;
+  let bankNumber = itemData.nomor_rekening || null;
+  let bankHolder = itemData.nama_penerima || null;
   
-  if (!bankAccountId && itemData.metode_pembayaran && itemData.nomor_rekening) {
+  if (bankAccountId) {
+    // Kunci data bank ke payment_items agar history mutasi statis & akurat
+    const { data: bankData } = await supabase.from('creator_bank_accounts').select('*').eq('id', bankAccountId).single();
+    if (bankData) {
+      bankName = bankData.bank_name;
+      bankNumber = bankData.account_number;
+      bankHolder = bankData.account_holder;
+    }
+  } else if (itemData.metode_pembayaran && itemData.nomor_rekening) {
     // Get creator_id from campaign_creators
     const { data: ccData } = await supabase.from('campaign_creators').select('creator_id').eq('id', itemData.campaign_creator_id).single();
     
@@ -166,9 +177,9 @@ export async function addPaymentItem(batchId: number, itemData: any) {
     nominal: itemData.nominal,
     biaya_transfer: itemData.biaya_transfer || 0,
     bank_account_id: bankAccountId,
-    metode_pembayaran: itemData.metode_pembayaran || null,
-    nomor_rekening: itemData.nomor_rekening || null,
-    nama_penerima: itemData.nama_penerima || null,
+    metode_pembayaran: bankName,
+    nomor_rekening: bankNumber,
+    nama_penerima: bankHolder,
     nama_wa_pic: itemData.nama_wa_pic || null,
     nomor_wa_dealing: itemData.nomor_wa_dealing || null,
     alamat_ktp: itemData.alamat_ktp || null,
