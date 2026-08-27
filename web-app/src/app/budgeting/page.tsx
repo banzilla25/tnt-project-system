@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Loader2, ArrowRight, Wallet, CheckCircle2, Clock, AlertCircle, Pencil, Check, X } from "lucide-react";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { getPaymentBatches, getBudgetSummary, getPaymentMutations } from "../campaigns/actions/paymentActions";
+import { getPaymentBatches, getBudgetSummary } from "../campaigns/actions/paymentActions";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import { MutationTable } from "@/components/MutationTable";
@@ -23,9 +23,7 @@ function GlobalBudgetingContent() {
   const [activeTab, setActiveTab] = useState<'semua' | 'tindakan' | 'ringkasan' | 'mutasi'>('tindakan');
   const [batches, setBatches] = useState<any[]>([]);
   const [summaries, setSummaries] = useState<any[]>([]);
-  const [mutations, setMutations] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedMonth, setSelectedMonth] = useState<string>('all');
 
   // Inline edit state
   const [editingCell, setEditingCell] = useState<string | null>(null);
@@ -35,14 +33,12 @@ function GlobalBudgetingContent() {
   const fetchBatches = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [data, sumData, mutData] = await Promise.all([
+      const [data, sumData] = await Promise.all([
         getPaymentBatches(),
-        getBudgetSummary(),
-        getPaymentMutations()
+        getBudgetSummary()
       ]);
       setBatches(data || []);
       setSummaries(sumData || []);
-      setMutations(mutData || []);
     } catch (err) {
       console.error(err);
     } finally {
@@ -233,7 +229,7 @@ function GlobalBudgetingContent() {
       </div>
 
       {activeTab === 'mutasi' ? (
-        <MutationTable mutations={mutations} />
+        <MutationTable />
       ) : activeTab !== 'ringkasan' ? (
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="overflow-x-auto">
