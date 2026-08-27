@@ -13,7 +13,7 @@ import { useAuth } from "@/providers/AuthProvider";
 import { Check, X, Loader2, ArrowLeft, Send, Trash2, Pencil, Save, ChevronDown, ChevronRight, Download, Upload } from "lucide-react";
 import * as XLSX from "xlsx";
 
-export function BatchDetail({ batch, onBack, onRefresh }: { batch: any, onBack: () => void, onRefresh: () => void }) {
+export function BatchDetail({ batch, creatorHistory, onBack, onRefresh }: { batch: any, creatorHistory: Record<number, any[]>, onBack: () => void, onRefresh: () => void }) {
   const { profile } = useAuth();
   const [loadingIds, setLoadingIds] = useState<Record<string, boolean>>({});
   const [isFinalizing, setIsFinalizing] = useState(false);
@@ -393,6 +393,19 @@ export function BatchDetail({ batch, onBack, onRefresh }: { batch: any, onBack: 
                     <td className="px-4 py-3 text-right">
                       {item.ratecard_awal && <div className="text-xs text-slate-400 line-through">Rp {Number(item.ratecard_awal).toLocaleString()}</div>}
                       <div className="font-semibold text-slate-700">Rp {Number(item.nominal || 0).toLocaleString()}</div>
+                      {creatorHistory && item.campaign_creator_id && creatorHistory[item.campaign_creator_id] && (() => {
+                        const pastItems = creatorHistory[item.campaign_creator_id].filter((h: any) => h.id !== item.id && new Date(h.date) <= new Date(batch.created_at));
+                        if (pastItems.length === 0) return null;
+                        const total = pastItems.reduce((sum: number, h: any) => sum + h.nominal, 0);
+                        return (
+                          <div className="text-[9px] text-blue-600 mt-1 leading-tight text-right flex flex-col items-end">
+                            <span className="font-medium bg-blue-50 px-1 rounded border border-blue-100">Total Sblmnya: Rp {total.toLocaleString()}</span>
+                            {pastItems.slice(-2).map((h: any, idx: number) => (
+                              <span key={idx} className="text-slate-400 block truncate max-w-[150px]" title={`Dibayar Rp ${h.nominal.toLocaleString()} pd batch ${h.batch_label}`}>({h.payment_type}) {h.batch_label}</span>
+                            ))}
+                          </div>
+                        );
+                      })()}
                     </td>
                     <td className="px-4 py-3 text-right text-slate-500">
                       Rp {Number(item.biaya_transfer || 0).toLocaleString()}
@@ -516,6 +529,8 @@ export function BatchDetail({ batch, onBack, onRefresh }: { batch: any, onBack: 
                               <span className="col-span-2 font-medium">{item.link_ktp ? <a href={item.link_ktp} target="_blank" className="text-blue-600 hover:underline">Lihat KTP</a> : '-'}</span>
                               <span className="text-slate-500">Link Kontrak:</span>
                               <span className="col-span-2 font-medium">{item.link_kontrak ? <a href={item.link_kontrak} target="_blank" className="text-blue-600 hover:underline">Lihat Kontrak</a> : '-'}</span>
+                              <span className="text-slate-500">Catatan PIC:</span>
+                              <span className="col-span-2 font-medium text-orange-700 bg-orange-50 px-2 py-1 rounded">{item.notes || '-'}</span>
                             </div>
                           </div>
                           <div className="space-y-3">

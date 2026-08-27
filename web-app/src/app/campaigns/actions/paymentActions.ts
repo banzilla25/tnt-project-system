@@ -133,6 +133,7 @@ export async function addPaymentItem(batchId: number, itemData: any) {
     nik: itemData.nik || null,
     link_ktp: itemData.link_ktp || null,
     link_kontrak: itemData.link_kontrak || null,
+    notes: itemData.notes_dari_pic || null,
     manager_status: 'pending',
     executive_status: 'pending',
     final_status: 'pending'

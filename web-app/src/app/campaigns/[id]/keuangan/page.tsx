@@ -43,7 +43,7 @@ function CampaignKeuanganContent() {
 
   // Creators Data for Form
   const [creators, setCreators] = useState<any[]>([]);
-  const [activePayments, setActivePayments] = useState<Record<number, string[]>>({});
+  const [creatorHistory, setCreatorHistory] = useState<Record<number, any[]>>({});
   
   // KPI Data
   const [totalTerpakai, setTotalTerpakai] = useState(0);
@@ -73,29 +73,37 @@ function CampaignKeuanganContent() {
         .eq('campaign_id', campaignId)
         .eq('approval', 'approved');
 
-      // Filter out creators with 0 price or fully paid/submitted
-      const activePayments: Record<number, string[]> = {};
+      const creatorHistory: Record<number, any[]> = {};
       data?.forEach(b => {
         b.payment_items?.forEach((item: any) => {
           if (item.final_status !== 'rejected' && item.campaign_creator_id) {
-            if (!activePayments[item.campaign_creator_id]) {
-              activePayments[item.campaign_creator_id] = [];
+            if (!creatorHistory[item.campaign_creator_id]) {
+              creatorHistory[item.campaign_creator_id] = [];
             }
-            activePayments[item.campaign_creator_id].push(item.payment_type);
+            creatorHistory[item.campaign_creator_id].push({
+              id: item.id,
+              batch_label: b.batch_label,
+              date: b.created_at,
+              nominal: Number(item.nominal) + Number(item.biaya_transfer || 0),
+              payment_type: item.payment_type,
+              status: item.final_status
+            });
           }
         });
       });
 
-      const filteredCreators = (ccData || []).filter(cc => {
-        const hasRatecard = Number(cc.price || 0) > 0;
-        const types = activePayments[cc.id] || [];
+      const filteredCreators = (ccData || []).filter(cc => Number(cc.price || 0) > 0).map(cc => {
+        const history = creatorHistory[cc.id] || [];
+        const types = history.map(h => h.payment_type);
         const isFullyPaid = types.includes('100_akhir') || (types.includes('50_awal') && types.includes('50_akhir'));
-        return hasRatecard && !isFullyPaid;
+        return {
+          ...cc,
+          isFullyPaid
+        };
       });
 
       setCreators(filteredCreators);
-      // We also need to store activePayments in state so we can pass it down
-      setActivePayments(activePayments);
+      setCreatorHistory(creatorHistory);
     } catch (err) {
       console.error(err);
     } finally {
@@ -294,7 +302,7 @@ function CampaignKeuanganContent() {
             <BatchForm 
               campaignId={campaignId} 
               creators={creators} 
-              activePayments={activePayments}
+              creatorHistory={creatorHistory}
               onCancel={() => setViewState('list')} 
               onSuccess={() => { setViewState('list'); fetchData(); }} 
             />
@@ -303,6 +311,7 @@ function CampaignKeuanganContent() {
           {viewState === 'detail' && selectedBatch && (
             <BatchDetail 
               batch={selectedBatch} 
+              creatorHistory={creatorHistory}
               onBack={() => { setViewState('list'); setSelectedBatch(null); }} 
               onRefresh={async () => {
                 const detail = await getPaymentBatchDetail(selectedBatch.id);
@@ -432,6 +441,7 @@ function CampaignKeuanganContent() {
           {viewState === 'detail' && selectedBatch && (
             <BatchDetail 
               batch={selectedBatch} 
+              creatorHistory={creatorHistory}
               onBack={() => { setViewState('list'); setSelectedBatch(null); }} 
               onRefresh={async () => {
                 const detail = await getPaymentBatchDetail(selectedBatch.id);

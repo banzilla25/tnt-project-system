@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { createPaymentBatch, addPaymentItem, submitBatchToManager, getCreatorBankAccounts } from "../../actions/paymentActions";
 import { Loader2, Plus, Trash2, Save, Send, ArrowLeft } from "lucide-react";
 
-export function BatchForm({ campaignId, creators, activePayments, onCancel, onSuccess }: { campaignId: number, creators: any[], activePayments: Record<number, string[]>, onCancel: () => void, onSuccess: () => void }) {
+export function BatchForm({ campaignId, creators, creatorHistory, onCancel, onSuccess }: { campaignId: number, creators: any[], creatorHistory: Record<number, any[]>, onCancel: () => void, onSuccess: () => void }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [batchLabel, setBatchLabel] = useState(`Batch - ${new Date().toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}`);
   
@@ -17,6 +17,9 @@ export function BatchForm({ campaignId, creators, activePayments, onCancel, onSu
   const [showBulkSelect, setShowBulkSelect] = useState(false);
   const [bulkText, setBulkText] = useState("");
   const [bulkNotFoundWarning, setBulkNotFoundWarning] = useState<string[]>([]);
+
+  const [showWarning, setShowWarning] = useState(false);
+  const [pendingSubmitType, setPendingSubmitType] = useState<boolean | null>(null);
 
   const handleToggleCreator = async (cc: any, isChecked: boolean) => {
     if (!isChecked) {
@@ -31,7 +34,8 @@ export function BatchForm({ campaignId, creators, activePayments, onCancel, onSu
     
     setForms(prev => {
       if (prev[cc.id]) return prev;
-      const types = activePayments[cc.id] || [];
+      const history = creatorHistory[cc.id] || [];
+      const types = history.map((h: any) => h.payment_type);
       let defaultType = '100_akhir';
       if (types.includes('50_awal')) defaultType = '50_akhir';
 
@@ -53,6 +57,7 @@ export function BatchForm({ campaignId, creators, activePayments, onCancel, onSu
           nik: '',
           link_ktp: '',
           link_kontrak: '',
+          notes_dari_pic: '',
         }
       };
     });
@@ -146,11 +151,22 @@ export function BatchForm({ campaignId, creators, activePayments, onCancel, onSu
     return null;
   };
 
-  const handleSave = async (submitToManager: boolean) => {
+  const handlePreSubmit = (submitToManager: boolean) => {
     const errorMsg = validateForms();
     if (errorMsg) return alert(errorMsg);
 
+    const hasHistory = selectedCreators.some(cc => creatorHistory[cc.id] && creatorHistory[cc.id].length > 0);
+    if (hasHistory) {
+      setPendingSubmitType(submitToManager);
+      setShowWarning(true);
+    } else {
+      handleSave(submitToManager);
+    }
+  };
+
+  const handleSave = async (submitToManager: boolean) => {
     setIsSubmitting(true);
+    setShowWarning(false);
     try {
       // 1. Create Batch
       const batchId = await createPaymentBatch(campaignId, batchLabel);
@@ -258,7 +274,10 @@ export function BatchForm({ campaignId, creators, activePayments, onCancel, onSu
                           onChange={(e) => handleToggleCreator(c, e.target.checked)}
                         />
                       </td>
-                      <td className="px-4 py-2 font-medium">@{c.creators?.username}</td>
+                      <td className="px-4 py-2 font-medium">
+                        @{c.creators?.username}
+                        {c.isFullyPaid && <span className="text-xs font-semibold text-orange-700 bg-orange-100 px-2 py-0.5 rounded-full ml-2">Ratecard Lunas</span>}
+                      </td>
                       <td className="px-4 py-2 text-right font-semibold text-slate-700">{Number(c.price || 0).toLocaleString()}</td>
                     </tr>
                   )
@@ -301,9 +320,9 @@ export function BatchForm({ campaignId, creators, activePayments, onCancel, onSu
                         <div>
                           <label className="block text-xs font-medium text-slate-600 mb-1">Tipe Pembayaran</label>
                           <select className="w-full p-2 border border-slate-300 rounded text-sm outline-none focus:border-blue-500" value={f.payment_type} onChange={e => handleChange(cc.id, 'payment_type', e.target.value)}>
-                            <option value="100_akhir" disabled={activePayments[cc.id]?.includes('100_akhir') || activePayments[cc.id]?.includes('50_awal') || activePayments[cc.id]?.includes('50_akhir')}>100% Akhir</option>
-                            <option value="50_awal" disabled={activePayments[cc.id]?.includes('50_awal') || activePayments[cc.id]?.includes('100_akhir')}>DP 50% Awal</option>
-                            <option value="50_akhir" disabled={activePayments[cc.id]?.includes('50_akhir') || activePayments[cc.id]?.includes('100_akhir') || !activePayments[cc.id]?.includes('50_awal')}>Pelunasan 50% Akhir</option>
+                            <option value="100_akhir">100% Akhir</option>
+                            <option value="50_awal">DP 50% Awal</option>
+                            <option value="50_akhir">Pelunasan 50% Akhir</option>
                             <option value="ads">Top Up ADS</option>
                             <option value="crm">Biaya CRM</option>
                             <option value="lion">Ongkir Lion Parcel</option>
@@ -311,6 +330,9 @@ export function BatchForm({ campaignId, creators, activePayments, onCancel, onSu
                             <option value="boost_views">Boost Views</option>
                             <option value="boost_comment">Boost Comment</option>
                           </select>
+                          {creatorHistory[cc.id]?.some((h: any) => h.payment_type === f.payment_type) && (
+                            <p className="text-[10px] text-orange-700 mt-1 font-medium bg-orange-50 p-1 rounded border border-orange-100">⚠️ Sudah pernah diajukan sebelumnya.</p>
+                          )}
                         </div>
                         <div>
                           <label className="block text-xs font-medium text-slate-600 mb-1">Ratecard Awal</label>
@@ -319,10 +341,22 @@ export function BatchForm({ campaignId, creators, activePayments, onCancel, onSu
                         <div>
                           <label className="block text-xs font-medium text-slate-600 mb-1">Nominal Diajukan (Rp)</label>
                           <input type="number" className="w-full p-2 border border-slate-300 rounded text-sm outline-none focus:border-blue-500" value={f.nominal} onChange={e => handleChange(cc.id, 'nominal', e.target.value)} />
+                          {creatorHistory[cc.id] && creatorHistory[cc.id].length > 0 && (
+                            <p className="text-[10px] text-blue-700 mt-1 font-medium bg-blue-50 p-1 rounded border border-blue-100">ℹ️ Total masa lalu: Rp {creatorHistory[cc.id].reduce((sum: number, h: any) => sum + h.nominal, 0).toLocaleString()}</p>
+                          )}
                         </div>
                         <div>
                           <label className="block text-xs font-medium text-slate-600 mb-1">Biaya Transfer (Opsional)</label>
                           <input type="number" className="w-full p-2 border border-slate-300 rounded text-sm outline-none focus:border-blue-500" value={f.biaya_transfer} onChange={e => handleChange(cc.id, 'biaya_transfer', e.target.value)} />
+                        </div>
+                        <div className="col-span-2">
+                          <label className="block text-xs font-medium text-slate-600 mb-1">Catatan / Notes untuk Finance (Opsional)</label>
+                          <textarea 
+                            className="w-full p-2 border border-slate-300 rounded text-sm outline-none focus:border-blue-500 h-16 resize-none" 
+                            placeholder="Contoh: Tolong segera diproses, ini kerjasama kedua..."
+                            value={f.notes_dari_pic} 
+                            onChange={e => handleChange(cc.id, 'notes_dari_pic', e.target.value)} 
+                          />
                         </div>
                       </div>
 
@@ -395,24 +429,51 @@ export function BatchForm({ campaignId, creators, activePayments, onCancel, onSu
               )
             })}
 
-            <div className="flex justify-end gap-4 pt-6 border-t border-slate-200">
-              <button 
-                className="btn btn-outline flex items-center gap-2"
-                onClick={() => handleSave(false)}
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Simpan Draft
+            <div className="flex gap-4 pt-6 border-t border-slate-200">
+              <button onClick={() => handlePreSubmit(false)} disabled={isSubmitting} className="btn btn-outline flex-1 flex justify-center items-center gap-2 py-3">
+                {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />} Simpan sbg Draft
               </button>
-              <button 
-                className="btn btn-primary flex items-center gap-2"
-                onClick={() => handleSave(true)}
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Submit ke Manager
+              <button onClick={() => handlePreSubmit(true)} disabled={isSubmitting} className="btn btn-primary flex-1 flex justify-center items-center gap-2 py-3">
+                {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />} Ajukan ke Manager
               </button>
             </div>
           </div>
         )}
+
+        {showWarning && (
+          <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden">
+              <div className="bg-orange-50 px-6 py-4 border-b border-orange-100">
+                <h3 className="font-bold text-orange-800 flex items-center gap-2">⚠️ Peringatan: Ada Riwayat Pembayaran</h3>
+              </div>
+              <div className="p-6 max-h-[60vh] overflow-y-auto">
+                <p className="text-sm text-slate-600 mb-4">Beberapa kreator yang Anda pilih sudah pernah diajukan pembayarannya sebelumnya. Pastikan Anda tidak salah input atau melakukan pembayaran ganda secara tidak sengaja.</p>
+                <ul className="space-y-3">
+                  {selectedCreators.map(cc => {
+                    const history = creatorHistory[cc.id] || [];
+                    if (history.length === 0) return null;
+                    const total = history.reduce((sum, h) => sum + h.nominal, 0);
+                    return (
+                      <li key={cc.id} className="text-sm bg-slate-50 p-3 rounded border border-slate-200">
+                        <strong>@{cc.creators?.username}</strong> - Total dibayar sebelumnya: <span className="font-bold text-blue-600">Rp {total.toLocaleString()}</span>
+                        <div className="text-xs text-slate-500 mt-1">
+                          {history.map((h, i) => (
+                            <div key={i}>• {h.payment_type} (Rp {h.nominal.toLocaleString()}) - {h.batch_label}</div>
+                          ))}
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+              <div className="bg-slate-50 p-4 border-t border-slate-200 flex justify-end gap-3">
+                <button onClick={() => setShowWarning(false)} className="btn btn-outline">Batal</button>
+                <button onClick={() => handleSave(pendingSubmitType!)} className="btn btn-primary bg-orange-600 hover:bg-orange-700 border-none text-white">Ya, Tetap Lanjutkan</button>
+              </div>
+            </div>
+          </div>
+        )}
+
       </div>
     </div>
   );
