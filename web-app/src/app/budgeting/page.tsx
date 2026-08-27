@@ -3,9 +3,10 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Loader2, ArrowRight, Wallet, CheckCircle2, Clock, AlertCircle, Pencil, Check, X } from "lucide-react";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { getPaymentBatches, getBudgetSummary } from "../campaigns/actions/paymentActions";
+import { getPaymentBatches, getBudgetSummary, getPaymentMutations } from "../campaigns/actions/paymentActions";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
+import { MutationTable } from "@/components/MutationTable";
 
 const supabase = createClient();
 
@@ -19,10 +20,12 @@ export default function GlobalBudgetingPage() {
 
 function GlobalBudgetingContent() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<'semua' | 'tindakan' | 'ringkasan'>('tindakan');
+  const [activeTab, setActiveTab] = useState<'semua' | 'tindakan' | 'ringkasan' | 'mutasi'>('tindakan');
   const [batches, setBatches] = useState<any[]>([]);
   const [summaries, setSummaries] = useState<any[]>([]);
+  const [mutations, setMutations] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedMonth, setSelectedMonth] = useState<string>('all');
 
   // Inline edit state
   const [editingCell, setEditingCell] = useState<string | null>(null);
@@ -32,12 +35,14 @@ function GlobalBudgetingContent() {
   const fetchBatches = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [data, sumData] = await Promise.all([
+      const [data, sumData, mutData] = await Promise.all([
         getPaymentBatches(),
-        getBudgetSummary()
+        getBudgetSummary(),
+        getPaymentMutations()
       ]);
       setBatches(data || []);
       setSummaries(sumData || []);
+      setMutations(mutData || []);
     } catch (err) {
       console.error(err);
     } finally {
@@ -219,9 +224,17 @@ function GlobalBudgetingContent() {
         >
           <Wallet className="w-4 h-4" /> Ringkasan Budget
         </button>
+        <button
+          onClick={() => setActiveTab('mutasi')}
+          className={`px-[24px] py-[12px] text-[13px] font-semibold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'mutasi' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
+        >
+          <Wallet className="w-4 h-4" /> Mutasi Pembayaran
+        </button>
       </div>
 
-      {activeTab !== 'ringkasan' ? (
+      {activeTab === 'mutasi' ? (
+        <MutationTable mutations={mutations} />
+      ) : activeTab !== 'ringkasan' ? (
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">

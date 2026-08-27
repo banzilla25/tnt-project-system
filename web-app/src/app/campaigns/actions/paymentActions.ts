@@ -24,6 +24,19 @@ export async function getPaymentBatches(campaignId?: number, status?: string) {
   return data;
 }
 
+export async function getPaymentMutations() {
+  const supabase = await createClient();
+  const { data, error } = await supabase.from('payment_items').select(`
+    id, nominal, biaya_transfer, payment_type, metode_pembayaran, nama_penerima, nomor_rekening, notes,
+    payment_batches!inner(batch_label, paid_at, bukti_transfer, campaigns(nama)),
+    campaign_creators(creators(username)),
+    creator_bank_accounts(bank_name)
+  `).eq('final_status', 'paid').order('id', { ascending: false });
+
+  if (error) throw new Error(error.message);
+  return data;
+}
+
 export async function getPaymentBatchDetail(batchId: number) {
   const supabase = await createClient();
   const { data, error } = await supabase.from('payment_batches').select(`
