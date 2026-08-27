@@ -18,13 +18,13 @@ SELECT
   pb.batch_label,
   pb.bukti_transfer_url as bukti_transfer,
   c.nama AS campaign_nama,
-  cr.username,
+  COALESCE(cr.username, 'Ads Top Up') AS username,
   cb.bank_name,
   to_char(pb.paid_at AT TIME ZONE 'Asia/Jakarta', 'YYYY-MM') AS paid_month
 FROM payment_items pi
 JOIN payment_batches pb ON pi.batch_id = pb.id
 JOIN campaigns c ON pb.campaign_id = c.id
-JOIN campaign_creators cc ON pi.campaign_creator_id = cc.id
-JOIN creators cr ON cc.creator_id = cr.id
+LEFT JOIN campaign_creators cc ON pi.campaign_creator_id = cc.id
+LEFT JOIN creators cr ON cc.creator_id = cr.id
 LEFT JOIN creator_bank_accounts cb ON pi.bank_account_id = cb.id
 WHERE pi.final_status = 'paid';
