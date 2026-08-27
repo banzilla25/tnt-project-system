@@ -16,7 +16,7 @@ SELECT
   pi.final_status,
   pb.paid_at,
   pb.batch_label,
-  pb.bukti_transfer,
+  pb.bukti_transfer_url as bukti_transfer,
   c.nama AS campaign_nama,
   cr.username,
   cb.bank_name,
