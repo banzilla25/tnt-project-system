@@ -33,26 +33,48 @@ export default function ImportHistoricalBatchPage() {
         const data = XLSX.utils.sheet_to_json(ws);
         
         // Map excel format to our format
-        const mappedData = data.map((row: any, index: number) => ({
-          _rowId: index + 2, // Excel row number
-          username: row['Username Creator']?.toString().replace('@', '').trim() || '',
-          payment_type: mapPaymentType(row['Status']),
-          nominal: Number(row['Ratecard'] || 0),
-          ratecard_awal: Number(row['Ratecard Awal'] || row['Ratecard'] || 0),
-          metode_pembayaran: row['Metode Pembayaran'] || '',
-          nomor_rekening: row['Nomor Rekening/ VA'] || row['Nomor Rekening/ VA\n'] || '',
-          nama_penerima: row['Nama Penerima Bank'] || row['Nama Penerima Bank '] || '',
-          notes: row['Note'] || '',
-          nomor_wa_dealing: row['Nomor WA Dealing'] || '',
-          nama_wa_pic: row['Nama WA PIC'] || row['Nama WA PIC '] || '',
-          alamat_ktp: row['Alamat sesuai KTP'] || row['Alamat sesuai KTP '] || '',
-          nik: row['NIK'] || '',
-          link_ktp: row['Link Drive KTP'] || '',
-          link_kontrak: row['Kontrak'] || '',
-          bukti_transfer_url: row['Link Bukti TF'] || '',
-          status_excel: row['Status Pembayaran'],
-          raw_payment_type: row['Status']
-        }));
+        const mappedData = data.map((row: any, index: number) => {
+          let tglPengajuan = new Date().toISOString();
+          if (row['Tanggal Pembayaran']) {
+            const serial = Number(row['Tanggal Pembayaran']);
+            if (!isNaN(serial) && serial > 25569) {
+               // Excel serial date to JS Date
+               tglPengajuan = new Date(Math.round((serial - 25569) * 86400 * 1000)).toISOString();
+            }
+          }
+
+          let tglActual = tglPengajuan;
+          if (row['Tgl Actual Payment '] || row['Tgl Actual Payment']) {
+             const serialActual = Number(row['Tgl Actual Payment '] || row['Tgl Actual Payment']);
+             if (!isNaN(serialActual) && serialActual > 25569) {
+                 tglActual = new Date(Math.round((serialActual - 25569) * 86400 * 1000)).toISOString();
+             }
+          }
+
+          return {
+            _rowId: index + 2, // Excel row number
+            username: row['Username Creator']?.toString().replace('@', '').trim() || '',
+            payment_type: mapPaymentType(row['Status']),
+            nominal: Number(row['Ratecard'] || 0),
+            ratecard_awal: Number(row['Ratecard Awal'] || row['Ratecard'] || 0),
+            metode_pembayaran: row['Metode Pembayaran'] || '',
+            nomor_rekening: row['Nomor Rekening/ VA'] || row['Nomor Rekening/ VA\n'] || '',
+            nama_penerima: row['Nama Penerima Bank'] || row['Nama Penerima Bank '] || '',
+            notes: row['Note'] || '',
+            nomor_wa_dealing: row['Nomor WA Dealing'] || '',
+            nama_wa_pic: row['Nama WA PIC'] || row['Nama WA PIC '] || '',
+            alamat_ktp: row['Alamat sesuai KTP'] || row['Alamat sesuai KTP '] || '',
+            nik: row['NIK'] || '',
+            link_ktp: row['Link Drive KTP'] || '',
+            link_kontrak: row['Kontrak'] || '',
+            bukti_transfer_url: row['Link Bukti TF'] || '',
+            status_excel: row['Status Pembayaran'],
+            raw_payment_type: row['Status'],
+            pic_name: row['PIC'] || '',
+            tanggal_pengajuan: tglPengajuan,
+            tanggal_aktual: tglActual
+          };
+        });
 
         // Filter only paid off items
         const paidItems = mappedData.filter((item: any) => 
@@ -184,7 +206,9 @@ export default function ImportHistoricalBatchPage() {
                   <thead className="text-xs text-slate-500 uppercase bg-slate-100 sticky top-0">
                     <tr>
                       <th className="px-4 py-3">Baris</th>
+                      <th className="px-4 py-3">Tgl Pengajuan</th>
                       <th className="px-4 py-3">Username</th>
+                      <th className="px-4 py-3">PIC</th>
                       <th className="px-4 py-3">Tipe</th>
                       <th className="px-4 py-3 text-right">Nominal (Rp)</th>
                       <th className="px-4 py-3">Bank</th>
@@ -194,7 +218,11 @@ export default function ImportHistoricalBatchPage() {
                     {fileData.map((row, idx) => (
                       <tr key={idx} className="border-b last:border-0 bg-white">
                         <td className="px-4 py-2 text-slate-500">{row._rowId}</td>
+                        <td className="px-4 py-2 text-xs text-slate-500">
+                          {new Date(row.tanggal_pengajuan).toLocaleDateString('id-ID')}
+                        </td>
                         <td className="px-4 py-2 font-medium">@{row.username}</td>
+                        <td className="px-4 py-2 text-xs text-slate-500">{row.pic_name || '-'}</td>
                         <td className="px-4 py-2 text-xs uppercase text-slate-500">{row.payment_type?.replace('_', ' ')}</td>
                         <td className="px-4 py-2 text-right">{row.nominal.toLocaleString()}</td>
                         <td className="px-4 py-2">{row.metode_pembayaran}</td>

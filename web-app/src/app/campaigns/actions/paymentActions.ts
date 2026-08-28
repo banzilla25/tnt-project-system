@@ -80,7 +80,7 @@ export async function getPaymentBatchDetail(batchId: number) {
     payment_items(
       *,
       campaign_creators(
-        id, tier, price, qty_vt, creators(id, username, nama_asli)
+        id, tier, price, qty_vt, creators(id, username, nama_asli), profiles:profiles!pic_id(nama)
       ),
       creator_bank_accounts(bank_name, account_number, account_holder)
     )
@@ -247,10 +247,20 @@ export async function revertBatchStatus(batchId: number) {
 // MIGRATION ACTIONS
 // ==========================================
 
-export async function resolveCreatorForMigration(username: string, campaignId: number, picId: number, rowData: any) {
+export async function resolveCreatorForMigration(username: string, campaignId: number, uploaderId: number, rowData: any) {
   const supabase = await createClient();
   let creatorId;
   let campaignCreatorId;
+  let picId = uploaderId;
+
+  // Resolve PIC if provided in Excel
+  if (rowData.pic_name) {
+    const cleanPicName = rowData.pic_name.trim();
+    const { data: picData } = await supabase.from('profiles').select('id').ilike('nama', `%${cleanPicName}%`).limit(1);
+    if (picData && picData.length > 0) {
+      picId = picData[0].id;
+    }
+  }
 
   // 1. Check if creator exists in creators table
   let cleanUsername = username.replace('@', '').trim();
@@ -307,6 +317,9 @@ export async function importHistoricalBatch(campaignId: number, batchLabel: stri
   const { data: profile } = await supabase.from('profiles').select('id').eq('id', userId).single();
   const profileId = profile?.id;
 
+  const batchDate = items.length > 0 && items[0].tanggal_pengajuan ? new Date(items[0].tanggal_pengajuan).toISOString() : new Date().toISOString();
+  const actualDate = items.length > 0 && items[0].tanggal_aktual ? new Date(items[0].tanggal_aktual).toISOString() : new Date().toISOString();
+
   const { data: batch, error: batchErr } = await supabase.from('payment_batches').insert({
     campaign_id: campaignId,
     batch_label: batchLabel,
@@ -317,12 +330,12 @@ export async function importHistoricalBatch(campaignId: number, batchLabel: stri
     finance_reviewed_by: profileId,
     executive_reviewed_by: profileId,
     paid_by: profileId,
-    submitted_at: new Date().toISOString(),
-    manager_reviewed_at: new Date().toISOString(),
-    executive_reviewed_1_at: new Date().toISOString(),
-    finance_reviewed_at: new Date().toISOString(),
-    executive_reviewed_at: new Date().toISOString(),
-    paid_at: new Date().toISOString(),
+    submitted_at: batchDate,
+    manager_reviewed_at: batchDate,
+    executive_reviewed_1_at: batchDate,
+    finance_reviewed_at: batchDate,
+    executive_reviewed_at: batchDate,
+    paid_at: actualDate,
   }).select('id').single();
 
   if (batchErr) throw new Error("Gagal membuat batch migrasi: " + batchErr.message);
@@ -343,7 +356,8 @@ export async function importHistoricalBatch(campaignId: number, batchLabel: stri
     finance_selected: true,
     executive_status: 'approved',
     final_status: 'paid',
-    actual_payment_date: item.actual_payment_date || new Date().toISOString(),
+    created_at: item.tanggal_pengajuan || batchDate,
+    actual_payment_date: item.tanggal_aktual || actualDate,
     bukti_transfer_url: item.bukti_transfer_url || null,
     sender_account_id: 1
   }));

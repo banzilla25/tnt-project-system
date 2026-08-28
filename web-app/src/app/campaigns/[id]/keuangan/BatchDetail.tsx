@@ -359,6 +359,7 @@ export function BatchDetail({ batch, creatorHistory, onBack, onRefresh }: { batc
                 <th className="px-4 py-3 text-right">Ratecard / Final</th>
                 <th className="px-4 py-3 text-right">Biaya TF</th>
                 <th className="px-4 py-3 text-right">Total Transaksi</th>
+                <th className="px-4 py-3">PIC</th>
                 <th className="px-4 py-3">Rekening</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3 text-center">Aksi</th>
@@ -429,7 +430,10 @@ export function BatchDetail({ batch, creatorHistory, onBack, onRefresh }: { batc
                     <td className="px-4 py-3 text-right font-bold text-blue-700">
                       Rp {totalTrx.toLocaleString()}
                     </td>
-                    <td className="px-4 py-3 text-xs">
+                    <td className="px-4 py-3 text-xs text-slate-600 font-medium">
+                      {item.campaign_creators?.profiles?.nama || '-'}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-slate-500 max-w-[200px] truncate">
                       {bank ? (
                         <>
                           <span className="font-semibold">{bank.bank_name}</span><br/>
