@@ -335,9 +335,11 @@ export function BatchForm({ campaignId, creators, creatorHistory, onCancel, onSu
                       </td>
                       <td className="px-4 py-2 font-medium">
                         @{c.creators?.username}
-                        {c.isFullyPaid && <span className="text-xs font-semibold text-orange-700 bg-orange-100 px-2 py-0.5 rounded-full ml-2">Ratecard Lunas</span>}
                       </td>
-                      <td className="px-4 py-2 text-right font-semibold text-slate-700">{Number(c.price || 0).toLocaleString()}</td>
+                      <td className="px-4 py-2 text-right font-semibold text-slate-700 flex items-center justify-end gap-2">
+                        {c.isFullyPaid && <span className="text-xs font-semibold text-orange-700 bg-orange-100 px-2 py-0.5 rounded-full">Ratecard Lunas</span>}
+                        {Number(c.price || 0).toLocaleString()}
+                      </td>
                     </tr>
                   )
                 })}
