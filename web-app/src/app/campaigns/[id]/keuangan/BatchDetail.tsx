@@ -396,15 +396,15 @@ export function BatchDetail({ batch, creatorHistory, onBack, onRefresh }: { batc
                         return null;
                       })()}
                       <div className="text-xs text-slate-400 font-normal mt-0.5">{item.nama_penerima || bank?.account_holder}</div>
-                    </td>
-                    <td className="px-4 py-3 uppercase text-xs font-bold text-slate-500">
-                      {item.payment_type?.replace('_', ' ') || '-'}
                       {item.notes_dari_pic && (
-                        <div className="text-[10px] font-normal text-slate-500 mt-1 normal-case leading-tight max-w-[200px] bg-slate-50 p-1.5 rounded border border-slate-100">
+                        <div className="text-[10px] font-normal text-slate-500 mt-2 normal-case leading-tight max-w-[200px] bg-slate-50 p-1.5 rounded border border-slate-100">
                           <span className="font-semibold text-slate-600 block mb-0.5">Catatan PIC:</span> 
                           {item.notes_dari_pic}
                         </div>
                       )}
+                    </td>
+                    <td className="px-4 py-3 uppercase text-xs font-bold text-slate-500">
+                      {item.payment_type?.replace('_', ' ') || '-'}
                     </td>
                     <td className="px-4 py-3 text-right">
                       {item.ratecard_awal && <div className="text-xs text-slate-400 line-through">Rp {Number(item.ratecard_awal).toLocaleString()}</div>}
