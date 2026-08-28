@@ -244,6 +244,121 @@ export async function revertBatchStatus(batchId: number) {
 }
 
 // ==========================================
+// MIGRATION ACTIONS
+// ==========================================
+
+export async function resolveCreatorForMigration(username: string, campaignId: number, picId: number, rowData: any) {
+  const supabase = await createClient();
+  let creatorId;
+  let campaignCreatorId;
+
+  // 1. Check if creator exists in creators table
+  let cleanUsername = username.replace('@', '').trim();
+  const { data: existingCreator } = await supabase.from('creators').select('id').ilike('username', cleanUsername).single();
+  
+  if (existingCreator) {
+    creatorId = existingCreator.id;
+  } else {
+    // Insert new creator
+    const { data: newCreator, error: errC } = await supabase.from('creators').insert({
+      username: cleanUsername,
+      nama_asli: rowData.nama_penerima || cleanUsername,
+      status: 'active'
+    }).select('id').single();
+    if (errC) throw new Error("Gagal membuat kreator baru: " + errC.message);
+    creatorId = newCreator.id;
+  }
+
+  // 2. Check if linked to campaign
+  const { data: ccData } = await supabase.from('campaign_creators').select('id').eq('campaign_id', campaignId).eq('creator_id', creatorId).single();
+  if (ccData) {
+    campaignCreatorId = ccData.id;
+  } else {
+    // Link to campaign
+    const { data: newCc, error: errCc } = await supabase.from('campaign_creators').insert({
+      campaign_id: campaignId,
+      creator_id: creatorId,
+      pic_id: picId,
+      approval: 'approved',
+      tier: 'Nano',
+      price: rowData.ratecard_awal || rowData.nominal || 0,
+      nomor_wa_dealing: rowData.nomor_wa_dealing || null,
+      nama_wa: rowData.nama_wa_pic || null,
+      alamat_ktp: rowData.alamat_ktp || null,
+      nik: rowData.nik || null,
+      link_ktp: rowData.link_ktp || null,
+      link_kontrak: rowData.link_kontrak || null,
+      notes: "Di-import otomatis via Migrasi"
+    }).select('id').single();
+    if (errCc) throw new Error("Gagal mendaftarkan kreator ke campaign: " + errCc.message);
+    campaignCreatorId = newCc.id;
+  }
+
+  return campaignCreatorId;
+}
+
+export async function importHistoricalBatch(campaignId: number, batchLabel: string, items: any[]) {
+  const supabase = await createClient();
+  const { data: userData } = await supabase.auth.getUser();
+  const userId = userData.user?.id;
+
+  if (!userId) throw new Error('Not authenticated');
+
+  const { data: profile } = await supabase.from('profiles').select('id').eq('id', userId).single();
+  const profileId = profile?.id;
+
+  const { data: batch, error: batchErr } = await supabase.from('payment_batches').insert({
+    campaign_id: campaignId,
+    batch_label: batchLabel,
+    status: 'paid',
+    submitted_by: profileId,
+    manager_reviewed_by: profileId,
+    executive_reviewed_1_by: profileId,
+    finance_reviewed_by: profileId,
+    executive_reviewed_by: profileId,
+    paid_by: profileId,
+    submitted_at: new Date().toISOString(),
+    manager_reviewed_at: new Date().toISOString(),
+    executive_reviewed_1_at: new Date().toISOString(),
+    finance_reviewed_at: new Date().toISOString(),
+    executive_reviewed_at: new Date().toISOString(),
+    paid_at: new Date().toISOString(),
+  }).select('id').single();
+
+  if (batchErr) throw new Error("Gagal membuat batch migrasi: " + batchErr.message);
+
+  const payload = items.map(item => ({
+    batch_id: batch.id,
+    campaign_creator_id: item.campaign_creator_id,
+    payment_type: item.payment_type,
+    ratecard_awal: item.ratecard_awal || null,
+    nominal: item.nominal,
+    biaya_transfer: item.biaya_transfer || 0,
+    metode_pembayaran: item.metode_pembayaran,
+    nomor_rekening: item.nomor_rekening,
+    nama_penerima: item.nama_penerima,
+    notes_dari_pic: item.notes || null,
+    manager_status: 'approved',
+    executive_1_status: 'approved',
+    finance_selected: true,
+    executive_status: 'approved',
+    final_status: 'paid',
+    actual_payment_date: item.actual_payment_date || new Date().toISOString(),
+    bukti_transfer_url: item.bukti_transfer_url || null,
+    sender_account_id: 1
+  }));
+
+  const { error: itemsErr } = await supabase.from('payment_items').insert(payload);
+  if (itemsErr) {
+    await supabase.from('payment_batches').delete().eq('id', batch.id);
+    throw new Error("Gagal menyimpan item: " + itemsErr.message);
+  }
+
+  revalidatePath(`/campaigns/${campaignId}/keuangan`);
+  return batch.id;
+}
+
+// ==========================================
 // MANAGER ACTIONS
 // ==========================================
 
