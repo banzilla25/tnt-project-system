@@ -4,6 +4,16 @@ import React, { useState, useEffect } from "react";
 import { createPaymentBatch, addPaymentItem, submitBatchToManager, getCreatorBankAccounts } from "../../actions/paymentActions";
 import { Loader2, Plus, Trash2, Save, Send, ArrowLeft } from "lucide-react";
 
+export interface OperationalItem {
+  id: string;
+  payment_type: string;
+  nominal: number | '';
+  metode_pembayaran: string;
+  nomor_rekening: string;
+  nama_penerima: string;
+  notes_dari_pic: string;
+}
+
 export function BatchForm({ campaignId, creators, creatorHistory, onCancel, onSuccess }: { campaignId: number, creators: any[], creatorHistory: Record<number, any[]>, onCancel: () => void, onSuccess: () => void }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [batchLabel, setBatchLabel] = useState(`Batch - ${new Date().toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}`);
@@ -12,6 +22,8 @@ export function BatchForm({ campaignId, creators, creatorHistory, onCancel, onSu
   const [forms, setForms] = useState<Record<number, any>>({});
   const [bankAccounts, setBankAccounts] = useState<Record<number, any[]>>({});
   const [loadingBanks, setLoadingBanks] = useState<Record<number, boolean>>({});
+
+  const [operationalItems, setOperationalItems] = useState<OperationalItem[]>([]);
   
   const [searchQuery, setSearchQuery] = useState("");
   const [showBulkSelect, setShowBulkSelect] = useState(false);
@@ -121,6 +133,29 @@ export function BatchForm({ campaignId, creators, creatorHistory, onCancel, onSu
     setForms(newForms);
   };
 
+  const handleAddOperational = () => {
+    setOperationalItems(prev => [
+      ...prev,
+      {
+        id: Math.random().toString(36).substring(7),
+        payment_type: 'ads',
+        nominal: '',
+        metode_pembayaran: '',
+        nomor_rekening: '',
+        nama_penerima: '',
+        notes_dari_pic: ''
+      }
+    ]);
+  };
+
+  const handleRemoveOperational = (id: string) => {
+    setOperationalItems(prev => prev.filter(item => item.id !== id));
+  };
+
+  const handleOperationalChange = (id: string, field: keyof OperationalItem, value: any) => {
+    setOperationalItems(prev => prev.map(item => item.id === id ? { ...item, [field]: value } : item));
+  };
+
   const handleChange = (ccId: number, field: string, value: any) => {
     setForms(prev => ({
       ...prev,
@@ -132,7 +167,8 @@ export function BatchForm({ campaignId, creators, creatorHistory, onCancel, onSu
   };
 
   const validateForms = () => {
-    if (selectedCreators.length === 0) return "Pilih minimal 1 kreator";
+    if (selectedCreators.length === 0 && operationalItems.length === 0) return "Pilih minimal 1 kreator atau 1 item operasional";
+    
     for (const cc of selectedCreators) {
       const f = forms[cc.id];
       if (!f.payment_type) return `Pilih tipe pembayaran untuk @${cc.creators?.username}`;
@@ -148,6 +184,11 @@ export function BatchForm({ campaignId, creators, creatorHistory, onCancel, onSu
         return `Harap lengkapi semua data administrasi (WA, KTP, NIK, Link) untuk @${cc.creators?.username}`;
       }
     }
+
+    for (const op of operationalItems) {
+      if (!op.nominal || Number(op.nominal) <= 0) return "Nominal operasional harus diisi dan lebih dari 0";
+    }
+
     return null;
   };
 
@@ -171,12 +212,25 @@ export function BatchForm({ campaignId, creators, creatorHistory, onCancel, onSu
       // 1. Create Batch
       const batchId = await createPaymentBatch(campaignId, batchLabel);
       
-      // 2. Add Items
+      // 2. Add Creator Items
       for (const cc of selectedCreators) {
         await addPaymentItem(batchId, forms[cc.id]);
       }
+
+      // 3. Add Operational Items
+      for (const op of operationalItems) {
+        await addPaymentItem(batchId, {
+          campaign_creator_id: null,
+          payment_type: op.payment_type,
+          nominal: op.nominal,
+          metode_pembayaran: op.metode_pembayaran,
+          nomor_rekening: op.nomor_rekening,
+          nama_penerima: op.nama_penerima,
+          notes_dari_pic: op.notes_dari_pic
+        });
+      }
       
-      // 3. Submit if requested
+      // 4. Submit if requested
       if (submitToManager) {
         await submitBatchToManager(batchId);
       }
@@ -327,8 +381,7 @@ export function BatchForm({ campaignId, creators, creatorHistory, onCancel, onSu
                             <option value="crm">Biaya CRM</option>
                             <option value="lion">Ongkir Lion Parcel</option>
                             <option value="reward_affiliate">Bonus Reward Affiliate</option>
-                            <option value="boost_views">Boost Views</option>
-                            <option value="boost_comment">Boost Comment</option>
+                            <option value="boost_awareness">Boost Awareness</option>
                           </select>
                           {creatorHistory[cc.id]?.some((h: any) => h.payment_type === f.payment_type) && (
                             <p className="text-[10px] text-orange-700 mt-1 font-medium bg-orange-50 p-1 rounded border border-orange-100">⚠️ Sudah pernah diajukan sebelumnya.</p>
@@ -428,17 +481,95 @@ export function BatchForm({ campaignId, creators, creatorHistory, onCancel, onSu
                 </div>
               )
             })}
-
-            <div className="flex gap-4 pt-6 border-t border-slate-200">
-              <button onClick={() => handlePreSubmit(false)} disabled={isSubmitting} className="btn btn-outline flex-1 flex justify-center items-center gap-2 py-3">
-                {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />} Simpan sbg Draft
-              </button>
-              <button onClick={() => handlePreSubmit(true)} disabled={isSubmitting} className="btn btn-primary flex-1 flex justify-center items-center gap-2 py-3">
-                {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />} Ajukan ke Manager
-              </button>
-            </div>
           </div>
         )}
+
+        {/* --- OPERATIONAL ITEMS SECTION --- */}
+        <div className="border-t border-slate-100 pt-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-bold text-slate-800 text-lg">Item Operasional & Ads</h3>
+            <button onClick={handleAddOperational} className="btn btn-outline flex items-center gap-2 text-sm">
+              <Plus className="w-4 h-4" /> Tambah Operasional / Ads
+            </button>
+          </div>
+
+          {operationalItems.length > 0 ? (
+            <div className="space-y-6">
+              {operationalItems.map((op, idx) => (
+                <div key={op.id} className="border border-green-100 rounded-xl overflow-hidden shadow-sm">
+                  <div className="bg-green-50 px-4 py-3 border-b border-green-100 flex justify-between items-center">
+                    <h3 className="font-bold text-green-900 flex items-center gap-2">
+                      <span className="bg-green-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs">{idx + 1}</span>
+                      Pengeluaran Operasional / Ads
+                    </h3>
+                    <button onClick={() => handleRemoveOperational(op.id)} className="text-red-500 hover:text-red-700 p-1">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-medium text-slate-600 mb-1">Tipe Pembayaran</label>
+                          <select className="w-full p-2 border border-slate-300 rounded text-sm outline-none focus:border-green-500" value={op.payment_type} onChange={e => handleOperationalChange(op.id, 'payment_type', e.target.value)}>
+                            <option value="ads">Top Up ADS</option>
+                            <option value="crm">Biaya CRM</option>
+                            <option value="lion">Ongkir Lion Parcel</option>
+                            <option value="reward_affiliate">Bonus Reward Affiliate</option>
+                            <option value="boost_awareness">Boost Awareness</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-slate-600 mb-1">Nominal (Rp) <span className="text-red-500">*</span></label>
+                          <input type="number" className="w-full p-2 border border-slate-300 rounded text-sm outline-none focus:border-green-500" placeholder="Contoh: 10000000" value={op.nominal} onChange={e => handleOperationalChange(op.id, 'nominal', e.target.value)} />
+                        </div>
+                        <div className="col-span-2">
+                          <label className="block text-xs font-medium text-slate-600 mb-1">Catatan / Detail (Wajib untuk Boost)</label>
+                          <textarea 
+                            className="w-full p-2 border border-slate-300 rounded text-sm outline-none focus:border-green-500 h-16 resize-none" 
+                            placeholder="Contoh: Top up Tiktok ads periode 1-7 Agustus / Boost View video X"
+                            value={op.notes_dari_pic} 
+                            onChange={e => handleOperationalChange(op.id, 'notes_dari_pic', e.target.value)} 
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <div className="space-y-4">
+                      <h4 className="font-semibold text-sm text-slate-700 border-b pb-2">Tujuan Transfer</h4>
+                      <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded border border-slate-200">
+                        <div className="col-span-2">
+                          <label className="block text-xs font-medium text-slate-600 mb-1">Bank / Metode (Opsional)</label>
+                          <input type="text" placeholder="BCA / Mandiri / Kas Kasir" className="w-full p-2 border border-slate-300 rounded text-sm outline-none focus:border-green-500" value={op.metode_pembayaran} onChange={e => handleOperationalChange(op.id, 'metode_pembayaran', e.target.value)} />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-slate-600 mb-1">Nomor Rekening</label>
+                          <input type="text" className="w-full p-2 border border-slate-300 rounded text-sm outline-none focus:border-green-500" value={op.nomor_rekening} onChange={e => handleOperationalChange(op.id, 'nomor_rekening', e.target.value)} />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-slate-600 mb-1">Atas Nama</label>
+                          <input type="text" className="w-full p-2 border border-slate-300 rounded text-sm outline-none focus:border-green-500" value={op.nama_penerima} onChange={e => handleOperationalChange(op.id, 'nama_penerima', e.target.value)} />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="bg-slate-50 p-6 text-center rounded-lg border border-slate-200 text-slate-500 text-sm">
+              Belum ada item pengeluaran operasional. Klik tombol di atas untuk menambahkan Top Up Ads, Lion Parcel, dll.
+            </div>
+          )}
+        </div>
+
+        <div className="flex gap-4 pt-6 border-t border-slate-200">
+          <button onClick={() => handlePreSubmit(false)} disabled={isSubmitting} className="btn btn-outline flex-1 flex justify-center items-center gap-2 py-3">
+            {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />} Simpan sbg Draft
+          </button>
+          <button onClick={() => handlePreSubmit(true)} disabled={isSubmitting} className="btn btn-primary flex-1 flex justify-center items-center gap-2 py-3">
+            {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />} Ajukan ke Manager
+          </button>
+        </div>
 
         {showWarning && (
           <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">

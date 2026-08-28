@@ -8,7 +8,6 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { createClient } from "@/utils/supabase/client";
 import { useAuth } from "@/providers/AuthProvider";
 import { BatchForm } from "./BatchForm";
-import { BatchFormAds } from "./BatchFormAds";
 import { BatchDetail } from "./BatchDetail";
 import { getPaymentBatches, getPaymentBatchDetail } from "../../actions/paymentActions";
 
@@ -34,7 +33,6 @@ function CampaignKeuanganContent() {
 
   // View state for Tabs
   const [viewState, setViewState] = useState<ViewState>('list');
-  const [activeTab, setActiveTab] = useState<'creator' | 'ads'>('creator');
   
   // Batch Data
   const [batches, setBatches] = useState<any[]>([]);
@@ -158,299 +156,173 @@ function CampaignKeuanganContent() {
   });
   const adsSisa = adsBudgetPlafon - adsTerpakai;
 
-  const creatorBatches = batches.filter(b => !b.payment_items?.some((i: any) => i.payment_type === 'ads'));
-  const adsBatches = batches.filter(b => b.payment_items?.some((i: any) => i.payment_type === 'ads'));
+
 
   return (
     <div className="space-y-[24px] pb-[80px]">
-      {/* TAB SWITCHER */}
       {viewState === 'list' && (
-        <div className="flex border-b border-line">
-          <button
-            onClick={() => setActiveTab('creator')}
-            className={`px-[24px] py-[12px] text-[13px] font-semibold border-b-2 transition-colors ${activeTab === 'creator' ? 'border-blue-600 text-blue-600' : 'border-transparent text-text-soft hover:text-text'}`}
-          >
-            💰 Budget Creator
-          </button>
-          <button
-            onClick={() => setActiveTab('ads')}
-            className={`px-[24px] py-[12px] text-[13px] font-semibold border-b-2 transition-colors ${activeTab === 'ads' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-text-soft hover:text-text'}`}
-          >
-            📢 Budget Ads
-          </button>
-        </div>
+        <>
+          {/* Summary Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-[24px]">
+            <div className="bg-slate-900 rounded-xl p-6 text-white shadow-sm">
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="text-slate-400 text-[13px] font-medium mb-[4px]">Budget Campaign</p>
+                  <h3 className="text-[24px] font-bold">Rp {budgetPlafon.toLocaleString()}</h3>
+                </div>
+                <Wallet className="w-8 h-8 text-slate-700" />
+              </div>
+            </div>
+            <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="text-slate-500 text-[13px] font-medium mb-[4px]">Pengeluaran Campaign (Paid)</p>
+                  <h3 className="text-[24px] font-bold text-slate-800">Rp {totalTerpakai.toLocaleString()}</h3>
+                </div>
+                <Activity className="w-8 h-8 text-slate-300" />
+              </div>
+            </div>
+            <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-6 shadow-sm">
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="text-emerald-600 text-[13px] font-medium mb-[4px]">Sisa Budget Campaign</p>
+                  <h3 className="text-[24px] font-bold text-emerald-700">Rp {sisaBudget.toLocaleString()}</h3>
+                </div>
+                <CheckCircle2 className="w-8 h-8 text-emerald-200" />
+              </div>
+            </div>
+            <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm flex flex-col justify-center">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-xs font-semibold text-slate-500">Budget Campaign Terpakai</span>
+                <span className="text-xs font-bold text-slate-700">{progressPercent.toFixed(1)}%</span>
+              </div>
+              <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+                <div className="bg-blue-500 h-full transition-all duration-500" style={{ width: `${progressPercent}%` }}></div>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-[24px]">
+            <div className="bg-indigo-900 rounded-xl p-6 text-white shadow-sm">
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="text-indigo-300 text-[13px] font-medium mb-[4px]">Budget ADS (Plafon)</p>
+                  <h3 className="text-[24px] font-bold">Rp {adsBudgetPlafon.toLocaleString()}</h3>
+                </div>
+              </div>
+            </div>
+            <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="text-slate-500 text-[13px] font-medium mb-[4px]">ADS Terpakai (Paid)</p>
+                  <h3 className="text-[24px] font-bold text-slate-800">Rp {adsTerpakai.toLocaleString()}</h3>
+                </div>
+              </div>
+            </div>
+            <div className={`rounded-xl p-6 shadow-sm border ${adsSisa < 0 ? 'bg-red-50 border-red-100' : 'bg-emerald-50 border-emerald-100'}`}>
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className={`text-[13px] font-medium mb-[4px] ${adsSisa < 0 ? 'text-red-600' : 'text-emerald-600'}`}>Sisa Budget ADS</p>
+                  <h3 className={`text-[24px] font-bold ${adsSisa < 0 ? 'text-red-700' : 'text-emerald-700'}`}>Rp {adsSisa.toLocaleString()}</h3>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+              <h3 className="font-bold text-slate-800">Daftar Batch Pembayaran</h3>
+              {hasAccess && (
+                <button 
+                  onClick={() => setViewState('form')}
+                  className="btn btn-primary flex items-center gap-2 text-sm px-4 py-2"
+                >
+                  <Plus className="w-4 h-4" /> Ajukan Pembayaran Baru
+                </button>
+              )}
+            </div>
+            
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-slate-50 border-b border-slate-100 text-slate-600 font-medium">
+                  <tr>
+                    <th className="px-4 py-3 text-center w-12">No</th>
+                    <th className="px-4 py-3">Batch Label</th>
+                    <th className="px-4 py-3">PIC Submit</th>
+                    <th className="px-4 py-3 text-center">Status Item</th>
+                    <th className="px-4 py-3 text-right">Total Nominal Diajukan</th>
+                    <th className="px-4 py-3 text-right">Total Nominal Dibayar</th>
+                    <th className="px-4 py-3 text-center">Status</th>
+                    <th className="px-4 py-3 text-center">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {isLoadingBatches ? (
+                    <tr><td colSpan={8} className="h-32 text-center"><Loader2 className="w-6 h-6 animate-spin mx-auto text-slate-400" /></td></tr>
+                  ) : batches.length === 0 ? (
+                    <tr><td colSpan={8} className="h-32 text-center text-slate-500">Belum ada batch pembayaran yang diajukan.</td></tr>
+                  ) : (
+                    batches.map((b, idx) => {
+                      const totalItem = b.payment_items?.length || 0;
+                      const totalDibayar = b.payment_items?.filter((i: any) => i.final_status === 'paid').length || 0;
+                      const totalDitolak = b.payment_items?.filter((i: any) => i.final_status === 'rejected').length || 0;
+                      const totalNominal = b.payment_items?.reduce((acc: number, cur: any) => acc + Number(cur.nominal) + Number(cur.biaya_transfer), 0) || 0;
+                      const nominalDibayar = b.payment_items?.filter((i: any) => i.final_status === 'paid').reduce((acc: number, cur: any) => acc + Number(cur.nominal) + Number(cur.biaya_transfer), 0) || 0;
+                      
+                      return (
+                        <tr key={b.id} className="hover:bg-slate-50/80 transition-colors">
+                          <td className="px-4 py-3 text-center text-slate-400">{idx + 1}</td>
+                          <td className="px-4 py-3 font-semibold text-slate-700">{b.batch_label}
+                            <div className="text-xs font-normal text-slate-400">{new Date(b.created_at).toLocaleDateString('id-ID')}</div>
+                          </td>
+                          <td className="px-4 py-3 font-medium text-slate-600">{b.submitter?.nama}</td>
+                          <td className="px-4 py-3">
+                            <div className="flex flex-col gap-1 items-center text-[10px] w-24 mx-auto">
+                              <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-semibold w-full text-center">Diajukan: {totalItem}</span>
+                              {totalDibayar > 0 && <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded font-semibold w-full text-center">Dibayar: {totalDibayar}</span>}
+                              {totalDitolak > 0 && <span className="bg-red-100 text-red-700 px-2 py-0.5 rounded font-semibold w-full text-center">Ditolak: {totalDitolak}</span>}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-right font-bold text-slate-700">Rp {totalNominal.toLocaleString()}</td>
+                          <td className="px-4 py-3 text-right font-bold text-green-600">Rp {nominalDibayar.toLocaleString()}</td>
+                          <td className="px-4 py-3 text-center">{getBatchStatusBadge(b.status)}</td>
+                          <td className="px-4 py-3 text-center">
+                            <button onClick={() => handleViewDetail(b.id)} className="text-blue-600 hover:text-blue-800 font-semibold text-xs flex items-center justify-center gap-1 mx-auto bg-blue-50 px-3 py-1.5 rounded-full hover:bg-blue-100 transition-colors">
+                              Lihat Detail <ArrowRight className="w-3 h-3" />
+                            </button>
+                          </td>
+                        </tr>
+                      )
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
       )}
 
-      {/* ===================== CREATOR TAB ===================== */}
-      {activeTab === 'creator' && (
-        <div className="space-y-[24px]">
-          {viewState === 'list' && (
-            <>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-[24px]">
-                <div className="bg-slate-900 rounded-xl p-6 text-white shadow-sm">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="text-slate-400 text-[13px] font-medium mb-[4px]">Budget Plafon Creator</p>
-                      <h3 className="text-[24px] font-bold">Rp {budgetPlafon.toLocaleString()}</h3>
-                    </div>
-                    <Wallet className="w-8 h-8 text-slate-700" />
-                  </div>
-                </div>
-                <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="text-slate-500 text-[13px] font-medium mb-[4px]">Total Terpakai (Paid)</p>
-                      <h3 className="text-[24px] font-bold text-slate-800">Rp {totalTerpakai.toLocaleString()}</h3>
-                    </div>
-                    <Activity className="w-8 h-8 text-slate-300" />
-                  </div>
-                </div>
-                <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-6 shadow-sm">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="text-emerald-600 text-[13px] font-medium mb-[4px]">Sisa Budget</p>
-                      <h3 className="text-[24px] font-bold text-emerald-700">Rp {sisaBudget.toLocaleString()}</h3>
-                    </div>
-                    <CheckCircle2 className="w-8 h-8 text-emerald-200" />
-                  </div>
-                </div>
-                <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm flex flex-col justify-center">
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-xs font-semibold text-slate-500">Persentase Terpakai</span>
-                    <span className="text-xs font-bold text-slate-700">{progressPercent.toFixed(1)}%</span>
-                  </div>
-                  <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
-                    <div className="bg-blue-500 h-full transition-all duration-500" style={{ width: `${progressPercent}%` }}></div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                  <h3 className="font-bold text-slate-800">Daftar Batch Pembayaran</h3>
-                  {hasAccess && (
-                    <button 
-                      onClick={() => setViewState('form')}
-                      className="btn btn-primary flex items-center gap-2 text-sm px-4 py-2"
-                    >
-                      <Plus className="w-4 h-4" /> Ajukan Pembayaran Baru
-                    </button>
-                  )}
-                </div>
-                
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-sm">
-                    <thead className="bg-slate-50 border-b border-slate-100 text-slate-600 font-medium">
-                      <tr>
-                        <th className="px-4 py-3 text-center w-12">No</th>
-                        <th className="px-4 py-3">Batch Label</th>
-                        <th className="px-4 py-3">PIC Submit</th>
-                        <th className="px-4 py-3 text-center">Status Kreator</th>
-                        <th className="px-4 py-3 text-right">Total Nominal Diajukan</th>
-                        <th className="px-4 py-3 text-right">Total Nominal Dibayar</th>
-                        <th className="px-4 py-3 text-center">Status</th>
-                        <th className="px-4 py-3 text-center">Aksi</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-50">
-                      {isLoadingBatches ? (
-                        <tr><td colSpan={8} className="h-32 text-center"><Loader2 className="w-6 h-6 animate-spin mx-auto text-slate-400" /></td></tr>
-                      ) : creatorBatches.length === 0 ? (
-                        <tr><td colSpan={8} className="h-32 text-center text-slate-500">Belum ada batch pembayaran yang diajukan.</td></tr>
-                      ) : (
-                        creatorBatches.map((b, idx) => {
-                          const totalItem = b.payment_items?.length || 0;
-                          const totalDibayar = b.payment_items?.filter((i: any) => i.final_status === 'paid').length || 0;
-                          const totalDitolak = b.payment_items?.filter((i: any) => i.final_status === 'rejected').length || 0;
-                          const totalNominal = b.payment_items?.reduce((acc: number, cur: any) => acc + Number(cur.nominal) + Number(cur.biaya_transfer), 0) || 0;
-                          const nominalDibayar = b.payment_items?.filter((i: any) => i.final_status === 'paid').reduce((acc: number, cur: any) => acc + Number(cur.nominal) + Number(cur.biaya_transfer), 0) || 0;
-                          
-                          return (
-                            <tr key={b.id} className="hover:bg-slate-50/80 transition-colors">
-                              <td className="px-4 py-3 text-center text-slate-400">{idx + 1}</td>
-                              <td className="px-4 py-3 font-semibold text-slate-700">{b.batch_label}
-                                <div className="text-xs font-normal text-slate-400">{new Date(b.created_at).toLocaleDateString('id-ID')}</div>
-                              </td>
-                              <td className="px-4 py-3 font-medium text-slate-600">{b.submitter?.nama}</td>
-                              <td className="px-4 py-3">
-                                <div className="flex flex-col gap-1 items-center text-[10px] w-24 mx-auto">
-                                  <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-semibold w-full text-center">Diajukan: {totalItem}</span>
-                                  {totalDibayar > 0 && <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded font-semibold w-full text-center">Dibayar: {totalDibayar}</span>}
-                                  {totalDitolak > 0 && <span className="bg-red-100 text-red-700 px-2 py-0.5 rounded font-semibold w-full text-center">Ditolak: {totalDitolak}</span>}
-                                </div>
-                              </td>
-                              <td className="px-4 py-3 text-right font-bold text-slate-700">Rp {totalNominal.toLocaleString()}</td>
-                              <td className="px-4 py-3 text-right font-bold text-green-600">Rp {nominalDibayar.toLocaleString()}</td>
-                              <td className="px-4 py-3 text-center">{getBatchStatusBadge(b.status)}</td>
-                              <td className="px-4 py-3 text-center">
-                                <button onClick={() => handleViewDetail(b.id)} className="text-blue-600 hover:text-blue-800 font-semibold text-xs flex items-center justify-center gap-1 mx-auto bg-blue-50 px-3 py-1.5 rounded-full hover:bg-blue-100 transition-colors">
-                                  Lihat Detail <ArrowRight className="w-3 h-3" />
-                                </button>
-                              </td>
-                            </tr>
-                          )
-                        })
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </>
-          )}
-
-          {viewState === 'form' && (
-            <BatchForm 
-              campaignId={campaignId} 
-              creators={creators} 
-              creatorHistory={creatorHistory}
-              onCancel={() => setViewState('list')} 
-              onSuccess={() => { setViewState('list'); fetchData(); }} 
-            />
-          )}
-
-          {viewState === 'detail' && selectedBatch && (
-            <BatchDetail 
-              batch={selectedBatch} 
-              creatorHistory={creatorHistory}
-              onBack={() => { setViewState('list'); setSelectedBatch(null); }} 
-              onRefresh={async () => {
-                const detail = await getPaymentBatchDetail(selectedBatch.id);
-                setSelectedBatch(detail);
-                fetchData();
-              }} 
-            />
-          )}
-        </div>
+      {viewState === 'form' && (
+        <BatchForm 
+          campaignId={campaignId} 
+          creators={creators} 
+          creatorHistory={creatorHistory}
+          onCancel={() => setViewState('list')} 
+          onSuccess={() => { setViewState('list'); fetchData(); }} 
+        />
       )}
 
-      {/* ===================== ADS TAB ===================== */}
-      {activeTab === 'ads' && (
-        <div className="space-y-[24px]">
-          {viewState === 'list' && (
-            <>
-              {/* Summary Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-[24px]">
-                <div className="bg-slate-900 rounded-xl p-6 text-white shadow-sm">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="text-slate-400 text-[13px] font-medium mb-[4px]">Total Budget ADS (Plafon)</p>
-                      <h3 className="text-[24px] font-bold">Rp {adsBudgetPlafon.toLocaleString()}</h3>
-                    </div>
-                  </div>
-                </div>
-                <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="text-slate-500 text-[13px] font-medium mb-[4px]">Total ADS Terpakai (Paid)</p>
-                      <h3 className="text-[24px] font-bold text-slate-800">Rp {adsTerpakai.toLocaleString()}</h3>
-                    </div>
-                  </div>
-                </div>
-                <div className={`rounded-xl p-6 shadow-sm border ${adsSisa < 0 ? 'bg-red-50 border-red-100' : 'bg-emerald-50 border-emerald-100'}`}>
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className={`text-[13px] font-medium mb-[4px] ${adsSisa < 0 ? 'text-red-600' : 'text-emerald-600'}`}>Sisa Budget ADS</p>
-                      <h3 className={`text-[24px] font-bold ${adsSisa < 0 ? 'text-red-700' : 'text-emerald-700'}`}>Rp {adsSisa.toLocaleString()}</h3>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Table */}
-              <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                  <h3 className="font-bold text-slate-800">Daftar Batch Pengajuan Ads</h3>
-                  {hasAccess && (
-                    <button 
-                      onClick={() => setViewState('form')}
-                      className="btn btn-primary flex items-center gap-2 text-sm px-4 py-2"
-                    >
-                      <Plus className="w-4 h-4" /> Ajukan Top Up Ads Baru
-                    </button>
-                  )}
-                </div>
-
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-sm">
-                    <thead className="bg-slate-50 border-b border-slate-100 text-slate-600 font-medium">
-                      <tr>
-                        <th className="px-4 py-3 text-center w-12">No</th>
-                        <th className="px-4 py-3">Batch Label</th>
-                        <th className="px-4 py-3">PIC Submit</th>
-                        <th className="px-4 py-3 text-center">Status Item</th>
-                        <th className="px-4 py-3 text-right">Total Nominal Diajukan</th>
-                        <th className="px-4 py-3 text-right">Total Nominal Dibayar</th>
-                        <th className="px-4 py-3 text-center">Status</th>
-                        <th className="px-4 py-3 text-center">Aksi</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-50">
-                      {isLoadingBatches ? (
-                        <tr><td colSpan={8} className="h-32 text-center"><Loader2 className="w-6 h-6 animate-spin mx-auto text-slate-400" /></td></tr>
-                      ) : adsBatches.length === 0 ? (
-                        <tr><td colSpan={8} className="h-32 text-center text-slate-500">Belum ada batch pengajuan ads.</td></tr>
-                      ) : (
-                        adsBatches.map((b, idx) => {
-                          const totalItem = b.payment_items?.length || 0;
-                          const totalDibayar = b.payment_items?.filter((i: any) => i.final_status === 'paid').length || 0;
-                          const totalDitolak = b.payment_items?.filter((i: any) => i.final_status === 'rejected').length || 0;
-                          const totalNominal = b.payment_items?.reduce((acc: number, cur: any) => acc + Number(cur.nominal) + Number(cur.biaya_transfer), 0) || 0;
-                          const nominalDibayar = b.payment_items?.filter((i: any) => i.final_status === 'paid').reduce((acc: number, cur: any) => acc + Number(cur.nominal) + Number(cur.biaya_transfer), 0) || 0;
-                          
-                          return (
-                            <tr key={b.id} className="hover:bg-slate-50/80 transition-colors">
-                              <td className="px-4 py-3 text-center text-slate-400">{idx + 1}</td>
-                              <td className="px-4 py-3 font-semibold text-slate-700">{b.batch_label}
-                                <div className="text-xs font-normal text-slate-400">{new Date(b.created_at).toLocaleDateString('id-ID')}</div>
-                              </td>
-                              <td className="px-4 py-3 font-medium text-slate-600">{b.submitter?.nama}</td>
-                              <td className="px-4 py-3">
-                                <div className="flex flex-col gap-1 items-center text-[10px] w-24 mx-auto">
-                                  <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-semibold w-full text-center">Diajukan: {totalItem}</span>
-                                  {totalDibayar > 0 && <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded font-semibold w-full text-center">Dibayar: {totalDibayar}</span>}
-                                  {totalDitolak > 0 && <span className="bg-red-100 text-red-700 px-2 py-0.5 rounded font-semibold w-full text-center">Ditolak: {totalDitolak}</span>}
-                                </div>
-                              </td>
-                              <td className="px-4 py-3 text-right font-bold text-slate-700">Rp {totalNominal.toLocaleString()}</td>
-                              <td className="px-4 py-3 text-right font-bold text-green-600">Rp {nominalDibayar.toLocaleString()}</td>
-                              <td className="px-4 py-3 text-center">{getBatchStatusBadge(b.status)}</td>
-                              <td className="px-4 py-3 text-center">
-                                <button onClick={() => handleViewDetail(b.id)} className="text-blue-600 hover:text-blue-800 font-semibold text-xs flex items-center justify-center gap-1 mx-auto bg-blue-50 px-3 py-1.5 rounded-full hover:bg-blue-100 transition-colors">
-                                  Lihat Detail <ArrowRight className="w-3 h-3" />
-                                </button>
-                              </td>
-                            </tr>
-                          )
-                        })
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </>
-          )}
-
-          {viewState === 'form' && (
-            <BatchFormAds 
-              campaignId={campaignId} 
-              onCancel={() => setViewState('list')} 
-              onSuccess={() => { setViewState('list'); fetchData(); }} 
-            />
-          )}
-
-          {viewState === 'detail' && selectedBatch && (
-            <BatchDetail 
-              batch={selectedBatch} 
-              creatorHistory={creatorHistory}
-              onBack={() => { setViewState('list'); setSelectedBatch(null); }} 
-              onRefresh={async () => {
-                const detail = await getPaymentBatchDetail(selectedBatch.id);
-                setSelectedBatch(detail);
-                fetchData();
-              }} 
-            />
-          )}
-        </div>
+      {viewState === 'detail' && selectedBatch && (
+        <BatchDetail 
+          batch={selectedBatch} 
+          creatorHistory={creatorHistory}
+          onBack={() => { setViewState('list'); setSelectedBatch(null); }} 
+          onRefresh={async () => {
+            const detail = await getPaymentBatchDetail(selectedBatch.id);
+            setSelectedBatch(detail);
+            fetchData();
+          }} 
+        />
       )}
     </div>
   );
