@@ -385,7 +385,17 @@ export function BatchDetail({ batch, creatorHistory, onBack, onRefresh }: { batc
                     </td>
                     <td className="px-4 py-3 font-medium">
                       @{item.campaign_creators?.creators?.username}
-                      <div className="text-xs text-slate-400 font-normal">{item.nama_penerima || bank?.account_holder}</div>
+                      {(() => {
+                        if (!item.campaign_creator_id || item.payment_type === 'ads') return null;
+                        const pastHistory = creatorHistory[item.campaign_creator_id] || [];
+                        const types = [...pastHistory.map(h => h.payment_type), item.payment_type];
+                        const isFullyPaid = types.includes('100_akhir') || (types.includes('50_awal') && types.includes('50_akhir'));
+                        if (isFullyPaid) {
+                          return <span className="text-[10px] font-semibold text-orange-700 bg-orange-100 px-1.5 py-0.5 rounded ml-2">Ratecard Lunas</span>;
+                        }
+                        return null;
+                      })()}
+                      <div className="text-xs text-slate-400 font-normal mt-0.5">{item.nama_penerima || bank?.account_holder}</div>
                     </td>
                     <td className="px-4 py-3 uppercase text-xs font-bold text-slate-500">
                       {item.payment_type?.replace('_', ' ') || '-'}

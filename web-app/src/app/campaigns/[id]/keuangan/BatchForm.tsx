@@ -201,6 +201,11 @@ export function BatchForm({ campaignId, creators, creatorHistory, onCancel, onSu
       setPendingSubmitType(submitToManager);
       setShowWarning(true);
     } else {
+      if (submitToManager) {
+        if (!confirm("Apakah Anda yakin ingin mengajukan batch ini ke Manager?")) {
+          return;
+        }
+      }
       handleSave(submitToManager);
     }
   };
