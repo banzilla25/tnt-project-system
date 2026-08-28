@@ -13,7 +13,7 @@ export async function getPaymentBatches(campaignId?: number, status?: string) {
     *,
     submitter:profiles!submitted_by(nama),
     campaigns(nama),
-    payment_items(id, nominal, biaya_transfer, final_status, payment_type)
+    payment_items(id, nominal, biaya_transfer, final_status, payment_type, campaign_creator_id)
   `).order('created_at', { ascending: false });
 
   if (campaignId) query = query.eq('campaign_id', campaignId);
