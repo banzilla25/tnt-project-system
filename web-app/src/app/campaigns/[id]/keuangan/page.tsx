@@ -10,10 +10,11 @@ import { useAuth } from "@/providers/AuthProvider";
 import { BatchForm } from "./BatchForm";
 import { BatchDetail } from "./BatchDetail";
 import { getPaymentBatches, getPaymentBatchDetail } from "../../actions/paymentActions";
+import { CampaignCreatorMutationTab } from "@/components/CampaignCreatorMutationTab";
 
 const supabase = createClient();
 
-type ViewState = 'list' | 'form' | 'detail';
+type ViewState = 'list' | 'form' | 'detail' | 'mutasi_kreator';
 
 export default function CampaignKeuanganPage() {
   return (
@@ -232,93 +233,110 @@ function CampaignKeuanganContent() {
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-            <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-              <h3 className="font-bold text-slate-800">Daftar Batch Pembayaran</h3>
-              {hasAccess && (
-                <button 
-                  onClick={() => setViewState('form')}
-                  className="btn btn-primary flex items-center gap-2 text-sm px-4 py-2"
-                >
-                  <Plus className="w-4 h-4" /> Ajukan Pembayaran Baru
-                </button>
-              )}
-            </div>
-            
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead className="bg-slate-50 border-b border-slate-100 text-slate-600 font-medium">
-                  <tr>
-                    <th className="px-4 py-3 text-center w-12">No</th>
-                    <th className="px-4 py-3">Batch Label</th>
-                    <th className="px-4 py-3">PIC Submit</th>
-                    <th className="px-4 py-3 text-center">Status Item</th>
-                    <th className="px-4 py-3 text-right">Total Nominal Diajukan</th>
-                    <th className="px-4 py-3 text-right">Total Nominal Dibayar</th>
-                    <th className="px-4 py-3 text-center">Status</th>
-                    <th className="px-4 py-3 text-center">Aksi</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50">
-                  {isLoadingBatches ? (
-                    <tr><td colSpan={8} className="h-32 text-center"><Loader2 className="w-6 h-6 animate-spin mx-auto text-slate-400" /></td></tr>
-                  ) : batches.length === 0 ? (
-                    <tr><td colSpan={8} className="h-32 text-center text-slate-500">Belum ada batch pembayaran yang diajukan.</td></tr>
-                  ) : (
-                    batches.map((b, idx) => {
-                      const totalItem = b.payment_items?.length || 0;
-                      const totalDibayar = b.payment_items?.filter((i: any) => i.final_status === 'paid').length || 0;
-                      const totalDitolak = b.payment_items?.filter((i: any) => i.final_status === 'rejected').length || 0;
-                      const totalNominal = b.payment_items?.reduce((acc: number, cur: any) => {
-                        const base = cur.actual_transfer != null ? Number(cur.actual_transfer) : Number(cur.nominal || 0);
-                        return acc + base + Number(cur.biaya_transfer || 0);
-                      }, 0) || 0;
-                      const nominalDibayar = b.payment_items?.filter((i: any) => i.final_status === 'paid').reduce((acc: number, cur: any) => {
-                        const base = cur.actual_transfer != null ? Number(cur.actual_transfer) : Number(cur.nominal || 0);
-                        return acc + base + Number(cur.biaya_transfer || 0);
-                      }, 0) || 0;
-                      
-                      return (
-                        <tr key={b.id} className="hover:bg-slate-50/80 transition-colors">
-                          <td className="px-4 py-3 text-center text-slate-400">{idx + 1}</td>
-                          <td className="px-4 py-3 font-semibold text-slate-700">{b.batch_label}
-                            <div className="text-xs font-normal text-slate-400">{new Date(b.created_at).toLocaleDateString('id-ID')}</div>
-                          </td>
-                          <td className="px-4 py-3 font-medium text-slate-600">{b.submitter?.nama}</td>
-                          <td className="px-4 py-3">
-                            <div className="flex flex-col gap-1 items-center text-[10px] w-24 mx-auto">
-                              <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-semibold w-full text-center">Diajukan: {totalItem}</span>
-                              {totalDibayar > 0 && <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded font-semibold w-full text-center">Dibayar: {totalDibayar}</span>}
-                              {totalDitolak > 0 && <span className="bg-red-100 text-red-700 px-2 py-0.5 rounded font-semibold w-full text-center">Ditolak: {totalDitolak}</span>}
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 text-right font-bold text-slate-700">Rp {totalNominal.toLocaleString()}</td>
-                          <td className="px-4 py-3 text-right font-bold text-green-600">Rp {nominalDibayar.toLocaleString()}</td>
-                          <td className="px-4 py-3 text-center">{getBatchStatusBadge(b.status)}</td>
-                          <td className="px-4 py-3 text-center">
-                            <button onClick={() => handleViewDetail(b.id)} className="text-blue-600 hover:text-blue-800 font-semibold text-xs flex items-center justify-center gap-1 mx-auto bg-blue-50 px-3 py-1.5 rounded-full hover:bg-blue-100 transition-colors">
-                              Lihat Detail <ArrowRight className="w-3 h-3" />
-                            </button>
-                          </td>
-                        </tr>
-                      )
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
+          <div className="flex border-b border-slate-200">
+            <button
+              onClick={() => setViewState('list')}
+              className={`px-[24px] py-[12px] text-[13px] font-semibold border-b-2 transition-colors flex items-center gap-2 ${viewState === 'list' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
+            >
+              Daftar Batch Pembayaran
+            </button>
+            <button
+              onClick={() => setViewState('mutasi_kreator')}
+              className={`px-[24px] py-[12px] text-[13px] font-semibold border-b-2 transition-colors flex items-center gap-2 ${viewState === 'mutasi_kreator' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
+            >
+              Mutasi Kreator
+            </button>
+            {hasAccess && (
+              <button
+                onClick={() => setViewState('form')}
+                className={`px-[24px] py-[12px] text-[13px] font-semibold border-b-2 transition-colors flex items-center gap-2 ${viewState === 'form' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
+              >
+                Buat Pengajuan Baru
+              </button>
+            )}
           </div>
-        </>
-      )}
 
-      {viewState === 'form' && (
-        <BatchForm 
-          campaignId={campaignId} 
-          creators={creators} 
-          creatorHistory={creatorHistory}
-          onCancel={() => setViewState('list')} 
-          onSuccess={() => { setViewState('list'); fetchData(); }} 
-        />
+          {viewState === 'list' && (
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-slate-50 border-b border-slate-100 text-slate-600 font-medium">
+                    <tr>
+                      <th className="px-4 py-3 text-center w-12">No</th>
+                      <th className="px-4 py-3">Batch Label</th>
+                      <th className="px-4 py-3">PIC Submit</th>
+                      <th className="px-4 py-3 text-center">Status Item</th>
+                      <th className="px-4 py-3 text-right">Total Nominal Diajukan</th>
+                      <th className="px-4 py-3 text-right">Total Nominal Dibayar</th>
+                      <th className="px-4 py-3 text-center">Status</th>
+                      <th className="px-4 py-3 text-center">Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {isLoadingBatches ? (
+                      <tr><td colSpan={8} className="h-32 text-center"><Loader2 className="w-6 h-6 animate-spin mx-auto text-slate-400" /></td></tr>
+                    ) : batches.length === 0 ? (
+                      <tr><td colSpan={8} className="h-32 text-center text-slate-500">Belum ada batch pembayaran yang diajukan.</td></tr>
+                    ) : (
+                      batches.map((b, idx) => {
+                        const totalItem = b.payment_items?.length || 0;
+                        const totalDibayar = b.payment_items?.filter((i: any) => i.final_status === 'paid').length || 0;
+                        const totalDitolak = b.payment_items?.filter((i: any) => i.final_status === 'rejected').length || 0;
+                        const totalNominal = b.payment_items?.reduce((acc: number, cur: any) => {
+                          const base = cur.actual_transfer != null ? Number(cur.actual_transfer) : Number(cur.nominal || 0);
+                          return acc + base + Number(cur.biaya_transfer || 0);
+                        }, 0) || 0;
+                        const nominalDibayar = b.payment_items?.filter((i: any) => i.final_status === 'paid').reduce((acc: number, cur: any) => {
+                          const base = cur.actual_transfer != null ? Number(cur.actual_transfer) : Number(cur.nominal || 0);
+                          return acc + base + Number(cur.biaya_transfer || 0);
+                        }, 0) || 0;
+                        
+                        return (
+                          <tr key={b.id} className="hover:bg-slate-50/80 transition-colors">
+                            <td className="px-4 py-3 text-center text-slate-400">{idx + 1}</td>
+                            <td className="px-4 py-3 font-semibold text-slate-700">{b.batch_label}
+                              <div className="text-xs font-normal text-slate-400">{new Date(b.created_at).toLocaleDateString('id-ID')}</div>
+                            </td>
+                            <td className="px-4 py-3 font-medium text-slate-600">{b.submitter?.nama}</td>
+                            <td className="px-4 py-3">
+                              <div className="flex flex-col gap-1 items-center text-[10px] w-24 mx-auto">
+                                <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-semibold w-full text-center">Diajukan: {totalItem}</span>
+                                {totalDibayar > 0 && <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded font-semibold w-full text-center">Dibayar: {totalDibayar}</span>}
+                                {totalDitolak > 0 && <span className="bg-red-100 text-red-700 px-2 py-0.5 rounded font-semibold w-full text-center">Ditolak: {totalDitolak}</span>}
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-right font-bold text-slate-700">Rp {totalNominal.toLocaleString()}</td>
+                            <td className="px-4 py-3 text-right font-bold text-green-600">Rp {nominalDibayar.toLocaleString()}</td>
+                            <td className="px-4 py-3 text-center">{getBatchStatusBadge(b.status)}</td>
+                            <td className="px-4 py-3 text-center">
+                              <button onClick={() => handleViewDetail(b.id)} className="text-blue-600 hover:text-blue-800 font-semibold text-xs flex items-center justify-center gap-1 mx-auto bg-blue-50 px-3 py-1.5 rounded-full hover:bg-blue-100 transition-colors">
+                                Lihat Detail <ArrowRight className="w-3 h-3" />
+                              </button>
+                            </td>
+                          </tr>
+                        )
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {viewState === 'mutasi_kreator' && (
+            <CampaignCreatorMutationTab campaignId={campaignId} />
+          )}
+
+          {viewState === 'form' && (
+            <BatchForm 
+              campaignId={campaignId} 
+              creators={creators} 
+              creatorHistory={creatorHistory}
+              onCancel={() => setViewState('list')} 
+              onSuccess={() => { setViewState('list'); fetchData(); }} 
+            />
+          )}
+        </>
       )}
 
       {viewState === 'detail' && selectedBatch && (

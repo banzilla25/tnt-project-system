@@ -39,6 +39,24 @@ export async function fetchPendingAdsTopUp() {
   return data;
 }
 
+export async function fetchCampaignCreatorMutations(campaignId: number) {
+  const supabase = await createClient();
+  const { data, error } = await supabase.from('payment_items')
+    .select(`
+      *,
+      payment_batches!inner(campaign_id, batch_label, paid_at),
+      campaign_creators(creators(username, nama_asli)),
+      creator_bank_accounts(bank_name)
+    `)
+    .eq('payment_batches.campaign_id', campaignId)
+    .eq('final_status', 'paid')
+    .neq('payment_type', 'ads')
+    .order('created_at', { ascending: false });
+
+  if (error) throw new Error(error.message);
+  return data;
+}
+
 export async function fetchMutationsPaginated(page: number, limit: number, month: string, search: string, paymentType: string = 'all') {
   const supabase = await createClient();
   let query = supabase.from('vw_payment_mutations').select('*', { count: 'exact' });
