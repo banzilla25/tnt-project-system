@@ -11,10 +11,11 @@ import { BatchForm } from "./BatchForm";
 import { BatchDetail } from "./BatchDetail";
 import { getPaymentBatches, getPaymentBatchDetail } from "../../actions/paymentActions";
 import { CampaignCreatorMutationTab } from "@/components/CampaignCreatorMutationTab";
+import { UnpaidCreatorsTab } from "@/components/UnpaidCreatorsTab";
 
 const supabase = createClient();
 
-type ViewState = 'list' | 'form' | 'detail' | 'mutasi_kreator';
+type ViewState = 'list' | 'form' | 'detail' | 'mutasi_kreator' | 'unpaid_creators';
 
 export default function CampaignKeuanganPage() {
   return (
@@ -248,10 +249,18 @@ function CampaignKeuanganContent() {
             </button>
             {hasAccess && (
               <button
+                onClick={() => setViewState('unpaid_creators')}
+                className={`px-[24px] py-[12px] text-[13px] font-semibold border-b-2 transition-colors flex items-center gap-2 ${viewState === 'unpaid_creators' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
+              >
+                Kreator Belum Dibayar
+              </button>
+            )}
+            {hasAccess && (
+              <button
                 onClick={() => setViewState('form')}
                 className={`px-[24px] py-[12px] text-[13px] font-semibold border-b-2 transition-colors flex items-center gap-2 ${viewState === 'form' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
               >
-                Buat Pengajuan Baru
+                Buat Pengajuan (Manual)
               </button>
             )}
           </div>
@@ -325,6 +334,13 @@ function CampaignKeuanganContent() {
 
           {viewState === 'mutasi_kreator' && (
             <CampaignCreatorMutationTab campaignId={campaignId} />
+          )}
+
+          {viewState === 'unpaid_creators' && (
+            <UnpaidCreatorsTab 
+              campaignId={campaignId} 
+              onSuccess={() => { setViewState('list'); fetchData(); }} 
+            />
           )}
 
           {viewState === 'form' && (

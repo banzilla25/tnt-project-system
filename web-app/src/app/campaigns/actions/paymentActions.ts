@@ -57,6 +57,25 @@ export async function fetchCampaignCreatorMutations(campaignId: number) {
   return data;
 }
 
+export async function fetchUnpaidCreators(campaignId: number) {
+  const supabase = await createClient();
+  const { data, error } = await supabase.from('campaign_creators')
+    .select(`
+      id, price, tier, qty_vt, qty_live, approval,
+      creator_id,
+      creators ( username, avatar_url, creator_snapshots ( followers, gmv_30d ) ),
+      videos ( id, link_video ),
+      creator_bank_accounts ( id, bank_name, account_number, account_holder, ktp_number, link_ktp, link_npwp, link_contract ),
+      payment_items ( id, final_status, payment_type, nominal )
+    `)
+    .eq('campaign_id', campaignId)
+    .eq('approval', 'approved')
+    .order('created_at', { ascending: false });
+
+  if (error) throw new Error(error.message);
+  return data;
+}
+
 export async function fetchMutationsPaginated(page: number, limit: number, month: string, search: string, paymentType: string = 'all') {
   const supabase = await createClient();
   let query = supabase.from('vw_payment_mutations').select('*', { count: 'exact' });
@@ -234,7 +253,8 @@ export async function addPaymentItem(batchId: number, itemData: any) {
     notes: itemData.notes_dari_pic || null,
     manager_status: 'pending',
     executive_status: 'pending',
-    final_status: 'pending'
+    final_status: 'pending',
+    transaction_id: `${itemData.payment_type === 'ads' ? 'ADS' : (itemData.payment_type === 'ops' ? 'OPS' : 'RC')}-${new Date().toISOString().slice(2,7).replace('-','')}-${Math.floor(1000 + Math.random() * 9000)}`
   };
 
   const { error } = await supabase.from('payment_items').insert(payload);

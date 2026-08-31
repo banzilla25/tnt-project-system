@@ -14,7 +14,7 @@ export interface OperationalItem {
   notes_dari_pic: string;
 }
 
-export function BatchForm({ campaignId, creators, creatorHistory, onCancel, onSuccess }: { campaignId: number, creators: any[], creatorHistory: Record<number, any[]>, onCancel: () => void, onSuccess: () => void }) {
+export function BatchForm({ campaignId, creators, creatorHistory, initialItems, onCancel, onSuccess }: { campaignId: number, creators: any[], creatorHistory: Record<number, any[]>, initialItems?: any[], onCancel: () => void, onSuccess: () => void }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [batchLabel, setBatchLabel] = useState(`Batch - ${new Date().toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}`);
   
@@ -33,7 +33,18 @@ export function BatchForm({ campaignId, creators, creatorHistory, onCancel, onSu
   const [showWarning, setShowWarning] = useState(false);
   const [pendingSubmitType, setPendingSubmitType] = useState<boolean | null>(null);
 
-  const handleToggleCreator = async (cc: any, isChecked: boolean) => {
+  useEffect(() => {
+    if (initialItems && initialItems.length > 0) {
+      initialItems.forEach(item => {
+        const cc = creators.find(c => c.id === item.campaign_creator_id);
+        if (cc) {
+          handleToggleCreator(cc, true, item);
+        }
+      });
+    }
+  }, [initialItems]);
+
+  const handleToggleCreator = async (cc: any, isChecked: boolean, prefill?: any) => {
     if (!isChecked) {
       handleRemoveCreator(cc.id);
       return;
@@ -55,21 +66,21 @@ export function BatchForm({ campaignId, creators, creatorHistory, onCancel, onSu
         ...prev,
         [cc.id]: {
           campaign_creator_id: cc.id,
-          payment_type: defaultType,
+          payment_type: prefill?.payment_type || defaultType,
           ratecard_awal: cc.price || 0,
-          nominal: defaultType === '50_akhir' ? (cc.price || 0) / 2 : (cc.price || 0),
+          nominal: prefill?.nominal || (defaultType === '50_akhir' ? (cc.price || 0) / 2 : (cc.price || 0)),
           biaya_transfer: 0,
-          bank_account_id: '',
-          metode_pembayaran: '',
-          nomor_rekening: '',
-          nama_penerima: '',
-          nama_wa_pic: '',
-          nomor_wa_dealing: '',
-          alamat_ktp: '',
-          nik: '',
-          link_ktp: '',
-          link_kontrak: '',
-          notes_dari_pic: '',
+          bank_account_id: prefill?.bank_account_id || '',
+          metode_pembayaran: prefill?.metode_pembayaran || '',
+          nomor_rekening: prefill?.nomor_rekening || '',
+          nama_penerima: prefill?.nama_penerima || '',
+          nama_wa_pic: prefill?.nama_wa_pic || '',
+          nomor_wa_dealing: prefill?.nomor_wa_dealing || '',
+          alamat_ktp: prefill?.alamat_ktp || '',
+          nik: prefill?.nik || '',
+          link_ktp: prefill?.link_ktp || '',
+          link_kontrak: prefill?.link_kontrak || '',
+          notes_dari_pic: prefill?.notes_dari_pic || '',
         }
       };
     });
