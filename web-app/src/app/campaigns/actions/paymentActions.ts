@@ -63,9 +63,13 @@ export async function fetchUnpaidCreators(campaignId: number) {
     .select(`
       id, price, tier, qty_vt, qty_live, approval,
       creator_id,
-      creators ( username, avatar_url, creator_snapshots ( followers, gmv_30d ) ),
+      creators ( 
+        username, 
+        avatar_url, 
+        creator_snapshots ( followers, gmv_30d ),
+        creator_bank_accounts ( id, bank_name, account_number, account_holder, ktp_number, link_ktp, link_npwp, link_contract )
+      ),
       videos ( id, link_video ),
-      creator_bank_accounts ( id, bank_name, account_number, account_holder, ktp_number, link_ktp, link_npwp, link_contract ),
       payment_items ( id, final_status, payment_type, nominal )
     `)
     .eq('campaign_id', campaignId)

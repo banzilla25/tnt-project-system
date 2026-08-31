@@ -100,7 +100,7 @@ export function UnpaidCreatorsTab({ campaignId, onSuccess }: { campaignId: numbe
     // Format to match what BatchForm expects
     const prefilled = selectedData.map(cc => {
       // Get latest bank account
-      const banks = cc.creator_bank_accounts || [];
+      const banks = cc.creators?.creator_bank_accounts || [];
       const latestBank = banks.length > 0 ? banks[banks.length - 1] : null;
       
       // Determine next payment type
