@@ -33,8 +33,8 @@ export default async function ManajemenAkunPage() {
     .eq('id', user.id)
     .single();
 
-  if (profile?.role !== 'manager') {
-    redirect('/'); // Lempar ke dashboard jika bukan manager
+  if (!['manager', 'executive'].includes(profile?.role)) {
+    redirect('/'); // Lempar ke dashboard jika bukan manager/executive
   }
 
   const supabaseAdmin = createServerClient(
