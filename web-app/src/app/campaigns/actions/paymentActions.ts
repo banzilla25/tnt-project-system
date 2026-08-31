@@ -718,3 +718,114 @@ export async function financeUpdateAmounts(itemId: number, actualTransfer: numbe
   if (error) throw new Error(error.message);
   revalidatePath('/budgeting');
 }
+
+// ==========================================
+// GLOBAL COMMAND CENTER ACTIONS (BULK)
+// ==========================================
+
+export async function fetchCommandCenterBatches() {
+  const supabase = await createClient();
+  const { data, error } = await supabase.from('payment_batches').select(`
+    *,
+    campaigns(nama),
+    submitter:profiles!submitted_by(nama),
+    payment_items(
+      id, final_status, nominal, payment_type, metode_pembayaran, nomor_rekening, nama_penerima, notes_dari_pic, transaction_id,
+      campaign_creators(id, tier, price, qty_vt, qty_live, creators(username, nama_asli, avatar_url))
+    )
+  `)
+  .in('status', ['pending_manager', 'pending_executive_1', 'pending_finance', 'pending_executive', 'ready_to_pay'])
+  .order('submitted_at', { ascending: false });
+
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+export async function bulkApproveManager(batchIds: number[]) {
+  if (!batchIds || batchIds.length === 0) return;
+  const supabase = await createClient();
+  const { data: user } = await supabase.auth.getUser();
+  const userId = user?.user?.id;
+  const now = new Date().toISOString();
+
+  await supabase.from('payment_items')
+    .update({
+      manager_status: 'approved',
+      final_status: 'manager_approved',
+      manager_acted_by: userId,
+      manager_acted_at: now
+    })
+    .in('batch_id', batchIds)
+    .eq('final_status', 'pending');
+
+  await supabase.from('payment_batches')
+    .update({
+      status: 'pending_executive_1',
+      manager_reviewed_by: userId,
+      manager_reviewed_at: now
+    })
+    .in('id', batchIds)
+    .eq('status', 'pending_manager');
+    
+  revalidatePath('/budgeting');
+}
+
+export async function bulkApproveExecutive1(batchIds: number[]) {
+  if (!batchIds || batchIds.length === 0) return;
+  const supabase = await createClient();
+  const { data: user } = await supabase.auth.getUser();
+  const userId = user?.user?.id;
+  const now = new Date().toISOString();
+
+  await supabase.from('payment_items')
+    .update({
+      manager_status: 'approved',
+      final_status: 'executive_1_approved',
+      executive_1_status: 'approved',
+      executive_1_acted_by: userId,
+      executive_1_acted_at: now
+    })
+    .in('batch_id', batchIds)
+    .in('final_status', ['pending', 'manager_approved']);
+
+  await supabase.from('payment_batches')
+    .update({
+      status: 'pending_finance',
+      manager_reviewed_by: userId,
+      executive_reviewed_1_by: userId,
+      executive_reviewed_1_at: now
+    })
+    .in('id', batchIds)
+    .in('status', ['pending_manager', 'pending_executive_1']);
+    
+  revalidatePath('/budgeting');
+}
+
+export async function bulkApproveExecutiveFinal(batchIds: number[]) {
+  if (!batchIds || batchIds.length === 0) return;
+  const supabase = await createClient();
+  const { data: user } = await supabase.auth.getUser();
+  const userId = user?.user?.id;
+  const now = new Date().toISOString();
+
+  await supabase.from('payment_items')
+    .update({
+      executive_status: 'approved',
+      final_status: 'ready_to_pay',
+      executive_acted_by: userId,
+      executive_acted_at: now
+    })
+    .in('batch_id', batchIds)
+    .in('final_status', ['finance_selected']);
+
+  await supabase.from('payment_batches')
+    .update({
+      status: 'ready_to_pay',
+      executive_reviewed_by: userId,
+      executive_reviewed_at: now
+    })
+    .in('id', batchIds)
+    .eq('status', 'pending_executive');
+    
+  revalidatePath('/budgeting');
+}
