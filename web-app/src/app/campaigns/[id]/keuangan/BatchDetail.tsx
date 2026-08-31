@@ -117,15 +117,11 @@ export function BatchDetail({ batch, creatorHistory, onBack, onRefresh }: { batc
   };
 
   const handleFinanceRequestApproval = async () => {
-    const pendingEditsCount = Object.keys(financeEdits).length;
-    if (pendingEditsCount > 0) {
-      if (!confirm(`Ada ${pendingEditsCount} perubahan nominal yang belum disimpan. Simpan dan lanjutkan ke Executive?`)) return;
-    } else {
-      if (!confirm("Yakin ingin menyelesaikan review dan submit ke tahap selanjutnya?")) return;
-    }
+    if (!confirm("Yakin ingin menyelesaikan review dan submit ke tahap selanjutnya?")) return;
     
     setIsFinalizing(true);
     try {
+      const pendingEditsCount = Object.keys(financeEdits).length;
       if (pendingEditsCount > 0) {
         const { financeUpdateAmounts } = await import('../../actions/paymentActions');
         for (const idStr of Object.keys(financeEdits)) {
@@ -485,6 +481,7 @@ export function BatchDetail({ batch, creatorHistory, onBack, onRefresh }: { batc
                             className="w-24 text-right border border-slate-300 rounded px-2 py-1 text-xs font-semibold focus:ring-1 focus:ring-blue-500 outline-none"
                             value={currentFinanceEdit.actual_transfer}
                             onChange={(e) => setFinanceEdits(prev => ({ ...prev, [item.id]: { ...currentFinanceEdit, actual_transfer: e.target.value } }))}
+                            onBlur={() => hasFinanceChanges && handleFinanceSave(item.id)}
                           />
                         </div>
                       ) : (
@@ -514,6 +511,7 @@ export function BatchDetail({ batch, creatorHistory, onBack, onRefresh }: { batc
                             className="w-20 text-right border border-slate-300 rounded px-2 py-1 text-xs focus:ring-1 focus:ring-blue-500 outline-none"
                             value={currentFinanceEdit.biaya_transfer}
                             onChange={(e) => setFinanceEdits(prev => ({ ...prev, [item.id]: { ...currentFinanceEdit, biaya_transfer: e.target.value } }))}
+                            onBlur={() => hasFinanceChanges && handleFinanceSave(item.id)}
                           />
                         </div>
                       ) : (
