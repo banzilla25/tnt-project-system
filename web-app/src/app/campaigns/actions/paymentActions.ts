@@ -67,7 +67,7 @@ export async function fetchUnpaidCreators(campaignId: number) {
         username, 
         avatar_url, 
         creator_snapshots ( followers, gmv_30d ),
-        creator_bank_accounts ( id, bank_name, account_number, account_holder, ktp_number, link_ktp, link_npwp, link_contract )
+        creator_bank_accounts ( id, bank_name, account_number, account_holder )
       ),
       videos ( id, link_video ),
       payment_items ( id, final_status, payment_type, nominal )
