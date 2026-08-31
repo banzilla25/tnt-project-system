@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
-import { approveUser, rejectUser, deactivateUser, assignCampaignsToUser, addWhitelistEmail, removeWhitelistEmail } from "./actions";
+import { approveUser, rejectUser, deactivateUser, assignCampaignsToUser, addWhitelistEmail, removeWhitelistEmail, changeUserRole } from "./actions";
 import { Check, X, ShieldAlert, UserCog, UserCheck, Search, ShieldCheck, MailPlus, Trash2, Loader2 } from "lucide-react";
 
 export default function ManajemenAkunClient({ 
@@ -55,7 +55,18 @@ export default function ManajemenAkunClient({
     try {
       await deactivateUser(id);
     } catch (err: any) {
-      alert("Error: " + e.message);
+      alert("Error: " + err.message);
+    }
+    setLoadingId(null);
+  };
+
+  const handleRoleChange = async (id: string, newRole: string) => {
+    if (!confirm(`Ubah role pengguna ini menjadi ${newRole}?`)) return;
+    setLoadingId(`role-${id}`);
+    try {
+      await changeUserRole(id, newRole);
+    } catch (err: any) {
+      alert("Error: " + err.message);
     }
     setLoadingId(null);
   };
@@ -209,9 +220,17 @@ export default function ManajemenAkunClient({
                           </div>
                         </td>
                         <td className="px-4 py-3">
-                          <span className={`px-2 py-1 rounded text-xs font-medium ${user.role === 'manager' ? 'bg-amber-100 text-amber-700' : user.role === 'executive' ? 'bg-purple-100 text-purple-700' : user.role === 'finance' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}`}>
-                            {user.role}
-                          </span>
+                          <select 
+                            value={user.role} 
+                            onChange={(e) => handleRoleChange(user.id, e.target.value)}
+                            disabled={loadingId === `role-${user.id}`}
+                            className={`px-2 py-1 rounded text-xs font-medium border-0 focus:ring-2 focus:ring-blue-500 cursor-pointer ${user.role === 'manager' ? 'bg-amber-100 text-amber-700' : user.role === 'executive' ? 'bg-purple-100 text-purple-700' : user.role === 'finance' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}`}
+                          >
+                            <option value="anggota">Anggota</option>
+                            <option value="finance">Finance</option>
+                            <option value="executive">Executive</option>
+                            <option value="manager">Manager</option>
+                          </select>
                         </td>
                         <td className="px-4 py-3 text-slate-500">
                           {user.approved_at ? new Date(user.approved_at).toLocaleDateString('id-ID') : '-'}
@@ -245,7 +264,7 @@ export default function ManajemenAkunClient({
             </p>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {activeUsers.filter(u => u.role === 'anggota').map(user => (
+              {activeUsers.filter(u => u.role !== 'manager').map(user => (
                 <UserAssignmentCard 
                   key={user.id} 
                   user={user} 
@@ -253,9 +272,9 @@ export default function ManajemenAkunClient({
                   userCampaigns={initialUserCampaigns.filter(uc => uc.user_id === user.id)}
                 />
               ))}
-              {activeUsers.filter(u => u.role === 'anggota').length === 0 && (
+              {activeUsers.filter(u => u.role !== 'manager').length === 0 && (
                 <div className="col-span-full text-center py-12 bg-slate-50 rounded-lg text-slate-500 border border-slate-200 border-dashed">
-                  Belum ada anggota tim aktif.
+                  Belum ada anggota tim aktif selain Manager.
                 </div>
               )}
             </div>

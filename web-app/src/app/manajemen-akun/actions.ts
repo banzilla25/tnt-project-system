@@ -63,6 +63,20 @@ export async function deactivateUser(userId: string) {
   revalidatePath('/manajemen-akun');
 }
 
+export async function changeUserRole(userId: string, newRole: string) {
+  const supabase = await getSupabaseAdmin();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+
+  const { error } = await supabase
+    .from('profiles')
+    .update({ role: newRole })
+    .eq('id', userId);
+
+  if (error) throw new Error(error.message);
+  revalidatePath('/manajemen-akun');
+}
+
 export async function assignCampaignsToUser(userId: string, campaignIds: number[], allCampaigns: boolean) {
   const supabase = await getSupabaseAdmin();
   const { data: { user } } = await supabase.auth.getUser();
