@@ -829,3 +829,185 @@ export async function bulkApproveExecutiveFinal(batchIds: number[]) {
     
   revalidatePath('/budgeting');
 }
+
+// ==========================================
+// FINANCE BULK ACTIONS (PHASE 3)
+// ==========================================
+
+export async function bulkProcessFinanceReview(itemIds: number[], actionType: 'approve' | 'pending' | 'reject') {
+  if (!itemIds || itemIds.length === 0) return;
+  const supabase = await createClient();
+  const { data: user } = await supabase.auth.getUser();
+  const userId = user?.user?.id;
+  const now = new Date().toISOString();
+
+  let finalStatus = 'pending';
+  let updateData: any = {};
+
+  if (actionType === 'approve') {
+    finalStatus = 'finance_selected'; // this means it's ready for executive final
+    updateData = {
+      finance_selected: true,
+      final_status: finalStatus
+    };
+  } else if (actionType === 'pending') {
+    finalStatus = 'pending_finance_outstanding'; // new status for Tunda
+    updateData = {
+      finance_selected: false,
+      final_status: finalStatus
+    };
+  } else if (actionType === 'reject') {
+    finalStatus = 'rejected';
+    updateData = {
+      finance_selected: false,
+      final_status: finalStatus
+    };
+  }
+
+  // Update items
+  const { error } = await supabase.from('payment_items')
+    .update(updateData)
+    .in('id', itemIds);
+    
+  if (error) throw new Error("Failed to update items: " + error.message);
+
+  // Note: For batches, we might need to check if all items are processed to move the batch to pending_executive.
+  // For simplicity, we can fetch all affected batches and advance them if any item was approved.
+  const { data: items } = await supabase.from('payment_items').select('batch_id').in('id', itemIds);
+  if (items && actionType === 'approve') {
+    const batchIds = [...new Set(items.map(i => i.batch_id))];
+    await supabase.from('payment_batches')
+      .update({
+        status: 'pending_executive',
+        finance_reviewed_by: userId,
+        finance_reviewed_at: now
+      })
+      .in('id', batchIds)
+      .eq('status', 'pending_finance');
+  }
+
+  revalidatePath('/budgeting');
+}
+
+export async function bulkMarkPaidFinance(itemIds: number[], payload: { actualPaymentDate: string, buktiTransferUrl: string, senderAccountId: number }) {
+  if (!itemIds || itemIds.length === 0) return;
+  const supabase = await createClient();
+  const { data: user } = await supabase.auth.getUser();
+  const userId = user?.user?.id;
+  const now = new Date().toISOString();
+
+  // Update items to paid
+  const { error } = await supabase.from('payment_items')
+    .update({
+      final_status: 'paid',
+      actual_payment_date: payload.actualPaymentDate,
+      bukti_transfer_url: payload.buktiTransferUrl,
+      sender_account_id: payload.senderAccountId
+    })
+    .in('id', itemIds);
+
+  if (error) throw new Error("Failed to mark items paid: " + error.message);
+
+  // Update affected batches
+  const { data: items } = await supabase.from('payment_items').select('batch_id').in('id', itemIds);
+  if (items) {
+    const batchIds = [...new Set(items.map(i => i.batch_id))];
+    
+    // For each batch, check if all items are paid or rejected. If so, mark batch as paid.
+    for (const bId of batchIds) {
+      const { data: allItems } = await supabase.from('payment_items').select('final_status').eq('batch_id', bId);
+      const allDone = allItems?.every(i => ['paid', 'rejected', 'cancelled', 'pending_finance_outstanding'].includes(i.final_status));
+      if (allDone) {
+        await supabase.from('payment_batches').update({
+          status: 'paid',
+          paid_by: userId,
+          paid_at: now
+        }).eq('id', bId);
+      }
+    }
+  }
+
+  revalidatePath('/budgeting');
+}
+
+export async function processBulkExecutive(itemIds: number[]) {
+  // Similar to batch, but for items
+  if (!itemIds || itemIds.length === 0) return;
+  const supabase = await createClient();
+  const { data: user } = await supabase.auth.getUser();
+  const userId = user?.user?.id;
+  const now = new Date().toISOString();
+
+  // We need to fetch items to know their current state because Exec can bypass
+  const { data: items } = await supabase.from('payment_items').select('id, final_status, batch_id').in('id', itemIds);
+  if (!items) return;
+
+  const toExec1 = items.filter(i => ['pending', 'manager_approved'].includes(i.final_status)).map(i => i.id);
+  const toReady = items.filter(i => i.final_status === 'finance_selected').map(i => i.id);
+
+  if (toExec1.length > 0) {
+    await supabase.from('payment_items').update({
+      manager_status: 'approved',
+      final_status: 'executive_1_approved',
+      executive_1_status: 'approved',
+      executive_1_acted_by: userId,
+      executive_1_acted_at: now
+    }).in('id', toExec1);
+  }
+
+  if (toReady.length > 0) {
+    await supabase.from('payment_items').update({
+      executive_status: 'approved',
+      final_status: 'ready_to_pay',
+      executive_acted_by: userId,
+      executive_acted_at: now
+    }).in('id', toReady);
+  }
+
+  // Advance batches
+  const batchIds = [...new Set(items.map(i => i.batch_id))];
+  for (const bId of batchIds) {
+    // just try to advance the batch if applicable
+    await supabase.from('payment_batches')
+      .update({ status: 'pending_finance', executive_reviewed_1_by: userId, executive_reviewed_1_at: now })
+      .eq('id', bId).in('status', ['pending_manager', 'pending_executive_1']);
+      
+    await supabase.from('payment_batches')
+      .update({ status: 'ready_to_pay', executive_reviewed_by: userId, executive_reviewed_at: now })
+      .eq('id', bId).eq('status', 'pending_executive');
+  }
+
+  revalidatePath('/budgeting');
+}
+
+export async function processBulkManagerItems(itemIds: number[]) {
+  if (!itemIds || itemIds.length === 0) return;
+  const supabase = await createClient();
+  const { data: user } = await supabase.auth.getUser();
+  const userId = user?.user?.id;
+  const now = new Date().toISOString();
+
+  await supabase.from('payment_items')
+    .update({
+      manager_status: 'approved',
+      final_status: 'manager_approved',
+      manager_acted_by: userId,
+      manager_acted_at: now
+    })
+    .in('id', itemIds)
+    .eq('final_status', 'pending');
+
+  const { data: items } = await supabase.from('payment_items').select('batch_id').in('id', itemIds);
+  if (items) {
+    const batchIds = [...new Set(items.map(i => i.batch_id))];
+    await supabase.from('payment_batches')
+      .update({
+        status: 'pending_executive_1',
+        manager_reviewed_by: userId,
+        manager_reviewed_at: now
+      })
+      .in('id', batchIds)
+      .eq('status', 'pending_manager');
+  }
+  revalidatePath('/budgeting');
+}
