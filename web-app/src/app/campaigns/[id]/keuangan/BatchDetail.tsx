@@ -116,6 +116,35 @@ export function BatchDetail({ batch, creatorHistory, onBack, onRefresh }: { batc
     }
   };
 
+  const handleFinanceRequestApproval = async () => {
+    const pendingEditsCount = Object.keys(financeEdits).length;
+    if (pendingEditsCount > 0) {
+      if (!confirm(`Ada ${pendingEditsCount} perubahan nominal yang belum disimpan. Simpan dan lanjutkan ke Executive?`)) return;
+    } else {
+      if (!confirm("Yakin ingin menyelesaikan review dan submit ke tahap selanjutnya?")) return;
+    }
+    
+    setIsFinalizing(true);
+    try {
+      if (pendingEditsCount > 0) {
+        const { financeUpdateAmounts } = await import('../../actions/paymentActions');
+        for (const idStr of Object.keys(financeEdits)) {
+          const id = Number(idStr);
+          const edits = financeEdits[id];
+          const actualTransfer = edits.actual_transfer.trim() !== '' ? Number(edits.actual_transfer) : null;
+          await financeUpdateAmounts(id, actualTransfer, Number(edits.biaya_transfer));
+        }
+        setFinanceEdits({});
+      }
+      await financeSubmitToExecutive(batch.id);
+      await onRefresh();
+    } catch (err: any) {
+      alert("Error: " + err.message);
+    } finally {
+      setIsFinalizing(false);
+    }
+  };
+
   const handleSubmitDraft = async () => {
     if (!confirm("Ajukan batch ini ke Manager untuk di-review?")) return;
     handleAction('submit_draft', async () => {
@@ -692,7 +721,7 @@ export function BatchDetail({ batch, creatorHistory, onBack, onRefresh }: { batc
               </button>
             )}
             {batch.status === 'pending_finance' && (profile?.role === 'finance' || profile?.role === 'executive') && (
-              <button onClick={() => handleFinalize(() => financeSubmitToExecutive(batch.id))} disabled={isFinalizing} className="btn btn-primary flex items-center gap-2">
+              <button onClick={handleFinanceRequestApproval} disabled={isFinalizing} className="btn btn-primary flex items-center gap-2">
                 {isFinalizing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Request Approval Executive
               </button>
             )}
