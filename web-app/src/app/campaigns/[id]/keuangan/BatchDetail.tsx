@@ -24,6 +24,10 @@ export function BatchDetail({ batch, creatorHistory, onBack, onRefresh }: { batc
   const [editingItemId, setEditingItemId] = useState<number | null>(null);
   const [editForm, setEditForm] = useState<any>({});
 
+  // Finance Inline Edit State
+  const [financeEdits, setFinanceEdits] = useState<Record<number, { actual_transfer: string, biaya_transfer: string }>>({});
+  const [savingFinanceId, setSavingFinanceId] = useState<number | null>(null);
+
   // Mark Paid form state
   const [showPaidForm, setShowPaidForm] = useState(false);
   const [payDate, setPayDate] = useState("");
@@ -73,6 +77,29 @@ export function BatchDetail({ batch, creatorHistory, onBack, onRefresh }: { batc
       alert("Error: " + err.message);
     } finally {
       setLoadingIds(prev => ({ ...prev, [id]: false }));
+    }
+  };
+
+  const handleFinanceSave = async (id: number) => {
+    const edits = financeEdits[id];
+    if (!edits) return;
+    setSavingFinanceId(id);
+    try {
+      const { financeUpdateAmounts } = await import('../../actions/paymentActions');
+      const actualTransfer = edits.actual_transfer.trim() !== '' ? Number(edits.actual_transfer) : null;
+      await financeUpdateAmounts(id, actualTransfer, Number(edits.biaya_transfer));
+      await onRefresh();
+      
+      // Clear edit state for this item
+      setFinanceEdits(prev => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+    } catch (err: any) {
+      alert("Gagal menyimpan: " + err.message);
+    } finally {
+      setSavingFinanceId(null);
     }
   };
 
@@ -315,7 +342,10 @@ export function BatchDetail({ batch, creatorHistory, onBack, onRefresh }: { batc
             <p className="text-sm text-slate-500 mt-1">Campaign: {batch.campaigns?.nama}</p>
           </div>
           <div className="text-right">
-            <p className="text-sm font-semibold text-slate-700 mb-2">Total Nominal: Rp {(batch.payment_items || []).reduce((acc: number, item: any) => acc + Number(item.nominal || 0) + Number(item.biaya_transfer || 0), 0).toLocaleString()}</p>
+            <p className="text-sm font-semibold text-slate-700 mb-2">Total Nominal: Rp {(batch.payment_items || []).reduce((acc: number, item: any) => {
+              const base = item.actual_transfer != null ? Number(item.actual_transfer) : Number(item.nominal || 0);
+              return acc + base + Number(item.biaya_transfer || 0);
+            }, 0).toLocaleString()}</p>
             <div className="flex gap-2 justify-end text-xs">
               <span className="bg-slate-100 text-slate-700 px-2 py-1 rounded font-semibold">Diajukan: {(batch.payment_items || []).length}</span>
               {(batch.payment_items || []).filter((i: any) => i.final_status === 'paid').length > 0 && (
@@ -374,9 +404,17 @@ export function BatchDetail({ batch, creatorHistory, onBack, onRefresh }: { batc
                 </tr>
               ) : (
                 filteredItems.map((item: any) => {
-                const totalTrx = Number(item.nominal || 0) + Number(item.biaya_transfer || 0);
+                const baseNominal = item.actual_transfer != null ? Number(item.actual_transfer) : Number(item.nominal || 0);
+                const totalTrx = baseNominal + Number(item.biaya_transfer || 0);
                 const bank = item.creator_bank_accounts;
                 const isExpanded = expandedRows.has(item.id);
+                
+                const isFinanceReview = activeFunnel === 'pending_finance' && batch.status === 'pending_finance';
+                const currentFinanceEdit = financeEdits[item.id] || { 
+                  actual_transfer: item.actual_transfer != null ? String(item.actual_transfer) : String(item.nominal || 0), 
+                  biaya_transfer: String(item.biaya_transfer || 0) 
+                };
+                const hasFinanceChanges = financeEdits[item.id] !== undefined;
 
                 return (
                   <React.Fragment key={item.id}>
@@ -409,7 +447,21 @@ export function BatchDetail({ batch, creatorHistory, onBack, onRefresh }: { batc
                     </td>
                     <td className="px-4 py-3 text-right">
                       {item.ratecard_awal && <div className="text-xs text-slate-400 line-through">Rp {Number(item.ratecard_awal).toLocaleString()}</div>}
-                      <div className="font-semibold text-slate-700">Rp {Number(item.nominal || 0).toLocaleString()}</div>
+                      
+                      {isFinanceReview ? (
+                        <div className="mt-1">
+                          <label className="text-[9px] text-slate-500 font-bold uppercase mb-0.5 block">Actual Transfer</label>
+                          <input 
+                            type="number" 
+                            className="w-24 text-right border border-slate-300 rounded px-2 py-1 text-xs font-semibold focus:ring-1 focus:ring-blue-500 outline-none"
+                            value={currentFinanceEdit.actual_transfer}
+                            onChange={(e) => setFinanceEdits(prev => ({ ...prev, [item.id]: { ...currentFinanceEdit, actual_transfer: e.target.value } }))}
+                          />
+                        </div>
+                      ) : (
+                        <div className="font-semibold text-slate-700">Rp {baseNominal.toLocaleString()}</div>
+                      )}
+
                       {creatorHistory && item.campaign_creator_id && creatorHistory[item.campaign_creator_id] && (() => {
                         const pastItems = creatorHistory[item.campaign_creator_id].filter((h: any) => h.id !== item.id && new Date(h.date) <= new Date(batch.created_at));
                         if (pastItems.length === 0) return null;
@@ -425,10 +477,38 @@ export function BatchDetail({ batch, creatorHistory, onBack, onRefresh }: { batc
                       })()}
                     </td>
                     <td className="px-4 py-3 text-right text-slate-500">
-                      Rp {Number(item.biaya_transfer || 0).toLocaleString()}
+                      {isFinanceReview ? (
+                        <div className="mt-1">
+                          <label className="text-[9px] text-slate-500 font-bold uppercase mb-0.5 block">Biaya TF</label>
+                          <input 
+                            type="number" 
+                            className="w-20 text-right border border-slate-300 rounded px-2 py-1 text-xs focus:ring-1 focus:ring-blue-500 outline-none"
+                            value={currentFinanceEdit.biaya_transfer}
+                            onChange={(e) => setFinanceEdits(prev => ({ ...prev, [item.id]: { ...currentFinanceEdit, biaya_transfer: e.target.value } }))}
+                          />
+                        </div>
+                      ) : (
+                        `Rp ${Number(item.biaya_transfer || 0).toLocaleString()}`
+                      )}
                     </td>
                     <td className="px-4 py-3 text-right font-bold text-blue-700">
-                      Rp {totalTrx.toLocaleString()}
+                      {isFinanceReview ? (
+                        <div className="flex flex-col items-end">
+                           <span>Rp {(Number(currentFinanceEdit.actual_transfer) + Number(currentFinanceEdit.biaya_transfer)).toLocaleString()}</span>
+                           {hasFinanceChanges && (
+                             <button 
+                               onClick={() => handleFinanceSave(item.id)}
+                               disabled={savingFinanceId === item.id}
+                               className="mt-1 flex items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white text-[10px] px-2 py-1 rounded shadow-sm disabled:opacity-50"
+                             >
+                               {savingFinanceId === item.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
+                               Simpan
+                             </button>
+                           )}
+                        </div>
+                      ) : (
+                        `Rp ${totalTrx.toLocaleString()}`
+                      )}
                     </td>
                     <td className="px-4 py-3 text-xs text-slate-600 font-medium">
                       {item.campaign_creators?.profiles?.nama || '-'}

@@ -58,7 +58,8 @@ function CampaignKeuanganContent() {
       data?.forEach(b => {
         b.payment_items?.forEach((item: any) => {
           if (item.final_status === 'paid' && item.payment_type !== 'ads') {
-            terpakai += Number(item.nominal) + Number(item.biaya_transfer);
+            const baseNominal = item.actual_transfer != null ? Number(item.actual_transfer) : Number(item.nominal || 0);
+            terpakai += baseNominal + Number(item.biaya_transfer || 0);
           }
         });
       });
@@ -78,11 +79,12 @@ function CampaignKeuanganContent() {
             if (!creatorHistory[item.campaign_creator_id]) {
               creatorHistory[item.campaign_creator_id] = [];
             }
+            const baseNominal = item.actual_transfer != null ? Number(item.actual_transfer) : Number(item.nominal || 0);
             creatorHistory[item.campaign_creator_id].push({
               id: item.id,
               batch_label: b.batch_label,
               date: b.created_at,
-              nominal: Number(item.nominal) + Number(item.biaya_transfer || 0),
+              nominal: baseNominal + Number(item.biaya_transfer || 0),
               payment_type: item.payment_type,
               status: item.final_status
             });
@@ -150,7 +152,8 @@ function CampaignKeuanganContent() {
   batches.forEach(b => {
     b.payment_items?.forEach((item: any) => {
       if (item.final_status === 'paid' && item.payment_type === 'ads') {
-        adsTerpakai += Number(item.nominal) + Number(item.biaya_transfer);
+        const baseNominal = item.actual_transfer != null ? Number(item.actual_transfer) : Number(item.nominal || 0);
+        adsTerpakai += baseNominal + Number(item.biaya_transfer || 0);
       }
     });
   });
@@ -266,8 +269,14 @@ function CampaignKeuanganContent() {
                       const totalItem = b.payment_items?.length || 0;
                       const totalDibayar = b.payment_items?.filter((i: any) => i.final_status === 'paid').length || 0;
                       const totalDitolak = b.payment_items?.filter((i: any) => i.final_status === 'rejected').length || 0;
-                      const totalNominal = b.payment_items?.reduce((acc: number, cur: any) => acc + Number(cur.nominal) + Number(cur.biaya_transfer), 0) || 0;
-                      const nominalDibayar = b.payment_items?.filter((i: any) => i.final_status === 'paid').reduce((acc: number, cur: any) => acc + Number(cur.nominal) + Number(cur.biaya_transfer), 0) || 0;
+                      const totalNominal = b.payment_items?.reduce((acc: number, cur: any) => {
+                        const base = cur.actual_transfer != null ? Number(cur.actual_transfer) : Number(cur.nominal || 0);
+                        return acc + base + Number(cur.biaya_transfer || 0);
+                      }, 0) || 0;
+                      const nominalDibayar = b.payment_items?.filter((i: any) => i.final_status === 'paid').reduce((acc: number, cur: any) => {
+                        const base = cur.actual_transfer != null ? Number(cur.actual_transfer) : Number(cur.nominal || 0);
+                        return acc + base + Number(cur.biaya_transfer || 0);
+                      }, 0) || 0;
                       
                       return (
                         <tr key={b.id} className="hover:bg-slate-50/80 transition-colors">

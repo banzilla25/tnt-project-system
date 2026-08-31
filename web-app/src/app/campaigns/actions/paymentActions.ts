@@ -639,3 +639,17 @@ export async function getBudgetSummary() {
 
   return summary;
 }
+
+export async function financeUpdateAmounts(itemId: number, actualTransfer: number | null, biayaTransfer: number) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+
+  const { error } = await supabase.from('payment_items').update({
+    actual_transfer: actualTransfer,
+    biaya_transfer: biayaTransfer
+  }).eq('id', itemId);
+
+  if (error) throw new Error(error.message);
+  revalidatePath('/budgeting');
+}
