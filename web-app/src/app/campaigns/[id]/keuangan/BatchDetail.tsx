@@ -524,16 +524,6 @@ export function BatchDetail({ batch, creatorHistory, onBack, onRefresh }: { batc
                       {isFinanceReview ? (
                         <div className="flex flex-col items-end">
                            <span>Rp {(Number(currentFinanceEdit.actual_transfer) + Number(currentFinanceEdit.biaya_transfer)).toLocaleString()}</span>
-                           {hasFinanceChanges && (
-                             <button 
-                               onClick={() => handleFinanceSave(item.id)}
-                               disabled={savingFinanceId === item.id}
-                               className="mt-1 flex items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white text-[10px] px-2 py-1 rounded shadow-sm disabled:opacity-50"
-                             >
-                               {savingFinanceId === item.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
-                               Simpan
-                             </button>
-                           )}
                         </div>
                       ) : (
                         `Rp ${totalTrx.toLocaleString()}`
