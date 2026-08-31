@@ -24,12 +24,33 @@ export async function getPaymentBatches(campaignId?: number, status?: string) {
   return data;
 }
 
-export async function fetchMutationsPaginated(page: number, limit: number, month: string, search: string) {
+export async function fetchPendingAdsTopUp() {
+  const supabase = await createClient();
+  const { data, error } = await supabase.from('payment_items')
+    .select(`
+      *,
+      payment_batches!inner(batch_label, status, campaigns!inner(nama))
+    `)
+    .eq('payment_type', 'ads')
+    .in('payment_batches.status', ['pending_finance', 'pending_executive', 'ready_to_pay'])
+    .order('created_at', { ascending: false });
+
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+export async function fetchMutationsPaginated(page: number, limit: number, month: string, search: string, paymentType: string = 'all') {
   const supabase = await createClient();
   let query = supabase.from('vw_payment_mutations').select('*', { count: 'exact' });
 
   if (month !== 'all') {
     query = query.eq('paid_month', month);
+  }
+
+  if (paymentType === 'ads') {
+    query = query.eq('payment_type', 'ads');
+  } else if (paymentType === 'kreator') {
+    query = query.neq('payment_type', 'ads');
   }
 
   if (search) {
@@ -45,12 +66,18 @@ export async function fetchMutationsPaginated(page: number, limit: number, month
   return { data, count: count || 0 };
 }
 
-export async function fetchMutationsExport(month: string, search: string) {
+export async function fetchMutationsExport(month: string, search: string, paymentType: string = 'all') {
   const supabase = await createClient();
   let query = supabase.from('vw_payment_mutations').select('*');
 
   if (month !== 'all') {
     query = query.eq('paid_month', month);
+  }
+
+  if (paymentType === 'ads') {
+    query = query.eq('payment_type', 'ads');
+  } else if (paymentType === 'kreator') {
+    query = query.neq('payment_type', 'ads');
   }
 
   if (search) {

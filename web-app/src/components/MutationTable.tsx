@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Download, RefreshCcw, Search, Link, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Download, RefreshCcw, Search, Link, Loader2, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { fetchMutationsPaginated, fetchMutationsExport } from '../app/campaigns/actions/paymentActions';
 
 export function MutationTable() {
@@ -9,6 +9,13 @@ export function MutationTable() {
   const [mutations, setMutations] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isExporting, setIsExporting] = useState<boolean>(false);
+  const [userRole, setUserRole] = useState<string>('');
+  const [paymentType, setPaymentType] = useState<string>('all');
+  
+  // Edit Bukti
+  const [editingBuktiId, setEditingBuktiId] = useState<number | null>(null);
+  const [editBuktiValue, setEditBuktiValue] = useState<string>('');
+  const [isSavingBukti, setIsSavingBukti] = useState<boolean>(false);
   
   // Pagination
   const [page, setPage] = useState<number>(1);
@@ -31,7 +38,7 @@ export function MutationTable() {
   const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const result = await fetchMutationsPaginated(page, limit, selectedMonth, searchTerm);
+      const result = await fetchMutationsPaginated(page, limit, selectedMonth, searchTerm, paymentType);
       setMutations(result.data || []);
       setTotalCount(result.count || 0);
     } catch (err) {
@@ -39,12 +46,25 @@ export function MutationTable() {
     } finally {
       setIsLoading(false);
     }
-  }, [page, limit, selectedMonth, searchTerm]);
+  }, [page, limit, selectedMonth, searchTerm, paymentType]);
 
   useEffect(() => {
     // Reset to page 1 when filters change
     setPage(1);
-  }, [selectedMonth, searchTerm]);
+  }, [selectedMonth, searchTerm, paymentType]);
+
+  useEffect(() => {
+    import('@/utils/supabase/client').then(({ createClient }) => {
+      const supabase = createClient();
+      supabase.auth.getUser().then(({ data: { user } }) => {
+        if (user) {
+          supabase.from('profiles').select('role').eq('id', user.id).single().then(({ data }) => {
+            if (data) setUserRole(data.role);
+          });
+        }
+      });
+    });
+  }, []);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -58,7 +78,7 @@ export function MutationTable() {
   const exportToCSV = async () => {
     setIsExporting(true);
     try {
-      const allData = await fetchMutationsExport(selectedMonth, searchTerm);
+      const allData = await fetchMutationsExport(selectedMonth, searchTerm, paymentType);
       
       const headers = ['Tanggal', 'Campaign', 'Batch', 'Penerima', 'Username', 'Rekening', 'Tipe Pembayaran', 'Nominal', 'Biaya Transfer', 'Total', 'Catatan', 'Bukti Transfer'];
       const rows = allData.map(m => {
@@ -109,6 +129,15 @@ export function MutationTable() {
             {availableMonths.map(m => (
               <option key={m} value={m}>{new Date(m + '-01').toLocaleDateString('id-ID', {month: 'long', year: 'numeric'})}</option>
             ))}
+          </select>
+          <select
+            className="p-2 border border-slate-300 rounded-lg text-sm bg-white min-w-[150px] outline-none focus:border-blue-500"
+            value={paymentType}
+            onChange={e => setPaymentType(e.target.value)}
+          >
+            <option value="all">Semua Tipe</option>
+            <option value="kreator">Kreator Saja</option>
+            <option value="ads">Ads Saja</option>
           </select>
           <button 
             onClick={() => { setSelectedMonth('all'); setSearchTerm(''); }}
@@ -202,13 +231,59 @@ export function MutationTable() {
                       {m.biaya_transfer > 0 && <div className="text-[10px] text-slate-400">Termasuk fee Rp {m.biaya_transfer.toLocaleString()}</div>}
                     </td>
                     <td className="px-4 py-3 text-center">
-                      {m.bukti_transfer ? (
-                        <a href={m.bukti_transfer} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center p-2 bg-blue-50 text-blue-600 rounded hover:bg-blue-100 transition-colors" title="Lihat Bukti Transfer">
-                          <Link className="w-4 h-4" />
-                        </a>
-                      ) : (
-                        <span className="text-slate-300">-</span>
-                      )}
+                      <div className="flex items-center justify-center gap-2">
+                        {editingBuktiId === m.id ? (
+                          <div className="flex items-center gap-1">
+                            <input 
+                              type="text" 
+                              value={editBuktiValue} 
+                              onChange={e => setEditBuktiValue(e.target.value)}
+                              className="w-32 p-1 border border-slate-300 rounded text-[10px] outline-none"
+                              placeholder="Link GDrive"
+                              autoFocus
+                              onKeyDown={async (e) => {
+                                if (e.key === 'Escape') setEditingBuktiId(null);
+                                if (e.key === 'Enter') {
+                                  setIsSavingBukti(true);
+                                  try {
+                                    const { createClient } = await import('@/utils/supabase/client');
+                                    const sb = createClient();
+                                    await sb.from('payment_items').update({ bukti_transfer: editBuktiValue }).eq('id', m.id);
+                                    setMutations(prev => prev.map(mu => mu.id === m.id ? { ...mu, bukti_transfer: editBuktiValue } : mu));
+                                    setEditingBuktiId(null);
+                                  } catch (err) {
+                                    alert('Gagal update');
+                                  } finally {
+                                    setIsSavingBukti(false);
+                                  }
+                                }
+                              }}
+                            />
+                            {isSavingBukti ? <Loader2 className="w-3 h-3 animate-spin" /> : (
+                              <button onClick={() => setEditingBuktiId(null)} className="text-slate-400 hover:text-slate-600"><X className="w-3 h-3" /></button>
+                            )}
+                          </div>
+                        ) : (
+                          <>
+                            {m.bukti_transfer ? (
+                              <a href={m.bukti_transfer} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center p-2 bg-blue-50 text-blue-600 rounded hover:bg-blue-100 transition-colors" title="Lihat Bukti Transfer">
+                                <Link className="w-4 h-4" />
+                              </a>
+                            ) : (
+                              <span className="text-slate-300">-</span>
+                            )}
+                            {(userRole === 'finance' || userRole === 'executive') && (
+                              <button 
+                                onClick={() => { setEditingBuktiId(m.id); setEditBuktiValue(m.bukti_transfer || ''); }}
+                                className="p-1.5 text-slate-400 hover:text-blue-600 rounded hover:bg-blue-50 transition-colors"
+                                title="Edit Link Bukti"
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+                              </button>
+                            )}
+                          </>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );

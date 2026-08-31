@@ -7,6 +7,7 @@ import { getPaymentBatches, getBudgetSummary } from "../campaigns/actions/paymen
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import { MutationTable } from "@/components/MutationTable";
+import { RekapAdsTab } from "@/components/RekapAdsTab";
 
 const supabase = createClient();
 
@@ -20,7 +21,7 @@ export default function GlobalBudgetingPage() {
 
 function GlobalBudgetingContent() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<'semua' | 'tindakan' | 'ringkasan' | 'mutasi'>('tindakan');
+  const [activeTab, setActiveTab] = useState<'semua' | 'tindakan' | 'ringkasan' | 'mutasi' | 'ads'>('tindakan');
   const [batches, setBatches] = useState<any[]>([]);
   const [summaries, setSummaries] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -215,6 +216,13 @@ function GlobalBudgetingContent() {
           <Wallet className="w-4 h-4" /> Semua Ajuan
         </button>
         <button
+          onClick={() => setActiveTab('ads')}
+          className={`px-[24px] py-[12px] text-[13px] font-semibold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'ads' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 21-7-4V7l7-4 7 4v10Z"/><path d="m12 22v-9"/><path d="m3 7 9 5.5"/><path d="m21 7-9 5.5"/><path d="M12 7v5.5"/></svg>
+          Top Up Ads
+        </button>
+        <button
           onClick={() => setActiveTab('ringkasan')}
           className={`px-[24px] py-[12px] text-[13px] font-semibold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'ringkasan' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
         >
@@ -228,9 +236,15 @@ function GlobalBudgetingContent() {
         </button>
       </div>
 
-      {activeTab === 'mutasi' ? (
+      {activeTab === 'mutasi' && (
         <MutationTable />
-      ) : activeTab !== 'ringkasan' ? (
+      )}
+      
+      {activeTab === 'ads' && (
+        <RekapAdsTab />
+      )}
+
+      {activeTab !== 'mutasi' && activeTab !== 'ads' && activeTab !== 'ringkasan' && (
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
@@ -299,7 +313,9 @@ function GlobalBudgetingContent() {
           </table>
         </div>
       </div>
-      ) : (
+      )}
+      
+      {activeTab === 'ringkasan' && (
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
