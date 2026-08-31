@@ -147,9 +147,13 @@ export async function getPaymentBatchDetail(batchId: number) {
       ),
       creator_bank_accounts(bank_name, account_number, account_holder)
     )
-  `).eq('id', batchId).single();
+  `).eq('id', batchId).maybeSingle();
 
-  if (error) throw new Error(error.message);
+  if (error) {
+    console.error("Error getPaymentBatchDetail:", error);
+    return null; // Return null gracefully instead of throwing
+  }
+  if (!data) return null;
 
   if (data?.executive_reviewed_1_by) {
     const { data: exec1 } = await supabase.from('profiles').select('nama').eq('id', data.executive_reviewed_1_by).single();

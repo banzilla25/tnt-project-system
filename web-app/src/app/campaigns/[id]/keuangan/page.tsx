@@ -122,6 +122,11 @@ function CampaignKeuanganContent() {
   const handleViewDetail = async (batchId: number) => {
     try {
       const detail = await getPaymentBatchDetail(batchId);
+      if (!detail) {
+        alert("Batch tidak ditemukan. Kemungkinan sudah dihapus.");
+        fetchData(); // Refresh list
+        return;
+      }
       setSelectedBatch(detail);
       setViewState('detail');
     } catch (err: any) {
