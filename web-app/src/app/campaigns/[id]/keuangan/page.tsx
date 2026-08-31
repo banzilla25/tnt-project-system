@@ -165,7 +165,7 @@ function CampaignKeuanganContent() {
 
   return (
     <div className="space-y-[24px] pb-[80px]">
-      {viewState === 'list' && (
+      {viewState !== 'detail' && (
         <>
           {/* Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-[24px]">
