@@ -139,7 +139,6 @@ export async function getPaymentBatchDetail(batchId: number) {
     finance:profiles!finance_reviewed_by(nama),
     executive:profiles!executive_reviewed_by(nama),
     payer:profiles!paid_by(nama),
-    sender_account:sender_accounts(nama),
     campaigns(nama),
     payment_items(
       *,
