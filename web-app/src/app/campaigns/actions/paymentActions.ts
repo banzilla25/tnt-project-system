@@ -80,7 +80,7 @@ export async function getPaymentBatchDetail(batchId: number) {
     payment_items(
       *,
       campaign_creators(
-        id, tier, price, qty_vt, creators(id, username, nama_asli), profiles:profiles!pic_id(nama)
+        id, tier, price, qty_vt, creators(id, username, nama_asli), profiles:profiles!added_by(nama)
       ),
       creator_bank_accounts(bank_name, account_number, account_holder)
     )
@@ -288,7 +288,7 @@ export async function resolveCreatorForMigration(username: string, campaignId: n
     const { data: newCc, error: errCc } = await supabase.from('campaign_creators').insert({
       campaign_id: campaignId,
       creator_id: creatorId,
-      pic_id: picId,
+      added_by: picId,
       approval: 'approved',
       tier: 'Nano',
       price: rowData.ratecard_awal || rowData.nominal || 0,
