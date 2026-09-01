@@ -1006,16 +1006,16 @@ function CampaignListingContent() {
          setIsLoading(false);
       }
     }
-  }, [campaignId, filterType, statusFilter, debouncedSearch, sortConfig, filterTier, filterLevel, filterNiche, filterAddedBy, filterActionBy, filterPendingWithVideo, filterUnattributed, filterContentType, filterNotes, filterConcept]);
+  }, [campaignId, filterType, statusFilter, debouncedSearch, sortConfig, filterTier, filterLevel, filterNiche, filterAddedBy, filterActionBy, filterPendingWithVideo, filterUnattributed, filterContentType, filterNotes, filterConcept, filterActionDate]);
 
   useEffect(() => {
     fetchListing(page);
-  }, [page, campaignId, filterType, statusFilter, debouncedSearch, sortConfig, filterTier, filterLevel, filterNiche, filterAddedBy, filterActionBy, filterPendingWithVideo, filterUnattributed, filterContentType, filterNotes, filterConcept]);
+  }, [page, campaignId, filterType, statusFilter, debouncedSearch, sortConfig, filterTier, filterLevel, filterNiche, filterAddedBy, filterActionBy, filterPendingWithVideo, filterUnattributed, filterContentType, filterNotes, filterConcept, filterActionDate]);
 
   useEffect(() => {
     setPage(0);
     fetchListing(0, true);
-  }, [debouncedSearch, filterType, statusFilter, sortConfig, fetchListing, filterTier, filterLevel, filterNiche, filterAddedBy, filterActionBy, filterPendingWithVideo, filterUnattributed, filterContentType, filterNotes, filterConcept]);
+  }, [debouncedSearch, filterType, statusFilter, sortConfig, fetchListing, filterTier, filterLevel, filterNiche, filterAddedBy, filterActionBy, filterPendingWithVideo, filterUnattributed, filterContentType, filterNotes, filterConcept, filterActionDate]);
 
   const handleLoadMore = () => {
     const next = page + 1;
@@ -1834,7 +1834,7 @@ function CampaignListingContent() {
             />
             <span className="font-medium whitespace-nowrap">Unattributed (Sisa + GMV)</span>
           </label>
-          {(statusFilter !== 'all' || filterTier || filterLevel || filterNiche || filterAddedBy || filterActionBy || filterPendingWithVideo || filterUnattributed || filterContentType || filterConcept) && (
+          {(statusFilter !== 'all' || filterTier || filterLevel || filterNiche || filterAddedBy || filterActionBy || filterPendingWithVideo || filterUnattributed || filterContentType || filterConcept || filterActionDate) && (
             <button 
               onClick={() => {
                 setStatusFilter('all');
@@ -1847,6 +1847,7 @@ function CampaignListingContent() {
                 setFilterUnattributed(false);
                 setFilterContentType('');
                 setFilterConcept('');
+                setFilterActionDate('');
               }} 
               className="btn btn-outline text-red-500 border-red-200 hover:bg-red-50 flex-1 md:flex-none"
             >

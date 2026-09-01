@@ -456,15 +456,15 @@ export const CreatorRow = React.memo(({
                   </span>
                 );
               })()}
-              {!hasPending && (cc.approval === 'approved' && cc.approved_by_profile) && (
+              {!hasPending && cc.approval === 'approved' && (
                 <div className="text-[10px] text-text-soft mt-1 leading-tight text-center flex flex-col items-center">
-                  <span>Oleh: {cc.approved_by_profile.nama}</span>
+                  {cc.approved_by_profile && <span>Oleh: {cc.approved_by_profile.nama}</span>}
                   {cc.approved_at && <span>{new Date(cc.approved_at).toLocaleDateString('id-ID', {day: 'numeric', month: 'short', year: 'numeric'})}</span>}
                 </div>
               )}
-              {!hasPending && ((cc.approval === 'not_approved' || cc.approval === 'alternate') && cc.not_approved_by_profile) && (
+              {!hasPending && (cc.approval === 'not_approved' || cc.approval === 'alternate') && (
                 <div className="text-[10px] text-text-soft mt-1 leading-tight text-center flex flex-col items-center">
-                  <span>Oleh: {cc.not_approved_by_profile.nama}</span>
+                  {cc.not_approved_by_profile && <span>Oleh: {cc.not_approved_by_profile.nama}</span>}
                   {cc.not_approved_at && <span>{new Date(cc.not_approved_at).toLocaleDateString('id-ID', {day: 'numeric', month: 'short', year: 'numeric'})}</span>}
                 </div>
               )}
