@@ -264,7 +264,14 @@ export function GlobalCommandCenter({ role, onSuccess }: { role: string, onSucce
                        <Square className="w-6 h-6 text-slate-300 hover:text-slate-500" />}
                     </div>
                     <div>
-                      <h3 className="font-bold text-slate-800 text-base">{batch.batch_label}</h3>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-bold text-slate-800 text-base">{batch.batch_label}</h3>
+                        {batch.status === 'pending_manager' && <span className="px-2 py-0.5 rounded bg-blue-100 text-blue-700 text-[10px] font-bold uppercase tracking-wider">Manager Review</span>}
+                        {batch.status === 'pending_executive_1' && <span className="px-2 py-0.5 rounded bg-purple-100 text-purple-700 text-[10px] font-bold uppercase tracking-wider">Executive Review 1</span>}
+                        {batch.status === 'pending_finance' && <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-700 text-[10px] font-bold uppercase tracking-wider">Finance Review</span>}
+                        {batch.status === 'pending_executive' && <span className="px-2 py-0.5 rounded bg-indigo-100 text-indigo-700 text-[10px] font-bold uppercase tracking-wider">Executive Final Approval</span>}
+                        {batch.status === 'ready_to_pay' && <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 text-[10px] font-bold uppercase tracking-wider">Siap Transfer</span>}
+                      </div>
                       <div className="flex items-center gap-3 text-xs text-slate-500 mt-1">
                         <span>{batch.campaigns?.nama || 'Unknown Campaign'}</span>
                         <span>•</span>

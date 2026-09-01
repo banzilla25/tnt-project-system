@@ -806,23 +806,45 @@ export async function bulkApproveExecutive1(batchIds: number[]) {
   await supabase.from('payment_items')
     .update({
       manager_status: 'approved',
+      manager_acted_by: userId,
+      manager_acted_at: now,
       final_status: 'executive_1_approved',
       executive_1_status: 'approved',
       executive_1_acted_by: userId,
       executive_1_acted_at: now
     })
     .in('batch_id', batchIds)
-    .in('final_status', ['pending', 'manager_approved']);
+    .eq('final_status', 'pending');
+
+  await supabase.from('payment_items')
+    .update({
+      final_status: 'executive_1_approved',
+      executive_1_status: 'approved',
+      executive_1_acted_by: userId,
+      executive_1_acted_at: now
+    })
+    .in('batch_id', batchIds)
+    .eq('final_status', 'manager_approved');
 
   await supabase.from('payment_batches')
     .update({
       status: 'pending_finance',
       manager_reviewed_by: userId,
+      manager_reviewed_at: now,
       executive_reviewed_1_by: userId,
       executive_reviewed_1_at: now
     })
     .in('id', batchIds)
-    .in('status', ['pending_manager', 'pending_executive_1']);
+    .eq('status', 'pending_manager');
+
+  await supabase.from('payment_batches')
+    .update({
+      status: 'pending_finance',
+      executive_reviewed_1_by: userId,
+      executive_reviewed_1_at: now
+    })
+    .in('id', batchIds)
+    .eq('status', 'pending_executive_1');
     
   revalidatePath('/budgeting');
 }
@@ -968,17 +990,29 @@ export async function processBulkExecutive(itemIds: number[]) {
   const { data: items } = await supabase.from('payment_items').select('id, final_status, batch_id').in('id', itemIds);
   if (!items) return;
 
-  const toExec1 = items.filter(i => ['pending', 'manager_approved'].includes(i.final_status)).map(i => i.id);
+  const toExec1FromPending = items.filter(i => i.final_status === 'pending').map(i => i.id);
+  const toExec1FromMgr = items.filter(i => i.final_status === 'manager_approved').map(i => i.id);
   const toReady = items.filter(i => i.final_status === 'finance_selected').map(i => i.id);
 
-  if (toExec1.length > 0) {
+  if (toExec1FromPending.length > 0) {
     await supabase.from('payment_items').update({
       manager_status: 'approved',
+      manager_acted_by: userId,
+      manager_acted_at: now,
       final_status: 'executive_1_approved',
       executive_1_status: 'approved',
       executive_1_acted_by: userId,
       executive_1_acted_at: now
-    }).in('id', toExec1);
+    }).in('id', toExec1FromPending);
+  }
+
+  if (toExec1FromMgr.length > 0) {
+    await supabase.from('payment_items').update({
+      final_status: 'executive_1_approved',
+      executive_1_status: 'approved',
+      executive_1_acted_by: userId,
+      executive_1_acted_at: now
+    }).in('id', toExec1FromMgr);
   }
 
   if (toReady.length > 0) {
@@ -994,9 +1028,15 @@ export async function processBulkExecutive(itemIds: number[]) {
   const batchIds = [...new Set(items.map(i => i.batch_id))];
   for (const bId of batchIds) {
     // just try to advance the batch if applicable
+    // advance from pending_manager
+    await supabase.from('payment_batches')
+      .update({ status: 'pending_finance', manager_reviewed_by: userId, manager_reviewed_at: now, executive_reviewed_1_by: userId, executive_reviewed_1_at: now })
+      .eq('id', bId).eq('status', 'pending_manager');
+      
+    // advance from pending_executive_1
     await supabase.from('payment_batches')
       .update({ status: 'pending_finance', executive_reviewed_1_by: userId, executive_reviewed_1_at: now })
-      .eq('id', bId).in('status', ['pending_manager', 'pending_executive_1']);
+      .eq('id', bId).eq('status', 'pending_executive_1');
       
     await supabase.from('payment_batches')
       .update({ status: 'ready_to_pay', executive_reviewed_by: userId, executive_reviewed_at: now })
