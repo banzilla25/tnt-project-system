@@ -55,7 +55,7 @@ export function UnpaidCreatorsTab({ campaignId, onSuccess }: { campaignId: numbe
           disableReason,
           paidOrPendingTypes
         };
-      }).filter(cc => !cc.isFullyPaid); // Only show those who are NOT fully paid
+      }).filter(cc => !cc.isFullyPaid && (cc.price || 0) > 0); // Only show those who are NOT fully paid AND have a ratecard > 0
 
       setCreators(processed);
     } catch (err) {
