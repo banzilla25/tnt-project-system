@@ -756,7 +756,7 @@ export async function fetchCommandCenterBatches() {
     campaigns(nama),
     submitter:profiles!submitted_by(nama),
     payment_items(
-      id, final_status, nominal, payment_type, metode_pembayaran, nomor_rekening, nama_penerima, notes_dari_pic, transaction_id,
+      id, final_status, nominal, payment_type, metode_pembayaran, nomor_rekening, nama_penerima, notes, transaction_id,
       campaign_creators(id, tier, price, qty_vt, qty_live, creators(username, nama_asli, avatar_url))
     )
   `)
