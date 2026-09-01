@@ -157,7 +157,7 @@ export function GlobalCommandCenter({ role, onSuccess }: { role: string, onSucce
 
     setIsSubmitting(true);
     try {
-      const res = await bulkProcessFinanceReview(Array.from(selectedItems), actionType);
+      const res = await bulkProcessFinanceReview(Array.from(selectedItems), action);
       if (res && !res.success) {
         throw new Error(res.error || "Unknown error from server");
       }
