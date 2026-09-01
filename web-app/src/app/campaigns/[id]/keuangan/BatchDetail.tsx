@@ -351,6 +351,9 @@ export function BatchDetail({ batch, creatorHistory, onBack, onRefresh }: { batc
         groupedItems.paid.push(item);
     } else if (status === 'rejected' || status === 'cancelled') {
         groupedItems.rejected.push(item);
+    } else if (status === 'pending_finance_outstanding') {
+        if (!groupedItems.pending_finance_outstanding) groupedItems.pending_finance_outstanding = [];
+        groupedItems.pending_finance_outstanding.push(item);
     } else {
         groupedItems.pending_manager.push(item);
     }
@@ -364,7 +367,8 @@ export function BatchDetail({ batch, creatorHistory, onBack, onRefresh }: { batc
       pending_executive: 'Menunggu Executive Final',
       ready_to_pay: 'Siap Transfer',
       paid: 'Selesai Dibayar',
-      rejected: 'Ditolak / Dibatalkan'
+      rejected: 'Ditolak / Dibatalkan',
+      pending_finance_outstanding: 'Ditunda Finance (Outstanding)'
     };
     return `${titles[key] || key} (${count} Kreator)`;
   };
@@ -581,7 +585,7 @@ export function BatchDetail({ batch, creatorHistory, onBack, onRefresh }: { batc
                     <td className="px-4 py-3 text-center">
                       <div className="flex flex-col items-center gap-2">
                         {/* MANAGER ACTIONS */}
-                        {batch.status === 'pending_manager' && (profile?.role === 'manager' || profile?.role === 'executive') && item.final_status === 'pending' && (
+                        {(profile?.role === 'manager' || profile?.role === 'executive') && item.final_status === 'pending' && (
                           <div className="flex justify-center gap-2">
                             <button onClick={() => handleAction(item.id, () => managerApproveItem(item.id))} disabled={loadingIds[item.id]} className="p-1.5 bg-emerald-100 text-emerald-600 rounded hover:bg-emerald-200">
                               {loadingIds[item.id] ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
@@ -593,7 +597,7 @@ export function BatchDetail({ batch, creatorHistory, onBack, onRefresh }: { batc
                         )}
 
                         {/* EXECUTIVE 1 ACTIONS */}
-                        {batch.status === 'pending_executive_1' && profile?.role === 'executive' && item.final_status === 'manager_approved' && (
+                        {profile?.role === 'executive' && item.final_status === 'manager_approved' && (
                           <div className="flex justify-center gap-2">
                             <button onClick={() => handleAction(item.id, () => executiveApproveItem1(item.id))} disabled={loadingIds[item.id]} className="p-1.5 bg-emerald-100 text-emerald-600 rounded hover:bg-emerald-200">
                               {loadingIds[item.id] ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
@@ -605,7 +609,7 @@ export function BatchDetail({ batch, creatorHistory, onBack, onRefresh }: { batc
                         )}
 
                         {/* FINANCE ACTIONS */}
-                        {batch.status === 'pending_finance' && (profile?.role === 'finance' || profile?.role === 'executive') && item.final_status === 'executive_1_approved' && (
+                        {(profile?.role === 'finance' || profile?.role === 'executive') && item.final_status === 'executive_1_approved' && (
                           <label className="flex items-center justify-center cursor-pointer">
                             <input type="checkbox" className="w-5 h-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500" 
                               onChange={(e) => handleAction(item.id, () => financeToggleItem(item.id, e.target.checked))} 
@@ -613,7 +617,7 @@ export function BatchDetail({ batch, creatorHistory, onBack, onRefresh }: { batc
                             />
                           </label>
                         )}
-                        {batch.status === 'pending_finance' && (profile?.role === 'finance' || profile?.role === 'executive') && getLogicalStatus(item) === 'finance_selected' && (
+                        {(profile?.role === 'finance' || profile?.role === 'executive') && getLogicalStatus(item) === 'finance_selected' && (
                           <label className="flex items-center justify-center cursor-pointer">
                             <input type="checkbox" className="w-5 h-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500" 
                               checked={true}
@@ -624,7 +628,7 @@ export function BatchDetail({ batch, creatorHistory, onBack, onRefresh }: { batc
                         )}
 
                         {/* EXECUTIVE ACTIONS */}
-                        {batch.status === 'pending_executive' && profile?.role === 'executive' && getLogicalStatus(item) === 'finance_selected' && (
+                        {profile?.role === 'executive' && getLogicalStatus(item) === 'finance_selected' && (
                           <div className="flex justify-center gap-2">
                             <button onClick={() => handleAction(item.id, () => executiveApproveItem(item.id))} disabled={loadingIds[item.id]} className="p-1.5 bg-emerald-100 text-emerald-600 rounded hover:bg-emerald-200">
                               {loadingIds[item.id] ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
