@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { PaymentStepper } from "@/components/PaymentStepper";
 import { 
   managerApproveItem, managerRejectItem, managerFinalizeReview, 
   executiveApproveItem1, executiveRejectItem1, executiveFinalizeReview1,
@@ -9,6 +8,7 @@ import {
   executiveApproveItem, executiveRejectItem, executiveFinalizeReview,
   deletePaymentItem, deletePaymentBatch, updatePaymentItem, submitBatchToManager, revertBatchStatus, financeBulkMarkPaidItems
 } from "../../actions/paymentActions";
+import { getLogicalStatus } from "@/utils/statusHelper";
 import { useAuth } from "@/providers/AuthProvider";
 import { Check, X, Loader2, ArrowLeft, Send, Trash2, Pencil, Save, ChevronDown, ChevronRight, Download, Upload } from "lucide-react";
 import * as XLSX from "xlsx";
@@ -39,26 +39,6 @@ export function BatchDetail({ batch, creatorHistory, onBack, onRefresh }: { batc
   // Excel bulk import state
   const [showImportModal, setShowImportModal] = useState(false);
   const [importedIds, setImportedIds] = useState<number[]>([]);
-  
-  // Clickable Funnel state
-  const [activeFunnel, setActiveFunnel] = useState<string>(batch.status);
-
-  useEffect(() => {
-    setActiveFunnel(batch.status);
-  }, [batch.status]);
-
-  const getFilteredItems = () => {
-    const allItems = batch.payment_items || [];
-    if (activeFunnel === 'draft' || activeFunnel === 'pending_manager') return allItems;
-    if (activeFunnel === 'pending_executive_1') return allItems.filter((i: any) => ['manager_approved', 'executive_1_approved', 'finance_selected', 'executive_approved', 'ready_to_pay', 'paid'].includes(i.final_status) || (i.final_status === 'rejected' && i.manager_status === 'approved'));
-    if (activeFunnel === 'pending_finance') return allItems.filter((i: any) => ['executive_1_approved', 'finance_selected', 'executive_approved', 'ready_to_pay', 'paid'].includes(i.final_status) || (i.final_status === 'rejected' && i.executive_1_status === 'approved'));
-    if (activeFunnel === 'pending_executive') return allItems.filter((i: any) => ['finance_selected', 'executive_approved', 'ready_to_pay', 'paid'].includes(i.final_status) || (i.final_status === 'rejected' && i.finance_selected));
-    if (activeFunnel === 'ready_to_pay' || activeFunnel === 'paid') return allItems.filter((i: any) => ['executive_approved', 'ready_to_pay', 'paid'].includes(i.final_status) || (i.final_status === 'rejected' && i.executive_status === 'approved'));
-    return allItems;
-  };
-  
-  const filteredItems = getFilteredItems();
-
   const toggleRow = (id: number) => {
     setExpandedRows(prev => {
       const next = new Set(prev);
@@ -344,6 +324,51 @@ export function BatchDetail({ batch, creatorHistory, onBack, onRefresh }: { batc
 
   const canEditOrDelete = batch.status === 'draft' || batch.status === 'cancelled';
 
+
+  const groupedItems = {
+    pending_manager: [] as any[],
+    pending_executive_1: [] as any[],
+    pending_finance: [] as any[],
+    pending_executive: [] as any[],
+    ready_to_pay: [] as any[],
+    paid: [] as any[],
+    rejected: [] as any[]
+  };
+
+  (batch.payment_items || []).forEach((item: any) => {
+    const status = getLogicalStatus(item);
+    if (status === 'draft') {
+        groupedItems.pending_manager.push(item);
+    } else if (status === 'manager_approved') {
+        groupedItems.pending_executive_1.push(item);
+    } else if (status === 'executive_1_approved') {
+        groupedItems.pending_finance.push(item);
+    } else if (status === 'finance_selected') {
+        groupedItems.pending_executive.push(item);
+    } else if (status === 'executive_approved') {
+        groupedItems.ready_to_pay.push(item);
+    } else if (status === 'paid') {
+        groupedItems.paid.push(item);
+    } else if (status === 'rejected' || status === 'cancelled') {
+        groupedItems.rejected.push(item);
+    } else {
+        groupedItems.pending_manager.push(item);
+    }
+  });
+
+  const getGroupTitle = (key: string, count: number) => {
+    const titles: Record<string, string> = {
+      pending_manager: 'Menunggu Manager',
+      pending_executive_1: 'Menunggu Executive 1',
+      pending_finance: 'Menunggu Finance',
+      pending_executive: 'Menunggu Executive Final',
+      ready_to_pay: 'Siap Transfer',
+      paid: 'Selesai Dibayar',
+      rejected: 'Ditolak / Dibatalkan'
+    };
+    return `${titles[key] || key} (${count} Kreator)`;
+  };
+
   return (
     <div className="space-y-6 relative">
       <button onClick={onBack} className="btn btn-outline flex items-center gap-2">
@@ -383,58 +408,54 @@ export function BatchDetail({ batch, creatorHistory, onBack, onRefresh }: { batc
           </div>
         </div>
 
-        {/* Progress Tracker */}
-        <div className="mb-10 px-4 md:px-8">
-          <PaymentStepper 
-            status={batch.status} 
-            activeStepId={activeFunnel as any}
-            onClickStep={(stepId) => setActiveFunnel(stepId)}
-            submitterName={batch.submitter?.nama}
-            submitDate={batch.submitted_at}
-            managerName={batch.manager?.nama}
-            managerDate={batch.manager_reviewed_at}
-            executive1Name={batch.executive1?.nama}
-            executive1Date={batch.executive_reviewed_1_at}
-            financeName={batch.finance?.nama}
-            financeDate={batch.finance_reviewed_at}
-            executiveName={batch.executive?.nama}
-            executiveDate={batch.executive_reviewed_at}
-            payerName={batch.payer?.nama} 
-            payDate={batch.paid_at}
-          />
-        </div>
+        
+        {/* Render Grouped Items */}
+        <div className="space-y-8">
+          {Object.entries(groupedItems).map(([groupKey, items]) => {
+            if (items.length === 0) return null;
+            
+            let badgeColor = 'bg-slate-100 text-slate-700';
+            if (groupKey === 'paid') badgeColor = 'bg-green-100 text-green-700';
+            else if (groupKey === 'rejected' || groupKey === 'cancelled') badgeColor = 'bg-red-100 text-red-700';
+            else if (groupKey.includes('finance')) badgeColor = 'bg-amber-100 text-amber-700';
+            else if (groupKey === 'ready_to_pay') badgeColor = 'bg-emerald-100 text-emerald-700';
+            else badgeColor = 'bg-blue-100 text-blue-700';
+            
+            return (
+              <div key={groupKey} className="overflow-hidden border border-slate-200 rounded-lg shadow-sm">
+                <div className="bg-slate-50 px-5 py-3 border-b border-slate-200 flex items-center justify-between">
+                  <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2">
+                    {getGroupTitle(groupKey, items.length)}
+                  </h3>
+                  <span className={`text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider ${badgeColor}`}>
+                    {groupKey.replace(/_/g, ' ')}
+                  </span>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm">
+                    <thead className="bg-white text-slate-500 font-medium border-b border-slate-100">
+                      <tr>
+                        <th className="px-3 py-3 w-10"></th>
+                        <th className="px-4 py-3">Kreator</th>
+                        <th className="px-4 py-3">Tipe Pemb.</th>
+                        <th className="px-4 py-3 text-right">Ratecard / Final</th>
+                        <th className="px-4 py-3 text-right">Biaya TF</th>
+                        <th className="px-4 py-3 text-right">Total Transaksi</th>
+                        <th className="px-4 py-3">PIC</th>
+                        <th className="px-4 py-3">Rekening</th>
+                        <th className="px-4 py-3">Status</th>
+                        <th className="px-4 py-3 text-center">Aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 bg-white">
+                      {items.map((item: any) => {
 
-        <div className="overflow-x-auto border border-slate-200 rounded-lg">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-slate-50 text-slate-600 font-medium">
-              <tr>
-                <th className="px-3 py-3 w-10"></th>
-                <th className="px-4 py-3">Kreator</th>
-                <th className="px-4 py-3">Tipe Pembayaran</th>
-                <th className="px-4 py-3 text-right">Ratecard / Final</th>
-                <th className="px-4 py-3 text-right">Biaya TF</th>
-                <th className="px-4 py-3 text-right">Total Transaksi</th>
-                <th className="px-4 py-3">PIC</th>
-                <th className="px-4 py-3">Rekening</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3 text-center">Aksi</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {filteredItems.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-slate-500">
-                    Tidak ada kreator di tahap ini.
-                  </td>
-                </tr>
-              ) : (
-                filteredItems.map((item: any) => {
                 const baseNominal = item.actual_transfer != null ? Number(item.actual_transfer) : Number(item.nominal || 0);
                 const totalTrx = baseNominal + Number(item.biaya_transfer || 0);
                 const bank = item.creator_bank_accounts;
                 const isExpanded = expandedRows.has(item.id);
                 
-                const isFinanceReview = activeFunnel === 'pending_finance' && batch.status === 'pending_finance';
+                const isFinanceReview = groupKey === 'pending_finance' && (profile?.role === 'finance' || profile?.role === 'executive');
                 const currentFinanceEdit = financeEdits[item.id] || { 
                   actual_transfer: item.actual_transfer != null ? String(item.actual_transfer) : String(item.nominal || 0), 
                   biaya_transfer: String(item.biaya_transfer || 0) 
@@ -667,10 +688,16 @@ export function BatchDetail({ batch, creatorHistory, onBack, onRefresh }: { batc
                   )}
                   </React.Fragment>
                 )
-              }))}
-            </tbody>
-          </table>
+              
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            );
+          })}
         </div>
+
 
         {/* Action Bar */}
         <div className="flex justify-between items-center pt-6 border-t border-slate-100 flex-wrap gap-4">
