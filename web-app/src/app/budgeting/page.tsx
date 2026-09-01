@@ -296,7 +296,7 @@ function GlobalBudgetingContent() {
                   batch={batches.find(b => b.id === selectedBatchId)} 
                   creatorHistory={{}} 
                   onBack={() => setSelectedBatchId(null)} 
-                  onRefresh={loadData} 
+                  onRefresh={fetchBatches} 
                 />
               </div>
             </div>
