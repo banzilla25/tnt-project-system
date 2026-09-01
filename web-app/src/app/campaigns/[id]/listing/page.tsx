@@ -334,6 +334,7 @@ function CampaignListingContent() {
   const [filterNotes, setFilterNotes] = useState<string>('');
   const [filterUnattributed, setFilterUnattributed] = useState(false);
   const [filterConcept, setFilterConcept] = useState<string>('');
+  const [filterActionDate, setFilterActionDate] = useState<string>('');
   const [staffProfiles, setStaffProfiles] = useState<{id: string, nama: string}[]>([]);
 
   useEffect(() => {
@@ -860,6 +861,12 @@ function CampaignListingContent() {
       }
       if (filterConcept) {
         query = query.eq('videos.concept', filterConcept);
+      }
+
+      if (filterActionDate) {
+        const start = `${filterActionDate}T00:00:00`;
+        const end = `${filterActionDate}T23:59:59`;
+        query = query.or(`and(approval.eq.approved,approved_at.gte.${start},approved_at.lte.${end}),and(approval.in.("not_approved","alternate"),not_approved_at.gte.${start},not_approved_at.lte.${end}),and(approval.eq.pending,created_at.gte.${start},created_at.lte.${end})`);
       }
       
       if (filterNotes === 'Ada Notes') {
@@ -1881,6 +1888,25 @@ function CampaignListingContent() {
           <div className="mval text-red-600">{counts.not_approved}</div>
           {renderTierCapsules('not_approved', 'text-red-600 border-red-200', 'bg-red-600 text-white border-red-600')}
         </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3 mb-6 mt-4 bg-blue-50/50 p-3 rounded-lg border border-blue-100">
+        <label className="text-sm font-semibold text-slate-700">Filter Tanggal Aksi:</label>
+        <input 
+          type="date"
+          value={filterActionDate}
+          onChange={(e) => setFilterActionDate(e.target.value)}
+          className="input !mb-0 py-1.5 text-sm w-auto max-w-[200px]"
+        />
+        {filterActionDate && (
+          <button onClick={() => setFilterActionDate('')} className="text-sm text-red-500 hover:underline">
+            Reset Tanggal
+          </button>
+        )}
+        <span className="text-xs text-slate-500 italic ml-1 md:ml-3">
+          (Mencocokkan tanggal berdasarkan kartu status yang sedang Anda pilih: 
+          {statusFilter === 'pending' ? ' Tanggal Ditambahkan' : statusFilter === 'approved' ? ' Tanggal Di-approve' : statusFilter === 'not_approved' || statusFilter === 'alternate' ? ' Tanggal Ditolak' : ' Tanggal Aksi'})
+        </span>
       </div>
 
       <div className="ccard mb-[24px] !p-0 overflow-hidden">
