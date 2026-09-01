@@ -6,14 +6,16 @@ const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PU
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function test() {
-  const { error } = await supabase.from('payment_items')
+  const { error: batchError } = await supabase.from('payment_batches')
     .update({
-      finance_selected: false,
-      final_status: 'pending_finance_outstanding'
+      status: 'pending_executive',
+      finance_reviewed_by: 'b2877144-16dd-4dbe-800b-de215d7eea28', // some dummy UUID
+      finance_reviewed_at: new Date().toISOString()
     })
-    .in('id', [10]); // dummy ID
+    .in('id', [1])
+    .eq('status', 'pending_finance');
 
-  console.log("Error:", error);
+  console.log("Batch Error:", batchError);
 }
 
 test();

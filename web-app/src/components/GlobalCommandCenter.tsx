@@ -157,7 +157,10 @@ export function GlobalCommandCenter({ role, onSuccess }: { role: string, onSucce
 
     setIsSubmitting(true);
     try {
-      await bulkProcessFinanceReview(Array.from(selectedItems), action);
+      const res = await bulkProcessFinanceReview(Array.from(selectedItems), actionType);
+      if (res && !res.success) {
+        throw new Error(res.error || "Unknown error from server");
+      }
       alert("Berhasil memproses tagihan terpilih!");
       setSelectedItems(new Set());
       loadData();
@@ -176,11 +179,14 @@ export function GlobalCommandCenter({ role, onSuccess }: { role: string, onSucce
     
     setIsSubmitting(true);
     try {
-      await bulkMarkPaidFinance(Array.from(selectedItems), {
+      const res = await bulkMarkPaidFinance(Array.from(selectedItems), {
         actualPaymentDate: transferDate,
         buktiTransferUrl: buktiUrl,
         senderAccountId: senderAccountId
       });
+      if (res && !res.success) {
+        throw new Error(res.error || "Unknown error from server");
+      }
       alert("Berhasil menandai lunas!");
       setShowTransferModal(false);
       setSelectedItems(new Set());
