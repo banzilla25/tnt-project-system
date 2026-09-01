@@ -18,8 +18,8 @@ export function GlobalCommandCenter({ role, onSuccess }: { role: string, onSucce
   const [expandedBatches, setExpandedBatches] = useState<Set<number>>(new Set());
   const [selectedItems, setSelectedItems] = useState<Set<number>>(new Set());
   
-  // Finance Tabs
-  const [financeTab, setFinanceTab] = useState<'review' | 'transfer'>('review');
+  // Generic Sub-Tabs for Roles
+  const [subTab, setSubTab] = useState<'exec_approval' | 'review' | 'transfer'>(role === 'finance' ? 'review' : 'exec_approval');
 
   // Bulk Transfer Modal State
   const [showTransferModal, setShowTransferModal] = useState(false);
@@ -37,9 +37,15 @@ export function GlobalCommandCenter({ role, onSuccess }: { role: string, onSucce
       if (role === 'manager') {
         filtered = filtered.filter(b => b.status === 'pending_manager');
       } else if (role === 'executive') {
-        filtered = filtered.filter(b => ['pending_manager', 'pending_executive_1', 'pending_executive'].includes(b.status));
+        if (subTab === 'exec_approval') {
+          filtered = filtered.filter(b => ['pending_manager', 'pending_executive_1', 'pending_executive'].includes(b.status));
+        } else if (subTab === 'review') {
+          filtered = filtered.filter(b => b.status === 'pending_finance');
+        } else if (subTab === 'transfer') {
+          filtered = filtered.filter(b => b.status === 'ready_to_pay');
+        }
       } else if (role === 'finance') {
-        if (financeTab === 'review') {
+        if (subTab === 'review') {
           filtered = filtered.filter(b => b.status === 'pending_finance');
         } else {
           filtered = filtered.filter(b => b.status === 'ready_to_pay');
@@ -49,15 +55,13 @@ export function GlobalCommandCenter({ role, onSuccess }: { role: string, onSucce
       // Also filter items based on what makes sense for the role/tab
       const processedBatches = filtered.map(b => {
         let validItems = b.payment_items || [];
-        if (role === 'finance') {
-          if (financeTab === 'review') {
-            validItems = validItems.filter((i:any) => ['executive_1_approved', 'pending_finance_outstanding'].includes(i.final_status));
-          } else {
-            validItems = validItems.filter((i:any) => i.final_status === 'finance_selected' || i.final_status === 'ready_to_pay');
-          }
-        } else if (role === 'manager') {
+        if (role === 'manager') {
           validItems = validItems.filter((i:any) => i.final_status === 'pending');
-        } else if (role === 'executive') {
+        } else if (subTab === 'review') {
+          validItems = validItems.filter((i:any) => ['executive_1_approved', 'pending_finance_outstanding'].includes(i.final_status));
+        } else if (subTab === 'transfer') {
+          validItems = validItems.filter((i:any) => i.final_status === 'finance_selected' || i.final_status === 'ready_to_pay');
+        } else if (subTab === 'exec_approval' && role === 'executive') {
           validItems = validItems.filter((i:any) => ['pending', 'manager_approved', 'finance_selected'].includes(i.final_status));
         }
         return { ...b, payment_items: validItems };
@@ -66,7 +70,7 @@ export function GlobalCommandCenter({ role, onSuccess }: { role: string, onSucce
       setBatches(processedBatches);
       setExpandedBatches(new Set(processedBatches.map(b => b.id)));
       
-      if (role === 'finance' && senderAccounts.length === 0) {
+      if ((role === 'finance' || subTab === 'transfer') && senderAccounts.length === 0) {
         const accounts = await getSenderAccounts();
         setSenderAccounts(accounts);
         if (accounts.length > 0) setSenderAccountId(accounts[0].id);
@@ -76,12 +80,12 @@ export function GlobalCommandCenter({ role, onSuccess }: { role: string, onSucce
     } finally {
       setIsLoading(false);
     }
-  }, [role, financeTab, senderAccounts.length]);
+  }, [role, subTab, senderAccounts.length]);
 
   useEffect(() => {
     loadData();
     setSelectedItems(new Set()); // Reset selections on tab change
-  }, [loadData, financeTab]);
+  }, [loadData, subTab]);
 
   const toggleExpand = (id: number) => {
     const next = new Set(expandedBatches);
@@ -200,17 +204,25 @@ export function GlobalCommandCenter({ role, onSuccess }: { role: string, onSucce
   return (
     <div className="space-y-4 pb-24">
       
-      {role === 'finance' && (
+      {(role === 'finance' || role === 'executive') && (
         <div className="flex bg-slate-100 p-1 rounded-lg w-fit mb-4">
+          {role === 'executive' && (
+            <button 
+              className={`px-6 py-2 text-sm font-semibold rounded-md transition-all ${subTab === 'exec_approval' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
+              onClick={() => setSubTab('exec_approval')}
+            >
+              Approval Executive
+            </button>
+          )}
           <button 
-            className={`px-6 py-2 text-sm font-semibold rounded-md transition-all ${financeTab === 'review' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
-            onClick={() => setFinanceTab('review')}
+            className={`px-6 py-2 text-sm font-semibold rounded-md transition-all ${subTab === 'review' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
+            onClick={() => setSubTab('review')}
           >
-            Review Tagihan
+            Review Tagihan (Finance)
           </button>
           <button 
-            className={`px-6 py-2 text-sm font-semibold rounded-md transition-all ${financeTab === 'transfer' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
-            onClick={() => setFinanceTab('transfer')}
+            className={`px-6 py-2 text-sm font-semibold rounded-md transition-all ${subTab === 'transfer' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
+            onClick={() => setSubTab('transfer')}
           >
             Siap Bayar (Transfer)
           </button>
@@ -221,7 +233,7 @@ export function GlobalCommandCenter({ role, onSuccess }: { role: string, onSucce
         <div>
           <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
             <ShieldAlert className="w-5 h-5 text-amber-500" />
-            Tumpukan Persetujuan {role === 'finance' ? (financeTab === 'review' ? '(Review)' : '(Transfer)') : ''}
+            Tumpukan Persetujuan {(role === 'finance' || role === 'executive') ? (subTab === 'review' ? '(Review)' : subTab === 'transfer' ? '(Transfer)' : '') : ''}
           </h2>
           <p className="text-sm text-slate-500">Centang tagihan yang ingin diproses, lalu pilih aksi di bawah layar.</p>
         </div>
@@ -361,7 +373,7 @@ export function GlobalCommandCenter({ role, onSuccess }: { role: string, onSucce
           </div>
           
           <div className="flex flex-wrap justify-center gap-3">
-            {role === 'manager' || role === 'executive' ? (
+            {(subTab === 'exec_approval' || role === 'manager') ? (
               <button
                 onClick={handleBulkApproveExecMgr}
                 disabled={isSubmitting}
@@ -370,7 +382,7 @@ export function GlobalCommandCenter({ role, onSuccess }: { role: string, onSucce
                 {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle className="w-5 h-5" />}
                 Approve {selectedItems.size} Tagihan
               </button>
-            ) : role === 'finance' && financeTab === 'review' ? (
+            ) : subTab === 'review' ? (
               <>
                 <button
                   onClick={() => handleFinanceReview('approve')}
@@ -394,7 +406,7 @@ export function GlobalCommandCenter({ role, onSuccess }: { role: string, onSucce
                   <ShieldAlert className="w-5 h-5" /> Reject Permanen
                 </button>
               </>
-            ) : role === 'finance' && financeTab === 'transfer' ? (
+            ) : subTab === 'transfer' ? (
               <button
                 onClick={() => setShowTransferModal(true)}
                 disabled={isSubmitting}
