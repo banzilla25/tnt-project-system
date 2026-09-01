@@ -952,10 +952,7 @@ export async function bulkMarkPaidFinance(itemIds: number[], payload: { actualPa
   // Update items to paid
   const { error } = await supabase.from('payment_items')
     .update({
-      final_status: 'paid',
-      actual_payment_date: payload.actualPaymentDate,
-      bukti_transfer_url: payload.buktiTransferUrl,
-      sender_account_id: payload.senderAccountId
+      final_status: 'paid'
     })
     .in('id', itemIds);
 
@@ -968,6 +965,13 @@ export async function bulkMarkPaidFinance(itemIds: number[], payload: { actualPa
     
     // For each batch, check if all items are paid or rejected. If so, mark batch as paid.
     for (const bId of batchIds) {
+      // Selalu update link bukti transfer di level batch meskipun baru sebagian yang dibayar
+      await supabase.from('payment_batches').update({
+        actual_payment_date: payload.actualPaymentDate,
+        bukti_transfer_url: payload.buktiTransferUrl,
+        sender_account_id: payload.senderAccountId
+      }).eq('id', bId);
+
       const { data: allItems } = await supabase.from('payment_items').select('final_status').eq('batch_id', bId);
       const allDone = allItems?.every(i => ['paid', 'rejected', 'cancelled', 'pending_finance_outstanding'].includes(i.final_status));
       if (allDone) {
