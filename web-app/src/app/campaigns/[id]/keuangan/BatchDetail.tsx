@@ -592,7 +592,7 @@ export function BatchDetail({ batch, creatorHistory, onBack, onRefresh }: { batc
                             />
                           </label>
                         )}
-                        {batch.status === 'pending_finance' && (profile?.role === 'finance' || profile?.role === 'executive') && item.final_status === 'finance_selected' && (
+                        {batch.status === 'pending_finance' && (profile?.role === 'finance' || profile?.role === 'executive') && getLogicalStatus(item) === 'finance_selected' && (
                           <label className="flex items-center justify-center cursor-pointer">
                             <input type="checkbox" className="w-5 h-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500" 
                               checked={true}
@@ -603,7 +603,7 @@ export function BatchDetail({ batch, creatorHistory, onBack, onRefresh }: { batc
                         )}
 
                         {/* EXECUTIVE ACTIONS */}
-                        {batch.status === 'pending_executive' && profile?.role === 'executive' && item.final_status === 'finance_selected' && (
+                        {batch.status === 'pending_executive' && profile?.role === 'executive' && getLogicalStatus(item) === 'finance_selected' && (
                           <div className="flex justify-center gap-2">
                             <button onClick={() => handleAction(item.id, () => executiveApproveItem(item.id))} disabled={loadingIds[item.id]} className="p-1.5 bg-emerald-100 text-emerald-600 rounded hover:bg-emerald-200">
                               {loadingIds[item.id] ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}

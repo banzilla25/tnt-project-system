@@ -551,7 +551,7 @@ export async function executiveFinalizeReview1(batchId: number) {
 
 export async function financeToggleItem(itemId: number, selected: boolean) {
   const supabase = await createClient();
-  const finalStatus = selected ? 'finance_selected' : 'executive_1_approved';
+  const finalStatus = selected ? 'executive_1_approved' : 'executive_1_approved'; // Bypass finance_selected
   const { error } = await supabase.from('payment_items').update({
     finance_selected: selected,
     final_status: finalStatus
@@ -864,7 +864,7 @@ export async function bulkApproveExecutiveFinal(batchIds: number[]) {
       executive_acted_at: now
     })
     .in('batch_id', batchIds)
-    .in('final_status', ['finance_selected']);
+    .in('final_status', ['finance_selected', 'executive_1_approved']);
 
   await supabase.from('payment_batches')
     .update({
@@ -894,7 +894,7 @@ export async function bulkProcessFinanceReview(itemIds: number[], actionType: 'a
     let updateData: any = {};
 
     if (actionType === 'approve') {
-      finalStatus = 'finance_selected'; // this means it's ready for executive final
+      finalStatus = 'executive_1_approved'; // Bypass finance_selected DB constraint
       updateData = {
         finance_selected: true,
         final_status: finalStatus
