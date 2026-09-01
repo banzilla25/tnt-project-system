@@ -178,6 +178,32 @@ export async function getCreatorBankAccounts(creatorId: number) {
   return data;
 }
 
+// Fetch the last admin data for a creator from their most recent payment_items
+export async function getCreatorLastAdminData(creatorId: number) {
+  const supabase = await createClient();
+  
+  // Find campaign_creator IDs for this creator
+  const { data: ccIds } = await supabase.from('campaign_creators')
+    .select('id')
+    .eq('creator_id', creatorId);
+  
+  if (!ccIds || ccIds.length === 0) return null;
+  
+  const ids = ccIds.map(c => c.id);
+  
+  // Get the most recent payment_items that has admin data filled
+  const { data, error } = await supabase.from('payment_items')
+    .select('nama_wa_pic, nomor_wa_dealing, alamat_ktp, nik, link_ktp, link_kontrak, metode_pembayaran, nomor_rekening, nama_penerima')
+    .in('campaign_creator_id', ids)
+    .not('nik', 'is', null)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  
+  if (error || !data) return null;
+  return data;
+}
+
 export async function getSenderAccounts() {
   const supabase = await createClient();
   const { data, error } = await supabase.from('sender_accounts').select('*');

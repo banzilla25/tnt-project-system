@@ -111,15 +111,11 @@ export function UnpaidCreatorsTab({ campaignId, onSuccess }: { campaignId: numbe
       
       return {
         campaign_creator_id: cc.id,
-        creator: { ...cc, username: cc.creators?.username }, // mock object for BatchForm
+        creator: { ...cc, username: cc.creators?.username },
         payment_type: nextPaymentType,
         metode_pembayaran: latestBank?.bank_name || '',
         nomor_rekening: latestBank?.account_number || '',
         nama_penerima: latestBank?.account_holder || '',
-        nik: latestBank?.ktp_number || '',
-        link_ktp: latestBank?.link_ktp || '',
-        link_npwp: latestBank?.link_npwp || '',
-        link_kontrak: latestBank?.link_contract || '',
         nominal: '', // Let PIC fill or we can pre-calc based on ratecard
       };
     });
