@@ -10,6 +10,7 @@ import { MutationTable } from "@/components/MutationTable";
 import { RekapAdsTab } from "@/components/RekapAdsTab";
 import { GlobalCommandCenter } from "@/components/GlobalCommandCenter";
 import { useAuth } from "@/providers/AuthProvider";
+import { BatchDetail } from "../campaigns/[id]/keuangan/BatchDetail";
 
 const supabase = createClient();
 
@@ -24,10 +25,11 @@ export default function GlobalBudgetingPage() {
 function GlobalBudgetingContent() {
   const router = useRouter();
   const { profile } = useAuth();
-  const [activeTab, setActiveTab] = useState<'semua' | 'tindakan' | 'ringkasan' | 'mutasi' | 'ads'>('tindakan');
+  const [activeTab, setActiveTab] = useState<'tindakan' | 'semua' | 'ringkasan' | 'ads' | 'mutasi'>('tindakan');
   const [batches, setBatches] = useState<any[]>([]);
   const [summaries, setSummaries] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedBatchId, setSelectedBatchId] = useState<number | null>(null);
 
   // Inline edit state
   const [editingCell, setEditingCell] = useState<string | null>(null);
@@ -256,7 +258,7 @@ function GlobalBudgetingContent() {
                           <td className="px-4 py-3 text-right">Rp {totalNominal.toLocaleString()}</td>
                           <td className="px-4 py-3 text-center">{b.status}</td>
                           <td className="px-4 py-3 text-center">
-                            <button onClick={() => router.push(`/campaigns/${b.campaign_id}/keuangan`)} className="text-blue-600 text-xs">Detail</button>
+                            <button onClick={() => setSelectedBatchId(b.id)} className="text-blue-600 font-semibold hover:bg-blue-50 px-3 py-1 rounded-md transition-all">Detail</button>
                           </td>
                         </tr>
                       );
@@ -268,6 +270,39 @@ function GlobalBudgetingContent() {
           )}
         </div>
       </div>
+
+      {/* MODAL BATCH DETAIL */}
+      {selectedBatchId && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 overflow-hidden">
+          <div className="bg-slate-50 w-full max-w-[95vw] sm:max-w-7xl max-h-[95vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+            {/* Header Modal */}
+            <div className="px-6 py-4 bg-white border-b border-slate-200 flex justify-between items-center z-10 sticky top-0">
+              <div>
+                <h2 className="font-extrabold text-xl text-slate-800">Detail Tagihan</h2>
+                <p className="text-sm text-slate-500">Anda dapat memproses tagihan langsung dari jendela ini.</p>
+              </div>
+              <button 
+                onClick={() => setSelectedBatchId(null)} 
+                className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400 hover:text-slate-700"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            
+            {/* Konten Modal */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-8">
+              <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <BatchDetail 
+                  batch={batches.find(b => b.id === selectedBatchId)} 
+                  creatorHistory={{}} 
+                  onBack={() => setSelectedBatchId(null)} 
+                  onRefresh={loadData} 
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
