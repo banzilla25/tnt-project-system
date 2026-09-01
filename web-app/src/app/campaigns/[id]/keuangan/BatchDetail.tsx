@@ -707,7 +707,7 @@ export function BatchDetail({ batch, creatorHistory, onBack, onRefresh }: { batc
                 {isFinalizing ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowLeft className="w-4 h-4" />} Kembalikan
               </button>
             )}
-            {activeFunnel === 'ready_to_pay' && (profile?.role === 'executive' || profile?.role === 'finance') && (
+            {batch.status === 'ready_to_pay' && (profile?.role === 'executive' || profile?.role === 'finance') && (
               <>
                 <button onClick={handleExportExcel} className="btn btn-outline text-emerald-700 hover:bg-emerald-50 border-emerald-200 flex items-center gap-2 text-xs">
                   <Download className="w-4 h-4" /> Export Excel
