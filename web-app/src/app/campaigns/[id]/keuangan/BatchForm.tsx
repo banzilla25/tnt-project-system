@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { createPaymentBatch, addPaymentItem, submitBatchToManager, getCreatorBankAccounts, getCreatorLastAdminData } from "../../actions/paymentActions";
+import { createPaymentBatch, addPaymentItem, submitBatchToManager, getCreatorBankAccounts } from "../../actions/paymentActions";
 import { Loader2, Plus, Trash2, Save, Send, ArrowLeft } from "lucide-react";
 
 export interface OperationalItem {
@@ -74,12 +74,12 @@ export function BatchForm({ campaignId, creators, creatorHistory, initialItems, 
           metode_pembayaran: prefill?.metode_pembayaran || '',
           nomor_rekening: prefill?.nomor_rekening || '',
           nama_penerima: prefill?.nama_penerima || '',
-          nama_wa_pic: prefill?.nama_wa_pic || '',
-          nomor_wa_dealing: prefill?.nomor_wa_dealing || '',
-          alamat_ktp: prefill?.alamat_ktp || '',
-          nik: prefill?.nik || '',
-          link_ktp: prefill?.link_ktp || '',
-          link_kontrak: prefill?.link_kontrak || '',
+          nama_wa_pic: prefill?.nama_wa_pic || cc.creators?.nama_wa_pic || '',
+          nomor_wa_dealing: prefill?.nomor_wa_dealing || cc.creators?.nomor_wa_dealing || '',
+          alamat_ktp: prefill?.alamat_ktp || cc.creators?.alamat_ktp || '',
+          nik: prefill?.nik || cc.creators?.nik || '',
+          link_ktp: prefill?.link_ktp || cc.creators?.link_ktp || '',
+          link_kontrak: prefill?.link_kontrak || cc.creators?.link_kontrak || '',
           notes_dari_pic: prefill?.notes_dari_pic || '',
         }
       };
@@ -89,35 +89,8 @@ export function BatchForm({ campaignId, creators, creatorHistory, initialItems, 
     if (!bankAccounts[cc.creator_id]) {
       setLoadingBanks(prev => ({ ...prev, [cc.creator_id]: true }));
       try {
-        const [banks, lastAdmin] = await Promise.all([
-          getCreatorBankAccounts(cc.creator_id),
-          getCreatorLastAdminData(cc.creator_id)
-        ]);
+        const banks = await getCreatorBankAccounts(cc.creator_id);
         setBankAccounts(prev => ({ ...prev, [cc.creator_id]: banks }));
-        
-        // Auto-prefill admin data from last payment if available and no prefill was given
-        if (lastAdmin && !prefill) {
-          setForms(prev => {
-            const current = prev[cc.id];
-            if (!current) return prev;
-            return {
-              ...prev,
-              [cc.id]: {
-                ...current,
-                nama_wa_pic: current.nama_wa_pic || lastAdmin.nama_wa_pic || '',
-                nomor_wa_dealing: current.nomor_wa_dealing || lastAdmin.nomor_wa_dealing || '',
-                alamat_ktp: current.alamat_ktp || lastAdmin.alamat_ktp || '',
-                nik: current.nik || lastAdmin.nik || '',
-                link_ktp: current.link_ktp || lastAdmin.link_ktp || '',
-                link_kontrak: current.link_kontrak || lastAdmin.link_kontrak || '',
-                // Also prefill bank info if no saved account selected
-                metode_pembayaran: current.metode_pembayaran || lastAdmin.metode_pembayaran || '',
-                nomor_rekening: current.nomor_rekening || lastAdmin.nomor_rekening || '',
-                nama_penerima: current.nama_penerima || lastAdmin.nama_penerima || '',
-              }
-            };
-          });
-        }
       } catch (err) {
         console.error(err);
       } finally {

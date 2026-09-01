@@ -66,6 +66,7 @@ export async function fetchUnpaidCreators(campaignId: number) {
       creators ( 
         username, 
         avatar_url, 
+        nik, link_ktp, link_npwp, link_kontrak, nama_wa_pic, nomor_wa_dealing, alamat_ktp,
         creator_snapshots ( followers, gmv_30d ),
         creator_bank_accounts ( id, bank_name, account_number, account_holder )
       ),
@@ -178,31 +179,7 @@ export async function getCreatorBankAccounts(creatorId: number) {
   return data;
 }
 
-// Fetch the last admin data for a creator from their most recent payment_items
-export async function getCreatorLastAdminData(creatorId: number) {
-  const supabase = await createClient();
-  
-  // Find campaign_creator IDs for this creator
-  const { data: ccIds } = await supabase.from('campaign_creators')
-    .select('id')
-    .eq('creator_id', creatorId);
-  
-  if (!ccIds || ccIds.length === 0) return null;
-  
-  const ids = ccIds.map(c => c.id);
-  
-  // Get the most recent payment_items that has admin data filled
-  const { data, error } = await supabase.from('payment_items')
-    .select('nama_wa_pic, nomor_wa_dealing, alamat_ktp, nik, link_ktp, link_kontrak, metode_pembayaran, nomor_rekening, nama_penerima')
-    .in('campaign_creator_id', ids)
-    .not('nik', 'is', null)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  
-  if (error || !data) return null;
-  return data;
-}
+
 
 export async function getSenderAccounts() {
   const supabase = await createClient();
@@ -292,6 +269,22 @@ export async function addPaymentItem(batchId: number, itemData: any) {
 
   const { error } = await supabase.from('payment_items').insert(payload);
   if (error) throw new Error(error.message);
+
+  // Update creator master admin data if this is a creator payment
+  if (itemData.campaign_creator_id) {
+    const { data: cc } = await supabase.from('campaign_creators').select('creator_id').eq('id', itemData.campaign_creator_id).single();
+    if (cc) {
+      await supabase.from('creators').update({
+        nik: itemData.nik || null,
+        link_ktp: itemData.link_ktp || null,
+        link_npwp: itemData.link_npwp || null,
+        link_kontrak: itemData.link_kontrak || null,
+        nama_wa_pic: itemData.nama_wa_pic || null,
+        nomor_wa_dealing: itemData.nomor_wa_dealing || null,
+        alamat_ktp: itemData.alamat_ktp || null,
+      }).eq('id', cc.creator_id);
+    }
+  }
 }
 
 export async function updatePaymentItem(itemId: number, itemData: any) {
