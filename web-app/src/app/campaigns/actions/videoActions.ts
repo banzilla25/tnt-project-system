@@ -31,7 +31,7 @@ export async function getInternalVideoData(campaignId: number, searchKeyword: st
   // 3. Fetch creators (Approved & Pending based on client_approval)
   let query = supabase
     .from('campaign_creators')
-    .select('*, creators!inner(*), videos(*)')
+    .select('*, creators!inner(*, creator_contacts(nomor, status), creator_snapshots(id, level, followers, gmv_30d, tanggal_update, created_at)), videos(*)')
     .eq('campaign_id', campaignId)
     .eq('approval', 'approved');
 

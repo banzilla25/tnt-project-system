@@ -8,11 +8,44 @@ import { createClient } from "@/utils/supabase/client";
 import { getCreatorType, getConceptColor } from "@/utils/computed";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { AlertCircle, Link as LinkIcon, Save, Edit2, Loader2, ChevronDown, ChevronRight, Plus, PlayCircle, X } from "lucide-react";
+import { AlertCircle, Link as LinkIcon, Save, Edit2, Loader2, ChevronDown, ChevronRight, Plus, PlayCircle, X, Download } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/Dialog";
 import { useAuth } from "@/providers/AuthProvider";
 import { useCampaignFilter } from "@/providers/CampaignFilterProvider";
 import { getInternalVideoData } from "../../actions/videoActions";
+import * as XLSX from "xlsx";
+
+const extractCampaignSnapshot = (creator: any, campaignCreatedAt?: string) => {
+  const snaps = creator?.creator_snapshots || [];
+  if (snaps.length === 0) return {};
+  
+  const sortedSnaps = [...snaps].sort((a:any, b:any) => {
+    const tDiff = new Date(b.tanggal_update || b.created_at || 0).getTime() - new Date(a.tanggal_update || a.created_at || 0).getTime();
+    if (tDiff !== 0) return tDiff;
+    return b.id - a.id;
+  });
+
+  let targetSnaps = sortedSnaps;
+  if (campaignCreatedAt) {
+    const cTime = new Date(campaignCreatedAt).getTime();
+    const gracePeriod = 86400000; // 24 hours grace period
+    const targetSnap = sortedSnaps.find((s: any) => {
+      const sTime = new Date(s.tanggal_update || s.created_at || 0).getTime();
+      return sTime <= cTime + gracePeriod;
+    });
+    const baseSnap = targetSnap || sortedSnaps[sortedSnaps.length - 1];
+    targetSnaps = sortedSnaps.slice(sortedSnaps.indexOf(baseSnap));
+  }
+
+  return targetSnaps.reduce((acc: any, curr: any) => ({
+    followers: acc.followers ?? curr.followers,
+    tier: acc.tier ?? curr.tier,
+    audience_age: acc.audience_age ?? curr.audience_age,
+    level: acc.level ?? curr.level,
+    ratecard: acc.ratecard ?? curr.ratecard,
+    gmv_30d: acc.gmv_30d ?? curr.gmv_30d,
+  }), { followers: null, tier: null, audience_age: null, level: null, ratecard: null, gmv_30d: null } as any);
+};
 
 // Algoritma Snowflake TikTok - Akurat 100% tanpa API
 function extractTikTokUploadDate(videoId: string): string | null {
@@ -242,6 +275,80 @@ export default function CampaignVideoPage({
        alert('Gagal menghubungi server untuk ekspansi link');
     } finally {
        setExpandingLinks(prev => ({ ...prev, [key]: false }));
+    }
+  };
+
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExport = () => {
+    try {
+      if (processedListingData.length === 0) {
+        alert("Belum ada data untuk diekspor");
+        return;
+      }
+      setIsExporting(true);
+
+      const maxVideos = Math.max(
+        ...processedListingData.map((cc: any) => {
+           const vids = localVideos.filter(v => v.campaign_creator_id === cc.id);
+           return vids.length;
+        }),
+        1
+      );
+
+      const formattedData = processedListingData.map((cc: any, index: number) => {
+        const creator = cc.creators || {};
+        const snapshot = extractCampaignSnapshot(creator, cc.created_at);
+        
+        const vids = localVideos.filter(v => v.campaign_creator_id === cc.id).sort((a: any, b: any) => a.urutan - b.urutan);
+        
+        const row: any = {
+          'No': index + 1,
+          'Username': creator.username || '',
+          'Nama Asli': creator.nama_asli || '',
+          'Nomor WA': creator.creator_contacts?.find((c: any) => c.status === 'aktif')?.nomor || creator.creator_contacts?.[0]?.nomor || '',
+          'Followers': snapshot.followers || 0,
+          'GMV 30 Days': snapshot.gmv_30d || 0,
+          'Tier': cc.tier || '',
+          'Level': snapshot.level || '',
+          'Niche': cc.niche || '',
+          'Tanggal Input': cc.created_at ? new Date(cc.created_at).toLocaleString('id-ID') : '-',
+          'Status (Approval)': cc.approval || '',
+          'Tipe Kerjasama': cc.price > 0 ? 'Ratecard' : 'Barter',
+          'Nominal (Rp)': cc.price || 0,
+          'Qty VT SOW': cc.qty_vt || 0,
+          'Qty Live SOW': cc.qty_live || 0,
+          'Tipe Konten': cc.tipe_konten || '',
+          'Produk': cc.product || ''
+        };
+        
+        for (let i = 0; i < maxVideos; i++) {
+           const v = vids[i];
+           let gmv = 0;
+           if (v) {
+             const uid = v.content_uid || (v.link_video ? v.link_video.match(/video\/(\d+)/)?.[1] : null);
+             if (uid) {
+               const stat = (cc._videoStats || []).find((s: any) => s.content_uid === uid);
+               if (stat) gmv = stat.gmv || 0;
+             }
+           }
+           row[`Video ${i+1}`] = v ? (v.link_video || v.concept || '-') : '-';
+           row[`GMV Video ${i+1}`] = gmv;
+        }
+        
+        return row;
+      });
+
+      const ws = XLSX.utils.json_to_sheet(formattedData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Videos");
+      XLSX.writeFile(wb, `Export_Video_Campaign_${campaignId}_${new Date().toISOString().split('T')[0]}.xlsx`);
+
+    } catch (err: any) {
+      console.error("Export Error:", err);
+      alert("Gagal melakukan export: " + err.message);
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -853,20 +960,25 @@ export default function CampaignVideoPage({
                     Tampilan: Semua Video
                   </button>
                </div>
-               {hasAccess && (
-                 <div className="flex items-center gap-2">
-                   <button onClick={() => {
-                     setHistoryOpen(true);
-                     setHistoryPage(0);
-                     setSelectedHistoryIds(new Set());
-                   }} className="btn bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 flex items-center gap-2 whitespace-nowrap h-fit">
-                      Aktivitas Import Terakhir
-                   </button>
-                   <button onClick={() => setBulkImportOpen(true)} className="btn btn-primary flex items-center gap-2 whitespace-nowrap h-fit">
-                      <Plus className="w-4 h-4" /> Bulk Import Link
-                   </button>
-                 </div>
-               )}
+               <div className="flex items-center gap-2">
+                 <button onClick={handleExport} disabled={isExporting} className="btn bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 flex items-center gap-2 whitespace-nowrap h-fit">
+                    {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />} Export
+                 </button>
+                 {hasAccess && (
+                   <>
+                     <button onClick={() => {
+                       setHistoryOpen(true);
+                       setHistoryPage(0);
+                       setSelectedHistoryIds(new Set());
+                     }} className="btn bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 flex items-center gap-2 whitespace-nowrap h-fit">
+                        Aktivitas Import Terakhir
+                     </button>
+                     <button onClick={() => setBulkImportOpen(true)} className="btn btn-primary flex items-center gap-2 whitespace-nowrap h-fit">
+                        <Plus className="w-4 h-4" /> Bulk Import Link
+                     </button>
+                   </>
+                 )}
+               </div>
              </div>
              <div className="flex flex-wrap gap-4 items-end">
                 <div className="space-y-2 flex-1 min-w-[200px]">
