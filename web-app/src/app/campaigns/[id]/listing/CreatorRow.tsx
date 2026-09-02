@@ -454,21 +454,19 @@ export const CreatorRow = React.memo(({
                 if (isApprovalPending) {
                   name = profile?.nama || 'Unknown';
                   dateStr = new Date().toLocaleDateString('id-ID', {day: 'numeric', month: 'short', year: 'numeric'});
-                } else {
-                  if (approvalVal === 'pending') {
-                    name = staffProfiles.find((p: any) => p.id === cc.added_by)?.nama || 'System';
-                    dateStr = cc.created_at ? new Date(cc.created_at).toLocaleDateString('id-ID', {day: 'numeric', month: 'short', year: 'numeric'}) : '-';
-                  } else if (approvalVal === 'approved') {
-                    name = staffProfiles.find((p: any) => p.id === (cc.approved_by || cc.added_by))?.nama || 'System';
-                    dateStr = (cc.approved_at || cc.created_at) ? new Date(cc.approved_at || cc.created_at).toLocaleDateString('id-ID', {day: 'numeric', month: 'short', year: 'numeric'}) : '-';
-                  } else if (approvalVal === 'not_approved' || approvalVal === 'alternate') {
-                    name = staffProfiles.find((p: any) => p.id === (cc.not_approved_by || cc.added_by))?.nama || 'System';
-                    dateStr = (cc.not_approved_at || cc.created_at) ? new Date(cc.not_approved_at || cc.created_at).toLocaleDateString('id-ID', {day: 'numeric', month: 'short', year: 'numeric'}) : '-';
-                  }
+                } else if (approvalVal === 'pending') {
+                  name = staffProfiles.find((p: any) => p.id === cc.added_by)?.nama || 'System';
+                  dateStr = cc.created_at ? new Date(cc.created_at).toLocaleDateString('id-ID', {day: 'numeric', month: 'short', year: 'numeric'}) : '-';
+                } else if (approvalVal === 'approved') {
+                  name = staffProfiles.find((p: any) => p.id === (cc.approved_by || cc.added_by))?.nama || 'System';
+                  dateStr = (cc.approved_at || cc.created_at) ? new Date(cc.approved_at || cc.created_at).toLocaleDateString('id-ID', {day: 'numeric', month: 'short', year: 'numeric'}) : '-';
+                } else if (approvalVal === 'not_approved' || approvalVal === 'alternate') {
+                  name = staffProfiles.find((p: any) => p.id === (cc.not_approved_by || cc.added_by))?.nama || 'System';
+                  dateStr = (cc.not_approved_at || cc.created_at) ? new Date(cc.not_approved_at || cc.created_at).toLocaleDateString('id-ID', {day: 'numeric', month: 'short', year: 'numeric'}) : '-';
                 }
 
                 return (
-                  <>
+                  <div className="w-full flex flex-col items-center" data-version="v4">
                     <span className={`badge ${
                       approvalVal === 'approved' ? 'b-approved' : 
                       approvalVal === 'not_approved' ? 'b-rejected' : 
@@ -476,11 +474,11 @@ export const CreatorRow = React.memo(({
                     }`}>
                       {approvalVal}
                     </span>
-                    <div className="text-[10px] text-text-soft mt-1 leading-tight text-center flex flex-col items-center">
-                      <span>Oleh: {name}</span>
-                      <span>{dateStr}</span>
+                    <div className="text-[10px] text-text-soft mt-1 leading-tight text-center flex flex-col items-center w-full">
+                      <span className="block w-full truncate">Oleh: {name}</span>
+                      <span className="block w-full truncate">{dateStr}</span>
                     </div>
-                  </>
+                  </div>
                 );
               })()}
             </div>
