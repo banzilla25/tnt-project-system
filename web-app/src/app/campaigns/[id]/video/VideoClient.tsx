@@ -332,7 +332,7 @@ export default function CampaignVideoPage({
                if (stat) gmv = stat.gmv || 0;
              }
            }
-           row[`Video ${i+1}`] = v ? (v.link_video || v.concept || '-') : '-';
+           row[`Video ${i+1}`] = v && v.link_video ? v.link_video : '-';
            row[`GMV Video ${i+1}`] = gmv;
         }
         
