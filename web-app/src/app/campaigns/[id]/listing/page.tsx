@@ -1538,7 +1538,7 @@ function CampaignListingContent() {
       while (fetchMore) {
         let query = supabase
           .from('campaign_creators')
-          .select('*, creators(username, nama_asli, link_account, creator_contacts(nomor, status), creator_snapshots(level, followers))')
+          .select('*, creators(username, nama_asli, link_account, creator_contacts(nomor, status), creator_snapshots(level, followers, gmv_30d))')
           .eq('campaign_id', campaignId)
           .in('approval', selectedStatuses)
           .order('id', { ascending: false })
@@ -1582,6 +1582,7 @@ function CampaignListingContent() {
           'Nama Asli': creator.nama_asli || '',
           'Nomor WA': creator.creator_contacts?.find((c: any) => c.status === 'aktif')?.nomor || creator.creator_contacts?.[0]?.nomor || '',
           'Followers': snapshot.followers || 0,
+          'GMV 30 Days': snapshot.gmv_30d || 0,
           'Tier': cc.tier || '',
           'Level': snapshot.level || '',
           'Niche': cc.niche || '',
@@ -1590,7 +1591,7 @@ function CampaignListingContent() {
           'Tanggal Update Status': updateDate,
           'PIC Update Status': updatePic,
           'Status (Approval)': cc.approval || '',
-          'Tipe Kerjasama': cc.kerjasama || '',
+          'Tipe Kerjasama': cc.price > 0 ? 'Ratecard' : 'Barter',
           'Nominal (Rp)': cc.price || 0,
           'Qty VT SOW': cc.qty_vt || 0,
           'Qty Live SOW': cc.qty_live || 0,
