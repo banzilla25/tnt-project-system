@@ -1670,12 +1670,22 @@ function CampaignListingContent() {
     setBulkActionProcessing(true);
     try {
       const creatorIds = Array.from(selectedCreators);
-      const { error } = await supabase.from('campaign_creators').update({ approval: status }).in('id', creatorIds);
+      
+      const updatePayload: any = { approval: status };
+      if (status === 'approved') {
+        updatePayload.approved_by = profile?.id;
+        updatePayload.approved_at = new Date().toISOString();
+      } else if (status === 'not_approved' || status === 'alternate') {
+        updatePayload.not_approved_by = profile?.id;
+        updatePayload.not_approved_at = new Date().toISOString();
+      }
+
+      const { error } = await supabase.from('campaign_creators').update(updatePayload).in('id', creatorIds);
       if (error) throw error;
       
       setListingData(prev => prev.map(c => {
          if (creatorIds.includes(c.id)) {
-            return { ...c, approval: status };
+            return { ...c, ...updatePayload };
          }
          return c;
       }));
