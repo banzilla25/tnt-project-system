@@ -22,14 +22,29 @@ import { CreatorRow } from "./CreatorRow";
 const supabase = createClient();
 const PAGE_SIZE = 100;
 
-const extractLatestSnapshot = (creator: any) => {
+const extractCampaignSnapshot = (creator: any, campaignCreatedAt?: string) => {
   const snaps = creator?.creator_snapshots || [];
+  if (snaps.length === 0) return {};
+  
   const sortedSnaps = [...snaps].sort((a:any, b:any) => {
-    const tDiff = new Date(b.tanggal_update || 0).getTime() - new Date(a.tanggal_update || 0).getTime();
+    const tDiff = new Date(b.tanggal_update || b.created_at || 0).getTime() - new Date(a.tanggal_update || a.created_at || 0).getTime();
     if (tDiff !== 0) return tDiff;
     return b.id - a.id;
   });
-  return sortedSnaps.reduce((acc: any, curr: any) => ({
+
+  let targetSnaps = sortedSnaps;
+  if (campaignCreatedAt) {
+    const cTime = new Date(campaignCreatedAt).getTime();
+    const gracePeriod = 86400000; // 24 hours grace period
+    const targetSnap = sortedSnaps.find((s: any) => {
+      const sTime = new Date(s.tanggal_update || s.created_at || 0).getTime();
+      return sTime <= cTime + gracePeriod;
+    });
+    const baseSnap = targetSnap || sortedSnaps[sortedSnaps.length - 1];
+    targetSnaps = sortedSnaps.slice(sortedSnaps.indexOf(baseSnap));
+  }
+
+  return targetSnaps.reduce((acc: any, curr: any) => ({
     followers: acc.followers ?? curr.followers,
     tier: acc.tier ?? curr.tier,
     audience_age: acc.audience_age ?? curr.audience_age,
@@ -146,7 +161,7 @@ function CampaignListingContent() {
   const setCellChange = (ccId: number, field: string, value: any, cc: any) => {
     setPendingChanges(prev => {
       const next = new Map(prev);
-      const snap = extractLatestSnapshot(cc.creators);
+      const snap = extractCampaignSnapshot(cc.creators, cc.created_at);
       const existing = next.get(ccId) || {
         original: {
           price: cc.price,
@@ -425,7 +440,7 @@ function CampaignListingContent() {
         });
       }
     } catch (err) {
-      console.error(e);
+      console.error(err);
     }
     setIsAutoDetecting(false);
   };
@@ -1028,7 +1043,7 @@ function CampaignListingContent() {
       }
     } catch (err) {
       if (currentFetchId === fetchIdRef.current) {
-         console.error(e);
+         console.error(err);
       }
     } finally {
       if (currentFetchId === fetchIdRef.current) {
@@ -1558,8 +1573,7 @@ function CampaignListingContent() {
 
       const formattedData = allData.map((cc: any, index: number) => {
         const creator = cc.creators || {};
-        const sortedSnaps = [...(creator.creator_snapshots || [])].sort((a: any, b: any) => (b.id || 0) - (a.id || 0));
-        const snapshot = sortedSnaps[0] || {};
+        const snapshot = extractCampaignSnapshot(creator, cc.created_at);
         
         const addedByName = staffProfiles.find(p => p.id === cc.added_by)?.nama || 'System';
         
@@ -1686,7 +1700,7 @@ function CampaignListingContent() {
 
   // Pre-calculate snapshots to prevent severe O(N log N) performance degradation during sorting
   displayData = displayData.map((c: any) => {
-      c._cachedSnapshot = c._cachedSnapshot || extractLatestSnapshot(c.creators);
+      c._cachedSnapshot = c._cachedSnapshot || extractCampaignSnapshot(c.creators, c.created_at);
       return c;
   });
 
