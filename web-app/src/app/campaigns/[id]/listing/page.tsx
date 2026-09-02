@@ -1538,7 +1538,7 @@ function CampaignListingContent() {
       while (fetchMore) {
         let query = supabase
           .from('campaign_creators')
-          .select('*, creators(username, nama_asli, link_account, no_wa, creator_snapshots(level, followers))')
+          .select('*, creators(username, nama_asli, link_account, creator_contacts(nomor, status), creator_snapshots(level, followers))')
           .eq('campaign_id', campaignId)
           .in('approval', selectedStatuses)
           .order('id', { ascending: false })
@@ -1580,7 +1580,7 @@ function CampaignListingContent() {
           'No': index + 1,
           'Username': creator.username || '',
           'Nama Asli': creator.nama_asli || '',
-          'Nomor WA': creator.no_wa || '',
+          'Nomor WA': creator.creator_contacts?.find((c: any) => c.status === 'aktif')?.nomor || creator.creator_contacts?.[0]?.nomor || '',
           'Followers': snapshot.followers || 0,
           'Tier': cc.tier || '',
           'Level': snapshot.level || '',
