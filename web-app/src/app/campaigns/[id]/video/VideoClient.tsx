@@ -282,21 +282,21 @@ export default function CampaignVideoPage({
 
   const handleExport = () => {
     try {
-      if (processedListingData.length === 0) {
+      if (finalListingData.length === 0) {
         alert("Belum ada data untuk diekspor");
         return;
       }
       setIsExporting(true);
 
       const maxVideos = Math.max(
-        ...processedListingData.map((cc: any) => {
+        ...finalListingData.map((cc: any) => {
            const vids = localVideos.filter(v => v.campaign_creator_id === cc.id);
            return vids.length;
         }),
         1
       );
 
-      const formattedData = processedListingData.map((cc: any, index: number) => {
+      const formattedData = finalListingData.map((cc: any, index: number) => {
         const creator = cc.creators || {};
         const snapshot = extractCampaignSnapshot(creator, cc.created_at);
         
