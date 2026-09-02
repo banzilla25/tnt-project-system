@@ -51,8 +51,8 @@ interface CreatorRowProps {
   profile: any;
   isBatchSaving: boolean;
   handleDeleteCreator: (id: string | number) => void;
-  updateCampaignCreator: (ccId: string | number, data: any) => void;
-  fetchListing: () => void;
+  updateCampaignCreator: (ccId: string | number, data: any, changedBy?: string) => void;
+  fetchListing: (pageNum?: number, isReset?: boolean) => void;
   page: number;
   updateVideoField?: (videoId: number, ccId: number, fields: any) => void;
   addEmptyVideoRow?: (ccId: number) => void;
