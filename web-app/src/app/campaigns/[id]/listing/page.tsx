@@ -2384,10 +2384,6 @@ function CampaignListingContent() {
         </div>
       )}
 
-      <div className="font-bold text-red-600 text-xl border-2 border-red-600 p-2 rounded mb-2 animate-pulse text-center">
-        UI VERSION: v6 - PASTIKAN TULISAN INI MUNCUL! JIKA TIDAK, ANDA MASIH PAKAI CACHE LAMA.
-      </div>
-
       <div className="tbl-wrap">
         <table className="w-full">
           <thead>
