@@ -873,8 +873,9 @@ function CampaignListingContent() {
       }
 
       if (filterActionDate) {
-        const start = `${filterActionDate}T00:00:00`;
-        const end = `${filterActionDate}T23:59:59`;
+        // Tambahkan timezone +07:00 (WIB) agar filter cocok dengan jam lokal, bukan UTC
+        const start = `${filterActionDate}T00:00:00+07:00`;
+        const end = `${filterActionDate}T23:59:59+07:00`;
         query = query.or(`and(approval.eq.approved,approved_at.gte.${start},approved_at.lte.${end}),and(approval.in.("not_approved","alternate"),not_approved_at.gte.${start},not_approved_at.lte.${end}),and(approval.eq.pending,created_at.gte.${start},created_at.lte.${end})`);
       }
       
