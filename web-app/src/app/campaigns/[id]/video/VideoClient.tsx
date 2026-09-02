@@ -282,61 +282,43 @@ export default function CampaignVideoPage({
 
   const handleExport = () => {
     try {
-      if (finalListingData.length === 0) {
-        alert("Belum ada data untuk diekspor");
+      if (processedVideosData.length === 0) {
+        alert("Belum ada video untuk diekspor");
         return;
       }
       setIsExporting(true);
 
-      const maxVideos = Math.max(
-        ...finalListingData.map((cc: any) => {
-           const vids = localVideos.filter(v => v.campaign_creator_id === cc.id);
-           return vids.length;
-        }),
-        1
-      );
-
-      const formattedData = finalListingData.map((cc: any, index: number) => {
-        const creator = cc.creators || {};
-        const snapshot = extractCampaignSnapshot(creator, cc.created_at);
+      const formattedData = processedVideosData.map((v: any) => {
+        const cc = listingData.find(c => c.id === v.ccId);
+        const creator = cc?.creators || {};
+        const noWa = creator.creator_contacts?.find((c: any) => c.status === 'aktif')?.nomor || creator.creator_contacts?.[0]?.nomor || '-';
         
-        const vids = localVideos.filter(v => v.campaign_creator_id === cc.id).sort((a: any, b: any) => a.urutan - b.urutan);
+        const sku = skus.find(s => s.id === v.sku_id) || {};
         
-        const row: any = {
-          'No': index + 1,
-          'Username': creator.username || '',
-          'Nama Asli': creator.nama_asli || '',
-          'Nomor WA': creator.creator_contacts?.find((c: any) => c.status === 'aktif')?.nomor || creator.creator_contacts?.[0]?.nomor || '',
-          'Followers': snapshot.followers || 0,
-          'GMV 30 Days': snapshot.gmv_30d || 0,
-          'Tier': cc.tier || '',
-          'Level': snapshot.level || '',
-          'Niche': cc.niche || '',
-          'Tanggal Input': cc.created_at ? new Date(cc.created_at).toLocaleString('id-ID') : '-',
-          'Status (Approval)': cc.approval || '',
-          'Tipe Kerjasama': cc.price > 0 ? 'Ratecard' : 'Barter',
-          'Nominal (Rp)': cc.price || 0,
-          'Qty VT SOW': cc.qty_vt || 0,
-          'Qty Live SOW': cc.qty_live || 0,
-          'Tipe Konten': cc.tipe_konten || '',
-          'Produk': cc.product || ''
-        };
-        
-        for (let i = 0; i < maxVideos; i++) {
-           const v = vids[i];
-           let gmv = 0;
-           if (v) {
-             const uid = v.content_uid || (v.link_video ? v.link_video.match(/video\/(\d+)/)?.[1] : null);
-             if (uid) {
-               const stat = (cc._videoStats || []).find((s: any) => s.content_uid === uid);
-               if (stat) gmv = stat.gmv || 0;
-             }
+        let postTime = '-';
+        if (v.content_uid) {
+           const extractedDate = extractTikTokUploadDate(v.content_uid);
+           if (extractedDate) {
+              // TikTok format: YYYY-MM-DD HH:mm:ss
+              const d = new Date(extractedDate);
+              postTime = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`;
            }
-           row[`Video ${i+1}`] = v && v.link_video ? v.link_video : '-';
-           row[`GMV Video ${i+1}`] = gmv;
         }
         
-        return row;
+        return {
+          'Video ID': v.content_uid || '-',
+          'Creator Name': v.creatorUsername || '-',
+          'No WA': noWa,
+          'Product ID': sku.product_id || '-',
+          'Product Name': sku.nama_produk || '-',
+          'Campaign ID': campaignId,
+          'Post Time': postTime,
+          'Video Views': v.vidViews || 0,
+          'Video Likes': v.vidLikes || 0,
+          'Duration': '-', 
+          'Video Product RPM': v.rpm ? Number(v.rpm.toFixed(2)) : 0,
+          'GMV': v.vidGmv || 0 // Added as bonus since they previously requested GMV
+        };
       });
 
       const ws = XLSX.utils.json_to_sheet(formattedData);
