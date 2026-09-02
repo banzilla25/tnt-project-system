@@ -873,10 +873,12 @@ function CampaignListingContent() {
       }
 
       if (filterActionDate) {
-        // Tambahkan timezone +07:00 (WIB) agar filter cocok dengan jam lokal, bukan UTC
-        const start = `${filterActionDate}T00:00:00+07:00`;
-        const end = `${filterActionDate}T23:59:59+07:00`;
-        query = query.or(`and(approval.eq.approved,approved_at.gte.${start},approved_at.lte.${end}),and(approval.in.("not_approved","alternate"),not_approved_at.gte.${start},not_approved_at.lte.${end}),and(approval.eq.pending,created_at.gte.${start},created_at.lte.${end})`);
+        // Gunakan toISOString agar format UTC (Z) yang dihasilkan aman untuk URL (tanpa karakter +)
+        const start = new Date(`${filterActionDate}T00:00:00+07:00`).toISOString();
+        const end = new Date(`${filterActionDate}T23:59:59+07:00`).toISOString();
+        
+        // PostgREST parser untuk 'in' di dalam string 'or' kadang tidak mendukung tanda kutip, hapus kutipnya
+        query = query.or(`and(approval.eq.approved,approved_at.gte.${start},approved_at.lte.${end}),and(approval.in.(not_approved,alternate),not_approved_at.gte.${start},not_approved_at.lte.${end}),and(approval.eq.pending,created_at.gte.${start},created_at.lte.${end})`);
       }
       
       if (filterNotes === 'Ada Notes') {
