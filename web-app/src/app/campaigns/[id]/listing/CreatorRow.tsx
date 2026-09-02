@@ -466,7 +466,7 @@ export const CreatorRow = React.memo(({
                 }
 
                 return (
-                  <div className="w-full flex flex-col items-center" data-version="v4">
+                  <div className="w-full flex flex-col items-center" data-version="v5">
                     <span className={`badge ${
                       approvalVal === 'approved' ? 'b-approved' : 
                       approvalVal === 'not_approved' ? 'b-rejected' : 
