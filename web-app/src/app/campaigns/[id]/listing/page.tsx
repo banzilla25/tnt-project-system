@@ -889,8 +889,13 @@ function CampaignListingContent() {
         const start = new Date(`${filterActionDate}T00:00:00+07:00`).toISOString();
         const end = new Date(`${filterActionDate}T23:59:59+07:00`).toISOString();
         
-        // PostgREST parser untuk 'in' di dalam string 'or' kadang tidak mendukung tanda kutip, hapus kutipnya
-        query = query.or(`and(approval.eq.approved,approved_at.gte.${start},approved_at.lte.${end}),and(approval.in.(not_approved,alternate),not_approved_at.gte.${start},not_approved_at.lte.${end}),and(approval.eq.pending,created_at.gte.${start},created_at.lte.${end})`);
+        // PostgREST parser: Jika data diubah lewat bulk action versi lawas, approved_at/not_approved_at mungkin NULL.
+        // Maka kita beri fallback ke created_at jika field tersebut NULL, sama persis seperti fallback di UI.
+        const qApproved = `and(approval.eq.approved,or(and(approved_at.gte.${start},approved_at.lte.${end}),and(approved_at.is.null,created_at.gte.${start},created_at.lte.${end})))`;
+        const qRejected = `and(approval.in.(not_approved,alternate),or(and(not_approved_at.gte.${start},not_approved_at.lte.${end}),and(not_approved_at.is.null,created_at.gte.${start},created_at.lte.${end})))`;
+        const qPending = `and(approval.eq.pending,created_at.gte.${start},created_at.lte.${end})`;
+        
+        query = query.or(`${qApproved},${qRejected},${qPending}`);
       }
       
       if (filterNotes === 'Ada Notes') {
