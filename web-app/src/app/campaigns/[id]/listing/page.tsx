@@ -9,6 +9,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { exportToCSV } from "@/utils/exportCsv";
+import * as XLSX from "xlsx";
 import { createClient } from "@/utils/supabase/client";
 import { useAuth } from "@/providers/AuthProvider";
 import { useRouter } from "next/navigation";
@@ -319,6 +320,17 @@ function CampaignListingContent() {
   const [filterConcept, setFilterConcept] = useState<string>('');
   const [filterActionDate, setFilterActionDate] = useState<string>('');
   const [staffProfiles, setStaffProfiles] = useState<{id: string, nama: string}[]>([]);
+
+  // Export Modal State
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportSelection, setExportSelection] = useState({
+    approved: true,
+    not_approved: true,
+    alternate: true,
+    pending: true
+  });
+  const [exportProgress, setExportProgress] = useState<{current: number, total: number | null}>({ current: 0, total: null });
 
   useEffect(() => {
     supabase.from('profiles').select('id, nama').order('nama').then(({data}) => {
@@ -1485,23 +1497,115 @@ function CampaignListingContent() {
 
 
   const handleExport = () => {
-    const exportData = Array.from(new Map(listingData.map(c => [c.creators?.username?.toLowerCase() || c.id, c])).values()).map((cc: any) => {
-      const creator = cc.creators || {};
-      const snapshot = creator.creator_snapshots?.[0] || {};
-      return {
-        'Username': creator.username || '',
-        'Nama Asli': creator.nama_asli || '',
-        'Link Account': creator.link_account || '',
-        'Level': snapshot.level || '',
-        'Followers': snapshot.followers || 0,
-        'Tier Rate Card': cc.tier,
-        'Price': cc.price,
-        'Qty VT': cc.qty_vt,
-        'Status Klien': cc.client_approval,
-        'Status Internal': cc.approval
-      };
-    });
-    exportToCSV(exportData, `campaign_${campaignId}_creators`);
+    setShowExportModal(true);
+  };
+
+  const executeExport = async () => {
+    setIsExporting(true);
+    setExportProgress({ current: 0, total: null });
+
+    try {
+      const selectedStatuses = Object.entries(exportSelection)
+        .filter(([_, isSelected]) => isSelected)
+        .map(([status]) => status);
+
+      if (selectedStatuses.length === 0) {
+        alert("Pilih minimal satu status untuk diekspor!");
+        setIsExporting(false);
+        return;
+      }
+
+      let allData: any[] = [];
+      let fetchMore = true;
+      let from = 0;
+      const PAGE_SIZE = 1000;
+
+      // Ambil total data
+      let countQuery = supabase
+        .from('campaign_creators')
+        .select('*', { count: 'exact', head: true })
+        .eq('campaign_id', campaignId)
+        .in('approval', selectedStatuses);
+        
+      const { count } = await countQuery;
+      setExportProgress({ current: 0, total: count || 0 });
+
+      while (fetchMore) {
+        let query = supabase
+          .from('campaign_creators')
+          .select('*, creators(username, nama_asli, link_account, no_wa, creator_snapshots(level, followers))')
+          .eq('campaign_id', campaignId)
+          .in('approval', selectedStatuses)
+          .order('id', { ascending: false })
+          .range(from, from + PAGE_SIZE - 1);
+
+        const { data, error } = await query;
+        if (error) throw error;
+
+        if (data && data.length > 0) {
+          allData = [...allData, ...data];
+          setExportProgress(prev => ({ ...prev, current: allData.length }));
+          from += PAGE_SIZE;
+        } else {
+          fetchMore = false;
+        }
+      }
+
+      const formattedData = allData.map((cc: any, index: number) => {
+        const creator = cc.creators || {};
+        const snapshot = creator.creator_snapshots?.[0] || {};
+        
+        const addedByName = staffProfiles.find(p => p.id === cc.added_by)?.nama || 'System';
+        
+        let updatePic = '-';
+        let updateDate = '-';
+        
+        if (cc.approval === 'approved') {
+          updatePic = staffProfiles.find(p => p.id === (cc.approved_by || cc.added_by))?.nama || 'System';
+          updateDate = cc.approved_at || cc.created_at ? new Date(cc.approved_at || cc.created_at).toLocaleString('id-ID') : '-';
+        } else if (cc.approval === 'not_approved' || cc.approval === 'alternate') {
+          updatePic = staffProfiles.find(p => p.id === (cc.not_approved_by || cc.added_by))?.nama || 'System';
+          updateDate = cc.not_approved_at || cc.created_at ? new Date(cc.not_approved_at || cc.created_at).toLocaleString('id-ID') : '-';
+        } else {
+          updatePic = addedByName;
+          updateDate = cc.created_at ? new Date(cc.created_at).toLocaleString('id-ID') : '-';
+        }
+
+        return {
+          'No': index + 1,
+          'Username': creator.username || '',
+          'Nama Asli': creator.nama_asli || '',
+          'Nomor WA': creator.no_wa || '',
+          'Followers': snapshot.followers || 0,
+          'Tier': cc.tier || '',
+          'Level': snapshot.level || '',
+          'Niche': cc.niche || '',
+          'Tanggal Input': cc.created_at ? new Date(cc.created_at).toLocaleString('id-ID') : '-',
+          'PIC Input': addedByName,
+          'Tanggal Update Status': updateDate,
+          'PIC Update Status': updatePic,
+          'Status (Approval)': cc.approval || '',
+          'Tipe Kerjasama': cc.kerjasama || '',
+          'Nominal (Rp)': cc.price || 0,
+          'Qty VT SOW': cc.qty_vt || 0,
+          'Qty Live SOW': cc.qty_live || 0,
+          'Tipe Konten': cc.tipe_konten || '',
+          'Produk': cc.product || ''
+        };
+      });
+
+      const ws = XLSX.utils.json_to_sheet(formattedData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Creators");
+      XLSX.writeFile(wb, `Export_Campaign_${campaignId}_${new Date().toISOString().split('T')[0]}.xlsx`);
+
+      setShowExportModal(false);
+    } catch (err: any) {
+      console.error("Export Error:", err);
+      alert("Gagal melakukan export: " + err.message);
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const renderTd = (colName: keyof DynamicRow, rowIdx: number, value: string, children: React.ReactNode, tdClassName: string = "py-2 pr-2") => {
@@ -2740,6 +2844,72 @@ function CampaignListingContent() {
           </div>
         </div>
       )}
+      {/* MODAL EXPORT */}
+      {showExportModal && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
+              <h3 className="font-semibold text-lg text-slate-800">Export Data Creator</h3>
+              <button 
+                onClick={() => !isExporting && setShowExportModal(false)}
+                disabled={isExporting}
+                className="p-2 hover:bg-slate-100 rounded-full text-slate-500 transition-colors disabled:opacity-50"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-4">
+              <p className="text-sm text-slate-600 mb-2">Pilih status creator yang ingin diekspor ke Excel (semua data akan ditarik utuh):</p>
+              
+              <div className="grid grid-cols-2 gap-3">
+                {Object.keys(exportSelection).map((status) => (
+                  <label key={status} className="flex items-center gap-3 p-3 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-50 transition-colors">
+                    <input 
+                      type="checkbox" 
+                      className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
+                      checked={exportSelection[status as keyof typeof exportSelection]}
+                      onChange={(e) => setExportSelection(prev => ({...prev, [status]: e.target.checked}))}
+                      disabled={isExporting}
+                    />
+                    <span className="text-sm font-medium capitalize text-slate-700">
+                      {status.replace('_', ' ')}
+                    </span>
+                  </label>
+                ))}
+              </div>
+
+              {isExporting && (
+                <div className="mt-4 p-4 bg-blue-50 text-blue-700 rounded-lg text-sm flex flex-col items-center gap-2">
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span>
+                    Menarik data... {exportProgress.total !== null ? `${exportProgress.current} / ${exportProgress.total}` : exportProgress.current} baris
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
+              <button 
+                className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800 hover:bg-slate-200 rounded-lg transition-colors"
+                onClick={() => setShowExportModal(false)}
+                disabled={isExporting}
+              >
+                Batal
+              </button>
+              <button 
+                className="px-5 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-sm flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={executeExport}
+                disabled={isExporting || !Object.values(exportSelection).some(Boolean)}
+              >
+                {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                Export ke Excel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
