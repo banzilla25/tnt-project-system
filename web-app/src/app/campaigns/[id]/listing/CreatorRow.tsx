@@ -446,34 +446,43 @@ export const CreatorRow = React.memo(({
             >
               {(() => {
                 const approvalVal = getPendingValue(cc.id, 'approval', cc.approval) as string;
+                const isApprovalPending = hasPending && pendingChange?.approval !== undefined;
+                
+                let name = 'System';
+                let dateStr = '-';
+                
+                if (isApprovalPending) {
+                  name = profile?.nama || 'Unknown';
+                  dateStr = new Date().toLocaleDateString('id-ID', {day: 'numeric', month: 'short', year: 'numeric'});
+                } else {
+                  if (approvalVal === 'pending') {
+                    name = staffProfiles.find((p: any) => p.id === cc.added_by)?.nama || 'System';
+                    dateStr = cc.created_at ? new Date(cc.created_at).toLocaleDateString('id-ID', {day: 'numeric', month: 'short', year: 'numeric'}) : '-';
+                  } else if (approvalVal === 'approved') {
+                    name = staffProfiles.find((p: any) => p.id === (cc.approved_by || cc.added_by))?.nama || 'System';
+                    dateStr = (cc.approved_at || cc.created_at) ? new Date(cc.approved_at || cc.created_at).toLocaleDateString('id-ID', {day: 'numeric', month: 'short', year: 'numeric'}) : '-';
+                  } else if (approvalVal === 'not_approved' || approvalVal === 'alternate') {
+                    name = staffProfiles.find((p: any) => p.id === (cc.not_approved_by || cc.added_by))?.nama || 'System';
+                    dateStr = (cc.not_approved_at || cc.created_at) ? new Date(cc.not_approved_at || cc.created_at).toLocaleDateString('id-ID', {day: 'numeric', month: 'short', year: 'numeric'}) : '-';
+                  }
+                }
+
                 return (
-                  <span className={`badge ${
-                    approvalVal === 'approved' ? 'b-approved' : 
-                    approvalVal === 'not_approved' ? 'b-rejected' : 
-                    approvalVal === 'alternate' ? 'b-alternate' : 'b-pending'
-                  }`}>
-                    {approvalVal}
-                  </span>
+                  <>
+                    <span className={`badge ${
+                      approvalVal === 'approved' ? 'b-approved' : 
+                      approvalVal === 'not_approved' ? 'b-rejected' : 
+                      approvalVal === 'alternate' ? 'b-alternate' : 'b-pending'
+                    }`}>
+                      {approvalVal}
+                    </span>
+                    <div className="text-[10px] text-text-soft mt-1 leading-tight text-center flex flex-col items-center">
+                      <span>Oleh: {name}</span>
+                      <span>{dateStr}</span>
+                    </div>
+                  </>
                 );
               })()}
-              {!hasPending && cc.approval === 'pending' && (
-                <div className="text-[10px] text-text-soft mt-1 leading-tight text-center flex flex-col items-center">
-                  <span>Oleh: {staffProfiles.find((p: any) => p.id === cc.added_by)?.nama || 'System'}</span>
-                  <span>{cc.created_at ? new Date(cc.created_at).toLocaleDateString('id-ID', {day: 'numeric', month: 'short', year: 'numeric'}) : '-'}</span>
-                </div>
-              )}
-              {!hasPending && cc.approval === 'approved' && (
-                <div className="text-[10px] text-text-soft mt-1 leading-tight text-center flex flex-col items-center">
-                  <span>Oleh: {staffProfiles.find((p: any) => p.id === (cc.approved_by || cc.added_by))?.nama || 'System'}</span>
-                  <span>{(cc.approved_at || cc.created_at) ? new Date(cc.approved_at || cc.created_at).toLocaleDateString('id-ID', {day: 'numeric', month: 'short', year: 'numeric'}) : '-'}</span>
-                </div>
-              )}
-              {!hasPending && (cc.approval === 'not_approved' || cc.approval === 'alternate') && (
-                <div className="text-[10px] text-text-soft mt-1 leading-tight text-center flex flex-col items-center">
-                  <span>Oleh: {staffProfiles.find((p: any) => p.id === (cc.not_approved_by || cc.added_by))?.nama || 'System'}</span>
-                  <span>{(cc.not_approved_at || cc.created_at) ? new Date(cc.not_approved_at || cc.created_at).toLocaleDateString('id-ID', {day: 'numeric', month: 'short', year: 'numeric'}) : '-'}</span>
-                </div>
-              )}
             </div>
           )}
         </td>
