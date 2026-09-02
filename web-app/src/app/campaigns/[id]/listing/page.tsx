@@ -1538,7 +1538,7 @@ function CampaignListingContent() {
       while (fetchMore) {
         let query = supabase
           .from('campaign_creators')
-          .select('*, creators(username, nama_asli, link_account, creator_contacts(nomor, status), creator_snapshots(level, followers, gmv_30d))')
+          .select('*, creators(username, nama_asli, link_account, creator_contacts(nomor, status), creator_snapshots(id, level, followers, gmv_30d, tanggal_update))')
           .eq('campaign_id', campaignId)
           .in('approval', selectedStatuses)
           .order('id', { ascending: false })
@@ -1558,7 +1558,8 @@ function CampaignListingContent() {
 
       const formattedData = allData.map((cc: any, index: number) => {
         const creator = cc.creators || {};
-        const snapshot = creator.creator_snapshots?.[0] || {};
+        const sortedSnaps = [...(creator.creator_snapshots || [])].sort((a: any, b: any) => (b.id || 0) - (a.id || 0));
+        const snapshot = sortedSnaps[0] || {};
         
         const addedByName = staffProfiles.find(p => p.id === cc.added_by)?.nama || 'System';
         
