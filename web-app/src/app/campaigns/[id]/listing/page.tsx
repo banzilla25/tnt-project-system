@@ -603,23 +603,25 @@ function CampaignListingContent() {
   }, [checkDuplicates]);
 
   const fetchCounts = useCallback(async () => {
-    // 1. Try fast RPC for instant counts
+    // 1. Try fast RPC for instant counts (only if no action date filter is applied)
     let hasRpcSucceeded = false;
-    try {
-      const { data: rpcData, error: rpcError } = await supabase.rpc('get_campaign_creator_counts', { p_campaign_id: campaignId });
-      if (!rpcError && rpcData && rpcData.length > 0) {
-        const res = rpcData[0];
-        setCounts({
-          approved: Number(res.approved || 0),
-          pending: Number(res.pending || 0),
-          alternate: Number(res.alternate || 0),
-          not_approved: Number(res.not_approved || 0),
-          all: Number(res.total || 0),
-        });
-        hasRpcSucceeded = true;
+    if (!filterActionDate) {
+      try {
+        const { data: rpcData, error: rpcError } = await supabase.rpc('get_campaign_creator_counts', { p_campaign_id: campaignId });
+        if (!rpcError && rpcData && rpcData.length > 0) {
+          const res = rpcData[0];
+          setCounts({
+            approved: Number(res.approved || 0),
+            pending: Number(res.pending || 0),
+            alternate: Number(res.alternate || 0),
+            not_approved: Number(res.not_approved || 0),
+            all: Number(res.total || 0),
+          });
+          hasRpcSucceeded = true;
+        }
+      } catch (err) {
+        console.warn("RPC failed, falling back to JS counter", err);
       }
-    } catch (err) {
-      console.warn("RPC failed, falling back to JS counter", e);
     }
 
     // 2. Fetch all data for daily recap (with progressive loading)
@@ -664,17 +666,40 @@ function CampaignListingContent() {
 
     if (!hasRpcSucceeded) {
       let approved = 0, pending = 0, alternate = 0, not_approved = 0;
-      for (const row of deduplicatedData) {
+      let finalDataToCount = deduplicatedData;
+
+      if (filterActionDate) {
+        const start = new Date(`${filterActionDate}T00:00:00`).getTime();
+        const end = new Date(`${filterActionDate}T23:59:59`).getTime();
+        
+        finalDataToCount = deduplicatedData.filter(row => {
+          if (row.approval === 'approved' && row.approved_at) {
+            const t = new Date(row.approved_at).getTime();
+            return t >= start && t <= end;
+          }
+          if ((row.approval === 'not_approved' || row.approval === 'alternate') && row.not_approved_at) {
+            const t = new Date(row.not_approved_at).getTime();
+            return t >= start && t <= end;
+          }
+          if (row.approval === 'pending' && row.created_at) {
+            const t = new Date(row.created_at).getTime();
+            return t >= start && t <= end;
+          }
+          return false;
+        });
+      }
+
+      for (const row of finalDataToCount) {
          if (row.approval === 'approved') approved++;
          else if (row.approval === 'pending') pending++;
          else if (row.approval === 'alternate') alternate++;
          else if (row.approval === 'not_approved') not_approved++;
       }
-      setCounts({ approved, pending, alternate, not_approved, all: deduplicatedData.length });
+      setCounts({ approved, pending, alternate, not_approved, all: finalDataToCount.length });
     }
 
     setRawRecapData(deduplicatedData);
-  }, [campaignId]);
+  }, [campaignId, filterActionDate]);
 
   useEffect(() => {
     let filteredData = rawRecapData;
@@ -799,6 +824,7 @@ function CampaignListingContent() {
         id, creator_id, price, qty_vt, qty_live, content_type, approval, client_approval, tier,
         sample_progress, status_bayar, notes_manager, notes_pic,
         created_at, approved_at, not_approved_at,
+        added_by, approved_by, not_approved_by,
         added_by_profile:profiles!campaign_creators_added_by_fkey ( nama ),
         approved_by_profile:profiles!campaign_creators_approved_by_fkey ( nama ),
         not_approved_by_profile:profiles!campaign_creators_not_approved_by_fkey ( nama ),

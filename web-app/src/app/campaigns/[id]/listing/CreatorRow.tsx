@@ -456,15 +456,21 @@ export const CreatorRow = React.memo(({
                   </span>
                 );
               })()}
+              {!hasPending && cc.approval === 'pending' && (
+                <div className="text-[10px] text-text-soft mt-1 leading-tight text-center flex flex-col items-center">
+                  {cc.added_by && <span>Oleh: {staffProfiles.find((p: any) => p.id === cc.added_by)?.nama || 'Unknown'}</span>}
+                  {cc.created_at && <span>{new Date(cc.created_at).toLocaleDateString('id-ID', {day: 'numeric', month: 'short', year: 'numeric'})}</span>}
+                </div>
+              )}
               {!hasPending && cc.approval === 'approved' && (
                 <div className="text-[10px] text-text-soft mt-1 leading-tight text-center flex flex-col items-center">
-                  {cc.approved_by_profile && <span>Oleh: {cc.approved_by_profile.nama}</span>}
+                  {cc.approved_by && <span>Oleh: {staffProfiles.find((p: any) => p.id === cc.approved_by)?.nama || 'Unknown'}</span>}
                   {cc.approved_at && <span>{new Date(cc.approved_at).toLocaleDateString('id-ID', {day: 'numeric', month: 'short', year: 'numeric'})}</span>}
                 </div>
               )}
               {!hasPending && (cc.approval === 'not_approved' || cc.approval === 'alternate') && (
                 <div className="text-[10px] text-text-soft mt-1 leading-tight text-center flex flex-col items-center">
-                  {cc.not_approved_by_profile && <span>Oleh: {cc.not_approved_by_profile.nama}</span>}
+                  {cc.not_approved_by && <span>Oleh: {staffProfiles.find((p: any) => p.id === cc.not_approved_by)?.nama || 'Unknown'}</span>}
                   {cc.not_approved_at && <span>{new Date(cc.not_approved_at).toLocaleDateString('id-ID', {day: 'numeric', month: 'short', year: 'numeric'})}</span>}
                 </div>
               )}
