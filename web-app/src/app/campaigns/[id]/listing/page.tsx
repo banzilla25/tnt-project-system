@@ -263,27 +263,10 @@ function CampaignListingContent() {
         setBatchSaveProgress(Math.round((done / entries.length) * 100));
       }
       
-      // Optimistic UI update to prevent flashing old data while fetchListing is running
-      setListingData(prev => prev.map(cc => {
-        const change = pendingChanges.get(cc.id);
-        if (change) {
-          return {
-            ...cc,
-            price: change.price !== undefined ? change.price : cc.price,
-            qty_vt: change.qty_vt !== undefined ? change.qty_vt : cc.qty_vt,
-            qty_live: change.qty_live !== undefined ? change.qty_live : cc.qty_live,
-            approval: change.approval !== undefined ? change.approval : cc.approval,
-            client_approval: change.client_approval !== undefined ? change.client_approval : cc.client_approval,
-            assigned_sku_ids: change.assigned_sku_ids !== undefined ? change.assigned_sku_ids : cc.assigned_sku_ids,
-            content_type: change.content_type !== undefined ? change.content_type : cc.content_type
-          };
-        }
-        return cc;
-      }));
-
       pendingChanges.clear();
       setPendingChanges(new Map());
-      await fetchListing(page, false); // refetch silently
+      // Refetch from DB with reset to get freshly written data including approval metadata
+      await fetchListing(0, true);
     } catch (error) {
       console.error("Batch save error:", error);
       alert("Terjadi kesalahan saat menyimpan perubahan.");
@@ -1670,28 +1653,23 @@ function CampaignListingContent() {
     setBulkActionProcessing(true);
     try {
       const creatorIds = Array.from(selectedCreators);
+      const now = new Date().toISOString();
       
       const updatePayload: any = { approval: status };
       if (status === 'approved') {
         updatePayload.approved_by = profile?.id;
-        updatePayload.approved_at = new Date().toISOString();
+        updatePayload.approved_at = now;
       } else if (status === 'not_approved' || status === 'alternate') {
         updatePayload.not_approved_by = profile?.id;
-        updatePayload.not_approved_at = new Date().toISOString();
+        updatePayload.not_approved_at = now;
       }
 
       const { error } = await supabase.from('campaign_creators').update(updatePayload).in('id', creatorIds);
       if (error) throw error;
       
-      setListingData(prev => prev.map(c => {
-         if (creatorIds.includes(c.id)) {
-            return { ...c, ...updatePayload };
-         }
-         return c;
-      }));
-      
       setSelectedCreators(new Set());
-      fetchListing();
+      // Refetch from DB with await to get the freshly written data
+      await fetchListing(0, true);
       fetchCounts();
     } catch (err: any) {
       alert('Gagal melakukan aksi massal: ' + err.message);
