@@ -13,7 +13,11 @@ export async function getPaymentBatches(campaignId?: number, status?: string) {
     *,
     submitter:profiles!submitted_by(nama),
     campaigns(nama),
-    payment_items(id, nominal, biaya_transfer, final_status, payment_type, campaign_creator_id)
+    payment_items(
+      id, nominal, biaya_transfer, final_status, payment_type, campaign_creator_id, metode_pembayaran, nomor_rekening, nama_penerima, notes, ratecard_awal, actual_transfer, executive_note, manager_note,
+      campaign_creators(creators(username, nama_asli), profiles:profiles!added_by(nama)),
+      creator_bank_accounts(bank_name, account_number, account_holder)
+    )
   `).order('created_at', { ascending: false });
 
   if (campaignId) query = query.eq('campaign_id', campaignId);
