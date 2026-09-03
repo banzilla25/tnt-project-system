@@ -1160,6 +1160,7 @@ export default function CampaignVideoPage({
                           <tr>
                             <th className="w-16 text-center">Urutan</th>
                             <th className={isAwareness ? "w-1/3" : "w-1/4"}>{isAwareness ? "Konsep / Ide SOW" : "Konsep / Ide"}</th>
+                            <th className="p-3 font-semibold text-slate-500 text-xs w-32 text-center">Tanggal Posting</th>
                             <th className={isAwareness ? "w-1/3" : "w-1/4"}>Link Video TikTok</th>
                             <th>Performa</th>
                             <th>Produk</th>
@@ -1214,6 +1215,13 @@ export default function CampaignVideoPage({
                                       </p>
                                     ) : null}
                                   </div>
+                                </td>
+                                <td className="p-3 align-middle text-center">
+                                  {v.post_time ? (
+                                    <span className="text-[13px] font-medium text-slate-700 whitespace-nowrap">{new Date(v.post_time).toLocaleDateString('id-ID')}</span>
+                                  ) : (
+                                    <span className="text-slate-400 italic text-[12px]">-</span>
+                                  )}
                                 </td>
                                 <td>
                                   <div className="space-y-[8px]">
@@ -1276,11 +1284,6 @@ export default function CampaignVideoPage({
                                         <p className="text-[11px] text-green-600 flex items-center gap-[4px]">
                                           ✓ Terhubung dengan Content ID: {dynamicContentUid}
                                         </p>
-                                        {v.post_time && (
-                                          <p className="text-[10px] text-slate-500 font-medium pl-4">
-                                            Diposting pd: {new Date(v.post_time).toLocaleDateString('id-ID')}
-                                          </p>
-                                        )}
                                       </div>
                                     )}
                                     {hasContentUid && (
@@ -1355,6 +1358,7 @@ export default function CampaignVideoPage({
                 <tr>
                   <th className="p-4 border-b border-slate-200 bg-slate-50 text-xs font-semibold text-slate-500">Kreator</th>
                   <th className="p-4 border-b border-slate-200 bg-slate-50 text-xs font-semibold text-slate-500">Konsep</th>
+                  <th className="p-4 border-b border-slate-200 bg-slate-50 text-xs font-semibold text-slate-500 text-center">Tanggal Posting</th>
                   <th className="p-4 border-b border-slate-200 bg-slate-50 text-xs font-semibold text-slate-500 w-[300px]">Link Video TikTok</th>
                   <th className="p-4 border-b border-slate-200 bg-slate-50 text-xs font-semibold text-slate-500">Produk</th>
                   <th className="p-4 border-b border-slate-200 bg-slate-50 text-xs font-semibold text-slate-500">GMV & GPM</th>
@@ -1398,6 +1402,13 @@ export default function CampaignVideoPage({
                              </p>
                            ) : null}
                          </div>
+                      </td>
+                      <td className="p-4 align-middle text-center">
+                        {v.post_time ? (
+                          <span className="text-[13px] font-medium text-slate-700 whitespace-nowrap">{new Date(v.post_time).toLocaleDateString('id-ID')}</span>
+                        ) : (
+                          <span className="text-slate-400 italic text-[12px]">-</span>
+                        )}
                       </td>
                       <td className="p-4 align-top">
                         <div className="flex flex-col gap-2">
@@ -1451,9 +1462,6 @@ export default function CampaignVideoPage({
                            {v.hasContentUid && (
                               <div className="flex flex-col gap-1">
                                 <p className="text-[10px] text-emerald-600 font-medium">✓ Content ID: {v.dynamicContentUid}</p>
-                                {v.post_time && (
-                                  <p className="text-[9px] text-slate-500 font-medium">Diposting pd: {new Date(v.post_time).toLocaleDateString('id-ID')}</p>
-                                )}
                               </div>
                            )}
                         </div>

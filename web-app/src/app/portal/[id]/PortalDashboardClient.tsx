@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import { TrendingUp, Video, Users, Package, Calendar, CheckCircle, CheckCircle2, XCircle, Activity, BarChart3, ChevronDown, ChevronUp, Search, ChevronLeft, ChevronRight, Filter, ArrowUp, ArrowDown, ArrowUpDown, Download, ShoppingCart, Loader2, Eye } from "lucide-react";
+import { TrendingUp, Video, Users, Package, Calendar, CheckCircle, CheckCircle2, XCircle, Activity, BarChart3, ChevronDown, ChevronUp, Search, ChevronLeft, ChevronRight, Filter, ArrowUp, ArrowDown, ArrowUpDown, Download, ShoppingCart, Loader2, Eye, ExternalLink } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/Table";
 import { submitClientApproval, updateResiByClient, batchUpdateResiByClient, type BatchUpdateData, updateClientNotes } from "../actions/portalActions";
 import { formatAbbreviated } from "@/utils/formatters";
@@ -72,6 +72,16 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
 
   const [videoSearch, setVideoSearch] = useState('');
   const [videoPage, setVideoPage] = useState(0);
+  const [videoFilterView, setVideoFilterView] = useState<'creator' | 'video'>('creator');
+  const [isVideoFiltering, setIsVideoFiltering] = useState(false);
+
+  // Reset video page and show loading effect when filters change
+  React.useEffect(() => {
+    setIsVideoFiltering(true);
+    setVideoPage(0);
+    const timer = setTimeout(() => setIsVideoFiltering(false), 300);
+    return () => clearTimeout(timer);
+  }, [videoSearch, videoSort, videoFilterView]);
 
   const [isExporting, setIsExporting] = useState(false);
 
@@ -468,15 +478,17 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
   const liveTotalPages = Math.ceil(filteredLive.length / PAGE_SIZE) || 1;
   const paginatedLive = filteredLive.slice(livePage * PAGE_SIZE, (livePage + 1) * PAGE_SIZE);
 
-  // 5. Video
+  // 5. Video Processing
   const validCreatorUsernames = new Set(approvalList?.map((cc: any) => cc.creators?.username) || []);
   const validVideos = (videos || []).filter((v: any) => validCreatorUsernames.has(v.creator_username));
+  
+  // A. Creator View Processing
   let filteredVideo = validVideos.filter((v: any) => {
     if (videoSearch && !v.creator_username?.toLowerCase().includes(videoSearch.toLowerCase())) return false;
     return true;
   });
   
-  if (!videoSort) {
+  if (!videoSort || videoSort.key === 'latest_post') {
       filteredVideo.sort((a: any, b: any) => {
           if (b.total_videos !== a.total_videos) return (b.total_videos || 0) - (a.total_videos || 0);
           return (b.total_views || 0) - (a.total_views || 0);
@@ -493,6 +505,44 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
   }
   const videoTotalPages = Math.ceil(filteredVideo.length / PAGE_SIZE) || 1;
   const paginatedVideo = filteredVideo.slice(videoPage * PAGE_SIZE, (videoPage + 1) * PAGE_SIZE);
+
+  // B. Flat Video View Processing
+  let flatVideos: any[] = [];
+  validVideos.forEach((creatorGroup: any) => {
+    if (creatorGroup.videos && Array.isArray(creatorGroup.videos)) {
+      creatorGroup.videos.forEach((v: any) => {
+        if (!v.content_uid && !v.link_video) return;
+        flatVideos.push({
+          ...v,
+          creator_username: creatorGroup.creator_username
+        });
+      });
+    }
+  });
+
+  if (videoSearch) {
+    flatVideos = flatVideos.filter(v => v.creator_username?.toLowerCase().includes(videoSearch.toLowerCase()));
+  }
+
+  // Handle sorting for flat videos
+  if (!videoSort || videoSort.key === 'latest_post') {
+      flatVideos.sort((a, b) => {
+          const timeA = a.post_time ? new Date(a.post_time).getTime() : 0;
+          const timeB = b.post_time ? new Date(b.post_time).getTime() : 0;
+          return timeB - timeA;
+      });
+  } else {
+      flatVideos.sort((a, b) => {
+         const multiplier = videoSort.direction === 'asc' ? 1 : -1;
+         if (videoSort.key === 'views') return ((a.views || 0) - (b.views || 0)) * multiplier;
+         if (videoSort.key === 'likes') return ((a.likes || 0) - (b.likes || 0)) * multiplier;
+         if (videoSort.key === 'gmv') return ((a.gmv || 0) - (b.gmv || 0)) * multiplier;
+         return 0;
+      });
+  }
+
+  const flatVideoTotalPages = Math.ceil(flatVideos.length / PAGE_SIZE) || 1;
+  const paginatedFlatVideo = flatVideos.slice(videoPage * PAGE_SIZE, (videoPage + 1) * PAGE_SIZE);
 
   return (
     <div className="w-full mx-auto p-4 md:p-8 space-y-8">
@@ -1722,123 +1772,216 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                     Berikut adalah daftar video TikTok yang telah dibuat dan diposting oleh kreator.
                   </p>
                 </div>
-                <div className="relative w-full sm:w-64">
-                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <input 
-                    type="text" 
-                    placeholder="Cari username..." 
-                    className="w-full pl-9 pr-3 py-1.5 text-sm border border-blue-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
-                    value={videoSearch}
-                    onChange={(e) => { setVideoSearch(e.target.value); setVideoPage(0); }}
-                  />
+                <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                  <div className="bg-white p-1 rounded-md flex border border-blue-200">
+                    <button 
+                      onClick={() => { setVideoFilterView('creator'); setVideoSort(null); setVideoPage(0); }}
+                      className={`px-3 py-1.5 text-xs font-semibold rounded ${videoFilterView === 'creator' ? 'bg-blue-100 text-blue-700' : 'text-slate-500 hover:text-slate-700'}`}
+                    >
+                      Per Kreator
+                    </button>
+                    <button 
+                      onClick={() => { setVideoFilterView('video'); setVideoSort({ key: 'latest_post', direction: 'desc' }); setVideoPage(0); }}
+                      className={`px-3 py-1.5 text-xs font-semibold rounded ${videoFilterView === 'video' ? 'bg-blue-100 text-blue-700' : 'text-slate-500 hover:text-slate-700'}`}
+                    >
+                      Semua Video
+                    </button>
+                  </div>
+                  <div className="relative w-full sm:w-64">
+                    <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input 
+                      type="text" 
+                      placeholder="Cari username..." 
+                      className="w-full pl-9 pr-3 py-1.5 text-sm border border-blue-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                      value={videoSearch}
+                      onChange={(e) => { setVideoSearch(e.target.value); setVideoPage(0); }}
+                    />
+                  </div>
                 </div>
               </CardHeader>
               <CardContent className="p-0">
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader className="bg-white">
-                      <TableRow>
-                        <TableHead className="w-16 text-center">No</TableHead>
-                        <SortableHeader label="Kreator" sortKey="username" currentSort={videoSort} onSort={(k) => handleSort('video', k)} className="w-48" />
-                        <SortableHeader label="Total Video" sortKey="total_videos" currentSort={videoSort} onSort={(k) => handleSort('video', k)} className="w-32 text-center" />
-                        <SortableHeader label="Total Views" sortKey="total_views" currentSort={videoSort} onSort={(k) => handleSort('video', k)} className="text-right" />
-                        <SortableHeader label="Total Likes" sortKey="total_likes" currentSort={videoSort} onSort={(k) => handleSort('video', k)} className="text-right" />
-                        <SortableHeader label="Total Sales GMV" sortKey="total_gmv" currentSort={videoSort} onSort={(k) => handleSort('video', k)} className="text-right" />
-                        <TableHead className="w-16"></TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {paginatedVideo.length === 0 ? (
+                <div className={`overflow-x-auto ${isVideoFiltering ? 'opacity-50 transition-opacity' : 'transition-opacity'}`}>
+                  {videoFilterView === 'creator' ? (
+                    <Table>
+                      <TableHeader className="bg-white">
                         <TableRow>
-                          <TableCell colSpan={7} className="text-center py-8 text-slate-500">Belum ada video yang sesuai pencarian.</TableCell>
+                          <TableHead className="w-16 text-center">No</TableHead>
+                          <SortableHeader label="Kreator" sortKey="username" currentSort={videoSort} onSort={(k) => handleSort('video', k)} className="w-48" />
+                          <SortableHeader label="Total Video" sortKey="total_videos" currentSort={videoSort} onSort={(k) => handleSort('video', k)} className="w-32 text-center" />
+                          <SortableHeader label="Total Views" sortKey="total_views" currentSort={videoSort} onSort={(k) => handleSort('video', k)} className="text-right" />
+                          <SortableHeader label="Total Likes" sortKey="total_likes" currentSort={videoSort} onSort={(k) => handleSort('video', k)} className="text-right" />
+                          <SortableHeader label="Total Sales GMV" sortKey="total_gmv" currentSort={videoSort} onSort={(k) => handleSort('video', k)} className="text-right" />
+                          <TableHead className="w-16"></TableHead>
                         </TableRow>
-                      ) : (
-                        paginatedVideo.map((creatorGroup: any, index: number) => (
-                          <React.Fragment key={creatorGroup.creator_username || index}>
-                            <TableRow 
-                              className="hover:bg-slate-50 transition-colors cursor-pointer group"
-                              onClick={() => setExpandedVideos(prev => ({...prev, [creatorGroup.creator_username]: !prev[creatorGroup.creator_username]}))}
-                            >
+                      </TableHeader>
+                      <TableBody>
+                        {paginatedVideo.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={7} className="text-center py-8 text-slate-500">Belum ada video yang sesuai pencarian.</TableCell>
+                          </TableRow>
+                        ) : (
+                          paginatedVideo.map((creatorGroup: any, index: number) => (
+                            <React.Fragment key={creatorGroup.creator_username || index}>
+                              <TableRow 
+                                className="hover:bg-slate-50 transition-colors cursor-pointer group"
+                                onClick={() => setExpandedVideos(prev => ({...prev, [creatorGroup.creator_username]: !prev[creatorGroup.creator_username]}))}
+                              >
+                                <TableCell className="text-center font-medium text-slate-500">{videoPage * PAGE_SIZE + index + 1}</TableCell>
+                                <TableCell>
+                                  <a 
+                                    href={`https://www.tiktok.com/@${creatorGroup.creator_username}`} 
+                                    target="_blank" 
+                                    rel="noreferrer" 
+                                    className="font-bold text-blue-600 hover:text-blue-800 hover:underline"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    @{creatorGroup.creator_username}
+                                  </a>
+                                </TableCell>
+                                <TableCell className="text-center font-semibold text-slate-700">
+                                  {creatorGroup.total_videos} Video
+                                </TableCell>
+                                <TableCell className="text-right font-medium text-slate-700">{creatorGroup.total_views > 0 ? creatorGroup.total_views.toLocaleString() : '-'}</TableCell>
+                                <TableCell className="text-right font-medium text-slate-700">{creatorGroup.total_likes > 0 ? creatorGroup.total_likes.toLocaleString() : '-'}</TableCell>
+                                <TableCell className="text-right font-bold text-green-700">
+                                  Rp {creatorGroup.total_gmv.toLocaleString()}
+                                </TableCell>
+                                <TableCell className="text-center">
+                                  {expandedVideos[creatorGroup.creator_username] ? (
+                                    <ChevronUp className="w-5 h-5 text-slate-400 group-hover:text-blue-500 mx-auto" />
+                                  ) : (
+                                    <ChevronDown className="w-5 h-5 text-slate-400 group-hover:text-blue-500 mx-auto" />
+                                  )}
+                                </TableCell>
+                              </TableRow>
+                              {expandedVideos[creatorGroup.creator_username] && (
+                                <TableRow className="bg-slate-50/50">
+                                  <TableCell colSpan={7} className="p-0 border-b-2 border-slate-200">
+                                    <div className="px-16 py-4">
+                                      <Table className="w-full text-sm bg-white border border-slate-200 rounded-lg overflow-hidden shadow-sm">
+                                        <TableHeader className="bg-slate-100/50">
+                                          <TableRow>
+                                            <TableHead className="w-12 text-center text-slate-500">No</TableHead>
+                                            <TableHead>Tanggal Posting</TableHead>
+                                            <TableHead>Link Video</TableHead>
+                                            <TableHead className="text-right text-slate-500">Views</TableHead>
+                                            <TableHead className="text-right text-slate-500">Likes</TableHead>
+                                            <TableHead className="text-right text-slate-500">Sales GMV</TableHead>
+                                          </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                          {creatorGroup.videos
+                                            .sort((a: any, b: any) => {
+                                              const timeA = a.post_time ? new Date(a.post_time).getTime() : 0;
+                                              const timeB = b.post_time ? new Date(b.post_time).getTime() : 0;
+                                              return timeB - timeA;
+                                            })
+                                            .map((v: any, vIdx: number) => (
+                                            <TableRow key={v.id || vIdx}>
+                                              <TableCell className="text-center text-slate-400">{vIdx + 1}</TableCell>
+                                              <TableCell className="font-medium text-slate-600 whitespace-nowrap">
+                                                {v.post_time ? new Date(v.post_time).toLocaleString('id-ID', {day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit'}) : '-'}
+                                              </TableCell>
+                                              <TableCell>
+                                                {v.link_video ? (
+                                                  <div className="flex items-center gap-3">
+                                                    <a href={v.link_video} target="_blank" rel="noreferrer" className="text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1.5 font-medium">
+                                                      <Video className="w-4 h-4" /> Nonton
+                                                    </a>
+                                                    <a href={v.link_video} target="_blank" rel="noreferrer" className="bg-slate-100 hover:bg-slate-200 p-1.5 rounded-md transition-colors" title="Buka di tab baru">
+                                                      <ExternalLink className="w-3.5 h-3.5 text-slate-600" />
+                                                    </a>
+                                                  </div>
+                                                ) : (
+                                                  <span className="text-slate-400 italic">Belum ada link</span>
+                                                )}
+                                                {v.isAuto && (
+                                                  <span className="inline-block mt-1 bg-green-100 text-green-700 text-[10px] px-1.5 py-0.5 rounded uppercase font-semibold">Auto Tracked</span>
+                                                )}
+                                              </TableCell>
+                                              <TableCell className="text-right font-medium text-slate-600">{v.views > 0 ? v.views.toLocaleString() : '-'}</TableCell>
+                                              <TableCell className="text-right font-medium text-slate-600">{v.likes > 0 ? v.likes.toLocaleString() : '-'}</TableCell>
+                                              <TableCell className="text-right font-semibold text-green-700">Rp {(v.gmv || 0).toLocaleString()}</TableCell>
+                                            </TableRow>
+                                          ))}
+                                        </TableBody>
+                                      </Table>
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              )}
+                            </React.Fragment>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  ) : (
+                    <Table>
+                      <TableHeader className="bg-white">
+                        <TableRow>
+                          <TableHead className="w-16 text-center">No</TableHead>
+                          <TableHead className="w-48">Kreator</TableHead>
+                          <SortableHeader label="Tanggal Posting" sortKey="latest_post" currentSort={videoSort} onSort={(k) => handleSort('video', k)} />
+                          <TableHead>Link Video</TableHead>
+                          <SortableHeader label="Views" sortKey="views" currentSort={videoSort} onSort={(k) => handleSort('video', k)} className="text-right" />
+                          <SortableHeader label="Likes" sortKey="likes" currentSort={videoSort} onSort={(k) => handleSort('video', k)} className="text-right" />
+                          <SortableHeader label="Sales GMV" sortKey="gmv" currentSort={videoSort} onSort={(k) => handleSort('video', k)} className="text-right" />
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {paginatedFlatVideo.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={7} className="text-center py-8 text-slate-500">Belum ada video yang sesuai pencarian.</TableCell>
+                          </TableRow>
+                        ) : (
+                          paginatedFlatVideo.map((v: any, index: number) => (
+                            <TableRow key={v.id || index} className="hover:bg-slate-50 transition-colors">
                               <TableCell className="text-center font-medium text-slate-500">{videoPage * PAGE_SIZE + index + 1}</TableCell>
                               <TableCell>
                                 <a 
-                                  href={`https://www.tiktok.com/@${creatorGroup.creator_username}`} 
+                                  href={`https://www.tiktok.com/@${v.creator_username}`} 
                                   target="_blank" 
                                   rel="noreferrer" 
                                   className="font-bold text-blue-600 hover:text-blue-800 hover:underline"
-                                  onClick={(e) => e.stopPropagation()}
                                 >
-                                  @{creatorGroup.creator_username}
+                                  @{v.creator_username}
                                 </a>
                               </TableCell>
-                              <TableCell className="text-center font-semibold text-slate-700">
-                                {creatorGroup.total_videos} Video
+                              <TableCell className="font-medium text-slate-600 whitespace-nowrap">
+                                {v.post_time ? new Date(v.post_time).toLocaleString('id-ID', {day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit'}) : '-'}
                               </TableCell>
-                              <TableCell className="text-right font-medium text-slate-700">{creatorGroup.total_views > 0 ? creatorGroup.total_views.toLocaleString() : '-'}</TableCell>
-                              <TableCell className="text-right font-medium text-slate-700">{creatorGroup.total_likes > 0 ? creatorGroup.total_likes.toLocaleString() : '-'}</TableCell>
-                              <TableCell className="text-right font-bold text-green-700">
-                                Rp {creatorGroup.total_gmv.toLocaleString()}
-                              </TableCell>
-                              <TableCell className="text-center">
-                                {expandedVideos[creatorGroup.creator_username] ? (
-                                  <ChevronUp className="w-5 h-5 text-slate-400 group-hover:text-blue-500 mx-auto" />
+                              <TableCell>
+                                {v.link_video ? (
+                                  <div className="flex items-center gap-3">
+                                    <a href={v.link_video} target="_blank" rel="noreferrer" className="text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1.5 font-medium">
+                                      <Video className="w-4 h-4" /> Nonton
+                                    </a>
+                                    <a href={v.link_video} target="_blank" rel="noreferrer" className="bg-slate-100 hover:bg-slate-200 p-1.5 rounded-md transition-colors" title="Buka di tab baru">
+                                      <ExternalLink className="w-3.5 h-3.5 text-slate-600" />
+                                    </a>
+                                  </div>
                                 ) : (
-                                  <ChevronDown className="w-5 h-5 text-slate-400 group-hover:text-blue-500 mx-auto" />
+                                  <span className="text-slate-400 italic">Belum ada link</span>
+                                )}
+                                {v.isAuto && (
+                                  <span className="inline-block mt-1 bg-green-100 text-green-700 text-[10px] px-1.5 py-0.5 rounded uppercase font-semibold">Auto Tracked</span>
                                 )}
                               </TableCell>
+                              <TableCell className="text-right font-medium text-slate-700">{v.views > 0 ? v.views.toLocaleString() : '-'}</TableCell>
+                              <TableCell className="text-right font-medium text-slate-700">{v.likes > 0 ? v.likes.toLocaleString() : '-'}</TableCell>
+                              <TableCell className="text-right font-bold text-green-700">Rp {(v.gmv || 0).toLocaleString()}</TableCell>
                             </TableRow>
-                            {expandedVideos[creatorGroup.creator_username] && (
-                              <TableRow className="bg-slate-50/50">
-                                <TableCell colSpan={7} className="p-0 border-b-2 border-slate-200">
-                                  <div className="px-16 py-4">
-                                    <Table className="w-full text-sm bg-white border border-slate-200 rounded-lg overflow-hidden shadow-sm">
-                                      <TableHeader className="bg-slate-100/50">
-                                        <TableRow>
-                                          <TableHead className="w-12 text-center text-slate-500">No</TableHead>
-                                          <TableHead>Link Video</TableHead>
-                                          <TableHead className="text-right text-slate-500">Views</TableHead>
-                                          <TableHead className="text-right text-slate-500">Likes</TableHead>
-                                          <TableHead className="text-right text-slate-500">Sales GMV</TableHead>
-                                        </TableRow>
-                                      </TableHeader>
-                                      <TableBody>
-                                        {creatorGroup.videos.map((v: any, vIdx: number) => (
-                                          <TableRow key={v.id || vIdx}>
-                                            <TableCell className="text-center text-slate-400">{vIdx + 1}</TableCell>
-                                            <TableCell>
-                                              {v.link_video ? (
-                                                <a href={v.link_video} target="_blank" rel="noreferrer" className="text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1.5 font-medium">
-                                                  <Video className="w-4 h-4" /> Nonton di TikTok
-                                                </a>
-                                              ) : (
-                                                <span className="text-slate-400 italic">Belum ada link</span>
-                                              )}
-                                              {v.isAuto && (
-                                                <span className="inline-block mt-1 bg-green-100 text-green-700 text-[10px] px-1.5 py-0.5 rounded uppercase font-semibold">Auto Tracked</span>
-                                              )}
-                                            </TableCell>
-                                            <TableCell className="text-right font-medium text-slate-600">{v.views > 0 ? v.views.toLocaleString() : '-'}</TableCell>
-                                            <TableCell className="text-right font-medium text-slate-600">{v.likes > 0 ? v.likes.toLocaleString() : '-'}</TableCell>
-                                            <TableCell className="text-right font-semibold text-green-700">Rp {(v.gmv || 0).toLocaleString()}</TableCell>
-                                          </TableRow>
-                                        ))}
-                                      </TableBody>
-                                    </Table>
-                                  </div>
-                                </TableCell>
-                              </TableRow>
-                            )}
-                          </React.Fragment>
-                        ))
-                      )}
-                    </TableBody>
-                  </Table>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  )}
                 </div>
                 {/* Pagination Video */}
-                {videoTotalPages > 1 && (
+                {(videoFilterView === 'creator' ? videoTotalPages : flatVideoTotalPages) > 1 && (
                   <div className="flex items-center justify-between px-4 py-3 border-t border-blue-100 bg-blue-50/30 rounded-b-xl">
                     <span className="text-xs text-slate-500">
-                      Menampilkan {videoPage * PAGE_SIZE + 1}-{Math.min((videoPage + 1) * PAGE_SIZE, filteredVideo.length)} dari {filteredVideo.length}
+                      Menampilkan {videoPage * PAGE_SIZE + 1}-{Math.min((videoPage + 1) * PAGE_SIZE, videoFilterView === 'creator' ? filteredVideo.length : flatVideos.length)} dari {videoFilterView === 'creator' ? filteredVideo.length : flatVideos.length}
                     </span>
                     <div className="flex items-center gap-2">
                       <button 
@@ -1848,10 +1991,10 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                       >
                         <ChevronLeft className="w-5 h-5 text-blue-700" />
                       </button>
-                      <span className="text-xs font-medium text-slate-700">Hal {videoPage + 1} / {videoTotalPages}</span>
+                      <span className="text-xs font-medium text-slate-700">Hal {videoPage + 1} / {videoFilterView === 'creator' ? videoTotalPages : flatVideoTotalPages}</span>
                       <button 
-                        onClick={() => setVideoPage(p => Math.min(videoTotalPages - 1, p + 1))}
-                        disabled={videoPage === videoTotalPages - 1}
+                        onClick={() => setVideoPage(p => Math.min((videoFilterView === 'creator' ? videoTotalPages : flatVideoTotalPages) - 1, p + 1))}
+                        disabled={videoPage === (videoFilterView === 'creator' ? videoTotalPages : flatVideoTotalPages) - 1}
                         className="p-1 rounded-md hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                       >
                         <ChevronRight className="w-5 h-5 text-blue-700" />

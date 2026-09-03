@@ -565,6 +565,24 @@ export async function getPortalData(campaignId: number) {
     }
   }
 
+  // Mutate enrichedCcData videos to attach post_time
+  const postTimeMap = new Map<string, string>();
+  allOrganicVideos.forEach(v => {
+    if (v.content_uid && v.post_time) {
+      postTimeMap.set(v.content_uid.toString(), String(v.post_time));
+    }
+  });
+  
+  enrichedCcData.forEach((cc: any) => {
+    if (cc.videos && Array.isArray(cc.videos)) {
+      cc.videos.forEach((v: any) => {
+        if (v.content_uid && postTimeMap.has(v.content_uid.toString())) {
+          v.post_time = postTimeMap.get(v.content_uid.toString());
+        }
+      });
+    }
+  });
+
   // 3. Count Videos from DB (ccData.videos)
   enrichedCcData.forEach((cc: any) => {
     if (cc.videos && Array.isArray(cc.videos)) {
