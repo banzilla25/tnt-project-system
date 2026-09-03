@@ -306,8 +306,52 @@ export const useDatabaseStore = create<DatabaseState>((set, get) => ({
   },
 
   addCreatorSnapshot: async (snapshot) => {
-    // Deduplication check
-    const existing = get().creator_snapshots
+    // Check if there's an existing snapshot for the same creator on the same date
+    // This handles edits from the listing page where we anchor to cc.created_at
+    const snapshotDate = snapshot.tanggal_update ? new Date(snapshot.tanggal_update).toISOString().split('T')[0] : null;
+    
+    const sameDateSnapshot = snapshotDate ? get().creator_snapshots
+      .filter(s => s.creator_id === snapshot.creator_id)
+      .find(s => {
+        const sDate = s.tanggal_update ? new Date(s.tanggal_update).toISOString().split('T')[0] : null;
+        return sDate === snapshotDate;
+      }) : null;
+
+    if (sameDateSnapshot) {
+      // UPDATE the existing snapshot row in-place rather than inserting a duplicate
+      const updatePayload: any = {};
+      if (snapshot.followers !== undefined) updatePayload.followers = snapshot.followers;
+      if (snapshot.level !== undefined) updatePayload.level = snapshot.level;
+      if (snapshot.gmv_30d !== undefined) updatePayload.gmv_30d = snapshot.gmv_30d;
+      if (snapshot.gmv_30d_video !== undefined) updatePayload.gmv_30d_video = snapshot.gmv_30d_video;
+      if (snapshot.gmv_30d_live !== undefined) updatePayload.gmv_30d_live = snapshot.gmv_30d_live;
+      if (snapshot.tier !== undefined) updatePayload.tier = snapshot.tier;
+      if (snapshot.audience_age !== undefined) updatePayload.audience_age = snapshot.audience_age;
+      if (snapshot.ratecard !== undefined) updatePayload.ratecard = snapshot.ratecard;
+      if (snapshot.updated_by !== undefined) updatePayload.updated_by = snapshot.updated_by;
+
+      // Check if anything actually changed
+      const hasChange = Object.keys(updatePayload).some(k => (updatePayload as any)[k] !== (sameDateSnapshot as any)[k]);
+      if (!hasChange) {
+        console.log("Snapshot identical to existing same-date snapshot, skipping update.");
+        return;
+      }
+
+      const { data, error } = await supabase.from('creator_snapshots')
+        .update(updatePayload)
+        .eq('id', sameDateSnapshot.id)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      if (data) {
+        set({ creator_snapshots: get().creator_snapshots.map(s => s.id === sameDateSnapshot.id ? data : s) });
+      }
+      return;
+    }
+
+    // No same-date snapshot found — deduplication check against latest snapshot
+    const latestExisting = get().creator_snapshots
       .filter(s => s.creator_id === snapshot.creator_id)
       .sort((a, b) => {
         const tDiff = new Date(b.tanggal_update || 0).getTime() - new Date(a.tanggal_update || 0).getTime();
@@ -315,16 +359,16 @@ export const useDatabaseStore = create<DatabaseState>((set, get) => ({
         return b.id - a.id;
       })[0];
     
-    if (existing) {
-      if (existing.audience_age === snapshot.audience_age && 
-          existing.level === snapshot.level && 
-          existing.gmv_30d === snapshot.gmv_30d &&
-          existing.gmv_30d_video === snapshot.gmv_30d_video &&
-          existing.gmv_30d_live === snapshot.gmv_30d_live &&
-          existing.followers === snapshot.followers &&
-          existing.tier === snapshot.tier) {
-        console.log("Snapshot identical to previous, skipping insert.");
-        return; // Deduplicated
+    if (latestExisting) {
+      if (latestExisting.audience_age === snapshot.audience_age && 
+          latestExisting.level === snapshot.level && 
+          latestExisting.gmv_30d === snapshot.gmv_30d &&
+          latestExisting.gmv_30d_video === snapshot.gmv_30d_video &&
+          latestExisting.gmv_30d_live === snapshot.gmv_30d_live &&
+          latestExisting.followers === snapshot.followers &&
+          latestExisting.tier === snapshot.tier) {
+        console.log("Snapshot identical to latest, skipping insert.");
+        return;
       }
     }
 

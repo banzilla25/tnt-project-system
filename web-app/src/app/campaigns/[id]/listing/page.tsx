@@ -26,25 +26,65 @@ const extractCampaignSnapshot = (creator: any, campaignCreatedAt?: string) => {
   const snaps = creator?.creator_snapshots || [];
   if (snaps.length === 0) return {};
   
+  // Sort by date DESC, then by id DESC (newest first)
   const sortedSnaps = [...snaps].sort((a:any, b:any) => {
     const tDiff = new Date(b.tanggal_update || b.created_at || 0).getTime() - new Date(a.tanggal_update || a.created_at || 0).getTime();
     if (tDiff !== 0) return tDiff;
     return b.id - a.id;
   });
 
-  let targetSnaps = sortedSnaps;
   if (campaignCreatedAt) {
+    const cDate = new Date(campaignCreatedAt).toISOString().split('T')[0];
     const cTime = new Date(campaignCreatedAt).getTime();
-    const gracePeriod = 86400000; // 24 hours grace period
+    const gracePeriod = 86400000; // 24 hours
+
+    // Priority 1: Find snapshot with exact same date as campaign (edited in-place)
+    const sameDateSnap = sortedSnaps.find((s: any) => {
+      const sDate = s.tanggal_update ? new Date(s.tanggal_update).toISOString().split('T')[0] : null;
+      return sDate === cDate;
+    });
+
+    if (sameDateSnap) {
+      // Use same-date snapshot as primary, fill nulls from older snapshots
+      const olderSnaps = sortedSnaps.filter((s: any) => {
+        const sTime = new Date(s.tanggal_update || s.created_at || 0).getTime();
+        return sTime <= cTime + gracePeriod && s.id !== sameDateSnap.id;
+      });
+      
+      return [sameDateSnap, ...olderSnaps].reduce((acc: any, curr: any) => ({
+        followers: acc.followers ?? curr.followers,
+        tier: acc.tier ?? curr.tier,
+        audience_age: acc.audience_age ?? curr.audience_age,
+        level: acc.level ?? curr.level,
+        ratecard: acc.ratecard ?? curr.ratecard,
+        gmv_30d: acc.gmv_30d ?? curr.gmv_30d,
+        gmv_30d_video: acc.gmv_30d_video ?? curr.gmv_30d_video,
+        gmv_30d_live: acc.gmv_30d_live ?? curr.gmv_30d_live,
+      }), { followers: null, tier: null, audience_age: null, level: null, ratecard: null, gmv_30d: null, gmv_30d_video: null, gmv_30d_live: null } as any);
+    }
+
+    // Priority 2: Find closest snapshot before campaign date + grace period
     const targetSnap = sortedSnaps.find((s: any) => {
       const sTime = new Date(s.tanggal_update || s.created_at || 0).getTime();
       return sTime <= cTime + gracePeriod;
     });
     const baseSnap = targetSnap || sortedSnaps[sortedSnaps.length - 1];
-    targetSnaps = sortedSnaps.slice(sortedSnaps.indexOf(baseSnap));
+    const targetSnaps = sortedSnaps.slice(sortedSnaps.indexOf(baseSnap));
+
+    return targetSnaps.reduce((acc: any, curr: any) => ({
+      followers: acc.followers ?? curr.followers,
+      tier: acc.tier ?? curr.tier,
+      audience_age: acc.audience_age ?? curr.audience_age,
+      level: acc.level ?? curr.level,
+      ratecard: acc.ratecard ?? curr.ratecard,
+      gmv_30d: acc.gmv_30d ?? curr.gmv_30d,
+      gmv_30d_video: acc.gmv_30d_video ?? curr.gmv_30d_video,
+      gmv_30d_live: acc.gmv_30d_live ?? curr.gmv_30d_live,
+    }), { followers: null, tier: null, audience_age: null, level: null, ratecard: null, gmv_30d: null, gmv_30d_video: null, gmv_30d_live: null } as any);
   }
 
-  return targetSnaps.reduce((acc: any, curr: any) => ({
+  // No campaignCreatedAt — just use the latest snapshot
+  return sortedSnaps.reduce((acc: any, curr: any) => ({
     followers: acc.followers ?? curr.followers,
     tier: acc.tier ?? curr.tier,
     audience_age: acc.audience_age ?? curr.audience_age,
@@ -183,7 +223,8 @@ function CampaignListingContent() {
           creator_id: cc.creator_id,
           tier: snap.tier,
           audience_age: snap.audience_age,
-          ratecard: snap.ratecard
+          ratecard: snap.ratecard,
+          cc_created_at: cc.created_at
         }
       };
       (existing as any)[field] = value;
@@ -268,7 +309,7 @@ function CampaignListingContent() {
             
             await useDatabaseStore.getState().addCreatorSnapshot({
               creator_id: change.original.creator_id,
-              tanggal_update: new Date().toISOString(),
+              tanggal_update: change.original.cc_created_at || new Date().toISOString(),
               followers: newFollowers,
               level: newLevel,
               gmv_30d: newGmv,

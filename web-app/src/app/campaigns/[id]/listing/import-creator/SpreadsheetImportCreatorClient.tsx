@@ -168,7 +168,7 @@ export default function SpreadsheetImportCreatorClient() {
     }
   };
 
-  const handlePaste = (e: React.ClipboardEvent, startRowIdx: number, startColName: keyof SpreadsheetRow) => {
+  const handlePaste = async (e: React.ClipboardEvent, startRowIdx: number, startColName: keyof SpreadsheetRow) => {
     const pasteData = e.clipboardData.getData('text');
     if (!pasteData) return;
 
@@ -260,6 +260,99 @@ export default function SpreadsheetImportCreatorClient() {
       }
       
       setRows(newRows);
+      
+      // Auto-fill historical data for pasted usernames
+      const pastedUsernames = parsedRows.map((r, i) => {
+        const usernameIdx = columns.indexOf('username');
+        if (usernameIdx !== -1 && startColIdx <= usernameIdx && usernameIdx < startColIdx + r.length) {
+           return newRows[startRowIdx + i].username;
+        }
+        return null;
+      }).filter(Boolean) as string[];
+      
+      const uniqueUsernames = Array.from(new Set(pastedUsernames));
+      if (uniqueUsernames.length > 0) {
+        try {
+          const { data: dbCreators } = await supabase.from('creators')
+            .select('id, username, creator_snapshots(followers, gmv_30d, gmv_30d_video, gmv_30d_live, ratecard, level), creator_contacts(nomor, status)')
+            .in('username', uniqueUsernames);
+            
+          if (dbCreators && dbCreators.length > 0) {
+            const creatorIds = dbCreators.map((c: any) => c.id);
+            const { data: ccDatas } = await supabase.from('campaign_creators')
+              .select('creator_id, price, qty_vt, qty_live')
+              .eq('campaign_id', campaignId)
+              .in('creator_id', creatorIds);
+              
+            setRows(prev => {
+              const updatedRows = [...prev];
+              let hasChanges = false;
+              
+              for (let i = 0; i < parsedRows.length; i++) {
+                const rowIdx = startRowIdx + i;
+                const row = { ...updatedRows[rowIdx] };
+                const uname = row.username;
+                if (!uname) continue;
+                
+                const dbCreator = dbCreators.find((c: any) => c.username.toLowerCase() === uname.toLowerCase());
+                if (!dbCreator) continue;
+                
+                const snaps = (dbCreator.creator_snapshots || []).sort((a: any, b: any) => b.id - a.id);
+                const lastSnap = snaps[0] || {};
+                const activeContact = (dbCreator.creator_contacts || []).find((c: any) => c.status === 'aktif');
+                const ccData = (ccDatas || []).find((c: any) => c.creator_id === dbCreator.id);
+                
+                let rowUpdated = false;
+                
+                const checkAndUpdate = (field: keyof SpreadsheetRow, newVal: any) => {
+                  if (newVal !== undefined && newVal !== null && newVal !== '') {
+                    const strVal = newVal.toString();
+                    const isDefault = 
+                      !row[field] || 
+                      (field === 'qty_vt' && row[field] === '1') || 
+                      (field === 'qty_live' && row[field] === '0') || 
+                      (field === 'rate_card' && row[field] === '0') ||
+                      row[field] === '0';
+                      
+                    if (isDefault && row[field] !== strVal) {
+                      (row as any)[field] = strVal;
+                      rowUpdated = true;
+                    }
+                  }
+                };
+
+                if (activeContact?.nomor) checkAndUpdate('no_wa', activeContact.nomor);
+                if (lastSnap.followers) checkAndUpdate('followers', lastSnap.followers);
+                if (lastSnap.level) checkAndUpdate('level', lastSnap.level);
+                if (lastSnap.gmv_30d) checkAndUpdate('gmv_30_days', lastSnap.gmv_30d);
+                if (lastSnap.gmv_30d_video) checkAndUpdate('gmv_30_days_video', lastSnap.gmv_30d_video);
+                if (lastSnap.gmv_30d_live) checkAndUpdate('gmv_30_days_live', lastSnap.gmv_30d_live);
+                
+                if (ccData) {
+                  if (ccData.price) checkAndUpdate('rate_card', ccData.price);
+                  if (ccData.qty_vt !== undefined) checkAndUpdate('qty_vt', ccData.qty_vt);
+                  if (ccData.qty_live !== undefined) checkAndUpdate('qty_live', ccData.qty_live);
+                  
+                  const vt = Number(row.qty_vt) || 0;
+                  const live = Number(row.qty_live) || 0;
+                  row.content_type = determineContentType(vt, live);
+                } else if (lastSnap.ratecard) {
+                  checkAndUpdate('rate_card', lastSnap.ratecard);
+                }
+                
+                if (rowUpdated) {
+                  updatedRows[rowIdx] = row;
+                  hasChanges = true;
+                }
+              }
+              
+              return hasChanges ? updatedRows : prev;
+            });
+          }
+        } catch (e) {
+          console.error("Auto-fill on paste error:", e);
+        }
+      }
     }
   };
 
