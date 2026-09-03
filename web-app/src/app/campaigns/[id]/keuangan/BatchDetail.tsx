@@ -485,10 +485,10 @@ export function BatchDetail({ batch, creatorHistory, onBack, onRefresh }: { batc
                         return null;
                       })()}
                       <div className="text-xs text-slate-400 font-normal mt-0.5">{item.nama_penerima || bank?.account_holder}</div>
-                      {item.notes_dari_pic && (
+                      {item.notes && (
                         <div className="text-[10px] font-normal text-slate-500 mt-2 normal-case leading-tight max-w-[200px] bg-slate-50 p-1.5 rounded border border-slate-100">
                           <span className="font-semibold text-slate-600 block mb-0.5">Catatan PIC:</span> 
-                          {item.notes_dari_pic}
+                          {item.notes}
                         </div>
                       )}
                     </td>

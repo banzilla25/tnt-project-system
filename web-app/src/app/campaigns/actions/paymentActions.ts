@@ -445,7 +445,7 @@ export async function importHistoricalBatch(campaignId: number, batchLabel: stri
     metode_pembayaran: item.metode_pembayaran,
     nomor_rekening: item.nomor_rekening,
     nama_penerima: item.nama_penerima,
-    notes_dari_pic: item.notes || null,
+    notes: item.notes || null,
     manager_status: 'approved',
     executive_1_status: 'approved',
     finance_selected: true,
