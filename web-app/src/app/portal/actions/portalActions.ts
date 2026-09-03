@@ -497,8 +497,23 @@ export async function getPortalData(campaignId: number) {
   }
 
   // --- MONTHLY STATS for Brand Portal ---
+  // Helper to get WIB date string
+  const toWIBDateStr = (dateInput: string | Date | undefined | null) => {
+    if (!dateInput) return null;
+    try {
+      const d = new Date(dateInput);
+      if (isNaN(d.getTime())) return null;
+      // Convert to WIB (UTC+7)
+      const utc = d.getTime() + (d.getTimezoneOffset() * 60000);
+      const wib = new Date(utc + (3600000 * 7));
+      return wib.toISOString().substring(0, 10);
+    } catch {
+      return null;
+    }
+  };
+
   const { data: dailyStatsRaw } = await supabase.rpc('get_campaign_daily_stats', { p_campaign_id: campaignId });
-  const campaignStartStr = campaign.start_date || '';
+  const campaignStartStr = campaign.start_date ? toWIBDateStr(campaign.start_date) : '';
 
   const monthlyMap: Record<string, { gmvOrganic: number; gmvAds: number; videos: Set<string>; videoCreators: Set<string>; liveSessions: Set<string> }> = {};
 
@@ -550,21 +565,6 @@ export async function getPortalData(campaignId: number) {
     }
   }
 
-  // Helper to get WIB date string
-  const toWIBDateStr = (dateInput: string | Date | undefined | null) => {
-    if (!dateInput) return null;
-    try {
-      const d = new Date(dateInput);
-      if (isNaN(d.getTime())) return null;
-      // Convert to WIB (UTC+7)
-      const utc = d.getTime() + (d.getTimezoneOffset() * 60000);
-      const wib = new Date(utc + (3600000 * 7));
-      return wib.toISOString().substring(0, 10);
-    } catch {
-      return null;
-    }
-  };
-
   // 3. Count Videos from DB (ccData.videos)
   enrichedCcData.forEach((cc: any) => {
     if (cc.videos && Array.isArray(cc.videos)) {
@@ -583,7 +583,8 @@ export async function getPortalData(campaignId: number) {
         }
         
         monthlyMap[monthStr].videos.add(videoId);
-        if (cc.creators?.username) monthlyMap[monthStr].videoCreators.add(cc.creators.username);
+        const username = Array.isArray(cc.creators) ? cc.creators[0]?.username : cc.creators?.username;
+        if (username) monthlyMap[monthStr].videoCreators.add(username);
       });
     }
   });
@@ -603,17 +604,6 @@ export async function getPortalData(campaignId: number) {
     } else if (v.content_type === 'Livestream' || v.content_type === 'Live') {
       monthlyMap[monthStr].liveSessions.add(v.content_uid.toString());
     }
-  });
-
-  // Count Live Sessions from actualLives (has start_time)
-  actualLives.forEach((l: any) => {
-    if (!l.start_time) return;
-    const dateStr = toWIBDateStr(String(l.start_time));
-    if (!dateStr) return;
-    if (campaignStartStr && dateStr < campaignStartStr) return;
-    const monthStr = dateStr.substring(0, 7);
-    if (!monthlyMap[monthStr]) monthlyMap[monthStr] = { gmvOrganic: 0, gmvAds: 0, videos: new Set(), videoCreators: new Set(), liveSessions: new Set() };
-    if (l.content_uid) monthlyMap[monthStr].liveSessions.add(l.content_uid.toString());
   });
 
   const monthlyStats = Object.keys(monthlyMap)
