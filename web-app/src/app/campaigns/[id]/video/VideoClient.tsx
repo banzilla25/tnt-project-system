@@ -8,7 +8,7 @@ import { createClient } from "@/utils/supabase/client";
 import { getCreatorType, getConceptColor } from "@/utils/computed";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { AlertCircle, Link as LinkIcon, Save, Edit2, Loader2, ChevronDown, ChevronRight, Plus, PlayCircle, X, Download } from "lucide-react";
+import { AlertCircle, Link as LinkIcon, Save, Edit2, Loader2, ChevronDown, ChevronRight, Plus, PlayCircle, X, Download, ExternalLink } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/Dialog";
 import { useAuth } from "@/providers/AuthProvider";
 import { useCampaignFilter } from "@/providers/CampaignFilterProvider";
@@ -1211,6 +1211,15 @@ export default function CampaignVideoPage({
                                       >
                                         <PlayCircle className="w-5 h-5" />
                                       </button>
+                                      <a
+                                        href={v.link_video || '#'}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className={`btn btn-soft p-0 flex items-center justify-center h-10 w-10 flex-shrink-0 ${v.link_video ? 'text-indigo-600 hover:bg-indigo-100' : 'text-slate-400 pointer-events-none'}`}
+                                        title={v.link_video ? "Buka di Tab Baru" : "Link video belum diisi"}
+                                      >
+                                        <ExternalLink className="w-4 h-4" />
+                                      </a>
                                       <div className="relative flex-grow">
                                         <LinkIcon className="w-4 h-4 absolute left-[10px] top-[10px] text-text-soft" />
                                         <input 
@@ -1243,9 +1252,16 @@ export default function CampaignVideoPage({
                                       </p>
                                     )}
                                     {hasContentUid && !isAwareness && (
-                                      <p className="text-[11px] text-green-600 flex items-center gap-[4px]">
-                                        ✓ Terhubung dengan Content ID: {dynamicContentUid}
-                                      </p>
+                                      <div className="flex flex-col gap-[4px]">
+                                        <p className="text-[11px] text-green-600 flex items-center gap-[4px]">
+                                          ✓ Terhubung dengan Content ID: {dynamicContentUid}
+                                        </p>
+                                        {v.post_time && (
+                                          <p className="text-[10px] text-slate-500 font-medium pl-4">
+                                            Diposting pd: {new Date(v.post_time).toLocaleDateString('id-ID')}
+                                          </p>
+                                        )}
+                                      </div>
                                     )}
                                     {hasContentUid && (
                                       <div className="mt-2 grid grid-cols-4 gap-1 bg-slate-50 border border-slate-200 p-2 rounded-md text-xs">
@@ -1378,6 +1394,15 @@ export default function CampaignVideoPage({
                               >
                                 <PlayCircle className="w-5 h-5 text-indigo-600" />
                               </button>
+                              <a
+                                href={v.link_video || '#'}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className={`btn-icon bg-slate-100 shrink-0 hover:bg-slate-200 transition-colors flex items-center justify-center ${!v.link_video ? 'pointer-events-none opacity-50' : ''}`}
+                                title="Buka di Tab Baru"
+                              >
+                                <ExternalLink className="w-4 h-4 text-indigo-600" />
+                              </a>
                               <div className="relative flex-grow">
                                 <LinkIcon className="w-4 h-4 absolute left-[10px] top-[10px] text-text-soft" />
                                 <input 
@@ -1404,7 +1429,12 @@ export default function CampaignVideoPage({
                               </p>
                            )}
                            {v.hasContentUid && (
-                              <p className="text-[10px] text-emerald-600 font-medium">✓ Content ID: {v.dynamicContentUid}</p>
+                              <div className="flex flex-col gap-1">
+                                <p className="text-[10px] text-emerald-600 font-medium">✓ Content ID: {v.dynamicContentUid}</p>
+                                {v.post_time && (
+                                  <p className="text-[9px] text-slate-500 font-medium">Diposting pd: {new Date(v.post_time).toLocaleDateString('id-ID')}</p>
+                                )}
+                              </div>
                            )}
                         </div>
                       </td>

@@ -107,6 +107,23 @@ export async function getInternalVideoData(campaignId: number, searchKeyword: st
 
   const allVideos = [...allVideosFromDb, ...autoVideos];
 
+  // Fetch post_time from organic_videos
+  const { data: orgData } = await supabase
+    .from('organic_videos')
+    .select('content_uid, post_time')
+    .eq('campaign_id', campaignId);
+    
+  const postTimeMap = new Map();
+  (orgData || []).forEach((o: any) => {
+    if (o.content_uid && o.post_time) postTimeMap.set(o.content_uid, o.post_time);
+  });
+
+  allVideos.forEach(v => {
+    if (v.content_uid && postTimeMap.has(v.content_uid)) {
+      v.post_time = postTimeMap.get(v.content_uid);
+    }
+  });
+
   const listingData = allResults.map((cc: any) => ({
       ...cc,
       _videoStats: statsList.filter((s: any) => s.username === cc.creators?.username?.toLowerCase())
