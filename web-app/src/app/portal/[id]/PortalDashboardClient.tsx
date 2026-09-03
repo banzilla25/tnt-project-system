@@ -587,6 +587,71 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
               </div>
             </div>
 
+            {data.monthlyStats && data.monthlyStats.length > 0 && (
+              <div className="mb-8">
+                <h3 className="text-lg font-bold mb-4">Performa Bulanan</h3>
+                <div className="flex gap-4 overflow-x-auto pb-4 snap-x">
+                  {data.monthlyStats.map((m: any, idx: number) => {
+                    const dateObj = new Date(m.month + '-01');
+                    const monthName = dateObj.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+                    
+                    return (
+                      <div key={idx} className="ccard bg-white border-line min-w-[320px] shrink-0 snap-start">
+                        <div className="p-[20px]">
+                          <div className="flex justify-between items-center mb-4">
+                            <h4 className="text-sm font-bold text-slate-800 tracking-tight">{monthName}</h4>
+                            <span className="bg-slate-100 text-slate-600 px-3 py-1 rounded-full text-[11px] font-bold">MONTHLY</span>
+                          </div>
+                          
+                          <div className="grid grid-cols-3 gap-2 mb-2">
+                            <div className="bg-slate-50 rounded-[10px] p-2 flex flex-col items-center justify-center text-center">
+                              <span className="text-[10px] font-medium text-slate-500 mb-1">GMV Total</span>
+                              <span className="font-bold text-slate-800 text-[11px]">
+                                {formatCompactNumber(m.gmvTotal)}
+                              </span>
+                            </div>
+                            <div className="bg-emerald-50 rounded-[10px] p-2 flex flex-col items-center justify-center text-center">
+                              <span className="text-[10px] font-medium text-emerald-600 mb-1">Sales</span>
+                              <span className="font-bold text-emerald-700 text-[11px]">
+                                {formatCompactNumber(m.gmvOrganic)}
+                              </span>
+                            </div>
+                            <div className="bg-violet-50 rounded-[10px] p-2 flex flex-col items-center justify-center text-center">
+                              <span className="text-[10px] font-medium text-violet-600 mb-1">Ads</span>
+                              <span className="font-bold text-violet-700 text-[11px]">
+                                {formatCompactNumber(m.gmvAds)}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-3 gap-2">
+                            <div className="bg-slate-50 rounded-[10px] p-2 flex flex-col items-center justify-center text-center border border-slate-100">
+                              <span className="text-[10px] font-medium text-slate-500 mb-1">Kreator w/ VT</span>
+                              <span className="font-bold text-slate-800 text-[11px]">
+                                {m.totalVideoCreators}
+                              </span>
+                            </div>
+                            <div className="bg-slate-50 rounded-[10px] p-2 flex flex-col items-center justify-center text-center border border-slate-100">
+                              <span className="text-[10px] font-medium text-slate-500 mb-1">VT</span>
+                              <span className="font-bold text-slate-800 text-[11px]">
+                                {m.totalVideos}
+                              </span>
+                            </div>
+                            <div className="bg-slate-50 rounded-[10px] p-2 flex flex-col items-center justify-center text-center border border-slate-100">
+                              <span className="text-[10px] font-medium text-slate-500 mb-1">Live</span>
+                              <span className="font-bold text-slate-800 text-[11px]">
+                                {m.totalLiveSessions}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             <div className="flex flex-col gap-[24px]">
               {/* === SECTION: AWARENESS METRICS === */}
               <div className={`grid grid-cols-1 md:grid-cols-4 gap-[24px] ${!isAwareness ? 'order-2' : 'order-1'}`}>

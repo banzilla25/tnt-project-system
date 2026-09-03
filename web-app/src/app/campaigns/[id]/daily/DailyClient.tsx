@@ -485,13 +485,27 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
                      <span className="bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full text-[11px] font-bold">MONTHLY</span>
                   </div>
                   
-                  <div className="grid grid-cols-2 gap-2 mb-4">
+                  <div className="grid grid-cols-3 gap-2 mb-2">
                     <div className="bg-white/60 rounded-[10px] p-2 flex flex-col items-center justify-center text-center">
-                      <span className="text-[10px] font-semibold text-indigo-800 mb-1">GMV</span>
+                      <span className="text-[10px] font-semibold text-indigo-800 mb-1">GMV Total</span>
                       <span className="font-bold text-indigo-900 text-[11px]">
                         {formatCompact((m.gmvOrganic || 0) + (m.gmvAds || 0))} / {tgts.targetGmv > 0 ? formatCompact(tgts.targetGmv) : '-'}
                       </span>
                     </div>
+                    <div className="bg-white/60 rounded-[10px] p-2 flex flex-col items-center justify-center text-center">
+                      <span className="text-[10px] font-semibold text-emerald-700 mb-1">Sales</span>
+                      <span className="font-bold text-emerald-800 text-[11px]">
+                        {formatCompact(m.gmvOrganic || 0)}
+                      </span>
+                    </div>
+                    <div className="bg-white/60 rounded-[10px] p-2 flex flex-col items-center justify-center text-center">
+                      <span className="text-[10px] font-semibold text-violet-700 mb-1">Ads</span>
+                      <span className="font-bold text-violet-800 text-[11px]">
+                        {formatCompact(m.gmvAds || 0)}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 mb-4">
                     <div className="bg-white/60 rounded-[10px] p-2 flex flex-col items-center justify-center text-center">
                       <span className="text-[10px] font-semibold text-indigo-800 mb-1">Kreator w/ VT</span>
                       <span className="font-bold text-indigo-900 text-[11px]">

@@ -496,6 +496,79 @@ export async function getPortalData(campaignId: number) {
     globalAdsGmv = fbAds;
   }
 
+  // --- MONTHLY STATS for Brand Portal ---
+  const { data: dailyStatsRaw } = await supabase.rpc('get_campaign_daily_stats', { p_campaign_id: campaignId });
+  const campaignStartStr = campaign.start_date || '';
+
+  const monthlyMap: Record<string, { gmvOrganic: number; gmvAds: number; videos: Set<string>; videoCreators: Set<string>; liveSessions: Set<string> }> = {};
+
+  // 1. Organic GMV per month from RPC
+  (dailyStatsRaw || []).forEach((stat: any) => {
+    if (!stat.date_str) return;
+    if (campaignStartStr && stat.date_str < campaignStartStr) return;
+    const monthStr = stat.date_str.substring(0, 7);
+    if (!monthlyMap[monthStr]) monthlyMap[monthStr] = { gmvOrganic: 0, gmvAds: 0, videos: new Set(), videoCreators: new Set(), liveSessions: new Set() };
+    monthlyMap[monthStr].gmvOrganic += (stat.total_gmv || 0);
+  });
+
+  // 2. Ads GMV per month (delta from sorted daily rows)
+  if (rawAdsData && rawAdsData.length > 0) {
+    const adsSorted = [...rawAdsData].sort((a: any, b: any) => new Date(a.tanggal).getTime() - new Date(b.tanggal).getTime());
+    const prevAdValues: Record<string, number> = {};
+    adsSorted.forEach((ad: any) => {
+      if (!ad.tanggal || !ad.ad_id) return;
+      const dateStr = ad.tanggal.substring(0, 10);
+      const cur = ad.gross_revenue_usd || 0;
+      const prev = prevAdValues[ad.ad_id] || 0;
+      const delta = cur - prev;
+      prevAdValues[ad.ad_id] = cur;
+      if (campaignStartStr && dateStr < campaignStartStr) return;
+      if (delta <= 0) return;
+      let kurs = ad.kurs || 16000;
+      if (kurs < 1000) kurs = kurs * 1000;
+      const monthStr = dateStr.substring(0, 7);
+      if (!monthlyMap[monthStr]) monthlyMap[monthStr] = { gmvOrganic: 0, gmvAds: 0, videos: new Set(), videoCreators: new Set(), liveSessions: new Set() };
+      monthlyMap[monthStr].gmvAds += delta * kurs;
+    });
+  }
+
+  // 3. Video count per month from videoStats (already fetched)
+  (videoStats || []).forEach((v: any) => {
+    const rawDate = v.post_time || v.tanggal;
+    if (!rawDate) return;
+    const dateStr = typeof rawDate === 'string' ? rawDate.substring(0, 10) : new Date(rawDate).toISOString().substring(0, 10);
+    if (!dateStr) return;
+    if (campaignStartStr && dateStr < campaignStartStr) return;
+    const monthStr = dateStr.substring(0, 7);
+    if (!monthlyMap[monthStr]) monthlyMap[monthStr] = { gmvOrganic: 0, gmvAds: 0, videos: new Set(), videoCreators: new Set(), liveSessions: new Set() };
+    if (v.content_uid) monthlyMap[monthStr].videos.add(v.content_uid);
+    if (v.username) monthlyMap[monthStr].videoCreators.add(v.username);
+  });
+
+  // 4. Live count per month from actualLives (already fetched)
+  actualLives.forEach((l: any) => {
+    const rawDate = l.start_time || l.tanggal;
+    if (!rawDate) return;
+    const dateStr = typeof rawDate === 'string' ? rawDate.substring(0, 10) : new Date(rawDate).toISOString().substring(0, 10);
+    if (!dateStr) return;
+    if (campaignStartStr && dateStr < campaignStartStr) return;
+    const monthStr = dateStr.substring(0, 7);
+    if (!monthlyMap[monthStr]) monthlyMap[monthStr] = { gmvOrganic: 0, gmvAds: 0, videos: new Set(), videoCreators: new Set(), liveSessions: new Set() };
+    if (l.content_uid) monthlyMap[monthStr].liveSessions.add(l.content_uid);
+  });
+
+  const monthlyStats = Object.keys(monthlyMap)
+    .sort((a, b) => b.localeCompare(a)) // Sort by newest month first
+    .map(month => ({
+      month,
+      gmvOrganic: monthlyMap[month].gmvOrganic,
+      gmvAds: monthlyMap[month].gmvAds,
+      gmvTotal: monthlyMap[month].gmvOrganic + monthlyMap[month].gmvAds,
+      totalVideos: monthlyMap[month].videos.size,
+      totalVideoCreators: monthlyMap[month].videoCreators.size,
+      totalLiveSessions: monthlyMap[month].liveSessions.size,
+    }));
+
   return { 
     authenticated: true, 
     campaign, 
@@ -516,7 +589,8 @@ export async function getPortalData(campaignId: number) {
     topSkus: salesPerProduct,
     actualLives,
     salesPerProduct,
-    totalItemsSold
+    totalItemsSold,
+    monthlyStats
   };
 }
 
