@@ -138,6 +138,15 @@ export default function CampaignVideoPage({
   const [expandedGroups, setExpandedGroups] = useState<Set<number>>(new Set());
   const [clientPage, setClientPage] = useState(1);
   const [viewMode, setViewMode] = useState<'creator' | 'video'>('creator');
+  const [isFiltering, setIsFiltering] = useState(false);
+
+  // Reset clientPage when filters change
+  useEffect(() => {
+    setIsFiltering(true);
+    setClientPage(1);
+    const timer = setTimeout(() => setIsFiltering(false), 300);
+    return () => clearTimeout(timer);
+  }, [debouncedSearch, filterSow, filterSales, filterSku, filterConcept, sortBy, viewMode]);
   const CLIENT_PAGE_SIZE = 50;
 
   useEffect(() => {
@@ -745,11 +754,14 @@ export default function CampaignVideoPage({
                 const vids = localVideos.filter(v => v.campaign_creator_id === ccId && v.content_uid);
                 let maxT = 0;
                 vids.forEach(v => {
-                   const d = extractTikTokUploadDate(v.content_uid);
-                   if (d) {
-                      const t = new Date(d).getTime();
-                      if (t > maxT) maxT = t;
+                   let t = 0;
+                   if (v.post_time) {
+                     t = new Date(v.post_time).getTime();
+                   } else {
+                     const d = extractTikTokUploadDate(v.content_uid);
+                     if (d) t = new Date(d).getTime();
                    }
+                   if (t > maxT) maxT = t;
                 });
                 return maxT;
              };
@@ -854,10 +866,18 @@ export default function CampaignVideoPage({
     if (sortBy !== 'none') {
        allVids.sort((a, b) => {
           if (sortBy === 'latest_post') {
-             const dateA = a.content_uid ? extractTikTokUploadDate(a.content_uid) : null;
-             const dateB = b.content_uid ? extractTikTokUploadDate(b.content_uid) : null;
-             const timeA = dateA ? new Date(dateA).getTime() : 0;
-             const timeB = dateB ? new Date(dateB).getTime() : 0;
+             let timeA = 0;
+             let timeB = 0;
+             if (a.post_time) timeA = new Date(a.post_time).getTime();
+             else if (a.content_uid) {
+               const dateA = extractTikTokUploadDate(a.content_uid);
+               if (dateA) timeA = new Date(dateA).getTime();
+             }
+             if (b.post_time) timeB = new Date(b.post_time).getTime();
+             else if (b.content_uid) {
+               const dateB = extractTikTokUploadDate(b.content_uid);
+               if (dateB) timeB = new Date(dateB).getTime();
+             }
              return timeB - timeA;
           }
           switch(sortBy) {
@@ -1043,7 +1063,7 @@ export default function CampaignVideoPage({
             Belum ada creator yang berstatus "Approved" di campaign ini.
           </div>
         ) : viewMode === 'creator' ? (
-          <div className="space-y-[48px] pb-[24px]">
+          <div className={isFiltering ? "opacity-50 transition-opacity space-y-[48px] pb-[24px]" : "transition-opacity space-y-[48px] pb-[24px]"}>
             {visibleData.map(cc => {
               const creator = cc.creators;
               if (!creator) return null;
@@ -1339,10 +1359,10 @@ export default function CampaignVideoPage({
                   <th className="p-4 border-b border-slate-200 bg-slate-50 text-xs font-semibold text-slate-500">Produk</th>
                   <th className="p-4 border-b border-slate-200 bg-slate-50 text-xs font-semibold text-slate-500">GMV & GPM</th>
                   <th className="p-4 border-b border-slate-200 bg-slate-50 text-xs font-semibold text-slate-500">Views & Likes</th>
-                  <th className="p-4 border-b border-slate-200 bg-slate-50 text-xs font-semibold text-slate-500">Aksi</th>
+                  <th className="p-4 border-b border-slate-200 bg-slate-50 text-xs font-semibold text-slate-500 rounded-tr-xl">Aksi</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className={isFiltering ? "opacity-50 transition-opacity" : "transition-opacity"}>
                 {visibleVideosData.map(v => {
                   const warningShortLink = v.link_video?.includes('vt.tiktok.com');
                   return (
