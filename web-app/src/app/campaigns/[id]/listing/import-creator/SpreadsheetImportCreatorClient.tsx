@@ -295,7 +295,14 @@ export default function SpreadsheetImportCreatorClient() {
         const checkAndUpdate = (field: keyof SpreadsheetRow, newVal: any) => {
           if (newVal !== undefined && newVal !== null && newVal !== '') {
             const strVal = newVal.toString();
-            if (!row[field] || row[field] !== strVal) {
+            const isDefault = 
+              !row[field] || 
+              (field === 'qty_vt' && row[field] === '1') || 
+              (field === 'qty_live' && row[field] === '0') || 
+              (field === 'rate_card' && row[field] === '0') ||
+              row[field] === '0';
+              
+            if (isDefault && row[field] !== strVal) {
               (row as any)[field] = strVal;
               updated = true;
             }
@@ -500,7 +507,14 @@ export default function SpreadsheetImportCreatorClient() {
         const checkAndUpdate = (field: keyof SpreadsheetRow, newVal: any) => {
           if (newVal !== undefined && newVal !== null && newVal !== '') {
             const strVal = newVal.toString();
-            if (!row[field] || row[field] !== strVal) {
+            const isDefault = 
+              !row[field] || 
+              (field === 'qty_vt' && row[field] === '1') || 
+              (field === 'qty_live' && row[field] === '0') || 
+              (field === 'rate_card' && row[field] === '0') ||
+              row[field] === '0';
+              
+            if (isDefault && row[field] !== strVal) {
               (row as any)[field] = strVal;
             }
           }
