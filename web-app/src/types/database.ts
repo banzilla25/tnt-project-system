@@ -86,6 +86,8 @@ export type CreatorSnapshot = {
   ratecard: number | null;
   tier: string | null;
   gmv_30d: number | null;
+  gmv_30d_video?: number | null;
+  gmv_30d_live?: number | null;
   updated_by: string | null;
   created_at: string;
 };
