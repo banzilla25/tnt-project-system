@@ -548,6 +548,46 @@ export const CreatorRow = React.memo(({
           )}
         </td>
         <td className="text-right">
+          {activeEditingField === `gmv_30d_video` ? (
+            <input 
+              type="number" 
+              min="0"
+              autoFocus
+              defaultValue={getPendingValue(cc.id, 'gmv_30d_video', snapshot?.gmv_30d_video || 0)}
+              onBlur={e => { setCellChange(cc.id, 'gmv_30d_video', Number(e.target.value), cc); setEditingCellId(null); }}
+              onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+              className="input w-24 !p-[4px] text-right text-[13px]"
+            />
+          ) : (
+            <span 
+              className={`text-[13px] font-semibold cursor-pointer hover:bg-blue-50 px-1 py-0.5 rounded ${hasPending && pendingChange?.gmv_30d_video !== undefined ? 'text-amber-700' : 'text-text'}`}
+              onClick={() => hasAccess && setEditingCellId(`${cc.id}-gmv_30d_video`)}
+            >
+              {(getPendingValue(cc.id, 'gmv_30d_video', snapshot?.gmv_30d_video || 0) as number) > 0 ? formatAbbreviated(getPendingValue(cc.id, 'gmv_30d_video', snapshot?.gmv_30d_video || 0) as number, true) : '-'}
+            </span>
+          )}
+        </td>
+        <td className="text-right">
+          {activeEditingField === `gmv_30d_live` ? (
+            <input 
+              type="number" 
+              min="0"
+              autoFocus
+              defaultValue={getPendingValue(cc.id, 'gmv_30d_live', snapshot?.gmv_30d_live || 0)}
+              onBlur={e => { setCellChange(cc.id, 'gmv_30d_live', Number(e.target.value), cc); setEditingCellId(null); }}
+              onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+              className="input w-24 !p-[4px] text-right text-[13px]"
+            />
+          ) : (
+            <span 
+              className={`text-[13px] font-semibold cursor-pointer hover:bg-blue-50 px-1 py-0.5 rounded ${hasPending && pendingChange?.gmv_30d_live !== undefined ? 'text-amber-700' : 'text-text'}`}
+              onClick={() => hasAccess && setEditingCellId(`${cc.id}-gmv_30d_live`)}
+            >
+              {(getPendingValue(cc.id, 'gmv_30d_live', snapshot?.gmv_30d_live || 0) as number) > 0 ? formatAbbreviated(getPendingValue(cc.id, 'gmv_30d_live', snapshot?.gmv_30d_live || 0) as number, true) : '-'}
+            </span>
+          )}
+        </td>
+        <td className="text-right">
           {hasAccess ? (
             <div className="flex justify-end gap-[4px] transition-opacity">
               <button onClick={() => handleDeleteCreator(cc.id)} className="p-[6px] hover:bg-red-50 rounded" title="Hapus Creator">

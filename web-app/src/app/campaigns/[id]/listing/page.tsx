@@ -51,7 +51,9 @@ const extractCampaignSnapshot = (creator: any, campaignCreatedAt?: string) => {
     level: acc.level ?? curr.level,
     ratecard: acc.ratecard ?? curr.ratecard,
     gmv_30d: acc.gmv_30d ?? curr.gmv_30d,
-  }), { followers: null, tier: null, audience_age: null, level: null, ratecard: null, gmv_30d: null } as any);
+    gmv_30d_video: acc.gmv_30d_video ?? curr.gmv_30d_video,
+    gmv_30d_live: acc.gmv_30d_live ?? curr.gmv_30d_live,
+  }), { followers: null, tier: null, audience_age: null, level: null, ratecard: null, gmv_30d: null, gmv_30d_video: null, gmv_30d_live: null } as any);
 };
 
 export default function CampaignListingPage() {
@@ -112,6 +114,8 @@ function CampaignListingContent() {
     followers?: number;
     level?: string;
     gmv_30d?: number;
+    gmv_30d_video?: number;
+    gmv_30d_live?: number;
     creator_id?: number;
     tier?: string;
     audience_age?: string;
@@ -174,6 +178,8 @@ function CampaignListingContent() {
           followers: snap.followers,
           level: snap.level,
           gmv_30d: snap.gmv_30d,
+          gmv_30d_video: snap.gmv_30d_video,
+          gmv_30d_live: snap.gmv_30d_live,
           creator_id: cc.creator_id,
           tier: snap.tier,
           audience_age: snap.audience_age,
@@ -184,7 +190,7 @@ function CampaignListingContent() {
 
       // Check if all changed fields match original
       const orig = existing.original;
-      const fields = ['price', 'qty_vt', 'qty_live', 'approval', 'client_approval', 'assigned_sku_ids', 'content_type', 'followers', 'level', 'gmv_30d'] as const;
+      const fields = ['price', 'qty_vt', 'qty_live', 'approval', 'client_approval', 'assigned_sku_ids', 'content_type', 'followers', 'level', 'gmv_30d', 'gmv_30d_video', 'gmv_30d_live'] as const;
       let hasRealChange = false;
       for (const f of fields) {
         const changedVal = (existing as any)[f];
@@ -241,11 +247,14 @@ function CampaignListingContent() {
         }
 
         // Handle creator snapshot updates (excluding price which is now campaign-specific)
-        if (change.followers !== undefined || change.level !== undefined || change.gmv_30d !== undefined) {
-          if (change.original.creator_id) {
-            const newFollowers = (change.followers !== undefined && change.followers !== '' && Number(change.followers) !== 0) ? change.followers : change.original.followers;
-            const newLevel = (change.level !== undefined && change.level !== '') ? change.level : change.original.level;
+        if (change.followers !== undefined || change.level !== undefined || change.gmv_30d !== undefined || change.gmv_30d_video !== undefined || change.gmv_30d_live !== undefined) {
+          try {
+            const today = new Date().toISOString().split('T')[0];
+            const newFollowers = (change.followers !== undefined && change.followers !== '') ? change.followers : change.original.followers;
             const newGmv = (change.gmv_30d !== undefined && change.gmv_30d !== '') ? change.gmv_30d : change.original.gmv_30d;
+            const newGmvVid = (change.gmv_30d_video !== undefined && change.gmv_30d_video !== '') ? change.gmv_30d_video : change.original.gmv_30d_video;
+            const newGmvLive = (change.gmv_30d_live !== undefined && change.gmv_30d_live !== '') ? change.gmv_30d_live : change.original.gmv_30d_live;
+            const newLevel = (change.level !== undefined && change.level !== '') ? change.level : change.original.level;
             const newRatecard = change.original.ratecard;
             
             let newTier = change.original.tier;
@@ -257,21 +266,21 @@ function CampaignListingContent() {
                else newTier = 'Mega';
             }
             
-            try {
-              await useDatabaseStore.getState().addCreatorSnapshot({
-                creator_id: change.original.creator_id,
-                tanggal_update: new Date().toISOString(),
-                followers: newFollowers,
-                level: newLevel,
-                gmv_30d: newGmv,
-                tier: newTier, // inherit or recalculated
-                audience_age: change.original.audience_age, // inherit
-                ratecard: newRatecard, // inherit
-                updated_by: profile?.nama || null
-              });
-            } catch (snapErr) {
-              console.error("Failed to add snapshot:", snapErr);
-            }
+            await useDatabaseStore.getState().addCreatorSnapshot({
+              creator_id: change.original.creator_id,
+              tanggal_update: new Date().toISOString(),
+              followers: newFollowers,
+              level: newLevel,
+              gmv_30d: newGmv,
+              gmv_30d_video: newGmvVid,
+              gmv_30d_live: newGmvLive,
+              tier: newTier,
+              audience_age: change.original.audience_age,
+              ratecard: newRatecard,
+              updated_by: profile?.nama || null
+            });
+          } catch (snapErr) {
+            console.error("Failed to add snapshot:", snapErr);
           }
         }
 
@@ -841,7 +850,7 @@ function CampaignListingContent() {
         creators!inner (
           id, username, nama_asli, link_account,
           creator_contacts ( id, nomor, status ),
-          creator_snapshots${filterTier || filterLevel ? '!inner' : ''} ( id, audience_age, level, gmv_30d, tanggal_update, followers, tier ),
+          creator_snapshots${filterTier || filterLevel ? '!inner' : ''} ( id, audience_age, level, gmv_30d, gmv_30d_video, gmv_30d_live, tanggal_update, followers, tier ),
           creator_niches${filterNiche ? '!inner' : ''} ( niche_id, niches ( nama ) )
         ),
         videos${filterPendingWithVideo || filterConcept ? '!inner' : ''} (
@@ -1386,7 +1395,7 @@ function CampaignListingContent() {
         for (let i = 0; i < creatorIds.length; i += 50) {
           const batch = creatorIds.slice(i, i + 50);
           const { data: snapData } = await supabase.from('creator_snapshots')
-            .select('id, creator_id, followers, gmv_30d, tier, ratecard, level, audience_age, tanggal_update')
+            .select('id, creator_id, followers, gmv_30d, gmv_30d_video, gmv_30d_live, tier, ratecard, level, audience_age, tanggal_update')
             .in('creator_id', batch)
             .order('id', { ascending: false });
           
@@ -1477,6 +1486,8 @@ function CampaignListingContent() {
             creator_id: p.creator_id,
             followers: 0,
             gmv_30d: 0,
+            gmv_30d_video: 0,
+            gmv_30d_live: 0,
             ratecard: p.price || 0,
             tier: 'Nano',
             tanggal_update: new Date().toISOString().split('T')[0],
@@ -1553,7 +1564,7 @@ function CampaignListingContent() {
       while (fetchMore) {
         let query = supabase
           .from('campaign_creators')
-          .select('*, creators(username, nama_asli, link_account, creator_contacts(nomor, status), creator_snapshots(id, level, followers, gmv_30d, tanggal_update))')
+          .select('*, creators(username, nama_asli, link_account, creator_contacts(nomor, status), creator_snapshots(id, level, followers, gmv_30d, gmv_30d_video, gmv_30d_live, tanggal_update))')
           .eq('campaign_id', campaignId)
           .in('approval', selectedStatuses)
           .order('id', { ascending: false })
@@ -1598,6 +1609,8 @@ function CampaignListingContent() {
           'Nomor WA': creator.creator_contacts?.find((c: any) => c.status === 'aktif')?.nomor || creator.creator_contacts?.[0]?.nomor || '',
           'Followers': snapshot.followers || 0,
           'GMV 30 Days': snapshot.gmv_30d || 0,
+          'GMV (Video)': snapshot.gmv_30d_video || 0,
+          'GMV (Live)': snapshot.gmv_30d_live || 0,
           'Tier': cc.tier || '',
           'Level': snapshot.level || '',
           'Niche': cc.niche || '',
@@ -2584,6 +2597,8 @@ function CampaignListingContent() {
                   GMV Creator <SortIcon col="gmv" />
                 </button>
               </th>
+              <th className="text-right">GMV (Video)</th>
+              <th className="text-right">GMV (Live)</th>
               <th className="text-right">Aksi</th>
             </tr>
           </thead>

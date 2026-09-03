@@ -14,6 +14,8 @@ type SpreadsheetRow = {
   username: string;
   followers: string;
   gmv_30_days: string;
+  gmv_30_days_video: string;
+  gmv_30_days_live: string;
   rate_card: string;
   qty_vt: string;
   qty_live: string;
@@ -41,6 +43,8 @@ const getEmptyRow = (): SpreadsheetRow => ({
   username: '',
   followers: '',
   gmv_30_days: '',
+  gmv_30_days_video: '',
+  gmv_30_days_live: '',
   rate_card: '0',
   qty_vt: '1',
   qty_live: '0',
@@ -210,7 +214,7 @@ export default function SpreadsheetImportCreatorClient() {
         }
       }
 
-      const columns: (keyof SpreadsheetRow)[] = ['username', 'no_wa', 'followers', 'level', 'gmv_30_days', 'rate_card', 'qty_vt', 'qty_live'];
+      const columns: (keyof SpreadsheetRow)[] = ['username', 'no_wa', 'followers', 'level', 'gmv_30_days', 'gmv_30_days_video', 'gmv_30_days_live', 'rate_card', 'qty_vt', 'qty_live'];
       const startColIdx = columns.indexOf(startColName);
       if (startColIdx === -1) return;
 
@@ -237,7 +241,7 @@ export default function SpreadsheetImportCreatorClient() {
             
             if (targetColName === 'username') {
               cleanedVal = cleanedVal.replace(/^@/, '').toLowerCase();
-            } else if (['level', 'followers', 'gmv_30_days', 'rate_card', 'qty_vt', 'qty_live'].includes(targetColName)) {
+            } else if (['level', 'followers', 'gmv_30_days', 'gmv_30_days_video', 'gmv_30_days_live', 'rate_card', 'qty_vt', 'qty_live'].includes(targetColName)) {
               cleanedVal = parseSmartNumber(cleanedVal);
               if (!cleanedVal && ['qty_vt', 'qty_live', 'rate_card'].includes(targetColName)) cleanedVal = '0';
             }
@@ -264,7 +268,7 @@ export default function SpreadsheetImportCreatorClient() {
     let cleaned = value;
     
     if (field === 'username') cleaned = cleaned.replace(/^@/, '').toLowerCase();
-    else if (['followers', 'gmv_30_days', 'rate_card', 'qty_vt', 'qty_live'].includes(field)) {
+    else if (['followers', 'gmv_30_days', 'gmv_30_days_video', 'gmv_30_days_live', 'rate_card', 'qty_vt', 'qty_live'].includes(field)) {
       cleaned = parseSmartNumber(cleaned);
     }
     
@@ -322,7 +326,7 @@ export default function SpreadsheetImportCreatorClient() {
         alert("Tidak ada data ratecard terbaru yang ditemukan untuk di-autofill.");
       }
     } catch (err) {
-      console.error(e);
+      console.error(err);
       alert("Gagal melakukan autofill ratecard.");
     }
     setIsAutoDetecting(false);
@@ -356,7 +360,7 @@ export default function SpreadsheetImportCreatorClient() {
     for (let i = 0; i < uniqueUsernames.length; i += 50) {
       const batch = uniqueUsernames.slice(i, i + 50);
       const { data } = await supabase.from('creators')
-        .select('id, username, creator_snapshots(id, ratecard, followers, gmv_30d)')
+        .select('id, username, creator_snapshots(id, ratecard, followers, gmv_30d, gmv_30d_video, gmv_30d_live)')
         .in('username', batch);
       if (data) allExistingCreators.push(...data);
       
@@ -365,7 +369,7 @@ export default function SpreadsheetImportCreatorClient() {
       const notFound = batch.filter(u => !foundUsernames.has(u));
       for (const u of notFound) {
         const { data: ilikeData } = await supabase.from('creators')
-          .select('id, username, creator_snapshots(id, ratecard, followers, gmv_30d)')
+          .select('id, username, creator_snapshots(id, ratecard, followers, gmv_30d, gmv_30d_video, gmv_30d_live)')
           .ilike('username', u)
           .limit(1);
         if (ilikeData && ilikeData.length > 0) allExistingCreators.push(...ilikeData);
@@ -413,8 +417,10 @@ export default function SpreadsheetImportCreatorClient() {
       const dbCreator = existingMap.get(unameLower);
       const campaignCreator = campaignMap.get(unameLower);
       
-      let currentFollowers = row.followers;
       let currentGmv = row.gmv_30_days;
+      let currentGmvVid = row.gmv_30_days_video;
+      let currentGmvLive = row.gmv_30_days_live;
+      let currentFollowers = row.followers;
 
       if (dbCreator) {
         row.creatorId = dbCreator.id;
@@ -423,9 +429,13 @@ export default function SpreadsheetImportCreatorClient() {
         
         if (!row.followers && lastSnap.followers) currentFollowers = lastSnap.followers.toString();
         if (!row.gmv_30_days && lastSnap.gmv_30d) currentGmv = lastSnap.gmv_30d.toString();
+        if (!row.gmv_30_days_video && lastSnap.gmv_30d_video) currentGmvVid = lastSnap.gmv_30d_video.toString();
+        if (!row.gmv_30_days_live && lastSnap.gmv_30d_live) currentGmvLive = lastSnap.gmv_30d_live.toString();
         
         row.followers = currentFollowers;
         row.gmv_30_days = currentGmv;
+        row.gmv_30_days_video = currentGmvVid;
+        row.gmv_30_days_live = currentGmvLive;
       }
 
       if (campaignCreator) {
@@ -434,7 +444,7 @@ export default function SpreadsheetImportCreatorClient() {
         row.action = 'skip';
         hasDuplicates = true;
       } else {
-        if (!currentFollowers || !currentGmv) {
+        if (!currentFollowers || (!currentGmv && !currentGmvVid && !currentGmvLive)) {
           row.status = 'incomplete';
           hasIncompletes = true;
         } else {
@@ -463,12 +473,12 @@ export default function SpreadsheetImportCreatorClient() {
     }
   };
 
-  const handleUpdateIncomplete = (idx: number, field: 'followers' | 'gmv_30_days', val: string) => {
+  const handleUpdateIncomplete = (idx: number, field: 'followers' | 'gmv_30_days' | 'gmv_30_days_video' | 'gmv_30_days_live', val: string) => {
     const cleaned = parseSmartNumber(val);
     const newInc = [...incompleteRows];
     newInc[idx][field] = cleaned;
     
-    if (newInc[idx].followers && newInc[idx].gmv_30_days) {
+    if (newInc[idx].followers && (newInc[idx].gmv_30_days || newInc[idx].gmv_30_days_video || newInc[idx].gmv_30_days_live)) {
       newInc[idx].status = 'baru';
     } else {
       newInc[idx].status = 'incomplete';
@@ -511,7 +521,6 @@ export default function SpreadsheetImportCreatorClient() {
 
     const BATCH_SIZE = 25;
     let successCount = 0;
-    let hasErrors = false;
     
     for (let i = 0; i < dataToSave.length; i += BATCH_SIZE) {
       const batch = dataToSave.slice(i, i + BATCH_SIZE);
@@ -520,7 +529,6 @@ export default function SpreadsheetImportCreatorClient() {
         try {
           let cid = row.creatorId;
           
-          // 1. Create creator if doesn't exist
           if (!cid) {
             const { data: newCreator, error: insErr } = await supabase.from('creators').insert({
               username: row.username.trim(),
@@ -529,42 +537,30 @@ export default function SpreadsheetImportCreatorClient() {
             }).select('id').single();
             
             if (insErr) {
-              if (insErr.code === '23505' || (insErr.message && insErr.message.includes('violates unique constraint'))) {
-                // Already exists (maybe another row just inserted it, or case differences)
-                const { data: existingCreator } = await supabase.from('creators')
-                  .select('id').ilike('username', row.username.trim()).limit(1);
-                  
-                if (existingCreator && existingCreator.length > 0) {
-                  cid = existingCreator[0].id;
-                } else {
-                  throw new Error(`Username @${row.username.trim()} terdeteksi duplikat di database, namun gagal disinkronkan. Mohon coba "Simpan" sekali lagi.`);
-                }
-              } else {
-                throw insErr;
-              }
-            } else {
-              cid = newCreator.id;
-            }
+              const { data: existingCreator } = await supabase.from('creators')
+                .select('id').ilike('username', row.username.trim()).limit(1);
+              if (existingCreator && existingCreator.length > 0) cid = existingCreator[0].id;
+              else throw insErr;
+            } else cid = newCreator.id;
           }
           
-          // 3. Campaign Creators Insert/Update
           if (row.status === 'duplicate_campaign' && row.action === 'skip') {
-            // Skip everything for this row
             setRows(prev => prev.map(r => r.id === row.id ? { ...r, status: 'berhasil' } : r));
             return;
           }
           
-          // 2. Upsert snapshot (only if we are actually adding/updating this row)
           const { data: existingSnaps } = await supabase.from('creator_snapshots')
-            .select('id, followers, gmv_30d, ratecard')
+            .select('id, followers, gmv_30d, gmv_30d_video, gmv_30d_live, ratecard, level')
             .eq('creator_id', cid)
             .order('id', { ascending: false })
             .limit(1);
             
           const lastSnap = existingSnaps?.[0];
-          const newFollowers = (!row.followers || Number(row.followers) === 0) ? (lastSnap?.followers || 0) : Number(row.followers);
-          const newGmv = row.gmv_30_days === '' ? (lastSnap?.gmv_30d || 0) : (Number(row.gmv_30_days) || 0);
-          const newRateCard = row.rate_card === '' ? (lastSnap?.ratecard || 0) : (Number(row.rate_card) || 0);
+          const newFollowers = Number(row.followers) || (lastSnap?.followers || 0);
+          const newGmv = Number(row.gmv_30_days) || (lastSnap?.gmv_30d || 0);
+          const newGmvVid = Number(row.gmv_30_days_video) || (lastSnap?.gmv_30d_video || 0);
+          const newGmvLive = Number(row.gmv_30_days_live) || (lastSnap?.gmv_30d_live || 0);
+          const newRateCard = Number(row.rate_card) || (lastSnap?.ratecard || 0);
           
           let calculatedTier = 'Nano';
           if (newFollowers < 10000) calculatedTier = 'Nano';
@@ -574,18 +570,19 @@ export default function SpreadsheetImportCreatorClient() {
           
           const newLevel = row.level ? Number(row.level) : null;
           
-          if (!lastSnap || lastSnap.followers !== newFollowers || lastSnap.gmv_30d !== newGmv || lastSnap.ratecard !== newRateCard || lastSnap.level !== newLevel) {
-            const { error: snapErr } = await supabase.from('creator_snapshots').insert({
+          if (!lastSnap || lastSnap.followers !== newFollowers || lastSnap.gmv_30d !== newGmv || lastSnap.gmv_30d_video !== newGmvVid || lastSnap.gmv_30d_live !== newGmvLive || lastSnap.ratecard !== newRateCard || lastSnap.level !== newLevel) {
+            await supabase.from('creator_snapshots').insert({
               creator_id: cid,
               followers: newFollowers,
               gmv_30d: newGmv,
+              gmv_30d_video: newGmvVid,
+              gmv_30d_live: newGmvLive,
               ratecard: newRateCard,
               tier: calculatedTier,
               level: newLevel,
               tanggal_update: new Date().toISOString().split('T')[0],
               updated_by: profile?.nama || 'System'
             });
-            if (snapErr) throw snapErr;
           }
 
           if (row.no_wa && row.no_wa.trim()) {
@@ -595,85 +592,48 @@ export default function SpreadsheetImportCreatorClient() {
             
             if (!activeContacts || activeContacts.length === 0 || activeContacts[0].nomor !== newNomor) {
               const today = new Date().toISOString().split('T')[0];
-              // Archive existing
               if (activeContacts && activeContacts.length > 0) {
-                await supabase.from('creator_contacts').update({
-                  status: 'arsip',
-                  tanggal_diganti: today
-                }).eq('id', activeContacts[0].id);
+                await supabase.from('creator_contacts').update({ status: 'arsip', tanggal_diganti: today }).eq('id', activeContacts[0].id);
               }
-              // Check if it was archived before
-              const { data: existingArchived } = await supabase.from('creator_contacts')
-                .select('id').eq('creator_id', cid).eq('nomor', newNomor).single();
-                
+              const { data: existingArchived } = await supabase.from('creator_contacts').select('id').eq('creator_id', cid).eq('nomor', newNomor).single();
               if (existingArchived) {
-                 await supabase.from('creator_contacts').update({
-                    status: 'aktif',
-                    tanggal_mulai: today,
-                    tanggal_diganti: null
-                 }).eq('id', existingArchived.id);
+                 await supabase.from('creator_contacts').update({ status: 'aktif', tanggal_mulai: today, tanggal_diganti: null }).eq('id', existingArchived.id);
               } else {
-                 await supabase.from('creator_contacts').insert({
-                    creator_id: cid,
-                    nomor: newNomor,
-                    status: 'aktif',
-                    tanggal_mulai: today
-                 });
+                 await supabase.from('creator_contacts').insert({ creator_id: cid, nomor: newNomor, status: 'aktif', tanggal_mulai: today });
               }
             }
           }
 
-          if (row.status === 'duplicate_campaign' && row.action === 'update' && row.existingData) {
-            // Update
-            await supabase.from('campaign_creators').update({
-              price: newRateCard,
-              tier: calculatedTier,
-              qty_vt: Number(row.qty_vt) || 0,
-              qty_live: Number(row.qty_live) || 0,
-              content_type: row.content_type
-            }).eq('campaign_id', campaignId).eq('creator_id', cid);
-            successCount++;
+          const ccData = {
+            campaign_id: campaignId,
+            creator_id: cid,
+            tier: calculatedTier,
+            price: newRateCard,
+            qty_vt: Number(row.qty_vt) || 0,
+            qty_live: Number(row.qty_live) || 0,
+            content_type: row.content_type,
+            approval: 'pending',
+            pic_assist: profile?.nama || '-',
+            status_bayar: 'belum',
+            client_approval: isClientApprovalRequired ? 'pending' : 'not_required',
+            added_by: profile?.id
+          };
+
+          if (row.status === 'duplicate_campaign' && row.action === 'update') {
+            await supabase.from('campaign_creators').update(ccData).eq('campaign_id', campaignId).eq('creator_id', cid);
           } else {
-            // Insert new - check if already exists first (race condition safety)
-            const { data: existingCC } = await supabase.from('campaign_creators')
-              .select('id').eq('campaign_id', campaignId).eq('creator_id', cid).limit(1);
-            
-            if (existingCC && existingCC.length > 0) {
-              // Already exists - update instead
-              await supabase.from('campaign_creators').update({
-                price: newRateCard,
-                tier: calculatedTier,
-                qty_vt: Number(row.qty_vt) || 0,
-                qty_live: Number(row.qty_live) || 0,
-                content_type: row.content_type
-              }).eq('campaign_id', campaignId).eq('creator_id', cid);
-            } else {
-              await supabase.from('campaign_creators').insert({
-                campaign_id: campaignId,
-                creator_id: cid,
-                tier: calculatedTier,
-                price: newRateCard,
-                qty_vt: Number(row.qty_vt) || 0,
-                qty_live: Number(row.qty_live) || 0,
-                content_type: row.content_type,
-                approval: 'pending',
-                pic_assist: profile?.nama || '-',
-                status_bayar: 'belum',
-                client_approval: isClientApprovalRequired ? 'pending' : 'not_required',
-                added_by: profile?.id
-              });
-            }
-            successCount++;
+            const { data: existingCC } = await supabase.from('campaign_creators').select('id').eq('campaign_id', campaignId).eq('creator_id', cid).limit(1);
+            if (existingCC && existingCC.length > 0) await supabase.from('campaign_creators').update(ccData).eq('campaign_id', campaignId).eq('creator_id', cid);
+            else await supabase.from('campaign_creators').insert(ccData);
           }
           
+          successCount++;
           setRows(prev => prev.map(r => r.id === row.id ? { ...r, status: 'berhasil' } : r));
         } catch (err: any) {
           console.error(err);
-          hasErrors = true;
           setRows(prev => prev.map(r => r.id === row.id ? { ...r, status: 'error', errorMsg: err.message } : r));
         }
       }));
-      
       setSaveProgress(prev => ({ ...prev, current: Math.min(prev.current + BATCH_SIZE, prev.total) }));
     }
 
@@ -698,10 +658,6 @@ export default function SpreadsheetImportCreatorClient() {
           <div>
             <h1 className="text-lg font-bold text-slate-800">Import Kreator Massal</h1>
             <p className="text-xs text-slate-500">Paste data dari Excel ke tabel di bawah ini.</p>
-            <div className="mt-2 bg-amber-50 border border-amber-200 text-amber-800 text-xs px-3 py-1.5 rounded-md flex items-center gap-1.5 font-medium">
-              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-              <span>Peringatan: Kolom <b>Followers</b> dan <b>GMV 30 Days</b> wajib diisi. <b>Tipe Konten</b> akan terisi otomatis.</span>
-            </div>
           </div>
         </div>
         
@@ -735,6 +691,8 @@ export default function SpreadsheetImportCreatorClient() {
                   <TableHeader title="Followers *" width="w-32" />
                   <TableHeader title="Level" width="w-24" />
                   <TableHeader title="GMV 30 Days *" width="w-40" />
+                  <TableHeader title="GMV 30D (Video)" width="w-32" />
+                  <TableHeader title="GMV 30D (Live)" width="w-32" />
                   <TableHeader title="Rate Card (Rp)" width="w-40" />
                   <TableHeader title="Qty VT" width="w-24" />
                   <TableHeader title="Qty Live" width="w-24" />
@@ -744,46 +702,40 @@ export default function SpreadsheetImportCreatorClient() {
               </thead>
               <tbody>
                 {rows.map((row, idx) => {
-                  const hasError = row.status === 'error' || row.status === 'incomplete';
                   return (
                     <tr key={row.id} className="hover:bg-slate-50/50">
                       <td className="px-2 py-1 border-b border-r border-slate-300 text-center text-xs text-slate-400 font-mono bg-slate-50">
                         {idx + 1}
                       </td>
                       
-                      {/* USERNAME */}
-                      <td className="relative p-0 border-b border-r border-slate-300 group" onMouseEnter={() => handleDragFillEnter(idx)}>
-                        <input type="text" value={row.username} onChange={(e) => updateCell(idx, 'username', e.target.value)} onPaste={(e) => handlePaste(e, idx, 'username')} className={`w-full h-full min-h-[36px] px-3 py-1 outline-none text-sm transition-colors ${hasError ? 'bg-red-50 text-red-700' : 'focus:bg-blue-50'} w-48`} />
+                      <td className="relative p-0 border-b border-r border-slate-300 group">
+                        <input type="text" value={row.username} onChange={(e) => updateCell(idx, 'username', e.target.value)} onPaste={(e) => handlePaste(e, idx, 'username')} className={`w-full h-full min-h-[36px] px-3 py-1 outline-none text-sm transition-colors focus:bg-blue-50 w-48`} />
                       </td>
                       
-                      {/* NO WA */}
-                      <td className="relative p-0 border-b border-r border-slate-300 group" onMouseEnter={() => handleDragFillEnter(idx)}>
+                      <td className="relative p-0 border-b border-r border-slate-300 group">
                         <input type="text" value={row.no_wa} onChange={(e) => updateCell(idx, 'no_wa', e.target.value)} onPaste={(e) => handlePaste(e, idx, 'no_wa')} className={`w-full h-full min-h-[36px] px-3 py-1 outline-none text-sm transition-colors focus:bg-blue-50 w-40`} />
-                        <div className="absolute right-0 bottom-0 w-2 h-2 bg-blue-500 cursor-crosshair opacity-0 group-hover:opacity-100 transition-opacity z-10" onMouseDown={(e) => { e.preventDefault(); handleDragFillStart(idx, 'no_wa', row.no_wa); }} />
                       </td>
                       
-                      {/* FOLLOWERS */}
-                      <td className="relative p-0 border-b border-r border-slate-300 group" onMouseEnter={() => handleDragFillEnter(idx)}>
-                        <input type="text" value={row.followers} onChange={(e) => updateCell(idx, 'followers', e.target.value)} onPaste={(e) => handlePaste(e, idx, 'followers')} className={`w-full h-full min-h-[36px] px-3 py-1 outline-none text-sm transition-colors ${!row.followers && row.status === 'incomplete' ? 'bg-amber-50 text-amber-700' : 'focus:bg-blue-50'} w-32`} />
-                        <div className="absolute right-0 bottom-0 w-2 h-2 bg-blue-500 cursor-crosshair opacity-0 group-hover:opacity-100 transition-opacity z-10" onMouseDown={(e) => { e.preventDefault(); handleDragFillStart(idx, 'followers', row.followers); }} />
+                      <td className="relative p-0 border-b border-r border-slate-300 group">
+                        <input type="text" value={row.followers} onChange={(e) => updateCell(idx, 'followers', e.target.value)} onPaste={(e) => handlePaste(e, idx, 'followers')} className={`w-full h-full min-h-[36px] px-3 py-1 outline-none text-sm transition-colors focus:bg-blue-50 w-32`} />
                       </td>
 
-                      {/* LEVEL */}
-                      <td className="relative p-0 border-b border-r border-slate-300 group" onMouseEnter={() => handleDragFillEnter(idx)}>
+                      <td className="relative p-0 border-b border-r border-slate-300 group">
                         <input type="text" value={row.level} onChange={(e) => updateCell(idx, 'level', e.target.value)} onPaste={(e) => handlePaste(e, idx, 'level')} className={`w-full h-full min-h-[36px] px-3 py-1 outline-none text-sm transition-colors focus:bg-blue-50 w-24`} />
-                        <div className="absolute right-0 bottom-0 w-2 h-2 bg-blue-500 cursor-crosshair opacity-0 group-hover:opacity-100 transition-opacity z-10" onMouseDown={(e) => { e.preventDefault(); handleDragFillStart(idx, 'level', row.level); }} />
                       </td>
                       
-                      {/* GMV */}
-                      <td className="relative p-0 border-b border-r border-slate-300 group" onMouseEnter={() => handleDragFillEnter(idx)}>
-                        <input type="text" value={row.gmv_30_days} onChange={(e) => updateCell(idx, 'gmv_30_days', e.target.value)} onPaste={(e) => handlePaste(e, idx, 'gmv_30_days')} className={`w-full h-full min-h-[36px] px-3 py-1 outline-none text-sm transition-colors ${!row.gmv_30_days && row.status === 'incomplete' ? 'bg-amber-50 text-amber-700' : 'focus:bg-blue-50'} w-40`} />
-                        <div className="absolute right-0 bottom-0 w-2 h-2 bg-blue-500 cursor-crosshair opacity-0 group-hover:opacity-100 transition-opacity z-10" onMouseDown={(e) => { e.preventDefault(); handleDragFillStart(idx, 'gmv_30_days', row.gmv_30_days); }} />
+                      <td className="relative p-0 border-b border-r border-slate-300 group">
+                        <input type="text" value={row.gmv_30_days} onChange={(e) => updateCell(idx, 'gmv_30_days', e.target.value)} onPaste={(e) => handlePaste(e, idx, 'gmv_30_days')} className={`w-full h-full min-h-[36px] px-3 py-1 outline-none text-sm transition-colors focus:bg-blue-50 w-40`} />
+                      </td>
+                      <td className="relative p-0 border-b border-r border-slate-300 group">
+                        <input type="text" value={row.gmv_30_days_video} onChange={(e) => updateCell(idx, 'gmv_30_days_video', e.target.value)} onPaste={(e) => handlePaste(e, idx, 'gmv_30_days_video')} className={`w-full h-full min-h-[36px] px-3 py-1 outline-none text-sm transition-colors focus:bg-blue-50 w-32`} />
+                      </td>
+                      <td className="relative p-0 border-b border-r border-slate-300 group">
+                        <input type="text" value={row.gmv_30_days_live} onChange={(e) => updateCell(idx, 'gmv_30_days_live', e.target.value)} onPaste={(e) => handlePaste(e, idx, 'gmv_30_days_live')} className={`w-full h-full min-h-[36px] px-3 py-1 outline-none text-sm transition-colors focus:bg-blue-50 w-32`} />
                       </td>
                       
-                      {/* RATE CARD */}
-                      <td className="relative p-0 border-b border-r border-slate-300 group" onMouseEnter={() => handleDragFillEnter(idx)}>
+                      <td className="relative p-0 border-b border-r border-slate-300 group">
                         <input type="text" value={row.rate_card} onChange={(e) => updateCell(idx, 'rate_card', e.target.value)} onPaste={(e) => handlePaste(e, idx, 'rate_card')} className={`w-full h-full min-h-[36px] px-3 py-1 outline-none text-sm transition-colors focus:bg-blue-50 w-40`} />
-                        <div className="absolute right-0 bottom-0 w-2 h-2 bg-blue-500 cursor-crosshair opacity-0 group-hover:opacity-100 transition-opacity z-10" onMouseDown={(e) => { e.preventDefault(); handleDragFillStart(idx, 'rate_card', row.rate_card); }} />
                       </td>
                       
                       {/* QTY VT */}
@@ -972,13 +924,15 @@ export default function SpreadsheetImportCreatorClient() {
                           <th className="px-4 py-3 font-medium">Username</th>
                           <th className="px-4 py-3 font-medium w-48">Followers</th>
                           <th className="px-4 py-3 font-medium w-48">GMV 30 Days</th>
+                          <th className="px-4 py-3 font-medium w-32">GMV (Video)</th>
+                          <th className="px-4 py-3 font-medium w-32">GMV (Live)</th>
                           <th className="px-4 py-3 font-medium">Status</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 bg-white">
                         {incompleteRows.map((r, idx) => {
                           const missF = !r.followers;
-                          const missG = !r.gmv_30_days;
+                          const missG = !r.gmv_30_days && !r.gmv_30_days_video && !r.gmv_30_days_live;
                           return (
                             <tr key={`inc_${r.id}`} className={r.status === 'baru' ? 'bg-emerald-50/30' : 'bg-white'}>
                               <td className="px-4 py-3 font-medium text-slate-700">@{r.username}</td>
@@ -987,6 +941,12 @@ export default function SpreadsheetImportCreatorClient() {
                               </td>
                               <td className="px-4 py-3">
                                 <input type="text" value={r.gmv_30_days} onChange={e => handleUpdateIncomplete(idx, 'gmv_30_days', e.target.value)} placeholder="0" className={`w-full px-3 py-1.5 text-sm border rounded ${missG ? 'border-red-300 focus:border-red-500 outline-none focus:ring-1 ring-red-500' : 'border-slate-200'}`} />
+                              </td>
+                              <td className="px-4 py-3">
+                                <input type="text" value={r.gmv_30_days_video} onChange={e => handleUpdateIncomplete(idx, 'gmv_30_days_video', e.target.value)} placeholder="0" className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded" />
+                              </td>
+                              <td className="px-4 py-3">
+                                <input type="text" value={r.gmv_30_days_live} onChange={e => handleUpdateIncomplete(idx, 'gmv_30_days_live', e.target.value)} placeholder="0" className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded" />
                               </td>
                               <td className="px-4 py-3">
                                 {r.status === 'baru' ? (
