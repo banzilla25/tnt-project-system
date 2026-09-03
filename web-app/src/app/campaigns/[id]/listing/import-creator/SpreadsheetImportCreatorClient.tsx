@@ -263,6 +263,75 @@ export default function SpreadsheetImportCreatorClient() {
     }
   };
 
+  const handleUsernameBlur = async (idx: number, val: string) => {
+    const uname = val.replace(/^@/, '').toLowerCase().trim();
+    if (!uname) return;
+    
+    try {
+      // Fetch DB
+      const { data: dbCreator } = await supabase.from('creators')
+        .select('id, creator_snapshots(followers, gmv_30d, gmv_30d_video, gmv_30d_live, ratecard, level), creator_contacts(nomor, status)')
+        .eq('username', uname)
+        .single();
+        
+      if (!dbCreator) return;
+      
+      const snaps = (dbCreator.creator_snapshots || []).sort((a: any, b: any) => b.id - a.id);
+      const lastSnap = snaps[0] || {};
+      const activeContact = (dbCreator.creator_contacts || []).find((c: any) => c.status === 'aktif');
+      
+      const { data: ccData } = await supabase.from('campaign_creators')
+        .select('price, qty_vt, qty_live')
+        .eq('campaign_id', campaignId)
+        .eq('creator_id', dbCreator.id)
+        .single();
+
+      setRows(prev => {
+        const newRows = [...prev];
+        const row = { ...newRows[idx] };
+        
+        let updated = false;
+        
+        const checkAndUpdate = (field: keyof SpreadsheetRow, newVal: any) => {
+          if (newVal !== undefined && newVal !== null && newVal !== '') {
+            const strVal = newVal.toString();
+            if (!row[field] || row[field] !== strVal) {
+              (row as any)[field] = strVal;
+              updated = true;
+            }
+          }
+        };
+
+        if (activeContact?.nomor) checkAndUpdate('no_wa', activeContact.nomor);
+        if (lastSnap.followers) checkAndUpdate('followers', lastSnap.followers);
+        if (lastSnap.level) checkAndUpdate('level', lastSnap.level);
+        if (lastSnap.gmv_30d) checkAndUpdate('gmv_30_days', lastSnap.gmv_30d);
+        if (lastSnap.gmv_30d_video) checkAndUpdate('gmv_30_days_video', lastSnap.gmv_30d_video);
+        if (lastSnap.gmv_30d_live) checkAndUpdate('gmv_30_days_live', lastSnap.gmv_30d_live);
+        
+        if (ccData) {
+          if (ccData.price) checkAndUpdate('rate_card', ccData.price);
+          if (ccData.qty_vt !== undefined) checkAndUpdate('qty_vt', ccData.qty_vt);
+          if (ccData.qty_live !== undefined) checkAndUpdate('qty_live', ccData.qty_live);
+          
+          const vt = Number(row.qty_vt) || 0;
+          const live = Number(row.qty_live) || 0;
+          row.content_type = determineContentType(vt, live);
+        } else if (lastSnap.ratecard) {
+          checkAndUpdate('rate_card', lastSnap.ratecard);
+        }
+
+        if (updated) {
+          newRows[idx] = row;
+          return newRows;
+        }
+        return prev;
+      });
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const updateCell = (idx: number, field: keyof SpreadsheetRow, value: string) => {
     const newRows = [...rows];
     let cleaned = value;
@@ -426,25 +495,49 @@ export default function SpreadsheetImportCreatorClient() {
         row.creatorId = dbCreator.id;
         const snaps = (dbCreator.creator_snapshots || []).sort((a: any, b: any) => b.id - a.id);
         const lastSnap = snaps[0] || {};
+        const activeContact = (dbCreator.creator_contacts || []).find((c: any) => c.status === 'aktif');
         
-        if (!row.followers && lastSnap.followers) currentFollowers = lastSnap.followers.toString();
-        if (!row.gmv_30_days && lastSnap.gmv_30d) currentGmv = lastSnap.gmv_30d.toString();
-        if (!row.gmv_30_days_video && lastSnap.gmv_30d_video) currentGmvVid = lastSnap.gmv_30d_video.toString();
-        if (!row.gmv_30_days_live && lastSnap.gmv_30d_live) currentGmvLive = lastSnap.gmv_30d_live.toString();
-        
-        row.followers = currentFollowers;
-        row.gmv_30_days = currentGmv;
-        row.gmv_30_days_video = currentGmvVid;
-        row.gmv_30_days_live = currentGmvLive;
-      }
+        const checkAndUpdate = (field: keyof SpreadsheetRow, newVal: any) => {
+          if (newVal !== undefined && newVal !== null && newVal !== '') {
+            const strVal = newVal.toString();
+            if (!row[field] || row[field] !== strVal) {
+              (row as any)[field] = strVal;
+            }
+          }
+        };
 
-      if (campaignCreator) {
-        row.status = 'duplicate_campaign';
-        row.existingData = campaignCreator;
-        row.action = 'skip';
-        hasDuplicates = true;
+        if (activeContact?.nomor) checkAndUpdate('no_wa', activeContact.nomor);
+        if (lastSnap.followers) checkAndUpdate('followers', lastSnap.followers);
+        if (lastSnap.level) checkAndUpdate('level', lastSnap.level);
+        if (lastSnap.gmv_30d) checkAndUpdate('gmv_30_days', lastSnap.gmv_30d);
+        if (lastSnap.gmv_30d_video) checkAndUpdate('gmv_30_days_video', lastSnap.gmv_30d_video);
+        if (lastSnap.gmv_30d_live) checkAndUpdate('gmv_30_days_live', lastSnap.gmv_30d_live);
+        
+        if (campaignCreator) {
+          if (campaignCreator.price) checkAndUpdate('rate_card', campaignCreator.price);
+          if (campaignCreator.qty_vt !== undefined) checkAndUpdate('qty_vt', campaignCreator.qty_vt);
+          if (campaignCreator.qty_live !== undefined) checkAndUpdate('qty_live', campaignCreator.qty_live);
+          
+          const vt = Number(row.qty_vt) || 0;
+          const live = Number(row.qty_live) || 0;
+          row.content_type = determineContentType(vt, live);
+          
+          // Auto-update instead of prompting
+          row.status = 'duplicate_campaign';
+          row.existingData = campaignCreator;
+          row.action = 'update';
+        } else {
+          if (lastSnap.ratecard) checkAndUpdate('rate_card', lastSnap.ratecard);
+          
+          if (!row.followers || (!row.gmv_30_days && !row.gmv_30_days_video && !row.gmv_30_days_live)) {
+            row.status = 'incomplete';
+            hasIncompletes = true;
+          } else {
+            row.status = 'baru';
+          }
+        }
       } else {
-        if (!currentFollowers || (!currentGmv && !currentGmvVid && !currentGmvLive)) {
+        if (!row.followers || (!row.gmv_30_days && !row.gmv_30_days_video && !row.gmv_30_days_live)) {
           row.status = 'incomplete';
           hasIncompletes = true;
         } else {
@@ -709,7 +802,7 @@ export default function SpreadsheetImportCreatorClient() {
                       </td>
                       
                       <td className="relative p-0 border-b border-r border-slate-300 group">
-                        <input type="text" value={row.username} onChange={(e) => updateCell(idx, 'username', e.target.value)} onPaste={(e) => handlePaste(e, idx, 'username')} className={`w-full h-full min-h-[36px] px-3 py-1 outline-none text-sm transition-colors focus:bg-blue-50 w-48`} />
+                        <input type="text" value={row.username} onChange={(e) => updateCell(idx, 'username', e.target.value)} onBlur={(e) => handleUsernameBlur(idx, e.target.value)} onPaste={(e) => handlePaste(e, idx, 'username')} className={`w-full h-full min-h-[36px] px-3 py-1 outline-none text-sm transition-colors focus:bg-blue-50 w-48`} />
                       </td>
                       
                       <td className="relative p-0 border-b border-r border-slate-300 group">
