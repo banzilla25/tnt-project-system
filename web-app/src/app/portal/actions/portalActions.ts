@@ -110,7 +110,7 @@ export async function getPortalData(campaignId: number) {
         content_type,
         sample_progress,
         creators(username, nama_asli, link_account, creator_snapshots(id, tanggal_update, followers, level, tier), creator_contacts(nomor, status)),
-        videos(id, link_video, content_uid, vt_approval, urutan)
+        videos(id, link_video, content_uid, vt_approval, urutan, created_at)
       `)
       .eq('campaign_id', campaignId)
       .eq('approval', 'approved')
@@ -532,29 +532,88 @@ export async function getPortalData(campaignId: number) {
     });
   }
 
-  // 3. Video count per month from videoStats (already fetched)
-  (videoStats || []).forEach((v: any) => {
-    const rawDate = v.post_time || v.tanggal;
-    if (!rawDate) return;
-    const dateStr = typeof rawDate === 'string' ? rawDate.substring(0, 10) : new Date(rawDate).toISOString().substring(0, 10);
-    if (!dateStr) return;
-    if (campaignStartStr && dateStr < campaignStartStr) return;
-    const monthStr = dateStr.substring(0, 7);
-    if (!monthlyMap[monthStr]) monthlyMap[monthStr] = { gmvOrganic: 0, gmvAds: 0, videos: new Set(), videoCreators: new Set(), liveSessions: new Set() };
-    if (v.content_uid) monthlyMap[monthStr].videos.add(v.content_uid);
-    if (v.username) monthlyMap[monthStr].videoCreators.add(v.username);
+  // Fetch organic_videos to get actual post_times
+  const creatorUsernames = Array.from(new Set(enrichedCcData.map(cc => cc.creators?.username).filter(Boolean)));
+  let allOrganicVideos: any[] = [];
+  if (creatorUsernames.length > 0) {
+    const chunkSize = 200;
+    for (let i = 0; i < creatorUsernames.length; i += chunkSize) {
+      const chunk = creatorUsernames.slice(i, i + chunkSize);
+      const { data: orgData } = await supabase
+        .from('organic_videos')
+        .select('content_uid, post_time, content_type, creator_username')
+        .in('creator_username', chunk)
+        .eq('campaign_id', campaignId);
+      if (orgData) {
+        allOrganicVideos = [...allOrganicVideos, ...orgData];
+      }
+    }
+  }
+
+  // Helper to get WIB date string
+  const toWIBDateStr = (dateInput: string | Date | undefined | null) => {
+    if (!dateInput) return null;
+    try {
+      const d = new Date(dateInput);
+      if (isNaN(d.getTime())) return null;
+      // Convert to WIB (UTC+7)
+      const utc = d.getTime() + (d.getTimezoneOffset() * 60000);
+      const wib = new Date(utc + (3600000 * 7));
+      return wib.toISOString().substring(0, 10);
+    } catch {
+      return null;
+    }
+  };
+
+  // 3. Count Videos from DB (ccData.videos)
+  enrichedCcData.forEach((cc: any) => {
+    if (cc.videos && Array.isArray(cc.videos)) {
+      cc.videos.forEach((v: any) => {
+        if (!v.created_at || !v.content_uid) return;
+        const dateStr = toWIBDateStr(v.created_at);
+        if (!dateStr) return;
+        if (campaignStartStr && dateStr < campaignStartStr) return;
+        const monthStr = dateStr.substring(0, 7);
+        if (!monthlyMap[monthStr]) monthlyMap[monthStr] = { gmvOrganic: 0, gmvAds: 0, videos: new Set(), videoCreators: new Set(), liveSessions: new Set() };
+        
+        let videoId = v.content_uid;
+        if (v.link_video && !videoId) {
+           const match = v.link_video.match(/\/video\/(\d+)/);
+           if (match && match[1]) videoId = match[1];
+        }
+        
+        monthlyMap[monthStr].videos.add(videoId);
+        if (cc.creators?.username) monthlyMap[monthStr].videoCreators.add(cc.creators.username);
+      });
+    }
   });
 
-  // 4. Live count per month from actualLives (already fetched)
-  actualLives.forEach((l: any) => {
-    const rawDate = l.start_time || l.tanggal;
-    if (!rawDate) return;
-    const dateStr = typeof rawDate === 'string' ? rawDate.substring(0, 10) : new Date(rawDate).toISOString().substring(0, 10);
+  // 4. Count from Organic Videos & Livestreams
+  allOrganicVideos.forEach((v: any) => {
+    if (!v.post_time || !v.content_uid) return;
+    const dateStr = toWIBDateStr(String(v.post_time));
     if (!dateStr) return;
     if (campaignStartStr && dateStr < campaignStartStr) return;
     const monthStr = dateStr.substring(0, 7);
     if (!monthlyMap[monthStr]) monthlyMap[monthStr] = { gmvOrganic: 0, gmvAds: 0, videos: new Set(), videoCreators: new Set(), liveSessions: new Set() };
-    if (l.content_uid) monthlyMap[monthStr].liveSessions.add(l.content_uid);
+
+    if (v.content_type === 'Video') {
+      monthlyMap[monthStr].videos.add(v.content_uid.toString());
+      if (v.creator_username) monthlyMap[monthStr].videoCreators.add(v.creator_username);
+    } else if (v.content_type === 'Livestream' || v.content_type === 'Live') {
+      monthlyMap[monthStr].liveSessions.add(v.content_uid.toString());
+    }
+  });
+
+  // Count Live Sessions from actualLives (has start_time)
+  actualLives.forEach((l: any) => {
+    if (!l.start_time) return;
+    const dateStr = toWIBDateStr(String(l.start_time));
+    if (!dateStr) return;
+    if (campaignStartStr && dateStr < campaignStartStr) return;
+    const monthStr = dateStr.substring(0, 7);
+    if (!monthlyMap[monthStr]) monthlyMap[monthStr] = { gmvOrganic: 0, gmvAds: 0, videos: new Set(), videoCreators: new Set(), liveSessions: new Set() };
+    if (l.content_uid) monthlyMap[monthStr].liveSessions.add(l.content_uid.toString());
   });
 
   const monthlyStats = Object.keys(monthlyMap)
