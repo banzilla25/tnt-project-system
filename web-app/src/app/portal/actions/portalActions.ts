@@ -569,17 +569,17 @@ export async function getPortalData(campaignId: number) {
   enrichedCcData.forEach((cc: any) => {
     if (cc.videos && Array.isArray(cc.videos)) {
       cc.videos.forEach((v: any) => {
-        if (!v.created_at || !v.content_uid) return;
+        if (!v.created_at || !v.link_video) return; 
         const dateStr = toWIBDateStr(v.created_at);
         if (!dateStr) return;
         if (campaignStartStr && dateStr < campaignStartStr) return;
-        const monthStr = dateStr.substring(0, 7);
+        const monthStr = v.created_at.substring(0, 7); // Uses UTC month string exactly like DailyClient
         if (!monthlyMap[monthStr]) monthlyMap[monthStr] = { gmvOrganic: 0, gmvAds: 0, videos: new Set(), videoCreators: new Set(), liveSessions: new Set() };
         
-        let videoId = v.content_uid;
-        if (v.link_video && !videoId) {
-           const match = v.link_video.match(/\/video\/(\d+)/);
-           if (match && match[1]) videoId = match[1];
+        let videoId = v.id.toString();
+        const match = v.link_video.match(/\/video\/(\d+)/);
+        if (match && match[1]) {
+          videoId = match[1];
         }
         
         monthlyMap[monthStr].videos.add(videoId);
@@ -604,6 +604,17 @@ export async function getPortalData(campaignId: number) {
     } else if (v.content_type === 'Livestream' || v.content_type === 'Live') {
       monthlyMap[monthStr].liveSessions.add(v.content_uid.toString());
     }
+  });
+
+  // 5. Count Live Sessions from actualLives (has start_time)
+  actualLives.forEach((l: any) => {
+    if (!l.start_time) return;
+    const dateStr = toWIBDateStr(String(l.start_time));
+    if (!dateStr) return;
+    if (campaignStartStr && dateStr < campaignStartStr) return;
+    const monthStr = dateStr.substring(0, 7);
+    if (!monthlyMap[monthStr]) monthlyMap[monthStr] = { gmvOrganic: 0, gmvAds: 0, videos: new Set(), videoCreators: new Set(), liveSessions: new Set() };
+    if (l.content_uid) monthlyMap[monthStr].liveSessions.add(l.content_uid.toString());
   });
 
   const monthlyStats = Object.keys(monthlyMap)
