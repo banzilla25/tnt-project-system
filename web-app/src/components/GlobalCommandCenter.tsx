@@ -33,39 +33,32 @@ export function GlobalCommandCenter({ role, onSuccess }: { role: string, onSucce
     try {
       const data = await fetchCommandCenterBatches();
       
-      let filtered = data || [];
-      if (role === 'manager') {
-        filtered = filtered.filter(b => b.status === 'pending_manager');
-      } else if (role === 'executive') {
-        if (subTab === 'exec_approval') {
-          filtered = filtered.filter(b => ['pending_manager', 'pending_executive_1', 'pending_executive'].includes(b.status));
-        } else if (subTab === 'review') {
-          filtered = filtered.filter(b => b.status === 'pending_finance');
-        } else if (subTab === 'transfer') {
-          filtered = filtered.filter(b => b.status === 'ready_to_pay');
-        }
-      } else if (role === 'finance') {
-        if (subTab === 'review') {
-          filtered = filtered.filter(b => b.status === 'pending_finance');
-        } else {
-          filtered = filtered.filter(b => b.status === 'ready_to_pay');
-        }
-      }
-      
-      // Also filter items based on what makes sense for the role/tab
-      const processedBatches = filtered.map(b => {
+      let processedBatches = (data || []).map(b => {
         let validItems = b.payment_items || [];
         if (role === 'manager') {
           validItems = validItems.filter((i:any) => i.final_status === 'pending');
         } else if (subTab === 'review') {
           validItems = validItems.filter((i:any) => ['executive_1_approved', 'pending_finance_outstanding'].includes(i.final_status));
         } else if (subTab === 'transfer') {
-          validItems = validItems.filter((i:any) => i.final_status === 'finance_selected' || i.final_status === 'ready_to_pay');
+          validItems = validItems.filter((i:any) => ['finance_selected', 'ready_to_pay', 'executive_approved'].includes(i.final_status));
         } else if (subTab === 'exec_approval' && role === 'executive') {
           validItems = validItems.filter((i:any) => ['pending', 'manager_approved', 'finance_selected'].includes(i.final_status));
         }
         return { ...b, payment_items: validItems };
       }).filter(b => b.payment_items.length > 0);
+
+      // Apply batch status gatekeeping if needed, but allow items that are ready/pending_outstanding to override strict batch statuses
+      if (role === 'manager') {
+        processedBatches = processedBatches.filter(b => b.status === 'pending_manager');
+      } else if (role === 'executive') {
+        if (subTab === 'exec_approval') {
+          processedBatches = processedBatches.filter(b => ['pending_manager', 'pending_executive_1', 'pending_executive'].includes(b.status));
+        }
+        // for review and transfer, we rely on item presence instead of strictly blocking by batch status, 
+        // to handle mixed-status batches (e.g. pending_finance_outstanding items in a ready_to_pay batch)
+      } else if (role === 'finance') {
+        // same here, rely on item presence for review and transfer
+      }
 
       setBatches(processedBatches);
       setExpandedBatches(new Set(processedBatches.map(b => b.id)));
