@@ -270,8 +270,12 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
             monthlyGrouped[monthStr].videos.add(v.content_uid.toString());
             if (v.creator_username) monthlyGrouped[monthStr].videoCreators.add(v.creator_username);
           } else if (v.content_type === 'Livestream' || v.content_type === 'Live') {
-            grouped[dateStr].liveSessions.add(v.content_uid.toString());
-            monthlyGrouped[monthStr].liveSessions.add(v.content_uid.toString());
+            const uidStr = v.content_uid ? v.content_uid.toString() : '';
+            const isDummy = !uidStr || uidStr === '-' || uidStr === '0' || uidStr.toLowerCase() === 'n/a' || uidStr === 'null';
+            const uniqueKey = isDummy ? `dummy_${v.creator_username}_${dateStr}_${Math.random()}` : uidStr;
+            
+            grouped[dateStr].liveSessions.add(uniqueKey);
+            monthlyGrouped[monthStr].liveSessions.add(uniqueKey);
           }
         });
       }
@@ -285,11 +289,17 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
           if (campaignEndStr && dateStr > campaignEndStr) return;
           
           if (!grouped[dateStr]) grouped[dateStr] = { gmv: 0, gmvAds: 0, creators: new Map(), pendingCreators: new Map(), videos: new Set(), videoCreators: new Set(), gmvLive: 0, gmvVT: 0, ordersLive: 0, ordersVT: 0, liveSessions: new Set(), liveCreators: new Map(), pendingLiveCreators: new Map() };
-          if (l.content_uid) grouped[dateStr].liveSessions.add(l.content_uid);
+          
+          const uidStr = l.content_uid ? l.content_uid.toString() : '';
+          const isDummy = !uidStr || uidStr === '-' || uidStr === '0' || uidStr.toLowerCase() === 'n/a' || uidStr === 'null';
+          const uniqueKey = isDummy ? `dummy_${l.creator_username}_${dateStr}_${Math.random()}` : uidStr;
+
+          grouped[dateStr].liveSessions.add(uniqueKey);
 
           const monthStr = dateStr.substring(0, 7);
           if (!monthlyGrouped[monthStr]) monthlyGrouped[monthStr] = { gmv: 0, gmvAds: 0, creators: new Map(), pendingCreators: new Map(), videos: new Set(), videoCreators: new Set(), gmvLive: 0, gmvVT: 0, ordersLive: 0, ordersVT: 0, liveSessions: new Set(), liveCreators: new Map(), pendingLiveCreators: new Map() };
-          if (l.content_uid) monthlyGrouped[monthStr].liveSessions.add(l.content_uid);
+          
+          monthlyGrouped[monthStr].liveSessions.add(uniqueKey);
         });
       }
 
