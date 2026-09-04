@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
       .update({ campaign_id: campaignId } as any)
       .is('campaign_id', null)
       .eq('product_id', productId)
-      .select('id');
+      .select('creator_username');
 
     if (errSales) {
       console.error("Error syncing unmapped sales:", errSales);
@@ -41,9 +41,49 @@ export async function POST(req: NextRequest) {
       throw errVideos;
     }
 
+    // 3. Auto-Register Creators
+    const uniqueUsernames = new Set<string>();
+    updatedSales?.forEach(s => { if (s.creator_username) uniqueUsernames.add(s.creator_username.toLowerCase()); });
+    updatedVideos?.forEach(v => { if (v.creator_username) uniqueUsernames.add(v.creator_username.toLowerCase()); });
+    
+    const usernames = Array.from(uniqueUsernames);
+    if (usernames.length > 0) {
+      // a. Check missing from creators
+      const { data: existingCreators } = await supabase.from('creators').select('username').in('username', usernames);
+      const existingCreatorNames = new Set((existingCreators || []).map(c => c.username.toLowerCase()));
+      const missingCreators = usernames.filter(u => !existingCreatorNames.has(u));
+      
+      if (missingCreators.length > 0) {
+        const newCreators = missingCreators.map(u => ({ username: u, nama_asli: u }));
+        await supabase.from('creators').insert(newCreators);
+      }
+
+      // b. Check missing from campaign_creators
+      const { data: existingCcs } = await supabase.from('campaign_creators')
+        .select('creators!inner(username)')
+        .eq('campaign_id', campaignId)
+        .in('creators.username', usernames);
+        
+      const existingCcNames = new Set((existingCcs || []).map(cc => cc.creators.username.toLowerCase()));
+      const missingCcs = usernames.filter(u => !existingCcNames.has(u));
+      
+      if (missingCcs.length > 0) {
+        // We need the creator IDs for those missing
+        const { data: creatorsForCcs } = await supabase.from('creators').select('id, username').in('username', missingCcs);
+        if (creatorsForCcs) {
+          const newCcsToInsert = creatorsForCcs.map(c => ({
+            campaign_id: campaignId,
+            creator_id: c.id,
+            approval: 'pending'
+          }));
+          await supabase.from('campaign_creators').insert(newCcsToInsert);
+        }
+      }
+    }
+
     let newlyAssignedCount = 0;
 
-    // 3. Auto-Assign to videos table
+    // 4. Auto-Assign to videos table
     if (updatedVideos && updatedVideos.length > 0) {
       // Deduplicate by content_uid
       const uniqueMap = new Map();
