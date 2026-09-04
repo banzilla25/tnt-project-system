@@ -323,6 +323,7 @@ function CampaignCardItem({ campaign, brand, isManager }: { campaign: any, brand
   const [isDeleting, setIsDeleting] = useState(false);
   const [formData, setFormData] = useState({
     nama: campaign.nama, tipe_campaign: campaign.tipe_campaign, status: campaign.status,
+    campaign_group: campaign.campaign_group || 'Tim Campaign',
     start_date: campaign.start_date, end_date: campaign.end_date,
     target_gmv: campaign.target_gmv || '', target_video: campaign.target_video || '',
     target_creator: campaign.target_creator || '', target_views: campaign.target_views || '',
@@ -352,7 +353,8 @@ function CampaignCardItem({ campaign, brand, isManager }: { campaign: any, brand
       target_creator_mega: formData.target_creator_mega ? Number(formData.target_creator_mega) : 0,
       target_views: formData.target_views ? Number(formData.target_views) : null,
       budget_creator_plafon: Number(formData.budget_creator_plafon || 0), budget_ads_plafon: Number(formData.budget_ads_plafon || 0),
-      require_client_approval: formData.require_client_approval
+      require_client_approval: formData.require_client_approval,
+      campaign_group: formData.campaign_group || 'Tim Campaign'
     });
     setSaving(false);
     setIsExpanded(false);
@@ -474,6 +476,13 @@ function CampaignCardItem({ campaign, brand, isManager }: { campaign: any, brand
                       <option value="sales">Sales</option>
                       <option value="awareness">Awareness</option>
                       <option value="gmv_awareness">GMV + AWARENESS</option>
+                    </select>
+                  </div>
+                  <div className="space-y-[6px]">
+                    <label className="text-[12px] font-semibold text-text-soft">Grup Tim</label>
+                    <select required className="select !p-[8px] !text-[13px]" value={formData.campaign_group} onChange={e => setFormData({...formData, campaign_group: e.target.value})}>
+                      <option value="Tim Campaign">Tim Campaign</option>
+                      <option value="Tim MCN">Tim MCN</option>
                     </select>
                   </div>
                   <div className="space-y-[6px]">
