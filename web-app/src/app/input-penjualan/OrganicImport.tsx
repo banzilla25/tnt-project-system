@@ -627,13 +627,14 @@ export default function OrganicImport({ mode = 'sales' }: { mode?: 'sales' | 'vi
         }
       } else if (item.content_uid) {
         // Engagement Route (Custom Report)
-        if (!videoMap.has(item.content_uid)) {
-          videoMap.set(item.content_uid, { ...item });
+        const compositeKey = `${item.content_uid}_${item.product_id || 'unknown'}`;
+        if (!videoMap.has(compositeKey)) {
+          videoMap.set(compositeKey, { ...item });
         } else {
           // If the existing entry doesn't have a campaign_id but the new one does, prioritize the new one
-          const existing = videoMap.get(item.content_uid);
+          const existing = videoMap.get(compositeKey);
           if (!existing.campaign_id && item.campaign_id) {
-            videoMap.set(item.content_uid, { ...item });
+            videoMap.set(compositeKey, { ...item });
           }
         }
       }
@@ -678,14 +679,14 @@ export default function OrganicImport({ mode = 'sales' }: { mode?: 'sales' | 'vi
       if (videoChunk.length > 0) {
         // Fetch existing videos to ensure we don't shrink views/likes with a partial date report
         const uids = videoChunk.map(v => v.content_uid);
-        const { data: existingVids } = await supabase.from('organic_videos').select('content_uid, video_views, video_likes').in('content_uid', uids);
+        const { data: existingVids } = await supabase.from('organic_videos').select('content_uid, product_id, video_views, video_likes').in('content_uid', uids);
         const existingMap = new Map();
         if (existingVids) {
-          existingVids.forEach(ev => existingMap.set(ev.content_uid, ev));
+          existingVids.forEach(ev => existingMap.set(`${ev.content_uid}_${ev.product_id || 'unknown'}`, ev));
         }
         
         const finalVideoChunk = videoChunk.map(v => {
-          const ex = existingMap.get(v.content_uid);
+          const ex = existingMap.get(`${v.content_uid}_${v.product_id || 'unknown'}`);
           if (ex) {
             return {
               ...v,
@@ -696,7 +697,7 @@ export default function OrganicImport({ mode = 'sales' }: { mode?: 'sales' | 'vi
           return v;
         });
 
-        await supabase.from('organic_videos').upsert(finalVideoChunk as any, { onConflict: 'content_uid' });
+        await supabase.from('organic_videos').upsert(finalVideoChunk as any, { onConflict: 'content_uid, product_id' });
       }
 
       if (error) {
