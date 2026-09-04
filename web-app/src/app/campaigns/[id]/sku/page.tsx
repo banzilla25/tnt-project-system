@@ -19,14 +19,67 @@ export default function SkuPage() {
   const campaignSkus = skus.filter(s => s.campaign_id === campaignId);
 
   const [isAdding, setIsAdding] = useState(false);
-  const [newSku, setNewSku] = useState({
-    nama_produk: '',
-    product_id: '',
-    satuan_bundle: '',
-    commission: '',
-    link_gmv_max: '',
-    link_tap: ''
-  });
+  const [isSaving, setIsSaving] = useState(false);
+  
+  type SkuRow = { id: string; nama_produk: string; product_id: string; satuan_bundle: string; commission: string; };
+  const [newRows, setNewRows] = useState<SkuRow[]>([]);
+
+  const handleAddClick = () => {
+    setIsAdding(true);
+    setNewRows(Array(3).fill(null).map(() => ({
+      id: Math.random().toString(36).substring(2,9),
+      nama_produk: '', product_id: '', satuan_bundle: '', commission: ''
+    })));
+  };
+
+  const updateRow = (id: string, field: keyof SkuRow, value: string) => {
+    setNewRows(prev => prev.map(r => r.id === id ? { ...r, [field]: value } : r));
+  };
+
+  const handlePaste = (e: React.ClipboardEvent, startRowId: string, colIdx: number) => {
+    e.preventDefault();
+    const pasteData = e.clipboardData.getData('text');
+    if (!pasteData) return;
+    
+    const pastedRows = pasteData.split(/\r?\n/).filter(r => r.trim());
+    
+    setNewRows(prev => {
+      const result = [...prev];
+      const startIdx = result.findIndex(r => r.id === startRowId);
+      if (startIdx === -1) return prev;
+      
+      let currRowIdx = startIdx;
+      const fields: (keyof SkuRow)[] = ['nama_produk', 'product_id', 'satuan_bundle', 'commission'];
+      
+      pastedRows.forEach(rowText => {
+        const cols = rowText.split('\t');
+        if (currRowIdx >= result.length) {
+          result.push({
+            id: Math.random().toString(36).substring(2,9),
+            nama_produk: '', product_id: '', satuan_bundle: '', commission: ''
+          });
+        }
+        
+        let currColIdx = colIdx;
+        cols.forEach(colText => {
+          if (currColIdx < fields.length) {
+            result[currRowIdx][fields[currColIdx]] = colText.trim();
+          }
+          currColIdx++;
+        });
+        currRowIdx++;
+      });
+      
+      return result;
+    });
+  };
+
+  const handleAddMoreRow = () => {
+    setNewRows(prev => [...prev, {
+      id: Math.random().toString(36).substring(2,9),
+      nama_produk: '', product_id: '', satuan_bundle: '', commission: ''
+    }]);
+  };
 
   const [editingSkuId, setEditingSkuId] = useState<number | null>(null);
   const [editSkuData, setEditSkuData] = useState({
@@ -37,35 +90,6 @@ export default function SkuPage() {
     link_gmv_max: '',
     link_tap: ''
   });
-
-  const handleAdd = async () => {
-    if (!newSku.nama_produk || !newSku.product_id || !hasAccess) return;
-    
-    await supabase.from('skus').insert({
-      campaign_id: campaignId,
-      nama_produk: newSku.nama_produk,
-      product_id: newSku.product_id,
-      satuan_bundle: newSku.satuan_bundle || null,
-      commission: newSku.commission ? Number(newSku.commission) : null,
-      link_gmv_max: newSku.link_gmv_max || null,
-      link_tap: newSku.link_tap || null
-    });
-    
-    // Trigger Auto-Sync Raw Data
-    try {
-      await fetch('/api/sync-unmapped', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ productId: newSku.product_id, campaignId })
-      });
-    } catch (err) {
-      console.error('Failed to sync unmapped data', e);
-    }
-    
-    setIsAdding(false);
-    setNewSku({ nama_produk: '', product_id: '', satuan_bundle: '', commission: '', link_gmv_max: '', link_tap: '' });
-    fetchData(); // Refresh data
-  };
 
   const handleDelete = async (skuId: number) => {
     if (!hasAccess) return;
@@ -123,8 +147,8 @@ export default function SkuPage() {
           <p className="text-[13px] text-text-soft">Kelola master produk untuk campaign ini.</p>
         </div>
         {hasAccess && (
-          <button className="btn btn-primary flex items-center gap-[8px]" onClick={() => setIsAdding(true)} disabled={isAdding}>
-            <Plus className="w-4 h-4" /> Tambah Produk
+          <button className="btn btn-primary flex items-center gap-[8px]" onClick={handleAddClick} disabled={isAdding}>
+            <Plus className="w-4 h-4" /> Tambah Produk Massal
           </button>
         )}
       </div>
@@ -143,24 +167,41 @@ export default function SkuPage() {
             </thead>
             <tbody>
               {isAdding && hasAccess && (
-                <tr className="bg-blue-50/50">
-                  <td>
-                    <input type="text" placeholder="Nama Produk" className="input w-full" value={newSku.nama_produk} onChange={e => setNewSku({...newSku, nama_produk: e.target.value})} />
-                  </td>
-                  <td>
-                    <input type="text" placeholder="ID TikTok Shop" className="input w-full" value={newSku.product_id} onChange={e => setNewSku({...newSku, product_id: e.target.value})} />
-                  </td>
-                  <td>
-                    <input type="text" placeholder="Satuan/Bundle" className="input w-full" value={newSku.satuan_bundle} onChange={e => setNewSku({...newSku, satuan_bundle: e.target.value})} />
-                  </td>
-                  <td>
-                    <input type="number" placeholder="Contoh: 10" className="input w-full" value={newSku.commission} onChange={e => setNewSku({...newSku, commission: e.target.value})} />
-                  </td>
-                  <td className="text-right">
-                    <button onClick={handleAdd} className="btn btn-primary !py-[6px] !px-[12px] mr-[8px]">Simpan</button>
-                    <button onClick={() => setIsAdding(false)} className="btn btn-outline !py-[6px] !px-[12px]">Batal</button>
-                  </td>
-                </tr>
+                <>
+                  {newRows.map((row) => (
+                    <tr key={row.id} className="bg-blue-50/50">
+                      <td className="p-1">
+                        <input type="text" placeholder="Nama Produk (Opsional)" className="input w-full !rounded-none !border-transparent hover:!border-slate-300 focus:!border-p300 !px-2 !py-1.5" value={row.nama_produk} onChange={e => updateRow(row.id, 'nama_produk', e.target.value)} onPaste={e => handlePaste(e, row.id, 0)} />
+                      </td>
+                      <td className="p-1">
+                        <input type="text" placeholder="ID TikTok Shop (Wajib)" className="input w-full !rounded-none !border-transparent hover:!border-slate-300 focus:!border-p300 !px-2 !py-1.5 font-mono" value={row.product_id} onChange={e => updateRow(row.id, 'product_id', e.target.value)} onPaste={e => handlePaste(e, row.id, 1)} />
+                      </td>
+                      <td className="p-1">
+                        <input type="text" placeholder="Satuan/Bundle" className="input w-full !rounded-none !border-transparent hover:!border-slate-300 focus:!border-p300 !px-2 !py-1.5" value={row.satuan_bundle} onChange={e => updateRow(row.id, 'satuan_bundle', e.target.value)} onPaste={e => handlePaste(e, row.id, 2)} />
+                      </td>
+                      <td className="p-1">
+                        <input type="number" placeholder="Contoh: 10" className="input w-full !rounded-none !border-transparent hover:!border-slate-300 focus:!border-p300 !px-2 !py-1.5" value={row.commission} onChange={e => updateRow(row.id, 'commission', e.target.value)} onPaste={e => handlePaste(e, row.id, 3)} />
+                      </td>
+                      <td className="text-right p-2">
+                        <button onClick={() => setNewRows(prev => prev.filter(r => r.id !== row.id))} className="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50" title="Hapus Baris"><Trash2 className="w-4 h-4" /></button>
+                      </td>
+                    </tr>
+                  ))}
+                  <tr className="bg-blue-50/20">
+                    <td colSpan={5} className="p-4 border-t border-blue-100">
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-[12px]">
+                          <button onClick={handleAddMoreRow} className="btn btn-outline !py-1.5 !px-3 text-sm flex items-center gap-1"><Plus className="w-3.5 h-3.5"/> Tambah 1 Baris</button>
+                          <span className="text-[12px] text-text-soft">💡 Tips: Anda bisa Paste tabel langsung dari Excel ke kotak isian di atas.</span>
+                        </div>
+                        <div className="flex gap-[8px]">
+                          <button onClick={() => setIsAdding(false)} disabled={isSaving} className="btn btn-outline">Batal</button>
+                          <button onClick={handleSaveAll} disabled={isSaving} className="btn btn-primary">{isSaving ? 'Menyimpan...' : 'Simpan Semua Produk'}</button>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                </>
               )}
 
               {campaignSkus.length === 0 && !isAdding ? (
