@@ -74,7 +74,12 @@ export async function POST(req: NextRequest) {
           const newCcsToInsert = creatorsForCcs.map(c => ({
             campaign_id: campaignId,
             creator_id: c.id,
-            approval: 'pending'
+            tier: 'Auto-Detect',
+            approval: 'pending',
+            client_approval: 'not_required',
+            status_bayar: 'belum',
+            qty_vt: 1,
+            price: 0
           }));
           await supabase.from('campaign_creators').insert(newCcsToInsert);
         }
