@@ -81,6 +81,42 @@ export default function SkuPage() {
     }]);
   };
 
+  const handleSaveAll = async () => {
+    const validRows = newRows.filter(r => r.product_id.trim() !== '');
+    if (validRows.length === 0) {
+      setIsAdding(false);
+      return;
+    }
+    
+    setIsSaving(true);
+    const insertData = validRows.map(r => ({
+      campaign_id: campaignId,
+      nama_produk: r.nama_produk || 'Produk Tanpa Nama',
+      product_id: r.product_id,
+      satuan_bundle: r.satuan_bundle || null,
+      commission: r.commission ? Number(r.commission) : null
+    }));
+
+    await supabase.from('skus').insert(insertData);
+
+    // Trigger sync for all new products
+    for (const r of validRows) {
+      try {
+        await fetch('/api/sync-unmapped', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ productId: r.product_id, campaignId })
+        });
+      } catch (err) {
+        console.error('Failed to sync', err);
+      }
+    }
+
+    setIsSaving(false);
+    setIsAdding(false);
+    fetchData();
+  };
+
   const [editingSkuId, setEditingSkuId] = useState<number | null>(null);
   const [editSkuData, setEditSkuData] = useState({
     nama_produk: '',
@@ -132,7 +168,7 @@ export default function SkuPage() {
         body: JSON.stringify({ productId: editSkuData.product_id, campaignId })
       });
     } catch (err) {
-      console.error('Failed to sync unmapped data', e);
+      console.error('Failed to sync unmapped data', err);
     }
 
     setEditingSkuId(null);
