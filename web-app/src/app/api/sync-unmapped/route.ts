@@ -34,18 +34,102 @@ export async function POST(req: NextRequest) {
       .update({ campaign_id: campaignId } as any)
       .is('campaign_id', null)
       .eq('product_id', productId)
-      .select('content_uid');
+      .select('content_uid, creator_username');
 
     if (errVideos) {
       console.error("Error syncing unmapped organic videos:", errVideos);
       throw errVideos;
     }
 
+    let newlyAssignedCount = 0;
+
+    // 3. Auto-Assign to videos table
+    if (updatedVideos && updatedVideos.length > 0) {
+      // Deduplicate by content_uid
+      const uniqueMap = new Map();
+      updatedVideos.forEach(v => {
+        if (v.content_uid && !uniqueMap.has(v.content_uid)) {
+          uniqueMap.set(v.content_uid, v);
+        }
+      });
+      const uniqueVideos = Array.from(uniqueMap.values());
+
+      if (uniqueVideos.length > 0) {
+        const uids = uniqueVideos.map(v => v.content_uid);
+        // Check which ones are already in videos table
+        const { data: existingVids } = await supabase.from('videos').select('content_uid').in('content_uid', uids);
+        const existingUids = new Set(existingVids?.map(v => v.content_uid) || []);
+
+        const missingVideos = uniqueVideos.filter(v => !existingUids.has(v.content_uid));
+
+        if (missingVideos.length > 0) {
+          const usernames = Array.from(new Set(missingVideos.map(v => v.creator_username)));
+          
+          // Get campaign_creators IDs
+          const { data: ccs } = await supabase.from('campaign_creators')
+            .select('id, creators!inner(username)')
+            .eq('campaign_id', campaignId)
+            .in('creators.username', usernames);
+
+          const ccMapping: Record<string, number> = {};
+          if (ccs) {
+            ccs.forEach((cc: any) => {
+              ccMapping[cc.creators.username.toLowerCase()] = cc.id;
+            });
+          }
+
+          const maxUrutanMap: Record<number, number> = {};
+          const ccIdsArray = Object.values(ccMapping);
+          if (ccIdsArray.length > 0) {
+            const { data: existingUrutan } = await supabase.from('videos')
+              .select('campaign_creator_id, urutan')
+              .in('campaign_creator_id', ccIdsArray);
+            
+            if (existingUrutan) {
+              existingUrutan.forEach((v: any) => {
+                const currentMax = maxUrutanMap[v.campaign_creator_id] || 0;
+                if (v.urutan > currentMax) {
+                  maxUrutanMap[v.campaign_creator_id] = v.urutan;
+                }
+              });
+            }
+          }
+
+          const newVideosToInsert: any[] = [];
+          for (const missing of missingVideos) {
+            const ccId = ccMapping[missing.creator_username?.toLowerCase()];
+            if (ccId) {
+              const nextUrutan = (maxUrutanMap[ccId] || 0) + 1;
+              maxUrutanMap[ccId] = nextUrutan;
+              newVideosToInsert.push({
+                campaign_creator_id: ccId,
+                content_uid: missing.content_uid,
+                link_video: `https://www.tiktok.com/@${missing.creator_username}/video/${missing.content_uid}`,
+                vt_approval: 'pending',
+                urutan: nextUrutan,
+                concept: 'Auto-detected from Sync Unmapped'
+              });
+            }
+          }
+
+          if (newVideosToInsert.length > 0) {
+            const { error: insertErr } = await supabase.from('videos').insert(newVideosToInsert);
+            if (insertErr) {
+              console.error("Error auto-assigning videos:", insertErr);
+            } else {
+              newlyAssignedCount = newVideosToInsert.length;
+            }
+          }
+        }
+      }
+    }
+
     return NextResponse.json({
       success: true,
       message: "Sync complete",
       updatedSalesCount: updatedSales?.length || 0,
-      updatedVideosCount: updatedVideos?.length || 0
+      updatedVideosCount: updatedVideos?.length || 0,
+      newlyAssignedVideos: newlyAssignedCount
     });
 
   } catch (error: any) {
