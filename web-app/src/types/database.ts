@@ -38,6 +38,7 @@ export type Campaign = {
   require_client_approval: boolean;
   creator_filter_type?: string | null;
   creator_filter_usernames?: string | null;
+  campaign_group?: string | null;
   created_at: string;
 };
 

@@ -15,8 +15,9 @@ export default function CampaignsPage() {
   const [isAddingNewBrand, setIsAddingNewBrand] = useState(false);
   const [newBrandName, setNewBrandName] = useState('');
   const [statusFilter, setStatusFilter] = useState<'aktif' | 'selesai' | 'arsip'>('aktif');
+  const [groupFilter, setGroupFilter] = useState<string>('all');
   const [formData, setFormData] = useState({
-    nama: '', brand_id: '', tipe_campaign: 'sales', start_date: '', end_date: '',
+    nama: '', brand_id: '', tipe_campaign: 'sales', campaign_group: 'Tim Campaign', start_date: '', end_date: '',
     target_gmv: '',
     target_video: '',
     target_creator: '',
@@ -77,12 +78,13 @@ export default function CampaignsPage() {
       budget_creator_plafon: Number(formData.budget_creator_plafon || 0),
       budget_ads_plafon: Number(formData.budget_ads_plafon || 0),
       require_client_approval: formData.require_client_approval,
+      campaign_group: formData.campaign_group || 'Tim Campaign',
       persiapan_14hari: null, vsa_gmv_max: null, pic: null, assist: null, file_concept_url: null, status: 'aktif', pin: null
     });
     setIsOpen(false);
     setIsAddingNewBrand(false);
     setNewBrandName('');
-    setFormData({ nama: '', brand_id: '', tipe_campaign: 'sales', start_date: '', end_date: '', target_gmv: '', target_video: '', target_creator: '', target_creator_nano: '', target_creator_micro: '', target_creator_macro: '', target_creator_mega: '', target_views: '', budget_creator_plafon: '', budget_ads_plafon: '', require_client_approval: false });
+    setFormData({ nama: '', brand_id: '', tipe_campaign: 'sales', campaign_group: 'Tim Campaign', start_date: '', end_date: '', target_gmv: '', target_video: '', target_creator: '', target_creator_nano: '', target_creator_micro: '', target_creator_macro: '', target_creator_mega: '', target_views: '', budget_creator_plafon: '', budget_ads_plafon: '', require_client_approval: false });
   };
 
   return (
@@ -139,6 +141,13 @@ export default function CampaignsPage() {
                       <option value="sales">Sales (Fokus GMV)</option>
                       <option value="awareness">Awareness (Fokus Views)</option>
                       <option value="gmv_awareness">GMV + AWARENESS</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Grup Tim</label>
+                    <select required className="select" value={formData.campaign_group} onChange={e => setFormData({...formData, campaign_group: e.target.value})}>
+                      <option value="Tim Campaign">Tim Campaign</option>
+                      <option value="Tim MCN">Tim MCN</option>
                     </select>
                   </div>
                   <div className="space-y-2">
@@ -244,6 +253,32 @@ export default function CampaignsPage() {
         )}
       </div>
 
+      {/* Group Filter Pills */}
+      <div className="flex items-center gap-[8px]">
+        {[
+          { key: 'all', label: 'Semua Tim' },
+          { key: 'Tim Campaign', label: 'Tim Campaign' },
+          { key: 'Tim MCN', label: 'Tim MCN' },
+        ].map(g => (
+          <button
+            key={g.key}
+            onClick={() => setGroupFilter(g.key)}
+            className={`px-[14px] py-[6px] rounded-full text-[13px] font-semibold transition-all ${
+              groupFilter === g.key
+                ? 'bg-p300 text-white shadow-sm'
+                : 'bg-line text-text-soft hover:bg-p50 hover:text-p300'
+            }`}
+          >
+            {g.label}
+            <span className={`ml-[6px] text-[11px] px-[5px] py-[1px] rounded-full ${
+              groupFilter === g.key ? 'bg-white/20 text-white' : 'bg-white text-text-soft'
+            }`}>
+              {campaigns.filter(c => c.status === statusFilter && (g.key === 'all' || (c.campaign_group || 'Tim Campaign') === g.key)).length}
+            </span>
+          </button>
+        ))}
+      </div>
+
       <div className="flex items-center gap-[8px] border-b border-line pb-0">
         {([
           { key: 'aktif', label: 'Aktif', icon: <Activity className="w-4 h-4" /> },
@@ -263,14 +298,14 @@ export default function CampaignsPage() {
             <span className={`ml-[4px] text-[11px] px-[6px] py-[2px] rounded-full ${
               statusFilter === tab.key ? 'bg-p50 text-p300' : 'bg-line text-text-soft'
             }`}>
-              {campaigns.filter(c => c.status === tab.key).length}
+              {campaigns.filter(c => c.status === tab.key && (groupFilter === 'all' || (c.campaign_group || 'Tim Campaign') === groupFilter)).length}
             </span>
           </button>
         ))}
       </div>
 
       <div className="grid gap-[16px] md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {campaigns.filter(c => c.status === statusFilter).map(campaign => {
+        {campaigns.filter(c => c.status === statusFilter && (groupFilter === 'all' || (c.campaign_group || 'Tim Campaign') === groupFilter)).map(campaign => {
           const brand = brands.find(b => b.id === campaign.brand_id);
           return <CampaignCardItem key={campaign.id} campaign={campaign} brand={brand} isManager={isManager} />;
         })}
@@ -349,9 +384,15 @@ function CampaignCardItem({ campaign, brand, isManager }: { campaign: any, brand
           )}
           <div className="ceyebrow">{brand?.nama || 'Tanpa Brand'}</div>
           <div className="ctitle max-w-[90%] group-hover:text-p300 transition-colors">{campaign.nama}</div>
-          <span className={`badge ${campaign.tipe_campaign === 'sales' ? 'b-sales' : campaign.tipe_campaign === 'gmv_awareness' ? 'b-warning' : 'b-awareness'} mt-[8px]`}>
-            {campaign.tipe_campaign.replace('_', ' + ')}
-          </span>
+          <div className="flex items-center gap-[6px] mt-[6px] flex-wrap">
+            <span className={`badge ${campaign.tipe_campaign === 'sales' ? 'b-sales' : campaign.tipe_campaign === 'gmv_awareness' ? 'b-warning' : 'b-awareness'}`}>
+              {campaign.tipe_campaign.replace('_', ' + ')}
+            </span>
+            {(campaign.campaign_group || 'Tim Campaign') === 'Tim MCN' && (
+              <span className="inline-flex items-center px-[8px] py-[2px] rounded-full text-[10px] font-bold bg-violet-100 text-violet-700">MCN</span>
+            )}
+          </div>
+
           
           <div className="flex-grow"></div>
           
