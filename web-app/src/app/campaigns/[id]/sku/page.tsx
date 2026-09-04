@@ -89,15 +89,46 @@ export default function SkuPage() {
     }
     
     setIsSaving(true);
-    const insertData = validRows.map(r => ({
-      campaign_id: campaignId,
-      nama_produk: r.nama_produk || 'Produk Tanpa Nama',
-      product_id: r.product_id,
-      satuan_bundle: r.satuan_bundle || null,
-      commission: r.commission ? Number(r.commission) : null
-    }));
+    
+    const insertData: any[] = [];
+    
+    for (const r of validRows) {
+      const existing = campaignSkus.find(s => s.product_id === r.product_id);
+      
+      const newNama = r.nama_produk || null;
+      const newSatuan = r.satuan_bundle || null;
+      const newComm = r.commission ? Number(r.commission) : null;
 
-    await supabase.from('skus').insert(insertData);
+      if (existing) {
+        // Utamakan isi (jika form kosong, pakai data lama. Jika form ada isinya, pakai data baru)
+        const updatedSatuan = newSatuan !== null ? newSatuan : existing.satuan_bundle;
+        const updatedComm = newComm !== null ? newComm : existing.commission;
+        const updatedNama = newNama !== null ? newNama : existing.nama_produk;
+
+        // Cek apakah ada perubahan
+        if (updatedSatuan !== existing.satuan_bundle || 
+            updatedComm !== existing.commission || 
+            updatedNama !== existing.nama_produk) {
+          await supabase.from('skus').update({
+            nama_produk: updatedNama,
+            satuan_bundle: updatedSatuan,
+            commission: updatedComm
+          }).eq('id', existing.id);
+        }
+      } else {
+        insertData.push({
+          campaign_id: campaignId,
+          nama_produk: newNama || 'Produk Tanpa Nama',
+          product_id: r.product_id,
+          satuan_bundle: newSatuan,
+          commission: newComm
+        });
+      }
+    }
+
+    if (insertData.length > 0) {
+      await supabase.from('skus').insert(insertData);
+    }
 
     // Trigger sync for all new products
     for (const r of validRows) {
