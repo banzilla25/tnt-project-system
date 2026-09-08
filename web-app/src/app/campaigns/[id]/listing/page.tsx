@@ -1621,25 +1621,27 @@ function CampaignListingContent() {
       const { count } = await countQuery;
       setExportProgress({ current: 0, total: count || 0 });
 
-      while (fetchMore) {
-        let query = supabase
-          .from('campaign_creators')
-          .select('*, creators(username, nama_asli, link_account, creator_contacts(nomor, status), creator_snapshots(id, level, followers, gmv_30d, gmv_30d_video, gmv_30d_live, tanggal_update))')
-          .eq('campaign_id', campaignId)
-          .in('approval', selectedStatuses)
-          .order('id', { ascending: false })
-          .range(from, from + PAGE_SIZE - 1);
-
-        const { data, error } = await query;
-        if (error) throw error;
-
-        if (data && data.length > 0) {
-          allData = [...allData, ...data];
-          setExportProgress(prev => ({ ...prev, current: allData.length }));
-          from += PAGE_SIZE;
-        } else {
-          fetchMore = false;
+      if (count && count > 0) {
+        const promises = [];
+        for (let i = 0; i < count; i += PAGE_SIZE) {
+          promises.push(
+            supabase
+              .from('campaign_creators')
+              .select('*, creators(username, nama_asli, link_account, creator_contacts(nomor, status), creator_snapshots(id, level, followers, gmv_30d, gmv_30d_video, gmv_30d_live, tanggal_update))')
+              .eq('campaign_id', campaignId)
+              .in('approval', selectedStatuses)
+              .order('id', { ascending: false })
+              .range(i, i + PAGE_SIZE - 1)
+          );
         }
+        
+        const results = await Promise.all(promises);
+        results.forEach(res => {
+          if (res.data) {
+            allData = [...allData, ...res.data];
+            setExportProgress(prev => ({ ...prev, current: allData.length }));
+          }
+        });
       }
 
       const formattedData = allData.map((cc: any, index: number) => {
