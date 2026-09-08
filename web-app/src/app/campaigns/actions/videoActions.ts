@@ -29,30 +29,52 @@ export async function getInternalVideoData(campaignId: number, searchKeyword: st
     .eq('campaign_id', campaignId);
 
   // 3. Fetch creators (Approved & Pending based on client_approval)
-  let query = supabase
+  let baseQuery = supabase
     .from('campaign_creators')
     .select('*, creators!inner(*, creator_contacts(nomor, status), creator_snapshots(id, level, followers, gmv_30d, tanggal_update, created_at)), videos(*)')
     .eq('campaign_id', campaignId)
     .eq('approval', 'approved');
+    
+  let countQuery = supabase
+    .from('campaign_creators')
+    .select('id, creators!inner(username)', { count: 'exact', head: true })
+    .eq('campaign_id', campaignId)
+    .eq('approval', 'approved');
 
   if (campaign.require_client_approval) {
-    query = query.in('client_approval', ['approved', 'not_required']);
+    baseQuery = baseQuery.in('client_approval', ['approved', 'not_required']);
+    countQuery = countQuery.in('client_approval', ['approved', 'not_required']);
   }
 
   if (searchKeyword) {
-    query = query.ilike('creators.username', `%${searchKeyword}%`);
+    baseQuery = baseQuery.ilike('creators.username', `%${searchKeyword}%`);
+    countQuery = countQuery.ilike('creators.username', `%${searchKeyword}%`);
   }
 
+  const { count } = await countQuery;
   let allResults: any[] = [];
-  let currentFrom = 0;
   
-  while (true) {
-     const { data, error } = await query.order('id', { ascending: false }).range(currentFrom, currentFrom + 999);
-     if (error || !data || data.length === 0) break;
-     
-     allResults = allResults.concat(data);
-     if (data.length < 1000) break;
-     currentFrom += 1000;
+  if (count && count > 0) {
+    const promises = [];
+    for (let i = 0; i < count; i += 1000) {
+      promises.push(
+         supabase
+          .from('campaign_creators')
+          .select('*, creators!inner(*, creator_contacts(nomor, status), creator_snapshots(id, level, followers, gmv_30d, tanggal_update, created_at)), videos(*)')
+          .eq('campaign_id', campaignId)
+          .eq('approval', 'approved')
+          // apply filters again since we create new query instances
+          .in('client_approval', campaign.require_client_approval ? ['approved', 'not_required'] : ['approved', 'not_required', 'pending', 'rejected'])
+          // searchKeyword ilike
+          .ilike('creators.username', searchKeyword ? `%${searchKeyword}%` : '%')
+          .order('id', { ascending: false })
+          .range(i, i + 999)
+      );
+    }
+    const results = await Promise.all(promises);
+    results.forEach(res => {
+      if (res.data) allResults = allResults.concat(res.data);
+    });
   }
 
   const { data: videoStats } = await supabase.rpc('get_campaign_video_stats', { p_campaign_id: campaignId });

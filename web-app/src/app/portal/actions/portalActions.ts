@@ -93,33 +93,44 @@ export async function getPortalData(campaignId: number) {
 
   // Fetch creators for Client Approval (hanya yang sudah disetujui internal TNT)
   let ccData: any[] = [];
-  let start = 0;
-  const pageSize = 500; // Reduce page size to avoid PostgREST join row explosion limit
+  const pageSize = 500;
   
-  while (true) {
-    const { data, error } = await supabase
-      .from('campaign_creators')
-      .select(`
-        id, 
-        creator_id,
-        approval,
-        client_approval, 
-        notes_pic, 
-        notes_client,
-        tier,
-        content_type,
-        sample_progress,
-        creators(username, nama_asli, link_account, creator_snapshots(id, tanggal_update, followers, level, tier), creator_contacts(nomor, status)),
-        videos(id, link_video, content_uid, vt_approval, urutan, created_at)
-      `)
-      .eq('campaign_id', campaignId)
-      .eq('approval', 'approved')
-      .range(start, start + pageSize - 1);
+  // Parallel fetch using Promise.all to prevent Vercel Server Action Timeouts
+  const { count } = await supabase
+    .from('campaign_creators')
+    .select('id', { count: 'exact', head: true })
+    .eq('campaign_id', campaignId)
+    .eq('approval', 'approved');
 
-    if (error || !data || data.length === 0) break;
-    ccData = ccData.concat(data);
-    if (data.length < pageSize) break;
-    start += pageSize;
+  if (count && count > 0) {
+    const promises = [];
+    for (let i = 0; i < count; i += pageSize) {
+      promises.push(
+        supabase
+          .from('campaign_creators')
+          .select(`
+            id, 
+            creator_id,
+            approval,
+            client_approval, 
+            notes_pic, 
+            notes_client,
+            tier,
+            content_type,
+            sample_progress,
+            creators(username, nama_asli, link_account, creator_snapshots(id, tanggal_update, followers, level, tier), creator_contacts(nomor, status)),
+            videos(id, link_video, content_uid, vt_approval, urutan, created_at)
+          `)
+          .eq('campaign_id', campaignId)
+          .eq('approval', 'approved')
+          .range(i, i + pageSize - 1)
+      );
+    }
+    
+    const results = await Promise.all(promises);
+    results.forEach(res => {
+      if (res.data) ccData = ccData.concat(res.data);
+    });
   }
   
   // Apply Global Creator Filter from Database

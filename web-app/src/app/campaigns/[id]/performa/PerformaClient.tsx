@@ -67,25 +67,36 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
       setRpcPerformance(Array.isArray(rpcPerf) ? rpcPerf[0] : rpcPerf);
 
       let ccData: any[] = [];
-      let start = 0;
       const pageSize = 500;
-      while (true) {
-        const { data, error } = await supabase
-          .from('campaign_creators')
-          .select(`
-            *,
-            creators(id, username, nama_asli, link_account, creator_snapshots(followers, level, tier)),
-            videos(id, link_video, content_uid, vt_approval, urutan, concept)
-          `)
-          .eq('campaign_id', campaignId)
-          .in('approval', ['approved', 'pending'])
-          .order('id', { ascending: true })
-          .range(start, start + pageSize - 1);
+      
+      const { count } = await supabase
+        .from('campaign_creators')
+        .select('id', { count: 'exact', head: true })
+        .eq('campaign_id', campaignId)
+        .in('approval', ['approved', 'pending']);
 
-        if (error || !data || data.length === 0) break;
-        ccData = ccData.concat(data);
-        if (data.length < pageSize) break;
-        start += pageSize;
+      if (count && count > 0) {
+        const promises = [];
+        for (let i = 0; i < count; i += pageSize) {
+          promises.push(
+            supabase
+              .from('campaign_creators')
+              .select(`
+                *,
+                creators(id, username, nama_asli, link_account, creator_snapshots(followers, level, tier)),
+                videos(id, link_video, content_uid, vt_approval, urutan, concept)
+              `)
+              .eq('campaign_id', campaignId)
+              .in('approval', ['approved', 'pending'])
+              .order('id', { ascending: true })
+              .range(i, i + pageSize - 1)
+          );
+        }
+        
+        const results = await Promise.all(promises);
+        results.forEach(res => {
+          if (res.data) ccData = ccData.concat(res.data);
+        });
       }
       setLocalCreators(ccData);
 

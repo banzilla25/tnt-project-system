@@ -123,15 +123,20 @@ export default function AdsImport() {
 
       // Get existing mappings
       const knownMappingMap: Record<string, number> = { ...mappings };
-      let mappingStart = 0;
-      while (true) {
-        const { data: dbMappings } = await supabase.from('ad_name_mapping').select('*').range(mappingStart, mappingStart + 999);
-        if (!dbMappings || dbMappings.length === 0) break;
-        dbMappings.forEach(m => {
-          if (!knownMappingMap[m.ad_name]) knownMappingMap[m.ad_name] = m.creator_id;
+      const { count } = await supabase.from('ad_name_mapping').select('*', { count: 'exact', head: true });
+      if (count && count > 0) {
+        const promises = [];
+        for (let i = 0; i < count; i += 1000) {
+          promises.push(supabase.from('ad_name_mapping').select('*').range(i, i + 999));
+        }
+        const results = await Promise.all(promises);
+        results.forEach(res => {
+          if (res.data) {
+            res.data.forEach(m => {
+              if (!knownMappingMap[m.ad_name]) knownMappingMap[m.ad_name] = m.creator_id;
+            });
+          }
         });
-        if (dbMappings.length < 1000) break;
-        mappingStart += 1000;
       }
 
       let unmappedByFile: {fileId: string, fileName: string, unmapped: {adName: string, adId: string}[]}[] = [];

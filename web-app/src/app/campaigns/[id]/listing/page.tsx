@@ -623,22 +623,31 @@ function CampaignListingContent() {
     let start = 0;
     const pageSize = 1000;
     
-    while (true) {
-      const { data, error } = await supabase
-        .from('campaign_creators')
-        .select(`
-          id, campaign_id, creator_id, price, qty_vt, approval, sample_progress, status_bayar, notes_manager, notes_pic,
-          creators ( username ),
-          videos ( id, urutan, concept, concept_updated_at, concept_updated_by, link_video, vt_approval )
-        `)
-        .eq('campaign_id', campaignId)
-        .order('id', { ascending: true })
-        .range(start, start + pageSize - 1);
-
-      if (error || !data || data.length === 0) break;
-      allData = allData.concat(data);
-      if (data.length < pageSize) break;
-      start += pageSize;
+    const { count } = await supabase
+      .from('campaign_creators')
+      .select('id', { count: 'exact', head: true })
+      .eq('campaign_id', campaignId);
+      
+    if (count && count > 0) {
+      const promises = [];
+      for (let i = 0; i < count; i += pageSize) {
+        promises.push(
+          supabase
+            .from('campaign_creators')
+            .select(`
+              id, campaign_id, creator_id, price, qty_vt, approval, sample_progress, status_bayar, notes_manager, notes_pic,
+              creators ( username ),
+              videos ( id, urutan, concept, concept_updated_at, concept_updated_by, link_video, vt_approval )
+            `)
+            .eq('campaign_id', campaignId)
+            .order('id', { ascending: true })
+            .range(i, i + pageSize - 1)
+        );
+      }
+      const results = await Promise.all(promises);
+      results.forEach(res => {
+        if (res.data) allData = allData.concat(res.data);
+      });
     }
 
     const groupings: Record<string, any[]> = {};
@@ -686,25 +695,35 @@ function CampaignListingContent() {
 
     // 2. Fetch all data for daily recap (with progressive loading)
     let allRecapData: any[] = [];
-    let start = 0;
-    const pageSize = 1000;
+    const pageSize = 1000;    
     setRecapLoadingProgress(0);
-    while (true) {
-      const { data } = await supabase
-        .from('campaign_creators')
-        .select(`
-          id, approval, approved_at, created_at, added_by, tier, creator_id,
-          creators ( username, creator_snapshots ( id, tier, tanggal_update ) )
-        `)
-        .eq('campaign_id', campaignId)
-        .order('id', { ascending: true })
-        .range(start, start + pageSize - 1);
-        
-      if (!data || data.length === 0) break;
-      allRecapData = allRecapData.concat(data);
-      setRecapLoadingProgress(allRecapData.length);
-      if (data.length < pageSize) break;
-      start += pageSize;
+    const { count } = await supabase
+      .from('campaign_creators')
+      .select('id', { count: 'exact', head: true })
+      .eq('campaign_id', campaignId);
+      
+    if (count && count > 0) {
+      const promises = [];
+      for (let i = 0; i < count; i += pageSize) {
+        promises.push(
+          supabase
+            .from('campaign_creators')
+            .select(`
+              id, approval, approved_at, created_at, added_by, tier, creator_id,
+              creators ( username, creator_snapshots ( id, tier, tanggal_update ) )
+            `)
+            .eq('campaign_id', campaignId)
+            .order('id', { ascending: true })
+            .range(i, i + pageSize - 1)
+        );
+      }
+      const results = await Promise.all(promises);
+      results.forEach(res => {
+        if (res.data) {
+          allRecapData = allRecapData.concat(res.data);
+          setRecapLoadingProgress(prev => prev + res.data.length);
+        }
+      });
     }
     setRecapLoadingProgress(null);
 

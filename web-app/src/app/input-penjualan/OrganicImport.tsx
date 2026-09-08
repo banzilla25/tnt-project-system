@@ -242,23 +242,29 @@ export default function OrganicImport({ mode = 'sales' }: { mode?: 'sales' | 'vi
     const tiktokToCampaigns: Record<string, number[]> = {};
 
     let localSkus: any[] = [];
-    let skuStart = 0;
-    while (true) {
-      const { data: skuData } = await supabase.from('skus').select('*').range(skuStart, skuStart + 999);
-      if (!skuData || skuData.length === 0) break;
-      localSkus = localSkus.concat(skuData);
-      if (skuData.length < 1000) break;
-      skuStart += 1000;
+    const { count: countSkus } = await supabase.from('skus').select('id', { count: 'exact', head: true });
+    if (countSkus && countSkus > 0) {
+      const promises = [];
+      for (let i = 0; i < countSkus; i += 1000) {
+        promises.push(supabase.from('skus').select('*').range(i, i + 999));
+      }
+      const results = await Promise.all(promises);
+      results.forEach(res => {
+        if (res.data) localSkus = localSkus.concat(res.data);
+      });
     }
 
     let localCampaigns: any[] = [];
-    let campStart = 0;
-    while (true) {
-      const { data: campData } = await supabase.from('campaigns').select('*').range(campStart, campStart + 999);
-      if (!campData || campData.length === 0) break;
-      localCampaigns = localCampaigns.concat(campData);
-      if (campData.length < 1000) break;
-      campStart += 1000;
+    const { count: countCamps } = await supabase.from('campaigns').select('id', { count: 'exact', head: true });
+    if (countCamps && countCamps > 0) {
+      const promises = [];
+      for (let i = 0; i < countCamps; i += 1000) {
+        promises.push(supabase.from('campaigns').select('*').range(i, i + 999));
+      }
+      const results = await Promise.all(promises);
+      results.forEach(res => {
+        if (res.data) localCampaigns = localCampaigns.concat(res.data);
+      });
     }
 
     localSkus.forEach(s => {
