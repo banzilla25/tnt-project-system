@@ -2904,6 +2904,26 @@ function CampaignListingContent() {
           <div className="w-[1px] h-[24px] bg-slate-200 mx-2"></div>
           <div className="flex items-center gap-2">
             <button 
+              onClick={() => {
+                const idsToOpen = Array.from(selectedCreators);
+                const creatorsToOpen = displayData.filter((cc: any) => idsToOpen.includes(cc.id));
+                let opened = 0;
+                creatorsToOpen.forEach((cc: any) => {
+                  const username = cc.creators?.username;
+                  if (username) {
+                    const cleanUsername = username.replace('@', '');
+                    const url = `https://www.tiktok.com/@${cleanUsername}`;
+                    setTimeout(() => window.open(url, '_blank'), opened * 100);
+                    opened++;
+                  }
+                });
+              }}
+              className="px-3 py-1.5 text-xs font-semibold rounded-full bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors flex items-center gap-1.5"
+            >
+              Open Profil Creator
+              <img src="https://campaign.tntkreatif.com/logo-tiktok-landscape-button.svg" alt="TikTok" className="h-3.5" />
+            </button>
+            <button 
               onClick={() => handleBulkApproval('approved')}
               disabled={bulkActionProcessing}
               className="px-3 py-1.5 text-xs font-semibold rounded-full bg-green-50 text-green-700 hover:bg-green-100 transition-colors flex items-center gap-1"

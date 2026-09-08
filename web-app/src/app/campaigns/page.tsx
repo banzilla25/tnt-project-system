@@ -3,8 +3,8 @@
 import { useDatabaseStore } from "@/store/useDatabaseStore";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/Dialog";
 import Link from "next/link";
-import { useState } from "react";
-import { Trash2, Archive, CheckCircle2, Activity, Lock, Plus } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { Trash2, Archive, CheckCircle2, Activity, Lock, Plus, Search } from "lucide-react";
 import { useAuth } from "@/providers/AuthProvider";
 
 export default function CampaignsPage() {
@@ -16,6 +16,29 @@ export default function CampaignsPage() {
   const [newBrandName, setNewBrandName] = useState('');
   const [statusFilter, setStatusFilter] = useState<'aktif' | 'selesai' | 'arsip'>('aktif');
   const [groupFilter, setGroupFilter] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.isContentEditable ||
+        isOpen // Jangan auto focus jika modal terbuka
+      ) {
+        return;
+      }
+      
+      // Fokus jika tombol yang ditekan adalah karakter
+      if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        searchInputRef.current?.focus();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen]);
   const [formData, setFormData] = useState({
     nama: '', brand_id: '', tipe_campaign: 'sales', campaign_group: 'Tim Campaign', start_date: '', end_date: '',
     target_gmv: '',
@@ -89,18 +112,32 @@ export default function CampaignsPage() {
 
   return (
     <div className="space-y-[32px]">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-[16px]">
         <div>
           <h1 className="text-[28px] font-extrabold tracking-tight mb-[4px]">Campaigns</h1>
           <p className="text-[14px] text-text-soft">Pilih campaign untuk melihat detail dan mengelola creator.</p>
         </div>
-        {isManager && (
-          <Dialog open={isOpen} onOpenChange={setIsOpen}>
-            <DialogTrigger asChild>
-              <button className="btn btn-primary">
-                <Plus className="ico" /> Tambah Campaign
-              </button>
-            </DialogTrigger>
+        <div className="flex items-center gap-[12px] w-full md:w-auto">
+          <div className="relative w-full md:w-[300px]">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Search className="h-4 w-4 text-slate-400" />
+            </div>
+            <input
+              ref={searchInputRef}
+              type="text"
+              className="input pl-10 w-full"
+              placeholder="Cari campaign..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+          {isManager && (
+            <Dialog open={isOpen} onOpenChange={setIsOpen}>
+              <DialogTrigger asChild>
+                <button className="btn btn-primary shrink-0">
+                  <Plus className="ico" /> Tambah
+                </button>
+              </DialogTrigger>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Tambah Campaign Baru</DialogTitle>
@@ -251,6 +288,7 @@ export default function CampaignsPage() {
             </DialogContent>
           </Dialog>
         )}
+        </div>
       </div>
 
       {/* Group Filter Pills */}
@@ -273,7 +311,7 @@ export default function CampaignsPage() {
             <span className={`ml-[6px] text-[11px] px-[5px] py-[1px] rounded-full ${
               groupFilter === g.key ? 'bg-white/20 text-white' : 'bg-white text-text-soft'
             }`}>
-              {campaigns.filter(c => c.status === statusFilter && (g.key === 'all' || (c.campaign_group || 'Tim Campaign') === g.key)).length}
+              {campaigns.filter(c => c.status === statusFilter && (g.key === 'all' || (c.campaign_group || 'Tim Campaign') === g.key) && c.nama.toLowerCase().includes(searchQuery.toLowerCase())).length}
             </span>
           </button>
         ))}
@@ -298,14 +336,14 @@ export default function CampaignsPage() {
             <span className={`ml-[4px] text-[11px] px-[6px] py-[2px] rounded-full ${
               statusFilter === tab.key ? 'bg-p50 text-p300' : 'bg-line text-text-soft'
             }`}>
-              {campaigns.filter(c => c.status === tab.key && (groupFilter === 'all' || (c.campaign_group || 'Tim Campaign') === groupFilter)).length}
+              {campaigns.filter(c => c.status === tab.key && (groupFilter === 'all' || (c.campaign_group || 'Tim Campaign') === groupFilter) && c.nama.toLowerCase().includes(searchQuery.toLowerCase())).length}
             </span>
           </button>
         ))}
       </div>
 
       <div className="grid gap-[16px] md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {campaigns.filter(c => c.status === statusFilter && (groupFilter === 'all' || (c.campaign_group || 'Tim Campaign') === groupFilter)).map(campaign => {
+        {campaigns.filter(c => c.status === statusFilter && (groupFilter === 'all' || (c.campaign_group || 'Tim Campaign') === groupFilter) && c.nama.toLowerCase().includes(searchQuery.toLowerCase())).map(campaign => {
           const brand = brands.find(b => b.id === campaign.brand_id);
           return <CampaignCardItem key={campaign.id} campaign={campaign} brand={brand} isManager={isManager} />;
         })}
