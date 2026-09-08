@@ -2907,14 +2907,12 @@ function CampaignListingContent() {
               onClick={() => {
                 const idsToOpen = Array.from(selectedCreators);
                 const creatorsToOpen = displayData.filter((cc: any) => idsToOpen.includes(cc.id));
-                let opened = 0;
                 creatorsToOpen.forEach((cc: any) => {
                   const username = cc.creators?.username;
                   if (username) {
                     const cleanUsername = username.replace('@', '');
                     const url = `https://www.tiktok.com/@${cleanUsername}`;
-                    setTimeout(() => window.open(url, '_blank'), opened * 100);
-                    opened++;
+                    window.open(url, '_blank');
                   }
                 });
               }}
