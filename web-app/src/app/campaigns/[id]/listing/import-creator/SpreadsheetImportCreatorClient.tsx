@@ -1024,27 +1024,38 @@ export default function SpreadsheetImportCreatorClient() {
             }
           }
 
-          const ccData = {
-            campaign_id: campaignId,
-            creator_id: cid,
+          const updateData = {
             tier: calculatedTier,
             price: newRateCard,
             qty_vt: Number(row.qty_vt) || 0,
             qty_live: Number(row.qty_live) || 0,
             content_type: row.content_type,
-            approval: 'pending',
             pic_assist: profile?.nama || '-',
-            status_bayar: 'belum',
-            client_approval: isClientApprovalRequired ? 'pending' : 'not_required',
-            added_by: profile?.id
           };
 
           if (row.status === 'duplicate_campaign' && row.action === 'update') {
-            await supabase.from('campaign_creators').update(ccData).eq('campaign_id', campaignId).eq('creator_id', cid);
+            await supabase.from('campaign_creators').update(updateData).eq('campaign_id', campaignId).eq('creator_id', cid);
           } else {
             const { data: existingCC } = await supabase.from('campaign_creators').select('id').eq('campaign_id', campaignId).eq('creator_id', cid).limit(1);
-            if (existingCC && existingCC.length > 0) await supabase.from('campaign_creators').update(ccData).eq('campaign_id', campaignId).eq('creator_id', cid);
-            else await supabase.from('campaign_creators').insert(ccData);
+            if (existingCC && existingCC.length > 0) {
+              await supabase.from('campaign_creators').update(updateData).eq('campaign_id', campaignId).eq('creator_id', cid);
+            } else {
+              const insertData = {
+                campaign_id: campaignId,
+                creator_id: cid,
+                tier: calculatedTier,
+                price: newRateCard,
+                qty_vt: Number(row.qty_vt) || 0,
+                qty_live: Number(row.qty_live) || 0,
+                content_type: row.content_type,
+                approval: 'pending',
+                pic_assist: profile?.nama || '-',
+                status_bayar: 'belum',
+                client_approval: isClientApprovalRequired ? 'pending' : 'not_required',
+                added_by: profile?.id
+              };
+              await supabase.from('campaign_creators').insert(insertData);
+            }
           }
           
           successCount++;
