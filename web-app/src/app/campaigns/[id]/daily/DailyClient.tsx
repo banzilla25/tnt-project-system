@@ -37,19 +37,19 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
       const [
         campaignRes,
         skusRes,
-        salesRes,
+        salesCountRes,
         ccCountRes,
         vidCountRes,
         adsCountRes,
-        orgVideosRes
+        orgVideosCountRes
       ] = await Promise.all([
         supabase.from('campaigns').select('*').eq('id', campaignId).single(),
         supabase.from('skus').select('product_id').eq('campaign_id', campaignId),
-        supabase.from('sales').select('tanggal, gmv, quantity, creator_username, content_uid, content_type, product_id').eq('campaign_id', campaignId),
+        supabase.from('sales').select('id', { count: 'exact', head: true }).eq('campaign_id', campaignId),
         supabase.from('campaign_creators').select('id', { count: 'exact', head: true }).eq('campaign_id', campaignId),
         supabase.from('videos').select('id, campaign_creators!inner(campaign_id)', { count: 'exact', head: true }).eq('campaign_creators.campaign_id', campaignId),
         supabase.from('ads_performance').select('id', { count: 'exact', head: true }).eq('campaign_id', campaignId),
-        supabase.from('organic_videos').select('content_uid, post_time, content_type, creator_username').eq('campaign_id', campaignId)
+        supabase.from('organic_videos').select('id', { count: 'exact', head: true }).eq('campaign_id', campaignId)
       ]);
 
       const campaignData = campaignRes.data;
@@ -57,12 +57,13 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
       setCampaign(campaignData);
 
       const skuSet = new Set((skusRes.data || []).map(s => s.product_id).filter(Boolean));
-      const allOrganicVideos = orgVideosRes.data || [];
 
-      // 2. Fetch campaign_creators, videos, and ads in parallel batches (pageSize = 1000)
+      // 2. Fetch campaign_creators, videos, ads, sales, and organic_videos in parallel batches (pageSize = 1000)
       const ccCount = ccCountRes.count || 0;
       const vidCount = vidCountRes.count || 0;
       const adsCount = adsCountRes.count || 0;
+      const salesCount = salesCountRes.count || 0;
+      const orgCount = orgVideosCountRes.count || 0;
       const batchSize = 1000;
 
       const ccPromises = [];
@@ -101,10 +102,34 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
         );
       }
 
-      const [ccResults, vidResults, adsResults] = await Promise.all([
+      const salesPromises = [];
+      for (let i = 0; i < salesCount; i += batchSize) {
+        salesPromises.push(
+          supabase
+            .from('sales')
+            .select('tanggal, gmv, quantity, creator_username, content_uid, content_type, product_id')
+            .eq('campaign_id', campaignId)
+            .range(i, i + batchSize - 1)
+        );
+      }
+
+      const orgPromises = [];
+      for (let i = 0; i < orgCount; i += batchSize) {
+        orgPromises.push(
+          supabase
+            .from('organic_videos')
+            .select('content_uid, post_time, content_type, creator_username')
+            .eq('campaign_id', campaignId)
+            .range(i, i + batchSize - 1)
+        );
+      }
+
+      const [ccResults, vidResults, adsResults, salesResults, orgResults] = await Promise.all([
         Promise.all(ccPromises),
         Promise.all(vidPromises),
-        Promise.all(adsPromises)
+        Promise.all(adsPromises),
+        Promise.all(salesPromises),
+        Promise.all(orgPromises)
       ]);
 
       let allVideosFromCreators: any[] = [];
@@ -115,6 +140,12 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
 
       let allAds: any[] = [];
       adsResults.forEach(r => { if (r.data) allAds = allAds.concat(r.data); });
+
+      let allSales: any[] = [];
+      salesResults.forEach(r => { if (r.data) allSales = allSales.concat(r.data); });
+
+      let allOrganicVideos: any[] = [];
+      orgResults.forEach(r => { if (r.data) allOrganicVideos = allOrganicVideos.concat(r.data); });
 
       // Map videos to corresponding campaign_creator
       const videosByCcId = new Map<number, any[]>();
@@ -139,21 +170,19 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
           snapPromises.push(
             supabase
               .from('creator_snapshots')
-              .select('creator_id, tier, tanggal_update, id')
+              .select('creator_id, tier')
               .in('creator_id', missingTierCreatorIds.slice(i, i + chunkSize))
               .not('tier', 'is', null)
               .order('tanggal_update', { ascending: false })
           );
         }
         const snapResults = await Promise.all(snapPromises);
-        snapResults.forEach(r => {
-          if (r.data) {
-            r.data.forEach((s: any) => {
-              if (!snapshotTierMap.has(s.creator_id)) {
-                snapshotTierMap.set(s.creator_id, s.tier);
-              }
-            });
-          }
+        snapResults.forEach(res => {
+          (res.data || []).forEach((s: any) => {
+            if (!snapshotTierMap.has(s.creator_id) && s.tier) {
+              snapshotTierMap.set(s.creator_id, s.tier);
+            }
+          });
         });
       }
 
@@ -178,7 +207,7 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
         orders_vt: number;
       }>();
 
-      (salesRes.data || []).forEach(s => {
+      allSales.forEach(s => {
         const u = (s.creator_username || '').toLowerCase();
         if (approvedUsernameSet.size > 0 && !approvedUsernameSet.has(u)) return;
         if (skuSet.size > 0 && s.product_id && !skuSet.has(s.product_id)) return;

@@ -57,13 +57,13 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
   };
 
   const _fetchDataInner = async () => {
-      // 1. Phase 1: Fast indexed queries (campaign, skus, concepts, sales, ads, fast counts)
+      // 1. Phase 1: Fast indexed queries (campaign, skus, concepts, counts)
       const [
         campaignRes,
         conceptsRes,
         skusRes,
-        salesRes,
-        rawAdsRes,
+        salesCountRes,
+        adsCountRes,
         countsRes,
         videoCountsRes,
         orgCountRes,
@@ -73,8 +73,8 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
         supabase.from('campaigns').select('*').eq('id', campaignId).single(),
         supabase.from('campaign_concepts').select('*, skus(nama_produk)').eq('campaign_id', campaignId),
         supabase.from('skus').select('product_id').eq('campaign_id', campaignId),
-        supabase.from('sales').select('tanggal, gmv, quantity, creator_username, content_uid, content_type, product_id').eq('campaign_id', campaignId),
-        supabase.from('ads_performance').select('*, creators(username)').eq('campaign_id', campaignId),
+        supabase.from('sales').select('id', { count: 'exact', head: true }).eq('campaign_id', campaignId),
+        supabase.from('ads_performance').select('id', { count: 'exact', head: true }).eq('campaign_id', campaignId),
         supabase.rpc('get_campaign_creator_counts', { p_campaign_id: campaignId }),
         supabase.rpc('get_campaign_video_counts_fast', { p_campaign_id: campaignId }),
         supabase.from('organic_videos').select('id', { count: 'exact', head: true }).eq('campaign_id', campaignId),
@@ -107,10 +107,12 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
       }
       setFastVideoCountsData(fastVideoCounts);
 
-      // 2. Phase 2: Fetch creators, videos, and organic_videos in parallel batches (pageSize = 1000)
+      // 2. Phase 2: Fetch creators, videos, organic_videos, sales, and ads in parallel batches (pageSize = 1000)
       const ccCount = ccCountRes.count || 0;
       const vidCount = vidCountRes.count || 0;
       const orgCount = orgCountRes.count || 0;
+      const salesCount = salesCountRes.count || 0;
+      const adsCount = adsCountRes.count || 0;
       const pageSize = 1000;
 
       const ccPromises = [];
@@ -149,10 +151,34 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
         );
       }
 
-      const [ccResults, vidResults, orgResults] = await Promise.all([
+      const salesPromises = [];
+      for (let i = 0; i < salesCount; i += pageSize) {
+        salesPromises.push(
+          supabase
+            .from('sales')
+            .select('tanggal, gmv, quantity, creator_username, content_uid, content_type, product_id')
+            .eq('campaign_id', campaignId)
+            .range(i, i + pageSize - 1)
+        );
+      }
+
+      const adsPromises = [];
+      for (let i = 0; i < adsCount; i += pageSize) {
+        adsPromises.push(
+          supabase
+            .from('ads_performance')
+            .select('*, creators(username)')
+            .eq('campaign_id', campaignId)
+            .range(i, i + pageSize - 1)
+        );
+      }
+
+      const [ccResults, vidResults, orgResults, salesResults, adsResults] = await Promise.all([
         Promise.all(ccPromises),
         Promise.all(vidPromises),
-        Promise.all(orgPromises)
+        Promise.all(orgPromises),
+        Promise.all(salesPromises),
+        Promise.all(adsPromises)
       ]);
 
       let ccData: any[] = [];
@@ -168,6 +194,16 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
       let orgVidsData: any[] = [];
       orgResults.forEach(res => {
         if (res.data) orgVidsData = orgVidsData.concat(res.data);
+      });
+
+      let salesData: any[] = [];
+      salesResults.forEach(res => {
+        if (res.data) salesData = salesData.concat(res.data);
+      });
+
+      let rawAdsData: any[] = [];
+      adsResults.forEach(res => {
+        if (res.data) rawAdsData = rawAdsData.concat(res.data);
       });
 
       // Map videos back to creators
@@ -214,7 +250,7 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
       let calcOrganicGmv = 0;
       let calcUnattributedGmv = 0;
 
-      (salesRes.data || []).forEach((s: any) => {
+      salesData.forEach((s: any) => {
         if (skuSet.size > 0 && s.product_id && !skuSet.has(s.product_id)) return;
         const u = (s.creator_username || '').toLowerCase();
         const gmv = Number(s.gmv || 0);
@@ -292,12 +328,11 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
       setInitialTotalLikes(calcTotalLikes);
       setInitialTotalVideos(calcUniqueVideos);
 
-      const videoGmvData = (salesRes.data || []).map((s: any) => ({
+      const videoGmvData = salesData.map((s: any) => ({
         creator_username: s.creator_username,
         content_uid: s.content_uid,
         content_type: s.content_type
       }));
-      const rawAdsData = rawAdsRes.data;
 
       const latestAdsMap = new Map();
       if (rawAdsData) {

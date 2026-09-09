@@ -13,20 +13,20 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey, {
 });
 
 export async function getInternalPerformaData(campaignId: number) {
-  // 1. Fetch metadata, indexed sales, skus, and counts concurrently
+  // 1. Fetch metadata, skus, and counts concurrently
   const [
     campaignRes,
     skusRes,
-    salesRes,
-    rawAdsRes,
+    salesCountRes,
+    adsCountRes,
     orgCountRes,
     ccCountRes,
     vidCountRes
   ] = await Promise.all([
     supabase.from('campaigns').select('*').eq('id', campaignId).single(),
     supabase.from('skus').select('product_id').eq('campaign_id', campaignId),
-    supabase.from('sales').select('tanggal, gmv, quantity, creator_username, content_uid, content_type, product_id').eq('campaign_id', campaignId),
-    supabase.from('ads_performance').select('*, creators(username)').eq('campaign_id', campaignId),
+    supabase.from('sales').select('id', { count: 'exact', head: true }).eq('campaign_id', campaignId),
+    supabase.from('ads_performance').select('id', { count: 'exact', head: true }).eq('campaign_id', campaignId),
     supabase.from('organic_videos').select('id', { count: 'exact', head: true }).eq('campaign_id', campaignId),
     supabase.from('campaign_creators').select('id', { count: 'exact', head: true }).eq('campaign_id', campaignId).in('approval', ['approved', 'pending', 'alternate']),
     supabase.from('videos').select('id, campaign_creators!inner(campaign_id)', { count: 'exact', head: true }).eq('campaign_creators.campaign_id', campaignId)
@@ -35,13 +35,14 @@ export async function getInternalPerformaData(campaignId: number) {
   const campaign = campaignRes.data;
   if (!campaign) return null;
 
-  const rawAdsData = rawAdsRes.data || [];
   const skuSet = new Set((skusRes.data || []).map((s: any) => s.product_id).filter(Boolean));
 
-  // 2. Fetch creators, videos, and organic_videos in parallel batches (pageSize = 1000)
+  // 2. Fetch creators, videos, organic_videos, sales, and ads in parallel batches (pageSize = 1000)
   const ccCount = ccCountRes.count || 0;
   const vidCount = vidCountRes.count || 0;
   const orgCount = orgCountRes.count || 0;
+  const salesCount = salesCountRes.count || 0;
+  const adsCount = adsCountRes.count || 0;
   const pageSize = 1000;
 
   const ccPromises = [];
@@ -80,10 +81,34 @@ export async function getInternalPerformaData(campaignId: number) {
     );
   }
 
-  const [ccResults, vidResults, orgResults] = await Promise.all([
+  const salesPromises = [];
+  for (let i = 0; i < salesCount; i += pageSize) {
+    salesPromises.push(
+      supabase
+        .from('sales')
+        .select('tanggal, gmv, quantity, creator_username, content_uid, content_type, product_id')
+        .eq('campaign_id', campaignId)
+        .range(i, i + pageSize - 1)
+    );
+  }
+
+  const adsPromises = [];
+  for (let i = 0; i < adsCount; i += pageSize) {
+    adsPromises.push(
+      supabase
+        .from('ads_performance')
+        .select('*, creators(username)')
+        .eq('campaign_id', campaignId)
+        .range(i, i + pageSize - 1)
+    );
+  }
+
+  const [ccResults, vidResults, orgResults, salesResults, adsResults] = await Promise.all([
     Promise.all(ccPromises),
     Promise.all(vidPromises),
-    Promise.all(orgPromises)
+    Promise.all(orgPromises),
+    Promise.all(salesPromises),
+    Promise.all(adsPromises)
   ]);
 
   let ccData: any[] = [];
@@ -99,6 +124,16 @@ export async function getInternalPerformaData(campaignId: number) {
   let orgVidsData: any[] = [];
   orgResults.forEach(res => {
     if (res.data) orgVidsData = orgVidsData.concat(res.data);
+  });
+
+  let salesData: any[] = [];
+  salesResults.forEach(res => {
+    if (res.data) salesData = salesData.concat(res.data);
+  });
+
+  let rawAdsData: any[] = [];
+  adsResults.forEach(res => {
+    if (res.data) rawAdsData = rawAdsData.concat(res.data);
   });
 
   // Map videos back to creators
@@ -142,7 +177,7 @@ export async function getInternalPerformaData(campaignId: number) {
   let calcOrganicGmv = 0;
   let calcUnattributedGmv = 0;
 
-  (salesRes.data || []).forEach((s: any) => {
+  salesData.forEach((s: any) => {
     if (skuSet.size > 0 && s.product_id && !skuSet.has(s.product_id)) return;
     const u = (s.creator_username || '').toLowerCase();
     const gmv = Number(s.gmv || 0);
@@ -214,7 +249,7 @@ export async function getInternalPerformaData(campaignId: number) {
     perf.live_count = perf.live_uids.size;
   }
 
-  const videoGmvData = (salesRes.data || []).map((s: any) => ({
+  const videoGmvData = salesData.map((s: any) => ({
     creator_username: s.creator_username,
     content_uid: s.content_uid,
     content_type: s.content_type

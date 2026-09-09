@@ -35,16 +35,16 @@ export async function getDailyData(campaignId: number) {
   const isAwareness = campaign.tipe_campaign === 'awareness';
   const isHybrid = campaign.tipe_campaign === 'gmv_awareness';
 
-  // 1. Fetch metadata, indexed sales, skus, and counts concurrently
+  // 1. Fetch metadata, skus, and counts concurrently
   const [
     skusRes,
-    salesRes,
+    salesCountRes,
     ccCountRes,
     vidCountRes,
     adsCountRes
   ] = await Promise.all([
     supabase.from('skus').select('product_id').eq('campaign_id', campaignId),
-    supabase.from('sales').select('tanggal, gmv, quantity, creator_username, content_uid, content_type, product_id').eq('campaign_id', campaignId),
+    supabase.from('sales').select('id', { count: 'exact', head: true }).eq('campaign_id', campaignId),
     supabase.from('campaign_creators').select('id', { count: 'exact', head: true }).eq('campaign_id', campaignId),
     supabase.from('videos').select('id, campaign_creators!inner(campaign_id)', { count: 'exact', head: true }).eq('campaign_creators.campaign_id', campaignId),
     supabase.from('ads_performance').select('id', { count: 'exact', head: true }).eq('campaign_id', campaignId)
@@ -52,10 +52,11 @@ export async function getDailyData(campaignId: number) {
 
   const skuSet = new Set((skusRes.data || []).map((s: any) => s.product_id).filter(Boolean));
 
-  // 2. Fetch campaign_creators, videos, and ads in parallel batches (pageSize = 1000)
+  // 2. Fetch campaign_creators, videos, ads, and sales in parallel batches (pageSize = 1000)
   const ccCount = ccCountRes.count || 0;
   const vidCount = vidCountRes.count || 0;
   const adsCount = adsCountRes.count || 0;
+  const salesCount = salesCountRes.count || 0;
   const batchSize = 1000;
 
   const ccPromises = [];
@@ -94,10 +95,22 @@ export async function getDailyData(campaignId: number) {
     );
   }
 
-  const [ccResults, vidResults, adsResults] = await Promise.all([
+  const salesPromises = [];
+  for (let i = 0; i < salesCount; i += batchSize) {
+    salesPromises.push(
+      supabase
+        .from('sales')
+        .select('tanggal, gmv, quantity, creator_username, content_uid, content_type, product_id')
+        .eq('campaign_id', campaignId)
+        .range(i, i + batchSize - 1)
+    );
+  }
+
+  const [ccResults, vidResults, adsResults, salesResults] = await Promise.all([
     Promise.all(ccPromises),
     Promise.all(vidPromises),
-    Promise.all(adsPromises)
+    Promise.all(adsPromises),
+    Promise.all(salesPromises)
   ]);
 
   let allVideosFromCreators: any[] = [];
@@ -108,6 +121,8 @@ export async function getDailyData(campaignId: number) {
 
   let allAds: any[] = [];
   adsResults.forEach(r => { if (r.data) allAds = allAds.concat(r.data); });
+
+  salesResults.forEach(r => { if (r.data) allSales = allSales.concat(r.data); });
 
   // Map videos to creators
   const videosByCcId = new Map<number, any[]>();
@@ -146,7 +161,7 @@ export async function getDailyData(campaignId: number) {
     active_videos: Set<string>;
   }>();
 
-  (salesRes.data || []).forEach((s: any) => {
+  allSales.forEach((s: any) => {
     const u = (s.creator_username || '').toLowerCase();
     if (approvedUsernameSet.size > 0 && !approvedUsernameSet.has(u)) return;
     if (skuSet.size > 0 && s.product_id && !skuSet.has(s.product_id)) return;
