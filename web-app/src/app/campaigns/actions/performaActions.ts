@@ -19,6 +19,8 @@ export async function getInternalPerformaData(campaignId: number) {
     skusRes,
     salesCountRes,
     adsCountRes,
+    perfSummaryRes,
+    creatorPerfRes,
     orgCountRes,
     ccCountRes,
     vidCountRes
@@ -27,7 +29,9 @@ export async function getInternalPerformaData(campaignId: number) {
     supabase.from('skus').select('product_id').eq('campaign_id', campaignId),
     supabase.from('sales').select('id', { count: 'exact', head: true }).eq('campaign_id', campaignId),
     supabase.from('ads_performance').select('id', { count: 'exact', head: true }).eq('campaign_id', campaignId),
-    supabase.from('organic_videos').select('id', { count: 'exact', head: true }).eq('campaign_id', campaignId),
+    supabase.rpc('get_performance_summary_v2', { p_campaign_id: campaignId }),
+    supabase.rpc('get_campaign_creator_performance', { p_campaign_id: campaignId }),
+    supabase.from('organic_videos').select('id', { count: 'planned', head: true }).eq('campaign_id', campaignId),
     supabase.from('campaign_creators').select('id', { count: 'exact', head: true }).eq('campaign_id', campaignId).in('approval', ['approved', 'pending', 'alternate']),
     supabase.from('videos').select('id, campaign_creators!inner(campaign_id)', { count: 'exact', head: true }).eq('campaign_creators.campaign_id', campaignId)
   ]);
@@ -35,12 +39,13 @@ export async function getInternalPerformaData(campaignId: number) {
   const campaign = campaignRes.data;
   if (!campaign) return null;
 
+  const rpcSummary = perfSummaryRes?.data?.[0] || null;
   const skuSet = new Set((skusRes.data || []).map((s: any) => s.product_id).filter(Boolean));
 
-  // 2. Fetch creators, videos, organic_videos, sales, and ads in parallel batches (pageSize = 1000)
+  // 2. Fetch creators, videos, sales, ads in parallel batches, and organic_videos in controlled chunks
   const ccCount = ccCountRes.count || 0;
   const vidCount = vidCountRes.count || 0;
-  const orgCount = orgCountRes.count || 0;
+  const orgCount = orgCountRes.count || (rpcSummary ? Number(rpcSummary.total_videos || 0) : 0);
   const salesCount = salesCountRes.count || 0;
   const adsCount = adsCountRes.count || 0;
   const pageSize = 1000;
@@ -70,17 +75,6 @@ export async function getInternalPerformaData(campaignId: number) {
     );
   }
 
-  const orgPromises = [];
-  for (let i = 0; i < orgCount; i += pageSize) {
-    orgPromises.push(
-      supabase
-        .from('organic_videos')
-        .select('content_uid, post_time, content_type, creator_username, video_views, video_likes, product_id')
-        .eq('campaign_id', campaignId)
-        .range(i, i + pageSize - 1)
-    );
-  }
-
   const salesPromises = [];
   for (let i = 0; i < salesCount; i += pageSize) {
     salesPromises.push(
@@ -103,12 +97,38 @@ export async function getInternalPerformaData(campaignId: number) {
     );
   }
 
-  const [ccResults, vidResults, orgResults, salesResults, adsResults] = await Promise.all([
+  // Fetch organic_videos in controlled chunks (concurrency 4) to avoid Postgres statement timeouts
+  const fetchOrgVideosChunked = async () => {
+    const results: any[] = [];
+    if (orgCount <= 0) return results;
+    const orgConcurrency = 4;
+    for (let i = 0; i < orgCount; i += pageSize * orgConcurrency) {
+      const chunk = [];
+      for (let c = 0; c < orgConcurrency && (i + c * pageSize) < orgCount; c++) {
+        const from = i + c * pageSize;
+        const to = from + pageSize - 1;
+        chunk.push(
+          supabase
+            .from('organic_videos')
+            .select('content_uid, post_time, content_type, creator_username, video_views, video_likes, product_id')
+            .eq('campaign_id', campaignId)
+            .range(from, to)
+        );
+      }
+      const chunkResults = await Promise.all(chunk);
+      chunkResults.forEach(res => {
+        if (res.data) results.push(...res.data);
+      });
+    }
+    return results;
+  };
+
+  const [ccResults, vidResults, salesResults, adsResults, orgVidsData] = await Promise.all([
     Promise.all(ccPromises),
     Promise.all(vidPromises),
-    Promise.all(orgPromises),
     Promise.all(salesPromises),
-    Promise.all(adsPromises)
+    Promise.all(adsPromises),
+    fetchOrgVideosChunked()
   ]);
 
   let ccData: any[] = [];
@@ -119,11 +139,6 @@ export async function getInternalPerformaData(campaignId: number) {
   let vidsData: any[] = [];
   vidResults.forEach(res => {
     if (res.data) vidsData = vidsData.concat(res.data);
-  });
-
-  let orgVidsData: any[] = [];
-  orgResults.forEach(res => {
-    if (res.data) orgVidsData = orgVidsData.concat(res.data);
   });
 
   let salesData: any[] = [];
@@ -173,6 +188,21 @@ export async function getInternalPerformaData(campaignId: number) {
     }
     return perfMap.get(usernameLower)!;
   };
+
+  // Pre-seed perfMap with fast aggregated creator performance from PostgreSQL RPC
+  if (creatorPerfRes?.data && Array.isArray(creatorPerfRes.data)) {
+    creatorPerfRes.data.forEach((cp: any) => {
+      const u = (cp.username || '').toLowerCase();
+      if (!u) return;
+      const perf = getOrCreatePerf(u);
+      perf.gmv_organic = Number(cp.gmv_organic || 0);
+      perf.items_sold = Number(cp.items_sold || 0);
+      perf.video_views = Number(cp.video_views || 0);
+      perf.video_likes = Number(cp.video_likes || 0);
+      perf.video_count = Number(cp.video_count || 0);
+      perf.live_count = Number(cp.live_count || 0);
+    });
+  }
 
   let calcOrganicGmv = 0;
   let calcUnattributedGmv = 0;
@@ -225,28 +255,35 @@ export async function getInternalPerformaData(campaignId: number) {
   let calcTotalLikes = 0;
   let calcUniqueVideos = 0;
 
-  for (const [uid, v] of orgUidMap.entries()) {
-    if (v.contentType !== 'livestream' && v.contentType !== 'live') {
-      calcUniqueVideos++;
+  if (orgVidsData.length > 0) {
+    for (const perf of perfMap.values()) {
+      perf.video_views = 0;
+      perf.video_likes = 0;
     }
-    calcTotalViews += v.views;
-    calcTotalLikes += v.likes;
 
-    if (v.creator) {
-      const perf = getOrCreatePerf(v.creator);
-      perf.video_views += v.views;
-      perf.video_likes += v.likes;
-      if (v.contentType === 'livestream' || v.contentType === 'live') {
-        perf.live_uids.add(uid);
-      } else {
-        perf.video_uids.add(uid);
+    for (const [uid, v] of orgUidMap.entries()) {
+      if (v.contentType !== 'livestream' && v.contentType !== 'live') {
+        calcUniqueVideos++;
+      }
+      calcTotalViews += v.views;
+      calcTotalLikes += v.likes;
+
+      if (v.creator) {
+        const perf = getOrCreatePerf(v.creator);
+        perf.video_views += v.views;
+        perf.video_likes += v.likes;
+        if (v.contentType === 'livestream' || v.contentType === 'live') {
+          perf.live_uids.add(uid);
+        } else {
+          perf.video_uids.add(uid);
+        }
       }
     }
-  }
 
-  for (const perf of perfMap.values()) {
-    perf.video_count = perf.video_uids.size;
-    perf.live_count = perf.live_uids.size;
+    for (const perf of perfMap.values()) {
+      if (perf.video_uids.size > 0) perf.video_count = perf.video_uids.size;
+      if (perf.live_uids.size > 0) perf.live_count = perf.live_uids.size;
+    }
   }
 
   const videoGmvData = salesData.map((s: any) => ({
@@ -376,11 +413,11 @@ export async function getInternalPerformaData(campaignId: number) {
   return {
     campaign,
     rpcPerformance: {
-      organic_gmv: calcOrganicGmv,
+      organic_gmv: calcOrganicGmv > 0 ? calcOrganicGmv : Number(rpcSummary?.organic_gmv || 0),
       unattributed_gmv: calcUnattributedGmv,
-      total_views: calcTotalViews,
-      total_likes: calcTotalLikes,
-      total_videos: calcUniqueVideos
+      total_views: calcTotalViews > 0 ? calcTotalViews : Number(rpcSummary?.total_views || 0),
+      total_likes: calcTotalLikes > 0 ? calcTotalLikes : Number(rpcSummary?.total_likes || 0),
+      total_videos: calcUniqueVideos > 0 ? calcUniqueVideos : Number(rpcSummary?.total_videos || 0)
     },
     baseCreatorStats,
     totalAdsGmv: globalAdsGmv,

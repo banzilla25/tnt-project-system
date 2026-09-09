@@ -49,7 +49,7 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
         supabase.from('campaign_creators').select('id', { count: 'exact', head: true }).eq('campaign_id', campaignId),
         supabase.from('videos').select('id, campaign_creators!inner(campaign_id)', { count: 'exact', head: true }).eq('campaign_creators.campaign_id', campaignId),
         supabase.from('ads_performance').select('id', { count: 'exact', head: true }).eq('campaign_id', campaignId),
-        supabase.from('organic_videos').select('id', { count: 'exact', head: true }).eq('campaign_id', campaignId)
+        supabase.from('organic_videos').select('id', { count: 'planned', head: true }).eq('campaign_id', campaignId)
       ]);
 
       const campaignData = campaignRes.data;
@@ -58,7 +58,7 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
 
       const skuSet = new Set((skusRes.data || []).map(s => s.product_id).filter(Boolean));
 
-      // 2. Fetch campaign_creators, videos, ads, sales, and organic_videos in parallel batches (pageSize = 1000)
+      // 2. Fetch campaign_creators, videos, ads, sales in parallel batches, and organic_videos in controlled chunks
       const ccCount = ccCountRes.count || 0;
       const vidCount = vidCountRes.count || 0;
       const adsCount = adsCountRes.count || 0;
@@ -113,23 +113,38 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
         );
       }
 
-      const orgPromises = [];
-      for (let i = 0; i < orgCount; i += batchSize) {
-        orgPromises.push(
-          supabase
-            .from('organic_videos')
-            .select('content_uid, post_time, content_type, creator_username')
-            .eq('campaign_id', campaignId)
-            .range(i, i + batchSize - 1)
-        );
-      }
+      // Fetch organic_videos in controlled chunks (concurrency 4) to avoid Postgres statement timeouts
+      const fetchOrgVideosChunked = async () => {
+        const results: any[] = [];
+        if (orgCount <= 0) return results;
+        const orgConcurrency = 4;
+        for (let i = 0; i < orgCount; i += batchSize * orgConcurrency) {
+          const chunk = [];
+          for (let c = 0; c < orgConcurrency && (i + c * batchSize) < orgCount; c++) {
+            const from = i + c * batchSize;
+            const to = from + batchSize - 1;
+            chunk.push(
+              supabase
+                .from('organic_videos')
+                .select('content_uid, post_time, content_type, creator_username')
+                .eq('campaign_id', campaignId)
+                .range(from, to)
+            );
+          }
+          const chunkResults = await Promise.all(chunk);
+          chunkResults.forEach(res => {
+            if (res.data) results.push(...res.data);
+          });
+        }
+        return results;
+      };
 
-      const [ccResults, vidResults, adsResults, salesResults, orgResults] = await Promise.all([
+      const [ccResults, vidResults, adsResults, salesResults, allOrganicVideos] = await Promise.all([
         Promise.all(ccPromises),
         Promise.all(vidPromises),
         Promise.all(adsPromises),
         Promise.all(salesPromises),
-        Promise.all(orgPromises)
+        fetchOrgVideosChunked()
       ]);
 
       let allVideosFromCreators: any[] = [];
@@ -143,9 +158,6 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
 
       let allSales: any[] = [];
       salesResults.forEach(r => { if (r.data) allSales = allSales.concat(r.data); });
-
-      let allOrganicVideos: any[] = [];
-      orgResults.forEach(r => { if (r.data) allOrganicVideos = allOrganicVideos.concat(r.data); });
 
       // Map videos to corresponding campaign_creator
       const videosByCcId = new Map<number, any[]>();

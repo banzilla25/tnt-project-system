@@ -66,6 +66,8 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
         adsCountRes,
         countsRes,
         videoCountsRes,
+        perfSummaryRes,
+        creatorPerfRes,
         orgCountRes,
         ccCountRes,
         vidCountRes
@@ -77,13 +79,25 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
         supabase.from('ads_performance').select('id', { count: 'exact', head: true }).eq('campaign_id', campaignId),
         supabase.rpc('get_campaign_creator_counts', { p_campaign_id: campaignId }),
         supabase.rpc('get_campaign_video_counts_fast', { p_campaign_id: campaignId }),
-        supabase.from('organic_videos').select('id', { count: 'exact', head: true }).eq('campaign_id', campaignId),
+        supabase.rpc('get_performance_summary_v2', { p_campaign_id: campaignId }),
+        supabase.rpc('get_campaign_creator_performance', { p_campaign_id: campaignId }),
+        supabase.from('organic_videos').select('id', { count: 'planned', head: true }).eq('campaign_id', campaignId),
         supabase.from('campaign_creators').select('id', { count: 'exact', head: true }).eq('campaign_id', campaignId).in('approval', ['approved', 'pending', 'alternate']),
         supabase.from('videos').select('id, campaign_creators!inner(campaign_id)', { count: 'exact', head: true }).eq('campaign_creators.campaign_id', campaignId)
       ]);
 
       if (campaignRes.data) setCampaign(campaignRes.data);
       if (conceptsRes.data) setMasterConcepts(conceptsRes.data);
+
+      const rpcSummary = perfSummaryRes?.data?.[0] || null;
+      if (rpcSummary) {
+        setRpcPerformance(rpcSummary);
+        if (Number(rpcSummary.total_views || 0) > 0) setInitialTotalViews(Number(rpcSummary.total_views));
+        if (Number(rpcSummary.total_likes || 0) > 0) setInitialTotalLikes(Number(rpcSummary.total_likes));
+        if (Number(rpcSummary.total_videos || 0) > 0) setInitialTotalVideos(Number(rpcSummary.total_videos));
+        if (Number(rpcSummary.organic_gmv || 0) > 0) setInitialTotalOrganic(Number(rpcSummary.organic_gmv));
+        if (Number(rpcSummary.unattributed_gmv || 0) > 0) setInitialUnattributedGmv(Number(rpcSummary.unattributed_gmv));
+      }
 
       // Fast creator counts
       let fastCounts = { approved: 0, pending: 0, all: 0 };
@@ -107,10 +121,10 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
       }
       setFastVideoCountsData(fastVideoCounts);
 
-      // 2. Phase 2: Fetch creators, videos, organic_videos, sales, and ads in parallel batches (pageSize = 1000)
+      // 2. Phase 2: Fetch creators, videos, sales, ads in parallel batches, and organic_videos in controlled chunks
       const ccCount = ccCountRes.count || 0;
       const vidCount = vidCountRes.count || 0;
-      const orgCount = orgCountRes.count || 0;
+      const orgCount = orgCountRes.count || (rpcSummary ? Number(rpcSummary.total_videos || 0) : 0);
       const salesCount = salesCountRes.count || 0;
       const adsCount = adsCountRes.count || 0;
       const pageSize = 1000;
@@ -140,17 +154,6 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
         );
       }
 
-      const orgPromises = [];
-      for (let i = 0; i < orgCount; i += pageSize) {
-        orgPromises.push(
-          supabase
-            .from('organic_videos')
-            .select('content_uid, post_time, content_type, creator_username, video_views, video_likes, product_id')
-            .eq('campaign_id', campaignId)
-            .range(i, i + pageSize - 1)
-        );
-      }
-
       const salesPromises = [];
       for (let i = 0; i < salesCount; i += pageSize) {
         salesPromises.push(
@@ -173,12 +176,38 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
         );
       }
 
-      const [ccResults, vidResults, orgResults, salesResults, adsResults] = await Promise.all([
+      // Fetch organic_videos in controlled chunks (concurrency 4) to avoid Postgres statement timeouts
+      const fetchOrgVideosChunked = async () => {
+        const results: any[] = [];
+        if (orgCount <= 0) return results;
+        const orgConcurrency = 4;
+        for (let i = 0; i < orgCount; i += pageSize * orgConcurrency) {
+          const chunk = [];
+          for (let c = 0; c < orgConcurrency && (i + c * pageSize) < orgCount; c++) {
+            const from = i + c * pageSize;
+            const to = from + pageSize - 1;
+            chunk.push(
+              supabase
+                .from('organic_videos')
+                .select('content_uid, post_time, content_type, creator_username, video_views, video_likes, product_id')
+                .eq('campaign_id', campaignId)
+                .range(from, to)
+            );
+          }
+          const chunkResults = await Promise.all(chunk);
+          chunkResults.forEach(res => {
+            if (res.data) results.push(...res.data);
+          });
+        }
+        return results;
+      };
+
+      const [ccResults, vidResults, salesResults, adsResults, orgVidsData] = await Promise.all([
         Promise.all(ccPromises),
         Promise.all(vidPromises),
-        Promise.all(orgPromises),
         Promise.all(salesPromises),
-        Promise.all(adsPromises)
+        Promise.all(adsPromises),
+        fetchOrgVideosChunked()
       ]);
 
       let ccData: any[] = [];
@@ -189,11 +218,6 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
       let vidsData: any[] = [];
       vidResults.forEach(res => {
         if (res.data) vidsData = vidsData.concat(res.data);
-      });
-
-      let orgVidsData: any[] = [];
-      orgResults.forEach(res => {
-        if (res.data) orgVidsData = orgVidsData.concat(res.data);
       });
 
       let salesData: any[] = [];
@@ -247,6 +271,21 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
         return perfMap.get(usernameLower)!;
       };
 
+      // Pre-seed perfMap with fast aggregated creator performance from PostgreSQL RPC
+      if (creatorPerfRes?.data && Array.isArray(creatorPerfRes.data)) {
+        creatorPerfRes.data.forEach((cp: any) => {
+          const u = (cp.username || '').toLowerCase();
+          if (!u) return;
+          const perf = getOrCreatePerf(u);
+          perf.gmv_organic = Number(cp.gmv_organic || 0);
+          perf.items_sold = Number(cp.items_sold || 0);
+          perf.video_views = Number(cp.video_views || 0);
+          perf.video_likes = Number(cp.video_likes || 0);
+          perf.video_count = Number(cp.video_count || 0);
+          perf.live_count = Number(cp.live_count || 0);
+        });
+      }
+
       let calcOrganicGmv = 0;
       let calcUnattributedGmv = 0;
 
@@ -298,35 +337,43 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
       let calcTotalLikes = 0;
       let calcUniqueVideos = 0;
 
-      for (const [uid, v] of orgUidMap.entries()) {
-        if (v.contentType !== 'livestream' && v.contentType !== 'live') {
-          calcUniqueVideos++;
+      if (orgVidsData.length > 0) {
+        for (const perf of perfMap.values()) {
+          perf.video_views = 0;
+          perf.video_likes = 0;
         }
-        calcTotalViews += v.views;
-        calcTotalLikes += v.likes;
 
-        if (v.creator) {
-          const perf = getOrCreatePerf(v.creator);
-          perf.video_views += v.views;
-          perf.video_likes += v.likes;
-          if (v.contentType === 'livestream' || v.contentType === 'live') {
-            perf.live_uids.add(uid);
-          } else {
-            perf.video_uids.add(uid);
+        for (const [uid, v] of orgUidMap.entries()) {
+          if (v.contentType !== 'livestream' && v.contentType !== 'live') {
+            calcUniqueVideos++;
+          }
+          calcTotalViews += v.views;
+          calcTotalLikes += v.likes;
+
+          if (v.creator) {
+            const perf = getOrCreatePerf(v.creator);
+            perf.video_views += v.views;
+            perf.video_likes += v.likes;
+            if (v.contentType === 'livestream' || v.contentType === 'live') {
+              perf.live_uids.add(uid);
+            } else {
+              perf.video_uids.add(uid);
+            }
           }
         }
+
+        for (const perf of perfMap.values()) {
+          if (perf.video_uids.size > 0) perf.video_count = perf.video_uids.size;
+          if (perf.live_uids.size > 0) perf.live_count = perf.live_uids.size;
+        }
+
+        if (calcTotalViews > 0) setInitialTotalViews(calcTotalViews);
+        if (calcTotalLikes > 0) setInitialTotalLikes(calcTotalLikes);
+        if (calcUniqueVideos > 0) setInitialTotalVideos(calcUniqueVideos);
       }
 
-      for (const perf of perfMap.values()) {
-        perf.video_count = perf.video_uids.size;
-        perf.live_count = perf.live_uids.size;
-      }
-
-      setInitialTotalOrganic(calcOrganicGmv);
-      setInitialUnattributedGmv(calcUnattributedGmv);
-      setInitialTotalViews(calcTotalViews);
-      setInitialTotalLikes(calcTotalLikes);
-      setInitialTotalVideos(calcUniqueVideos);
+      if (calcOrganicGmv > 0) setInitialTotalOrganic(calcOrganicGmv);
+      if (calcUnattributedGmv > 0) setInitialUnattributedGmv(calcUnattributedGmv);
 
       const videoGmvData = salesData.map((s: any) => ({
         creator_username: s.creator_username,
@@ -655,7 +702,7 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
 
   const totalApprovedVideos = isFiltered 
     ? fbApprovedVideos 
-    : (fastVideoCountsData ? fastVideoCountsData.approved : fbApprovedVideos);
+    : (fastVideoCountsData ? fastVideoCountsData.approved : (initialTotalVideos || Number(rpcPerformance?.total_videos || 0) || fbApprovedVideos));
 
   const totalPendingVideos = isFiltered 
     ? fbPendingVideos 
@@ -663,7 +710,7 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
 
   const totalCampaignLivestreams = isFiltered 
     ? fbLivestreams 
-    : (fastVideoCountsData ? fastVideoCountsData.livestream : Number(totalSales?.totalLivestreams || fbLivestreams));
+    : (fastVideoCountsData ? fastVideoCountsData.livestream : (Number(totalSales?.totalLivestreams || 0) || fbLivestreams));
 
   const totalOrganic = isFiltered ? fbOrganic : (initialTotalOrganic || fbOrganic);
   // Total Ads GMV = ALL ads in this campaign (global, same as Ads Report page)
@@ -684,9 +731,13 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
   const attributionGap = unattributedGmv;
   const gapPercentage = totalOrganic > 0 ? Math.round((attributionGap / (totalOrganic + attributionGap)) * 100) : 0;
 
-  const totalCampaignViews = isFiltered ? fbViews : (initialTotalViews || fbViews);
-  const totalCampaignLikes = isFiltered ? fbLikes : (initialTotalLikes || fbLikes);
-  const totalCampaignVideos = isFiltered ? fbVideos : (initialTotalVideos || fbVideos);
+  const totalCampaignViews = isFiltered ? fbViews : (initialTotalViews || Number(rpcPerformance?.total_views || 0) || fbViews);
+  const totalCampaignLikes = isFiltered ? fbLikes : (initialTotalLikes || Number(rpcPerformance?.total_likes || 0) || fbLikes);
+  const totalCampaignVideos = isFiltered 
+    ? fbVideos 
+    : (fastVideoCountsData && (fastVideoCountsData.approved + fastVideoCountsData.pending) > 0
+        ? (fastVideoCountsData.approved + fastVideoCountsData.pending)
+        : (initialTotalVideos || Number(rpcPerformance?.total_videos || 0) || fbVideos));
   
   const creatorsWithVideo = isFiltered ? fbWithVideo : Number(totalSales?.creatorsWithVideo || fbWithVideo);
   const creatorsWithLive = isFiltered ? fbWithLive : Number(totalSales?.creatorsWithLive || fbWithLive);
@@ -788,11 +839,15 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
               <div className="flex justify-between items-start">
                 <div>
                   <p className="text-[13px] font-medium text-text-soft">Pencapaian Target Video</p>
-                  <h3 className="text-[24px] font-bold mt-[8px] text-text">{totalApprovedVideos} <span className="text-[13px] text-text-soft font-normal">video approved</span></h3>
+                  <h3 className="text-[24px] font-bold mt-[8px] text-text">{totalApprovedVideos.toLocaleString()} <span className="text-[13px] text-text-soft font-normal">video approved</span></h3>
                   <div className="flex items-center gap-3 text-[11px] mt-[4px] text-text-soft">
-                    <span>{totalPendingVideos} video pending dari {pendingCreatorsWithVideosCount} kreator</span>
+                    <span>
+                      {totalPendingVideos > 0 
+                        ? `${totalPendingVideos.toLocaleString()} video pending dari ${pendingCreatorsWithVideosCount} kreator` 
+                        : '0 video pending'}
+                    </span>
                   </div>
-                  <p className="text-[11px] font-semibold text-text-soft mt-[4px]">{totalCampaignLivestreams} <span className="font-normal">livestream</span></p>
+                  <p className="text-[11px] font-semibold text-text-soft mt-[4px]">{totalCampaignLivestreams.toLocaleString()} <span className="font-normal">livestream</span></p>
                 </div>
                 <div className="p-[8px] bg-rose-50 rounded-[8px] text-rose-600"><PlaySquare className="w-5 h-5" /></div>
               </div>
