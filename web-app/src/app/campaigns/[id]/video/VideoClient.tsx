@@ -8,12 +8,18 @@ import { createClient } from "@/utils/supabase/client";
 import { getCreatorType, getConceptColor } from "@/utils/computed";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { AlertCircle, Link as LinkIcon, Save, Edit2, Loader2, ChevronDown, ChevronRight, Plus, PlayCircle, X, Download, ExternalLink } from "lucide-react";
+import { AlertCircle, Link as LinkIcon, Save, Edit2, Loader2, ChevronDown, ChevronRight, Plus, PlayCircle, X, Download, ExternalLink, CheckCircle2, Clock, Film, FileVideo } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/Dialog";
 import { useAuth } from "@/providers/AuthProvider";
 import { useCampaignFilter } from "@/providers/CampaignFilterProvider";
 import { getInternalVideoData } from "../../actions/videoActions";
 import * as XLSX from "xlsx";
+
+const extractGDriveId = (url: string) => {
+  if (!url) return null;
+  const match = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) || url.match(/id=([a-zA-Z0-9_-]+)/);
+  return match ? match[1] : null;
+};
 
 const extractCampaignSnapshot = (creator: any, campaignCreatedAt?: string) => {
   const snaps = creator?.creator_snapshots || [];
@@ -137,8 +143,28 @@ export default function CampaignVideoPage({
   const [sortBy, setSortBy] = useState('latest_post');
   const [expandedGroups, setExpandedGroups] = useState<Set<number>>(new Set());
   const [clientPage, setClientPage] = useState(1);
-  const [viewMode, setViewMode] = useState<'creator' | 'video'>('creator');
+  const [viewMode, setViewMode] = useState<'creator' | 'video' | 'draft'>('creator');
   const [isFiltering, setIsFiltering] = useState(false);
+
+  // Draft Video specific states
+  const [filterDraftApproval, setFilterDraftApproval] = useState<'all' | 'pending' | 'approved' | 'revisi'>('all');
+  const [filterDraftLink, setFilterDraftLink] = useState<'all' | 'has_draft' | 'no_draft'>('all');
+  const [filterDraftTiktok, setFilterDraftTiktok] = useState<'all' | 'uploaded' | 'not_uploaded'>('all');
+  const [playingDriveId, setPlayingDriveId] = useState<string | null>(null);
+  const [masterConcepts, setMasterConcepts] = useState<any[]>([]);
+  const [selectedConcept, setSelectedConcept] = useState<any | null>(null);
+
+  // Fetch master concepts for this campaign
+  useEffect(() => {
+    if (!campaignId) return;
+    supabase
+      .from('campaign_concepts')
+      .select('*, skus(nama_produk)')
+      .eq('campaign_id', campaignId)
+      .then(res => {
+        if (res.data) setMasterConcepts(res.data);
+      });
+  }, [campaignId]);
 
   // Reset clientPage when filters change
   useEffect(() => {
@@ -146,12 +172,12 @@ export default function CampaignVideoPage({
     setClientPage(1);
     const timer = setTimeout(() => setIsFiltering(false), 300);
     return () => clearTimeout(timer);
-  }, [debouncedSearch, filterSow, filterSales, filterSku, filterConcept, sortBy, viewMode]);
+  }, [debouncedSearch, filterSow, filterSales, filterSku, filterConcept, sortBy, viewMode, filterDraftApproval, filterDraftLink, filterDraftTiktok]);
   const CLIENT_PAGE_SIZE = 50;
 
   useEffect(() => {
     setClientPage(1);
-  }, [filterSow, filterSales, filterSku, filterConcept, sortBy, debouncedSearch, viewMode]);
+  }, [filterSow, filterSales, filterSku, filterConcept, sortBy, debouncedSearch, viewMode, filterDraftApproval, filterDraftLink, filterDraftTiktok]);
   
   const toggleGroup = (id: number) => {
     setExpandedGroups(prev => {
@@ -378,7 +404,11 @@ export default function CampaignVideoPage({
             concept: v.concept,
             concept_updated_at: v.concept_updated_at,
             concept_updated_by: v.concept_updated_by,
+            link_draft: v.link_draft || null,
             link_video: v.link_video,
+            vt_approval: v.vt_approval || 'pending',
+            vt_approved_by: v.vt_approved_by || null,
+            vt_approved_at: v.vt_approved_at || null,
             content_uid: finalContentUid,
             sku_id: v.sku_id ? Number(v.sku_id) : null
           }).eq('id', v.id);
@@ -389,10 +419,13 @@ export default function CampaignVideoPage({
             concept: v.concept,
             concept_updated_at: v.concept_updated_at,
             concept_updated_by: v.concept_updated_by,
+            link_draft: v.link_draft || null,
             link_video: v.link_video,
             content_uid: finalContentUid,
             sku_id: v.sku_id ? Number(v.sku_id) : null,
-            vt_approval: 'approved'
+            vt_approval: v.vt_approval || 'approved',
+            vt_approved_by: v.vt_approved_by || null,
+            vt_approved_at: v.vt_approved_at || null
           });
         }
       }
@@ -415,6 +448,92 @@ export default function CampaignVideoPage({
     } finally {
       setSaving(prev => ({ ...prev, [ccId]: false }));
     }
+  };
+
+  // Fast single-video updater (optimistic + background DB persistence)
+  const handleUpdateSingleVideoField = async (
+    ccId: number, 
+    video: any, 
+    fields: Record<string, any>
+  ) => {
+    const isPhantom = typeof video.id === 'string' && (video.id.startsWith('phantom_') || video.id.startsWith('auto_'));
+    
+    // 1. Optimistic update in localVideos
+    setLocalVideos((prev: any[]) => {
+      const exists = prev.find(v => v.campaign_creator_id === ccId && v.urutan === video.urutan);
+      if (exists) {
+        return prev.map(v => {
+          if (v.campaign_creator_id === ccId && v.urutan === video.urutan) {
+            return { ...v, ...fields };
+          }
+          return v;
+        });
+      } else {
+        return [...prev, {
+          campaign_creator_id: ccId,
+          urutan: video.urutan,
+          concept: video.concept || '',
+          link_draft: video.link_draft || null,
+          link_video: video.link_video || null,
+          vt_approval: video.vt_approval || 'pending',
+          ...fields
+        }];
+      }
+    });
+
+    // 2. Persist to Supabase
+    try {
+      if (!isPhantom && typeof video.id === 'number') {
+        const { error } = await supabase
+          .from('videos')
+          .update(fields)
+          .eq('id', video.id);
+        if (error) throw error;
+      } else {
+        // Insert new row into videos
+        const insertData: any = {
+          campaign_creator_id: ccId,
+          urutan: video.urutan,
+          concept: video.concept || '',
+          concept_updated_at: video.concept_updated_at || null,
+          concept_updated_by: video.concept_updated_by || null,
+          link_draft: video.link_draft || null,
+          link_video: video.link_video || null,
+          vt_approval: video.vt_approval || 'pending',
+          ...fields
+        };
+        const { data, error } = await supabase
+          .from('videos')
+          .insert(insertData)
+          .select()
+          .single();
+        if (error) throw error;
+        
+        if (data) {
+          // Replace phantom video with real database row
+          setLocalVideos((prev: any[]) => {
+            return prev.map(v => {
+              if (v.campaign_creator_id === ccId && v.urutan === video.urutan) {
+                return { ...v, ...data };
+              }
+              return v;
+            });
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Failed to update video field:', err);
+      alert('Gagal menyimpan data video');
+    }
+  };
+
+  const handleVtApprovalChange = (video: any, newStatus: string) => {
+    const fields: Record<string, any> = {
+      vt_approval: newStatus,
+      vt_approved_by: profile?.nama || 'Manager',
+      vt_approved_at: new Date().toISOString()
+    };
+    handleUpdateSingleVideoField(video.campaign_creator_id, video, fields);
   };
 
   const handleAddVideoRow = (ccId: number) => {
@@ -900,6 +1019,158 @@ export default function CampaignVideoPage({
   const visibleVideosData = processedVideosData.slice(0, clientPage * CLIENT_PAGE_SIZE);
   const hasMoreVideosClient = processedVideosData.length > visibleVideosData.length;
 
+  // Processed draft videos for 'draft' viewMode
+  const processedDraftsData = React.useMemo(() => {
+    if (viewMode !== 'draft') return [];
+
+    const drafts: any[] = [];
+
+    listingData.forEach(cc => {
+      const creator = cc.creators;
+      if (!creator) return;
+      if (!isCreatorVisible(creator.username)) return;
+
+      // Filter debouncedSearch
+      if (debouncedSearch && !creator.username.toLowerCase().includes(debouncedSearch.toLowerCase())) {
+        return;
+      }
+
+      let creatorVideos = localVideos.filter(v => v.campaign_creator_id === cc.id);
+      const target = cc.qty_vt || 0;
+      
+      const vids = [...creatorVideos];
+      
+      // Pad phantom slots up to target SOW
+      if (vids.length < target) {
+        const diff = target - vids.length;
+        let nextUrutan = vids.length > 0 ? Math.max(...vids.map(v => v.urutan || 0)) + 1 : 1;
+        for (let i = 0; i < diff; i++) {
+          vids.push({
+            id: `phantom_${cc.id}_${nextUrutan}`,
+            campaign_creator_id: cc.id,
+            urutan: nextUrutan,
+            concept: '',
+            concept_updated_at: null,
+            concept_updated_by: null,
+            link_video: '',
+            link_draft: '',
+            vt_approval: 'pending',
+            vt_approved_by: null,
+            vt_approved_at: null
+          });
+          nextUrutan++;
+        }
+      }
+
+      if (vids.length === 0) {
+        vids.push({
+          id: `phantom_${cc.id}_1`,
+          campaign_creator_id: cc.id,
+          urutan: 1,
+          concept: '',
+          concept_updated_at: null,
+          concept_updated_by: null,
+          link_video: '',
+          link_draft: '',
+          vt_approval: 'pending',
+          vt_approved_by: null,
+          vt_approved_at: null
+        });
+      }
+
+      vids.sort((a, b) => (a.urutan || 0) - (b.urutan || 0));
+
+      vids.forEach(v => {
+        drafts.push({
+          ...v,
+          creatorUsername: creator.username,
+          creatorTier: cc.tier,
+          creatorId: creator.id,
+          creatorContact: creator.creator_contacts?.find((c: any) => c.status === 'aktif')?.nomor || null,
+          creatorLink: creator.link_account || `https://www.tiktok.com/@${creator.username}`,
+          ccId: cc.id,
+          cc
+        });
+      });
+    });
+
+    let filtered = drafts;
+
+    if (filterDraftApproval !== 'all') {
+      filtered = filtered.filter(d => (d.vt_approval || 'pending') === filterDraftApproval);
+    }
+
+    if (filterDraftLink !== 'all') {
+      if (filterDraftLink === 'has_draft') {
+        filtered = filtered.filter(d => Boolean(d.link_draft && d.link_draft.trim() !== ''));
+      } else if (filterDraftLink === 'no_draft') {
+        filtered = filtered.filter(d => !d.link_draft || d.link_draft.trim() === '');
+      }
+    }
+
+    if (filterDraftTiktok !== 'all') {
+      if (filterDraftTiktok === 'uploaded') {
+        filtered = filtered.filter(d => Boolean(d.link_video && d.link_video.trim() !== ''));
+      } else if (filterDraftTiktok === 'not_uploaded') {
+        filtered = filtered.filter(d => !d.link_video || d.link_video.trim() === '');
+      }
+    }
+
+    if (filterConcept) {
+      filtered = filtered.filter(d => String(d.concept || '') === String(filterConcept));
+    }
+
+    return filtered;
+  }, [viewMode, listingData, localVideos, debouncedSearch, filterDraftApproval, filterDraftLink, filterDraftTiktok, filterConcept, isCreatorVisible]);
+
+  const draftSummaryMetrics = React.useMemo(() => {
+    let total = 0;
+    let readyForReview = 0;
+    let approved = 0;
+    let revisi = 0;
+    let noDraft = 0;
+
+    listingData.forEach(cc => {
+      const creator = cc.creators;
+      if (!creator) return;
+      if (!isCreatorVisible(creator.username)) return;
+
+      let creatorVideos = localVideos.filter(v => v.campaign_creator_id === cc.id);
+      const target = cc.qty_vt || 0;
+      const count = Math.max(target, creatorVideos.length, 1);
+      
+      const vids = [...creatorVideos];
+      if (vids.length < count) {
+        for (let i = vids.length; i < count; i++) {
+          vids.push({ link_draft: '', vt_approval: 'pending' });
+        }
+      }
+
+      vids.forEach(v => {
+        total++;
+        const hasDraft = Boolean(v.link_draft && v.link_draft.trim() !== '');
+        const approval = v.vt_approval || 'pending';
+
+        if (hasDraft && approval === 'pending') {
+          readyForReview++;
+        }
+        if (approval === 'approved') {
+          approved++;
+        } else if (approval === 'revisi') {
+          revisi++;
+        }
+        if (!hasDraft) {
+          noDraft++;
+        }
+      });
+    });
+
+    return { total, readyForReview, approved, revisi, noDraft };
+  }, [listingData, localVideos, isCreatorVisible]);
+
+  const visibleDraftsData = processedDraftsData.slice(0, clientPage * CLIENT_PAGE_SIZE);
+  const hasMoreDrafts = processedDraftsData.length > visibleDraftsData.length;
+
   const historyVideos = React.useMemo(() => {
     if (!historyOpen) return [];
     const videos = localVideos.filter(v => typeof v.id === 'number' && v.created_at);
@@ -946,110 +1217,165 @@ export default function CampaignVideoPage({
         </div>
         <div>
           <div className="flex flex-col gap-4 bg-slate-50 p-4 border border-line rounded-lg">
-             <div className="flex justify-between items-start gap-4">
-               <div className="flex bg-white rounded-md border border-slate-200 overflow-hidden w-fit h-fit">
-                  <button 
-                    onClick={() => setViewMode('creator')}
-                    className={`px-4 py-2 text-sm font-semibold transition-colors ${viewMode === 'creator' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-50'}`}
-                  >
-                    Tampilan: Per Kreator
+              <div className="flex justify-between items-start gap-4">
+                <div className="flex bg-white rounded-md border border-slate-200 overflow-hidden w-fit h-fit">
+                   <button 
+                     onClick={() => setViewMode('creator')}
+                     className={`px-4 py-2 text-sm font-semibold transition-colors ${viewMode === 'creator' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-50'}`}
+                   >
+                     Tampilan: Per Kreator
+                   </button>
+                   <div className="w-[1px] bg-slate-200"></div>
+                   <button 
+                     onClick={() => setViewMode('video')}
+                     className={`px-4 py-2 text-sm font-semibold transition-colors ${viewMode === 'video' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-50'}`}
+                   >
+                     Tampilan: Semua Video
+                   </button>
+                   <div className="w-[1px] bg-slate-200"></div>
+                   <button 
+                     onClick={() => setViewMode('draft')}
+                     className={`px-4 py-2 text-sm font-semibold transition-colors flex items-center gap-1.5 ${viewMode === 'draft' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-50'}`}
+                   >
+                     <Film className="w-4 h-4" />
+                     Draft Video
+                     {draftSummaryMetrics.readyForReview > 0 && (
+                       <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 ml-1">
+                         {draftSummaryMetrics.readyForReview}
+                       </span>
+                     )}
+                   </button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button onClick={handleExport} disabled={isExporting} className="btn bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 flex items-center gap-2 whitespace-nowrap h-fit">
+                     {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />} Export
                   </button>
-                  <div className="w-[1px] bg-slate-200"></div>
-                  <button 
-                    onClick={() => setViewMode('video')}
-                    className={`px-4 py-2 text-sm font-semibold transition-colors ${viewMode === 'video' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-50'}`}
-                  >
-                    Tampilan: Semua Video
-                  </button>
-               </div>
-               <div className="flex items-center gap-2">
-                 <button onClick={handleExport} disabled={isExporting} className="btn bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 flex items-center gap-2 whitespace-nowrap h-fit">
-                    {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />} Export
-                 </button>
-                 {hasAccess && (
+                  {hasAccess && (
+                    <>
+                      <button onClick={() => {
+                        setHistoryOpen(true);
+                        setHistoryPage(0);
+                        setSelectedHistoryIds(new Set());
+                      }} className="btn bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 flex items-center gap-2 whitespace-nowrap h-fit">
+                         Aktivitas Import Terakhir
+                      </button>
+                      <button onClick={() => setBulkImportOpen(true)} className="btn btn-primary flex items-center gap-2 whitespace-nowrap h-fit">
+                         <Plus className="w-4 h-4" /> Bulk Import Link
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-4 items-end">
+                 <div className="space-y-2 flex-1 min-w-[200px]">
+                    <label className="text-xs font-semibold text-text-soft">Pencarian Kreator</label>
+                    <input 
+                       type="text" 
+                       placeholder="Cari username..." 
+                       className="input w-full"
+                       value={searchQuery}
+                       onChange={e => setSearchQuery(e.target.value)}
+                    />
+                 </div>
+
+                 {viewMode === 'draft' ? (
                    <>
-                     <button onClick={() => {
-                       setHistoryOpen(true);
-                       setHistoryPage(0);
-                       setSelectedHistoryIds(new Set());
-                     }} className="btn bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 flex items-center gap-2 whitespace-nowrap h-fit">
-                        Aktivitas Import Terakhir
-                     </button>
-                     <button onClick={() => setBulkImportOpen(true)} className="btn btn-primary flex items-center gap-2 whitespace-nowrap h-fit">
-                        <Plus className="w-4 h-4" /> Bulk Import Link
-                     </button>
+                     <div className="space-y-2">
+                        <label className="text-xs font-semibold text-text-soft">Status VT Approval</label>
+                        <select className="select w-full" value={filterDraftApproval} onChange={e => setFilterDraftApproval(e.target.value as any)}>
+                           <option value="all">Semua Status Approval</option>
+                           <option value="pending">Pending (Menunggu Review)</option>
+                           <option value="approved">Approved</option>
+                           <option value="revisi">Revisi</option>
+                        </select>
+                     </div>
+                     <div className="space-y-2">
+                        <label className="text-xs font-semibold text-text-soft">Status Draft GDrive</label>
+                        <select className="select w-full" value={filterDraftLink} onChange={e => setFilterDraftLink(e.target.value as any)}>
+                           <option value="all">Semua Status Draft</option>
+                           <option value="has_draft">Ada Link Draft</option>
+                           <option value="no_draft">Belum Ada Draft</option>
+                        </select>
+                     </div>
+                     <div className="space-y-2">
+                        <label className="text-xs font-semibold text-text-soft">Upload TikTok (Final)</label>
+                        <select className="select w-full" value={filterDraftTiktok} onChange={e => setFilterDraftTiktok(e.target.value as any)}>
+                           <option value="all">Semua Status Final</option>
+                           <option value="uploaded">Sudah Upload TikTok</option>
+                           <option value="not_uploaded">Belum Upload TikTok</option>
+                        </select>
+                     </div>
+                     <div className="space-y-2">
+                        <label className="text-xs font-semibold text-text-soft">Filter Konsep</label>
+                        <select className="select w-full max-w-[150px]" value={filterConcept} onChange={e => setFilterConcept(e.target.value)}>
+                           <option value="">Semua Konsep</option>
+                           {Array.from({length: 20}, (_, i) => (
+                              <option key={i+1} value={`${i+1}`}>Konsep {i+1}</option>
+                           ))}
+                        </select>
+                     </div>
+                   </>
+                 ) : (
+                   <>
+                     <div className="space-y-2">
+                        <label className="text-xs font-semibold text-text-soft">Status SOW</label>
+                        <select className="select w-full" value={filterSow} onChange={e => setFilterSow(e.target.value)}>
+                           <option value="all">Semua SOW</option>
+                           <option value="done">Sudah Upload (Memenuhi Target)</option>
+                           <option value="pending">Belum Upload / Kurang Target</option>
+                        </select>
+                     </div>
+                     <div className="space-y-2">
+                        <label className="text-xs font-semibold text-text-soft">Status Penjualan</label>
+                        <select className="select w-full" value={filterSales} onChange={e => setFilterSales(e.target.value)}>
+                           <option value="all">Semua Status</option>
+                           <option value="pecah">Sudah Pecah Telur (GMV &gt; 0)</option>
+                           <option value="nol">Belum Ada Penjualan</option>
+                        </select>
+                     </div>
+                     <div className="space-y-2">
+                        <label className="text-xs font-semibold text-text-soft">Filter Produk</label>
+                        <select className="select w-full max-w-[200px]" value={filterSku} onChange={e => setFilterSku(e.target.value)}>
+                           <option value="all">Semua Produk Campaign</option>
+                           {skus.filter(s => s.campaign_id === campaignId).map(sku => (
+                              <option key={sku.id} value={sku.product_id}>{sku.nama_produk || sku.product_id}</option>
+                           ))}
+                        </select>
+                     </div>
+                     <div className="space-y-2">
+                        <label className="text-xs font-semibold text-text-soft">Filter Konsep</label>
+                        <select className="select w-full max-w-[150px]" value={filterConcept} onChange={e => setFilterConcept(e.target.value)}>
+                           <option value="">Semua Konsep</option>
+                           {Array.from({length: 20}, (_, i) => (
+                              <option key={i+1} value={`${i+1}`}>Konsep {i+1}</option>
+                           ))}
+                        </select>
+                     </div>
+                     <div className="space-y-2">
+                        <label className="text-xs font-semibold text-text-soft">Urutkan (Sort)</label>
+                        <select className="select w-full font-semibold" value={sortBy} onChange={e => setSortBy(e.target.value)}>
+                           <option value="none">Tanpa Pengurutan</option>
+                           <option value="latest_post">Terbaru Diposting</option>
+                           <optgroup label="Berdasarkan GMV">
+                              <option value="gmv_desc">Total GMV (Tertinggi)</option>
+                              <option value="gmv_asc">Total GMV (Terendah)</option>
+                           </optgroup>
+                           <optgroup label="Berdasarkan Upload">
+                              <option value="vt_desc">Jumlah Video (Terbanyak)</option>
+                              <option value="vt_asc">Jumlah Video (Terdikit)</option>
+                           </optgroup>
+                           <optgroup label="Berdasarkan Views & Likes">
+                              <option value="views_desc">Total Views (Tertinggi)</option>
+                              <option value="views_asc">Total Views (Terendah)</option>
+                              <option value="likes_desc">Total Likes (Tertinggi)</option>
+                              <option value="likes_asc">Total Likes (Terendah)</option>
+                           </optgroup>
+                        </select>
+                     </div>
                    </>
                  )}
-               </div>
-             </div>
-             <div className="flex flex-wrap gap-4 items-end">
-                <div className="space-y-2 flex-1 min-w-[200px]">
-                   <label className="text-xs font-semibold text-text-soft">Pencarian Kreator</label>
-                   <input 
-                      type="text" 
-                      placeholder="Cari username..." 
-                      className="input w-full"
-                      value={searchQuery}
-                      onChange={e => setSearchQuery(e.target.value)}
-                   />
-                </div>
-                <div className="space-y-2">
-                   <label className="text-xs font-semibold text-text-soft">Status SOW</label>
-                   <select className="select w-full" value={filterSow} onChange={e => setFilterSow(e.target.value)}>
-                      <option value="all">Semua SOW</option>
-                      <option value="done">Sudah Upload (Memenuhi Target)</option>
-                      <option value="pending">Belum Upload / Kurang Target</option>
-                   </select>
-                </div>
-                <div className="space-y-2">
-                   <label className="text-xs font-semibold text-text-soft">Status Penjualan</label>
-                   <select className="select w-full" value={filterSales} onChange={e => setFilterSales(e.target.value)}>
-                      <option value="all">Semua Status</option>
-                      <option value="pecah">Sudah Pecah Telur (GMV &gt; 0)</option>
-                      <option value="nol">Belum Ada Penjualan</option>
-                   </select>
-                </div>
-                <div className="space-y-2">
-                   <label className="text-xs font-semibold text-text-soft">Filter Produk</label>
-                   <select className="select w-full max-w-[200px]" value={filterSku} onChange={e => setFilterSku(e.target.value)}>
-                      <option value="all">Semua Produk Campaign</option>
-                      {skus.filter(s => s.campaign_id === campaignId).map(sku => (
-                         <option key={sku.id} value={sku.product_id}>{sku.nama_produk || sku.product_id}</option>
-                      ))}
-                   </select>
-                </div>
-                <div className="space-y-2">
-                   <label className="text-xs font-semibold text-text-soft">Filter Konsep</label>
-                   <select className="select w-full max-w-[150px]" value={filterConcept} onChange={e => setFilterConcept(e.target.value)}>
-                      <option value="">Semua Konsep</option>
-                      {Array.from({length: 20}, (_, i) => (
-                         <option key={i+1} value={`${i+1}`}>Konsep {i+1}</option>
-                      ))}
-                   </select>
-                </div>
-                <div className="space-y-2">
-                   <label className="text-xs font-semibold text-text-soft">Urutkan (Sort)</label>
-                   <select className="select w-full font-semibold" value={sortBy} onChange={e => setSortBy(e.target.value)}>
-                      <option value="none">Tanpa Pengurutan</option>
-                      <option value="latest_post">Terbaru Diposting</option>
-                      <optgroup label="Berdasarkan GMV">
-                         <option value="gmv_desc">Total GMV (Tertinggi)</option>
-                         <option value="gmv_asc">Total GMV (Terendah)</option>
-                      </optgroup>
-                      <optgroup label="Berdasarkan Upload">
-                         <option value="vt_desc">Jumlah Video (Terbanyak)</option>
-                         <option value="vt_asc">Jumlah Video (Terdikit)</option>
-                      </optgroup>
-                      <optgroup label="Berdasarkan Views & Likes">
-                         <option value="views_desc">Total Views (Tertinggi)</option>
-                         <option value="views_asc">Total Views (Terendah)</option>
-                         <option value="likes_desc">Total Likes (Tertinggi)</option>
-                         <option value="likes_asc">Total Likes (Terendah)</option>
-                      </optgroup>
-                   </select>
-                </div>
-             </div>
-          </div>
+              </div>
+           </div>
         </div>
       </div>
 
@@ -1351,7 +1677,7 @@ export default function CampaignVideoPage({
               </div>
             )}
           </div>
-        ) : (
+        ) : viewMode === 'video' ? (
           <div className="overflow-x-auto pb-[24px]">
             <table className="w-full text-left border-collapse min-w-[800px]">
               <thead>
@@ -1509,6 +1835,335 @@ export default function CampaignVideoPage({
                 <button onClick={() => setClientPage(p => p + 1)} className="btn btn-outline">
                   <ChevronDown className="ico" />
                   Tampilkan Lebih Banyak
+                </button>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-6 pb-[24px]">
+            {/* Summary Stat Cards */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+              <button 
+                onClick={() => { setFilterDraftApproval('all'); setFilterDraftLink('all'); setFilterDraftTiktok('all'); }} 
+                className={`p-3 rounded-xl border text-left transition-all ${filterDraftApproval === 'all' && filterDraftLink === 'all' && filterDraftTiktok === 'all' ? 'bg-indigo-50/80 border-indigo-300 ring-2 ring-indigo-200' : 'bg-white border-slate-200 hover:bg-slate-50'}`}
+              >
+                <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Total Slot Video</div>
+                <div className="text-xl font-bold text-slate-800 mt-1">{draftSummaryMetrics.total}</div>
+                <div className="text-[10px] text-slate-400 mt-0.5">Semua slot SOW kreator</div>
+              </button>
+
+              <button 
+                onClick={() => { setFilterDraftApproval('pending'); setFilterDraftLink('has_draft'); }} 
+                className={`p-3 rounded-xl border text-left transition-all ${filterDraftApproval === 'pending' && filterDraftLink === 'has_draft' ? 'bg-amber-50 border-amber-300 ring-2 ring-amber-200' : 'bg-white border-slate-200 hover:bg-slate-50'}`}
+              >
+                <div className="flex items-center gap-1.5 text-[11px] font-bold text-amber-700 uppercase tracking-wider">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                  </span>
+                  Siap Di-Review
+                </div>
+                <div className="text-xl font-bold text-amber-800 mt-1">{draftSummaryMetrics.readyForReview}</div>
+                <div className="text-[10px] text-amber-600 mt-0.5">Ada draft & status pending</div>
+              </button>
+
+              <button 
+                onClick={() => { setFilterDraftApproval('approved'); setFilterDraftLink('all'); }} 
+                className={`p-3 rounded-xl border text-left transition-all ${filterDraftApproval === 'approved' && filterDraftLink === 'all' ? 'bg-emerald-50 border-emerald-300 ring-2 ring-emerald-200' : 'bg-white border-slate-200 hover:bg-slate-50'}`}
+              >
+                <div className="text-[11px] font-bold text-emerald-700 uppercase tracking-wider">Approved</div>
+                <div className="text-xl font-bold text-emerald-800 mt-1">{draftSummaryMetrics.approved}</div>
+                <div className="text-[10px] text-emerald-600 mt-0.5">Siap di-upload kreator</div>
+              </button>
+
+              <button 
+                onClick={() => { setFilterDraftApproval('revisi'); setFilterDraftLink('all'); }} 
+                className={`p-3 rounded-xl border text-left transition-all ${filterDraftApproval === 'revisi' ? 'bg-rose-50 border-rose-300 ring-2 ring-rose-200' : 'bg-white border-slate-200 hover:bg-slate-50'}`}
+              >
+                <div className="text-[11px] font-bold text-rose-700 uppercase tracking-wider">Perlu Revisi</div>
+                <div className="text-xl font-bold text-rose-800 mt-1">{draftSummaryMetrics.revisi}</div>
+                <div className="text-[10px] text-rose-600 mt-0.5">Harus diperbaiki kreator</div>
+              </button>
+
+              <button 
+                onClick={() => { setFilterDraftApproval('all'); setFilterDraftLink('no_draft'); }} 
+                className={`p-3 rounded-xl border text-left transition-all ${filterDraftLink === 'no_draft' ? 'bg-slate-100 border-slate-400 ring-2 ring-slate-200' : 'bg-white border-slate-200 hover:bg-slate-50'}`}
+              >
+                <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Belum Setor Draft</div>
+                <div className="text-xl font-bold text-slate-700 mt-1">{draftSummaryMetrics.noDraft}</div>
+                <div className="text-[10px] text-slate-400 mt-0.5">Menunggu input PIC</div>
+              </button>
+            </div>
+
+            {/* Draft Video Table */}
+            <div className="overflow-x-auto border border-slate-200 rounded-xl bg-white">
+              <table className="w-full text-left border-collapse min-w-[900px]">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500">
+                    <th className="p-4 w-12 text-center">#</th>
+                    <th className="p-4 min-w-[180px]">Kreator</th>
+                    <th className="p-4 w-28">Konsep</th>
+                    <th className="p-4 min-w-[280px]">Link Draft Video (GDrive)</th>
+                    <th className="p-4 min-w-[240px]">Link Final (TikTok)</th>
+                    <th className="p-4 min-w-[180px]">VT Approval (Manager)</th>
+                    <th className="p-4 w-28 text-center">Status</th>
+                  </tr>
+                </thead>
+                <tbody className={isFiltering ? "opacity-50 transition-opacity" : "transition-opacity"}>
+                  {visibleDraftsData.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="text-center py-12 text-slate-400 italic">
+                        Tidak ada draft video yang cocok dengan filter yang dipilih.
+                      </td>
+                    </tr>
+                  ) : (
+                    visibleDraftsData.map((v) => {
+                      const hasDriveDraft = Boolean(v.link_draft && extractGDriveId(v.link_draft));
+                      const conceptNum = parseInt(v.concept);
+                      const matchedConcept = !isNaN(conceptNum) ? masterConcepts.find((c: any) => c.no_konsep === conceptNum) : null;
+                      const isConceptError = v.concept && !matchedConcept && masterConcepts.length > 0;
+                      const gdriveId = extractGDriveId(v.link_draft);
+
+                      return (
+                        <tr key={`${v.ccId}_${v.urutan}`} className="border-b border-slate-100 hover:bg-slate-50/60 align-top transition-colors">
+                          <td className="p-4 text-center">
+                            <span className="inline-block px-2 py-0.5 bg-slate-100 text-slate-700 rounded text-xs font-bold">
+                              #{v.urutan}
+                            </span>
+                          </td>
+                          <td className="p-4">
+                            <div className="flex items-center gap-2">
+                              <Link href={`/creator-pool/${v.creatorId}`} className="font-bold text-sm text-indigo-700 hover:underline">
+                                @{v.creatorUsername}
+                              </Link>
+                              {v.creatorTier && (
+                                <span className="text-[10px] font-semibold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded">
+                                  {v.creatorTier}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 mt-1.5">
+                              {v.creatorLink && (
+                                <a href={v.creatorLink} target="_blank" rel="noopener noreferrer" className="hover:opacity-80 transition-opacity shrink-0" title="Buka Profil TikTok">
+                                  <img src="/logo-tiktok-landscape-button.svg" alt="TikTok" className="h-[18px]" />
+                                </a>
+                              )}
+                              {v.creatorContact && (
+                                <a 
+                                  href={`https://wa.me/${v.creatorContact.replace(/^0/, '62').replace(/\D/g, '')}`} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer" 
+                                  className="text-[10px] text-emerald-700 hover:underline flex items-center gap-1 font-medium bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200"
+                                  title="Chat WhatsApp"
+                                >
+                                  WA: {v.creatorContact}
+                                </a>
+                              )}
+                            </div>
+                          </td>
+
+                          {/* Konsep */}
+                          <td className="p-4">
+                            <div className="flex flex-col gap-1 pr-2">
+                              <div className={`flex items-center rounded-md border shadow-sm transition-all overflow-hidden w-[100px] h-8 focus-within:ring-1 ${isConceptError ? 'border-red-400 bg-red-50' : getConceptColor(v.concept)}`}>
+                                <button
+                                  type="button" 
+                                  className="pl-2 pr-1 text-[10px] font-bold uppercase tracking-wider hover:bg-black/5 active:bg-black/10 transition-colors h-full flex items-center"
+                                  onClick={() => matchedConcept && setSelectedConcept(matchedConcept)}
+                                  disabled={!matchedConcept}
+                                  title={matchedConcept ? "Lihat Brief Konsep" : ""}
+                                >
+                                  Konsep #
+                                </button>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  className="w-full bg-transparent border-0 p-0 text-[13px] font-bold focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                  defaultValue={v.concept || ''}
+                                  onBlur={(e) => {
+                                    if (hasAccess && e.target.value !== (v.concept || '')) {
+                                      handleUpdateSingleVideoField(v.ccId, v, { 
+                                        concept: e.target.value,
+                                        concept_updated_at: new Date().toISOString(),
+                                        concept_updated_by: profile?.nama || 'System'
+                                      });
+                                    }
+                                  }}
+                                  onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                                  disabled={!hasAccess || v.vt_approval === 'approved'}
+                                />
+                              </div>
+                              {isConceptError && (
+                                <p className="text-[10px] text-red-500 leading-tight">Tidak di master.</p>
+                              )}
+                              {v.concept && v.concept_updated_at && v.concept_updated_by ? (
+                                <p className="text-[9px] text-slate-400 leading-tight">
+                                  {new Date(v.concept_updated_at).toLocaleDateString('id-ID')} ({v.concept_updated_by})
+                                </p>
+                              ) : null}
+                            </div>
+                          </td>
+
+                          {/* Link Draft Video GDrive */}
+                          <td className="p-4">
+                            <div className="flex flex-col gap-1.5">
+                              <div className="flex items-center gap-1.5">
+                                {hasDriveDraft && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setPlayingDriveId(gdriveId)}
+                                    className="p-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-md transition-colors shrink-0 flex items-center gap-1"
+                                    title="Putar Video Draft di Aplikasi"
+                                  >
+                                    <PlayCircle className="w-4 h-4" />
+                                    <span className="text-[11px] font-semibold">Tonton</span>
+                                  </button>
+                                )}
+                                {v.link_draft && (
+                                  <a 
+                                    href={v.link_draft} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer" 
+                                    className="p-1.5 hover:bg-slate-100 text-slate-500 hover:text-slate-700 rounded-md transition-colors shrink-0" 
+                                    title="Buka Link GDrive di Tab Baru"
+                                  >
+                                    <ExternalLink className="w-4 h-4" />
+                                  </a>
+                                )}
+                                <div className="flex-1">
+                                  {hasAccess && v.vt_approval !== 'approved' ? (
+                                    <input 
+                                      type="text" 
+                                      className="input w-full !text-[12px] !p-1.5"
+                                      placeholder="Tempel link GDrive..."
+                                      defaultValue={v.link_draft || ''}
+                                      onBlur={(e) => {
+                                        if (e.target.value !== (v.link_draft || '')) {
+                                          handleUpdateSingleVideoField(v.ccId, v, { link_draft: e.target.value });
+                                        }
+                                      }}
+                                      onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                                    />
+                                  ) : (
+                                    v.link_draft ? (
+                                      <a href={v.link_draft} target="_blank" rel="noreferrer" className="text-[12px] text-indigo-600 hover:underline break-all">
+                                        {v.link_draft}
+                                      </a>
+                                    ) : <span className="text-slate-300 italic text-[12px]">- Belum diisi -</span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* Link Final TikTok */}
+                          <td className="p-4">
+                            {v.link_video ? (
+                              <div className="flex items-center gap-2">
+                                <button 
+                                  className="btn-icon bg-slate-100 shrink-0 hover:bg-slate-200 transition-colors" 
+                                  title="Putar Video TikTok"
+                                  onClick={() => {
+                                    setPreviewUrl(v.link_video);
+                                    setPreviewOpen(true);
+                                  }}
+                                >
+                                  <PlayCircle className="w-4 h-4 text-indigo-600" />
+                                </button>
+                                <a
+                                  href={v.link_video}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-[12px] text-indigo-600 hover:underline break-all truncate max-w-[180px]"
+                                  title={v.link_video}
+                                >
+                                  {v.link_video}
+                                </a>
+                              </div>
+                            ) : (
+                              <span className="text-slate-400 text-xs italic bg-slate-50 px-2 py-1 rounded border border-slate-100">
+                                Belum upload
+                              </span>
+                            )}
+                          </td>
+
+                          {/* VT Approval (Manager) */}
+                          <td className="p-4">
+                            {hasAccess ? (
+                              <div className="flex flex-col gap-1">
+                                <select 
+                                  className={`select !p-1.5 w-[125px] font-bold !text-[12px] border rounded-md shadow-sm transition-colors ${
+                                    v.vt_approval === 'approved' ? 'text-emerald-700 bg-emerald-50 border-emerald-300' :
+                                    v.vt_approval === 'revisi' ? 'text-rose-700 bg-rose-50 border-rose-300' :
+                                    'text-amber-700 bg-amber-50 border-amber-300'
+                                  }`}
+                                  value={v.vt_approval || 'pending'}
+                                  onChange={(e) => handleVtApprovalChange(v, e.target.value)}
+                                >
+                                  <option value="pending">⏳ Pending</option>
+                                  <option value="approved">✅ Approved</option>
+                                  <option value="revisi">🔄 Revisi</option>
+                                </select>
+                                
+                                {v.vt_approved_by ? (
+                                  <div className="text-[10px] text-slate-500 leading-tight mt-0.5">
+                                    Oleh: <span className="font-semibold text-slate-700">{v.vt_approved_by}</span>
+                                    {v.vt_approved_at && (
+                                      <div className="text-[9px] text-slate-400">
+                                        {new Date(v.vt_approved_at).toLocaleDateString('id-ID', {
+                                          day: 'numeric',
+                                          month: 'short',
+                                          year: 'numeric',
+                                          hour: '2-digit',
+                                          minute: '2-digit'
+                                        })}
+                                      </div>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <span className="text-[10px] text-slate-400 italic">Belum di-review</span>
+                                )}
+                              </div>
+                            ) : (
+                              <span className={`badge ${v.vt_approval === 'approved' ? 'b-success' : v.vt_approval === 'revisi' ? 'b-warning' : 'b-neutral'}`}>
+                                {v.vt_approval || 'pending'}
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Status */}
+                          <td className="p-4 text-center">
+                            {v.link_video ? (
+                              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                                <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Selesai
+                              </span>
+                            ) : v.vt_approval === 'approved' ? (
+                              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">
+                                <Clock className="w-3 h-3 text-blue-600" /> Siap Post
+                              </span>
+                            ) : v.link_draft ? (
+                              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                                <Clock className="w-3 h-3 text-amber-600" /> Review
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                                Draft Kosong
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {hasMoreDrafts && (
+              <div className="flex justify-center mt-[24px]">
+                <button onClick={() => setClientPage(p => p + 1)} className="btn btn-outline">
+                  <ChevronDown className="ico" />
+                  Tampilkan Lebih Banyak ({visibleDraftsData.length} dari {processedDraftsData.length})
                 </button>
               </div>
             )}
@@ -1757,6 +2412,79 @@ export default function CampaignVideoPage({
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Modal Brief Konsep */}
+      {selectedConcept && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto border border-line">
+            <div className="sticky top-0 bg-white border-b border-line px-6 py-4 flex items-center justify-between z-10">
+              <div>
+                <h3 className="text-lg font-bold text-slate-800">Brief Konsep #{selectedConcept.no_konsep}</h3>
+                <p className="text-sm text-slate-500">{selectedConcept.judul_konsep}</p>
+              </div>
+              <button 
+                onClick={() => setSelectedConcept(null)}
+                className="p-2 hover:bg-slate-100 text-slate-400 hover:text-slate-600 rounded-full transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6">
+              <table className="w-full text-sm text-left border border-line rounded-lg overflow-hidden">
+                <tbody className="divide-y divide-line">
+                  <tr className="bg-slate-50"><th className="px-4 py-3 w-1/4 font-semibold text-slate-600">Product</th><td className="px-4 py-3 bg-white">{skus.find(s => s.id === selectedConcept.sku_id)?.nama_produk || '-'}</td></tr>
+                  <tr className="bg-slate-50"><th className="px-4 py-3 font-semibold text-slate-600">Tier</th><td className="px-4 py-3 bg-white"><span className="badge b-neutral">{selectedConcept.tier || '-'}</span></td></tr>
+                  <tr className="bg-slate-50"><th className="px-4 py-3 font-semibold text-slate-600">Hook</th><td className="px-4 py-3 bg-white whitespace-pre-wrap">{selectedConcept.hook || '-'}</td></tr>
+                  <tr className="bg-slate-50"><th className="px-4 py-3 font-semibold text-slate-600">Fitur / USP</th><td className="px-4 py-3 bg-white whitespace-pre-wrap">{selectedConcept.fitur_usp || '-'}</td></tr>
+                  <tr className="bg-slate-50"><th className="px-4 py-3 font-semibold text-slate-600">CTA</th><td className="px-4 py-3 bg-white whitespace-pre-wrap">{selectedConcept.cta || '-'}</td></tr>
+                </tbody>
+              </table>
+              <div className="mt-6 flex justify-end">
+                <button 
+                  onClick={() => setSelectedConcept(null)}
+                  className="btn btn-primary"
+                >
+                  Tutup
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Video Player (GDrive) */}
+      {playingDriveId && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md">
+          <div className="bg-black rounded-xl shadow-2xl w-full max-w-4xl h-[80vh] flex flex-col relative border border-slate-700">
+            <div className="absolute -top-12 right-0 flex items-center gap-2">
+              <a 
+                href={`https://drive.google.com/file/d/${playingDriveId}/view`}
+                target="_blank"
+                rel="noreferrer"
+                className="text-white/70 hover:text-white hover:bg-white/10 px-4 py-2 rounded-full transition-colors text-sm font-medium border border-white/20"
+              >
+                Buka di Tab Baru
+              </a>
+              <button 
+                onClick={() => setPlayingDriveId(null)}
+                className="text-white/70 hover:text-white hover:bg-white/10 px-4 py-2 rounded-full transition-colors flex items-center gap-2 text-sm font-medium border border-white/20"
+              >
+                Tutup <span className="text-xl leading-none">&times;</span>
+              </button>
+            </div>
+            <div className="flex-1 w-full h-full rounded-xl overflow-hidden bg-black flex items-center justify-center relative">
+              <iframe 
+                src={`https://drive.google.com/file/d/${playingDriveId}/preview`} 
+                className="absolute inset-0 w-full h-full border-0 bg-transparent"
+                allow="autoplay; fullscreen; picture-in-picture"
+                allowFullScreen
+                referrerPolicy="no-referrer"
+                title="Google Drive Video Player"
+              ></iframe>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

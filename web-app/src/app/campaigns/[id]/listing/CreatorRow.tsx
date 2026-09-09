@@ -653,9 +653,9 @@ export const CreatorRow = React.memo(({
                                   type="number"
                                   min="0"
                                   className="w-full bg-transparent border-0 p-0 text-[13px] font-bold focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                  value={v.concept || ''}
-                                  onChange={(e) => {
-                                    if (hasAccess) {
+                                  defaultValue={v.concept || ''}
+                                  onBlur={(e) => {
+                                    if (hasAccess && e.target.value !== (v.concept || '')) {
                                       if (isPhantom) {
                                         if (addAndSetVideoField) addAndSetVideoField(cc.id, v.urutan, { concept: e.target.value });
                                       } else {
@@ -663,6 +663,7 @@ export const CreatorRow = React.memo(({
                                       }
                                     }
                                   }}
+                                  onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
                                   disabled={!hasAccess || v.vt_approval === 'approved'}
                                 />
                               </div>
@@ -698,14 +699,17 @@ export const CreatorRow = React.memo(({
                                         type="text" 
                                         className="input w-full !text-[12px] !p-1.5"
                                         placeholder="Tempel link GDrive..."
-                                        value={v.link_draft || ''}
-                                        onChange={(e) => {
-                                          if (isPhantom) {
-                                            if (addAndSetVideoField) addAndSetVideoField(cc.id, v.urutan, { link_draft: e.target.value });
-                                          } else {
-                                            if (updateVideoField) updateVideoField(v.id, cc.id, { link_draft: e.target.value });
+                                        defaultValue={v.link_draft || ''}
+                                        onBlur={(e) => {
+                                          if (e.target.value !== (v.link_draft || '')) {
+                                            if (isPhantom) {
+                                              if (addAndSetVideoField) addAndSetVideoField(cc.id, v.urutan, { link_draft: e.target.value });
+                                            } else {
+                                              if (updateVideoField) updateVideoField(v.id, cc.id, { link_draft: e.target.value });
+                                            }
                                           }
                                         }}
+                                        onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
                                       />
                                     ) : (
                                       v.link_draft ? (
