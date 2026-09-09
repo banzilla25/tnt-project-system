@@ -5,7 +5,8 @@ import { useRouter, useParams } from 'next/navigation';
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { createClient } from "@/utils/supabase/client";
-import { ArrowLeft, Save, Plus, AlertCircle, CheckCircle2, Wand2, Loader2 } from "lucide-react";
+import { ArrowLeft, Save, Plus, AlertCircle, CheckCircle2, Wand2, Loader2, Download } from "lucide-react";
+import * as XLSX from "xlsx";
 import { useDatabaseStore } from "@/store/useDatabaseStore";
 import { useAuth } from "@/providers/AuthProvider";
 
@@ -672,6 +673,45 @@ export default function SpreadsheetImportCreatorClient() {
     }
   };
 
+  const handleExportExcel = () => {
+    const validRows = rows.filter(r => r && (
+      (r.username || '').trim() !== '' ||
+      (r.no_wa || '').trim() !== '' ||
+      (r.followers || '').trim() !== '' ||
+      (r.gmv_30_days || '').trim() !== ''
+    ));
+
+    if (validRows.length === 0) {
+      alert("Tidak ada data di tabel yang bisa diekspor.");
+      return;
+    }
+
+    const exportData = validRows.map((r, idx) => ({
+      "No": idx + 1,
+      "Username": r.username || '',
+      "No WA": r.no_wa || '',
+      "Followers": r.followers || '',
+      "Level": r.level || '',
+      "GMV 30 Days": r.gmv_30_days || '',
+      "GMV 30D (Video)": r.gmv_30_days_video || '',
+      "GMV 30D (Live)": r.gmv_30_days_live || '',
+      "Rate Card (Rp)": r.rate_card || '0',
+      "Qty VT": r.qty_vt || '1',
+      "Qty Live": r.qty_live || '0',
+      "Tipe Konten": r.content_type || 'Video',
+      "Keterangan": r.errorMsg || r.status || ''
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Draft Kreator");
+
+    const campaignName = campaign?.nama ? campaign.nama.replace(/[^a-zA-Z0-9_-]/g, '_') : `campaign_${campaignId}`;
+    const filename = `Draft_Import_Kreator_${campaignName}_${new Date().toISOString().split('T')[0]}.xlsx`;
+
+    XLSX.writeFile(workbook, filename);
+  };
+
   const clearAll = () => {
     if (confirm("Kosongkan semua data di tabel?")) {
       setRows(Array(5).fill(null).map(getEmptyRow));
@@ -1047,6 +1087,9 @@ export default function SpreadsheetImportCreatorClient() {
           </Button>
           <Button variant="outline" onClick={clearAll} className="text-slate-600 bg-white shadow-sm hover:bg-slate-50">
             Bersihkan
+          </Button>
+          <Button variant="outline" onClick={handleExportExcel} className="text-emerald-700 bg-emerald-50 border-emerald-300 hover:bg-emerald-100 shadow-sm flex items-center gap-1.5" title="Ekspor data di tabel saat ini ke file Excel">
+            <Download className="w-4 h-4 mr-1" /> Export Excel
           </Button>
           <Button 
             variant="outline" 
