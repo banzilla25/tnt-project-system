@@ -52,57 +52,125 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
   };
 
   const _fetchDataInner = async () => {
-      const { data: campaignData } = await supabase.from('campaigns').select('*').eq('id', campaignId).single();
-      if (campaignData) setCampaign(campaignData);
-
-      const { data: conceptsData } = await supabase.from('campaign_concepts').select('*, skus(nama_produk)').eq('campaign_id', campaignId);
-      if (conceptsData) setMasterConcepts(conceptsData);
-
       let rpcParams: any = { p_campaign_id: campaignId };
       if (appliedFilterType !== 'none' && appliedFilterUsernames && appliedFilterUsernames.length > 0) {
         rpcParams.p_filter_type = appliedFilterType;
         rpcParams.p_filter_values = appliedFilterUsernames;
       }
-      const { data: rpcPerf } = await supabase.rpc('get_performance_summary_v2', rpcParams);
+
+      // 1. Fetch metadata, concepts, RPCs, and counts concurrently
+      const [
+        campaignRes,
+        conceptsRes,
+        rpcPerfRes,
+        creatorPerfRes,
+        videoGmvRes,
+        rawAdsRes,
+        countsRes,
+        videoCountsRes,
+        ccCountRes,
+        vidCountRes
+      ] = await Promise.all([
+        supabase.from('campaigns').select('*').eq('id', campaignId).single(),
+        supabase.from('campaign_concepts').select('*, skus(nama_produk)').eq('campaign_id', campaignId),
+        supabase.rpc('get_performance_summary_v2', rpcParams),
+        supabase.rpc('get_campaign_creator_performance', { p_campaign_id: campaignId }),
+        supabase.rpc('get_campaign_video_gmv', { p_campaign_id: campaignId }),
+        supabase.from('ads_performance').select('*, creators(username)').eq('campaign_id', campaignId),
+        supabase.rpc('get_campaign_creator_counts', { p_campaign_id: campaignId }),
+        supabase.rpc('get_campaign_video_counts_fast', { p_campaign_id: campaignId }),
+        supabase.from('campaign_creators').select('id', { count: 'exact', head: true }).eq('campaign_id', campaignId).in('approval', ['approved', 'pending']),
+        supabase.from('videos').select('id, campaign_creators!inner(campaign_id)', { count: 'exact', head: true }).eq('campaign_creators.campaign_id', campaignId)
+      ]);
+
+      if (campaignRes.data) setCampaign(campaignRes.data);
+      if (conceptsRes.data) setMasterConcepts(conceptsRes.data);
+
+      const rpcPerf = rpcPerfRes.data;
       setRpcPerformance(Array.isArray(rpcPerf) ? rpcPerf[0] : rpcPerf);
 
-      let ccData: any[] = [];
-      const pageSize = 500;
-      
-      const { count } = await supabase
-        .from('campaign_creators')
-        .select('id', { count: 'exact', head: true })
-        .eq('campaign_id', campaignId)
-        .in('approval', ['approved', 'pending']);
+      // Fast creator counts
+      let fastCounts = { approved: 0, pending: 0, all: 0 };
+      if (countsRes.data && countsRes.data.length > 0) {
+        fastCounts = {
+          approved: Number(countsRes.data[0].approved || 0),
+          pending: Number(countsRes.data[0].pending || 0),
+          all: Number(countsRes.data[0].total || 0),
+        };
+      }
+      setFastCountsData(fastCounts);
 
-      if (count && count > 0) {
-        const promises = [];
-        for (let i = 0; i < count; i += pageSize) {
-          promises.push(
-            supabase
-              .from('campaign_creators')
-              .select(`
-                *,
-                creators(id, username, nama_asli, link_account, creator_snapshots(followers, level, tier)),
-                videos(id, link_video, content_uid, vt_approval, urutan, concept)
-              `)
-              .eq('campaign_id', campaignId)
-              .in('approval', ['approved', 'pending'])
-              .order('id', { ascending: true })
-              .range(i, i + pageSize - 1)
-          );
-        }
-        
-        const results = await Promise.all(promises);
-        results.forEach(res => {
-          if (res.data) ccData = ccData.concat(res.data);
-        });
+      // Fast video counts
+      let fastVideoCounts = { approved: 0, pending: 0, livestream: 0 };
+      if (videoCountsRes.data && videoCountsRes.data.length > 0) {
+        fastVideoCounts = {
+          approved: Number(videoCountsRes.data[0].total_approved || 0),
+          pending: Number(videoCountsRes.data[0].total_pending || 0),
+          livestream: Number(videoCountsRes.data[0].total_livestream || 0),
+        };
+      }
+      setFastVideoCountsData(fastVideoCounts);
+
+      // 2. Fetch campaign_creators and videos in parallel batches (pageSize = 1000)
+      const ccCount = ccCountRes.count || 0;
+      const vidCount = vidCountRes.count || 0;
+      const pageSize = 1000;
+
+      const ccPromises = [];
+      for (let i = 0; i < ccCount; i += pageSize) {
+        ccPromises.push(
+          supabase
+            .from('campaign_creators')
+            .select('id, creator_id, approval, created_at, approved_at, content_type, qty_vt, qty_live, creators(id, username, nama_asli, link_account)')
+            .eq('campaign_id', campaignId)
+            .in('approval', ['approved', 'pending'])
+            .order('id', { ascending: true })
+            .range(i, i + pageSize - 1)
+        );
+      }
+
+      const vidPromises = [];
+      for (let i = 0; i < vidCount; i += pageSize) {
+        vidPromises.push(
+          supabase
+            .from('videos')
+            .select('id, campaign_creator_id, content_uid, vt_approval, urutan, concept, link_video, campaign_creators!inner(campaign_id)')
+            .eq('campaign_creators.campaign_id', campaignId)
+            .order('id', { ascending: true })
+            .range(i, i + pageSize - 1)
+        );
+      }
+
+      const [ccResults, vidResults] = await Promise.all([
+        Promise.all(ccPromises),
+        Promise.all(vidPromises)
+      ]);
+
+      let ccData: any[] = [];
+      ccResults.forEach(res => {
+        if (res.data) ccData = ccData.concat(res.data);
+      });
+
+      let vidsData: any[] = [];
+      vidResults.forEach(res => {
+        if (res.data) vidsData = vidsData.concat(res.data);
+      });
+
+      // Map videos back to creators
+      const videosByCcId = new Map<number, any[]>();
+      for (const v of vidsData) {
+        const list = videosByCcId.get(v.campaign_creator_id);
+        if (list) list.push(v);
+        else videosByCcId.set(v.campaign_creator_id, [v]);
+      }
+      for (const cc of ccData) {
+        cc.videos = videosByCcId.get(cc.id) || [];
       }
       setLocalCreators(ccData);
 
-      // 1. Ambil agregasi sales & organic videos per kreator dari RPC (Sangat ringan & cepat)
-      const { data: creatorPerfData, error: perfError } = await supabase.rpc('get_campaign_creator_performance', { p_campaign_id: campaignId });
-      
+      // 3. Creator performance map
+      const creatorPerfData = creatorPerfRes.data;
+      const perfError = creatorPerfRes.error;
       const perfMap = new Map<string, any>();
       if (creatorPerfData && !perfError) {
         creatorPerfData.forEach((p: any) => {
@@ -110,9 +178,9 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
         });
       }
 
-      const { data: videoGmvData } = await supabase.rpc('get_campaign_video_gmv', { p_campaign_id: campaignId });
+      const videoGmvData = videoGmvRes.data;
+      const rawAdsData = rawAdsRes.data;
 
-      const { data: rawAdsData } = await supabase.from('ads_performance').select('*, creators(username)').eq('campaign_id', campaignId);
       const latestAdsMap = new Map();
       if (rawAdsData) {
         for (const row of rawAdsData) {
@@ -131,30 +199,6 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
       let unmappedAdsGmvVal = 0;
       let unmappedAdsCostVal = 0;
       let unmappedAdsItemsSoldVal = 0;
-
-      // === FETCH CREATOR COUNTS USING RPC ===
-      let fastCounts = { approved: 0, pending: 0, all: 0 };
-      const { data: countsData } = await supabase.rpc('get_campaign_creator_counts', { p_campaign_id: campaignId });
-      if (countsData && countsData.length > 0) {
-        fastCounts = {
-          approved: Number(countsData[0].approved || 0),
-          pending: Number(countsData[0].pending || 0),
-          all: Number(countsData[0].total || 0),
-        };
-      }
-      setFastCountsData(fastCounts);
-
-      // === FETCH VIDEO COUNTS USING RPC ===
-      let fastVideoCounts = { approved: 0, pending: 0, livestream: 0 };
-      const { data: videoCountsData } = await supabase.rpc('get_campaign_video_counts_fast', { p_campaign_id: campaignId });
-      if (videoCountsData && videoCountsData.length > 0) {
-        fastVideoCounts = {
-          approved: Number(videoCountsData[0].total_approved || 0),
-          pending: Number(videoCountsData[0].total_pending || 0),
-          livestream: Number(videoCountsData[0].total_livestream || 0),
-        };
-      }
-      setFastVideoCountsData(fastVideoCounts);
 
       for (const ad of latestAdsMap.values()) {
         let kurs = ad.kurs || 16000;

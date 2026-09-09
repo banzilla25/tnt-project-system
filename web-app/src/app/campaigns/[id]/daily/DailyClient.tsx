@@ -33,73 +33,130 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
   const fetchData = async () => {
     setLoading(true);
     try {
-      const { data: campaignData } = await supabase.from('campaigns').select('*').eq('id', campaignId).single();
+      // 1. Fetch metadata, RPC aggregates, and counts concurrently
+      const [
+        campaignRes,
+        dailyStatsRes,
+        liveStatsRes,
+        ccCountRes,
+        vidCountRes,
+        adsCountRes,
+        orgVideosRes
+      ] = await Promise.all([
+        supabase.from('campaigns').select('*').eq('id', campaignId).single(),
+        supabase.rpc('get_campaign_daily_stats', { p_campaign_id: campaignId }),
+        supabase.rpc('get_campaign_live_stats', { p_campaign_id: campaignId }),
+        supabase.from('campaign_creators').select('id', { count: 'exact', head: true }).eq('campaign_id', campaignId),
+        supabase.from('videos').select('id, campaign_creators!inner(campaign_id)', { count: 'exact', head: true }).eq('campaign_creators.campaign_id', campaignId),
+        supabase.from('ads_performance').select('id', { count: 'exact', head: true }).eq('campaign_id', campaignId),
+        supabase.from('organic_videos').select('content_uid, post_time, content_type, creator_username').eq('campaign_id', campaignId)
+      ]);
+
+      const campaignData = campaignRes.data;
       if (!campaignData) return;
       setCampaign(campaignData);
 
-      let allSales: any[] = [];
+      const allSalesStats = dailyStatsRes.data || [];
+      const allLiveSessions = liveStatsRes.data || [];
+      const allOrganicVideos = orgVideosRes.data || [];
+
+      // 2. Fetch campaign_creators, videos, and ads in parallel batches (pageSize = 1000)
+      const ccCount = ccCountRes.count || 0;
+      const vidCount = vidCountRes.count || 0;
+      const adsCount = adsCountRes.count || 0;
+      const batchSize = 1000;
+
+      const ccPromises = [];
+      for (let i = 0; i < ccCount; i += batchSize) {
+        ccPromises.push(
+          supabase
+            .from('campaign_creators')
+            .select('id, creator_id, tier, created_at, approved_at, content_type, qty_vt, qty_live, creators(username)')
+            .eq('campaign_id', campaignId)
+            .order('id', { ascending: true })
+            .range(i, i + batchSize - 1)
+        );
+      }
+
+      const vidPromises = [];
+      for (let i = 0; i < vidCount; i += batchSize) {
+        vidPromises.push(
+          supabase
+            .from('videos')
+            .select('id, campaign_creator_id, created_at, link_video, campaign_creators!inner(campaign_id)')
+            .eq('campaign_creators.campaign_id', campaignId)
+            .order('id', { ascending: true })
+            .range(i, i + batchSize - 1)
+        );
+      }
+
+      const adsPromises = [];
+      for (let i = 0; i < adsCount; i += batchSize) {
+        adsPromises.push(
+          supabase
+            .from('ads_performance')
+            .select('ad_id, tanggal, gross_revenue_usd, kurs')
+            .eq('campaign_id', campaignId)
+            .order('tanggal', { ascending: true })
+            .range(i, i + batchSize - 1)
+        );
+      }
+
+      const [ccResults, vidResults, adsResults] = await Promise.all([
+        Promise.all(ccPromises),
+        Promise.all(vidPromises),
+        Promise.all(adsPromises)
+      ]);
+
       let allVideosFromCreators: any[] = [];
-      
-      const isAwareness = campaignData.tipe_campaign === 'awareness';
-      const isHybrid = campaignData.tipe_campaign === 'gmv_awareness';
+      ccResults.forEach(r => { if (r.data) allVideosFromCreators = allVideosFromCreators.concat(r.data); });
 
-      // 1. Fetch Sales aggregates via RPC
-      const { data: dailyStats, error: dsError } = await supabase.rpc('get_campaign_daily_stats', { p_campaign_id: campaignId });
-      const allSalesStats = dailyStats || [];
+      let allVideos: any[] = [];
+      vidResults.forEach(r => { if (r.data) allVideos = allVideos.concat(r.data); });
 
-      // 2. Fetch Videos
-      let from_v = 0;
-      let to_v = 999;
-      let hasMore_v = true;
-      while (hasMore_v) {
-        const { data: ccData, error } = await supabase
-          .from('campaign_creators')
-          .select('id, tier, created_at, approved_at, content_type, qty_vt, qty_live, creators(username, creator_snapshots(tier, tanggal_update)), videos(id, created_at, link_video)')
-          .eq('campaign_id', campaignId)
-          .range(from_v, to_v);
-
-        if (error) break;
-
-        if (ccData && ccData.length > 0) {
-          allVideosFromCreators = [...allVideosFromCreators, ...ccData];
-          if (ccData.length < 1000) {
-            hasMore_v = false;
-          } else {
-            from_v += 1000;
-            to_v += 1000;
-          }
-        } else {
-          hasMore_v = false;
-        }
-      }
-
-      // 3. Fetch Ads Performance
       let allAds: any[] = [];
-      let adsFrom = 0;
-      let adsTo = 999;
-      let adsHasMore = true;
-      while (adsHasMore) {
-        const { data: adsData, error } = await supabase
-          .from('ads_performance')
-          .select('ad_id, tanggal, gross_revenue_usd, kurs')
-          .eq('campaign_id', campaignId)
-          .order('tanggal', { ascending: true })
-          .range(adsFrom, adsTo);
+      adsResults.forEach(r => { if (r.data) allAds = allAds.concat(r.data); });
 
-        if (error) break;
-
-        if (adsData && adsData.length > 0) {
-          allAds = [...allAds, ...adsData];
-          if (adsData.length < 1000) adsHasMore = false;
-          else { adsFrom += 1000; adsTo += 1000; }
-        } else {
-          adsHasMore = false;
-        }
+      // Map videos to corresponding campaign_creator
+      const videosByCcId = new Map<number, any[]>();
+      for (const v of allVideos) {
+        const list = videosByCcId.get(v.campaign_creator_id);
+        if (list) list.push(v);
+        else videosByCcId.set(v.campaign_creator_id, [v]);
+      }
+      for (const cc of allVideosFromCreators) {
+        cc.videos = videosByCcId.get(cc.id) || [];
       }
 
-      // 4. Fetch Live Sessions via RPC
-      const { data: liveStats } = await supabase.rpc('get_campaign_live_stats', { p_campaign_id: campaignId });
-      const allLiveSessions = liveStats || [];
+      // 3. Resolve missing tiers only for creators lacking tier in campaign_creators
+      const missingTierCreatorIds = Array.from(new Set(
+        allVideosFromCreators.filter(cc => !cc.tier && cc.creator_id).map(cc => cc.creator_id)
+      ));
+      const snapshotTierMap = new Map<number, string>();
+      if (missingTierCreatorIds.length > 0) {
+        const chunkSize = 200;
+        const snapPromises = [];
+        for (let i = 0; i < missingTierCreatorIds.length; i += chunkSize) {
+          snapPromises.push(
+            supabase
+              .from('creator_snapshots')
+              .select('creator_id, tier, tanggal_update, id')
+              .in('creator_id', missingTierCreatorIds.slice(i, i + chunkSize))
+              .not('tier', 'is', null)
+              .order('tanggal_update', { ascending: false })
+          );
+        }
+        const snapResults = await Promise.all(snapPromises);
+        snapResults.forEach(r => {
+          if (r.data) {
+            r.data.forEach((s: any) => {
+              if (!snapshotTierMap.has(s.creator_id)) {
+                snapshotTierMap.set(s.creator_id, s.tier);
+              }
+            });
+          }
+        });
+      }
 
       // Grouping
       const grouped: Record<string, { gmv: number; gmvAds: number; creators: Map<string, string>; pendingCreators: Map<string, string>; videos: Set<string>; videoCreators: Set<string>; gmvLive: number; gmvVT: number; ordersLive: number; ordersVT: number; liveSessions: Set<string>; liveCreators: Map<string, string>; pendingLiveCreators: Map<string, string> }> = {};
@@ -142,17 +199,7 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
       if (allVideosFromCreators.length > 0) {
         allVideosFromCreators.forEach(cc => {
           const username = cc.creators?.username || 'unknown';
-          let snapshotTier = null;
-          if (cc.creators?.creator_snapshots) {
-            const sortedSnaps = [...cc.creators.creator_snapshots].sort((a: any, b: any) => {
-              const tDiff = new Date(b.tanggal_update || 0).getTime() - new Date(a.tanggal_update || 0).getTime();
-              if (tDiff !== 0) return tDiff;
-              return (b.id || 0) - (a.id || 0);
-            });
-            const validSnap = sortedSnaps.find((s: any) => s.tier);
-            if (validSnap) snapshotTier = validSnap.tier;
-          }
-          let resolvedTier = snapshotTier || cc.tier || 'Nano';
+          const resolvedTier = cc.tier || snapshotTierMap.get(cc.creator_id) || 'Nano';
 
           let cType = cc.content_type || '-';
           if (cType === '-' || !cType) {
@@ -235,24 +282,7 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
           });
         });
 
-        // Get usernames to fetch organic videos mapped to these creators
-        const creatorUsernames = Array.from(new Set(allVideosFromCreators.map(cc => cc.creators?.username).filter(Boolean)));
-        let allOrganicVideos: any[] = [];
-        if (creatorUsernames.length > 0) {
-          const chunkSize = 200;
-          for (let i = 0; i < creatorUsernames.length; i += chunkSize) {
-            const chunk = creatorUsernames.slice(i, i + chunkSize);
-            const { data: orgData } = await supabase
-              .from('organic_videos')
-              .select('content_uid, post_time, content_type, creator_username')
-              .in('creator_username', chunk)
-              .eq('campaign_id', campaignId);
-            if (orgData) {
-              allOrganicVideos = [...allOrganicVideos, ...orgData];
-            }
-          }
-        }
-
+        // Map organic videos already fetched in parallel Phase 1
         allOrganicVideos.forEach(v => {
           if (!v.post_time || !v.content_uid) return;
           const dateStr = toWIBDateStr(String(v.post_time));

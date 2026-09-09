@@ -13,65 +13,88 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey, {
 });
 
 export async function getInternalPerformaData(campaignId: number) {
-  // 1. Fetch Campaign
-  const { data: campaign } = await supabase
-    .from('campaigns')
-    .select('*')
-    .eq('id', campaignId)
-    .single();
+  // 1. Fetch Campaign, RPCs, and counts concurrently
+  const [
+    campaignRes,
+    rpcPerfRes,
+    creatorPerfRes,
+    videoGmvRes,
+    rawAdsRes,
+    ccCountRes,
+    vidCountRes
+  ] = await Promise.all([
+    supabase.from('campaigns').select('*').eq('id', campaignId).single(),
+    supabase.rpc('get_campaign_performance', { p_campaign_id: campaignId }),
+    supabase.rpc('get_campaign_creator_performance', { p_campaign_id: campaignId }),
+    supabase.rpc('get_campaign_video_gmv', { p_campaign_id: campaignId }),
+    supabase.from('ads_performance').select('*, creators(username)').eq('campaign_id', campaignId),
+    supabase.from('campaign_creators').select('id', { count: 'exact', head: true }).eq('campaign_id', campaignId).in('approval', ['approved', 'pending']),
+    supabase.from('videos').select('id, campaign_creators!inner(campaign_id)', { count: 'exact', head: true }).eq('campaign_creators.campaign_id', campaignId)
+  ]);
 
+  const campaign = campaignRes.data;
   if (!campaign) return null;
 
-  // 2. Fetch RPC untuk Global Cards
-  const { data: rpcPerformance } = await supabase
-    .rpc('get_campaign_performance', { p_campaign_id: campaignId });
+  const rpcPerformance = rpcPerfRes.data;
+  const creatorPerformance = creatorPerfRes.data;
+  const videoGmvData = videoGmvRes.data;
+  const rawAdsData = rawAdsRes.data;
 
-  // 3. Fetch creators (Approved & Pending) paginated
-  let ccData: any[] = [];
-  const pageSize = 500;
-  
-  // Parallel fetch using Promise.all to prevent Vercel Server Action Timeouts
-  const { count } = await supabase
-    .from('campaign_creators')
-    .select('id', { count: 'exact', head: true })
-    .eq('campaign_id', campaignId)
-    .in('approval', ['approved', 'pending']);
+  // 2. Fetch creators and videos in parallel batches (pageSize = 1000)
+  const ccCount = ccCountRes.count || 0;
+  const vidCount = vidCountRes.count || 0;
+  const pageSize = 1000;
 
-  if (count && count > 0) {
-    const promises = [];
-    for (let i = 0; i < count; i += pageSize) {
-      promises.push(
-        supabase
-          .from('campaign_creators')
-          .select(`
-            id, creator_id, approval,
-            creators(id, username, nama_asli, link_account, creator_snapshots(followers, level, tier)),
-            videos(id, link_video, content_uid, vt_approval, urutan, concept)
-          `)
-          .eq('campaign_id', campaignId)
-          .in('approval', ['approved', 'pending'])
-          .range(i, i + pageSize - 1)
-      );
-    }
-    
-    const results = await Promise.all(promises);
-    results.forEach(res => {
-      if (res.data) ccData = ccData.concat(res.data);
-    });
+  const ccPromises = [];
+  for (let i = 0; i < ccCount; i += pageSize) {
+    ccPromises.push(
+      supabase
+        .from('campaign_creators')
+        .select('id, creator_id, approval, created_at, approved_at, content_type, qty_vt, qty_live, creators(id, username, nama_asli, link_account)')
+        .eq('campaign_id', campaignId)
+        .in('approval', ['approved', 'pending'])
+        .order('id', { ascending: true })
+        .range(i, i + pageSize - 1)
+    );
   }
-  
-  // 4. Fetch performa summary dari RPC
-  const { data: creatorPerformance } = await supabase.rpc('get_campaign_creator_performance', { p_campaign_id: campaignId });
 
-  // 5. Fetch video GMV for accurate VT/Live count
-  const { data: videoGmvData } = await supabase
-    .rpc('get_campaign_video_gmv', { p_campaign_id: campaignId });
+  const vidPromises = [];
+  for (let i = 0; i < vidCount; i += pageSize) {
+    vidPromises.push(
+      supabase
+        .from('videos')
+        .select('id, campaign_creator_id, content_uid, vt_approval, urutan, concept, link_video, campaign_creators!inner(campaign_id)')
+        .eq('campaign_creators.campaign_id', campaignId)
+        .order('id', { ascending: true })
+        .range(i, i + pageSize - 1)
+    );
+  }
 
-  // 5.5 Fetch Ads Performance and aggregate by latest date per ad_id
-  const { data: rawAdsData } = await supabase
-    .from('ads_performance')
-    .select('*, creators(username)')
-    .eq('campaign_id', campaignId);
+  const [ccResults, vidResults] = await Promise.all([
+    Promise.all(ccPromises),
+    Promise.all(vidPromises)
+  ]);
+
+  let ccData: any[] = [];
+  ccResults.forEach(res => {
+    if (res.data) ccData = ccData.concat(res.data);
+  });
+
+  let vidsData: any[] = [];
+  vidResults.forEach(res => {
+    if (res.data) vidsData = vidsData.concat(res.data);
+  });
+
+  // Map videos back to creators
+  const videosByCcId = new Map<number, any[]>();
+  for (const v of vidsData) {
+    const list = videosByCcId.get(v.campaign_creator_id);
+    if (list) list.push(v);
+    else videosByCcId.set(v.campaign_creator_id, [v]);
+  }
+  for (const cc of ccData) {
+    cc.videos = videosByCcId.get(cc.id) || [];
+  }
     
   const latestAdsMap = new Map();
   if (rawAdsData) {

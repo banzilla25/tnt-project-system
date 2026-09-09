@@ -27,69 +27,91 @@ export async function getDailyData(campaignId: number) {
   const isAwareness = campaign.tipe_campaign === 'awareness';
   const isHybrid = campaign.tipe_campaign === 'gmv_awareness';
 
-  // 1. Fetch Sales via RPC
-  const { data: dailyStats, error: dsError } = await supabase.rpc('get_campaign_daily_stats', { p_campaign_id: campaignId });
-  const allSalesStats = dailyStats || [];
+  // 1. Fetch metadata, RPC aggregates, and counts concurrently
+  const [
+    dailyStatsRes,
+    liveStatsRes,
+    ccCountRes,
+    vidCountRes,
+    adsCountRes
+  ] = await Promise.all([
+    supabase.rpc('get_campaign_daily_stats', { p_campaign_id: campaignId }),
+    supabase.rpc('get_campaign_live_stats', { p_campaign_id: campaignId }),
+    supabase.from('campaign_creators').select('id', { count: 'exact', head: true }).eq('campaign_id', campaignId),
+    supabase.from('videos').select('id, campaign_creators!inner(campaign_id)', { count: 'exact', head: true }).eq('campaign_creators.campaign_id', campaignId),
+    supabase.from('ads_performance').select('id', { count: 'exact', head: true }).eq('campaign_id', campaignId)
+  ]);
 
-  // 2. Fetch Videos (for all campaigns now, as requested)
-  let from_v = 0;
-  let to_v = 999;
-  let hasMore_v = true;
-  while (hasMore_v) {
-    const { data: ccData, error } = await supabase
-      .from('campaign_creators')
-      .select('id, approved_at, creators(username), videos(id, created_at, link_video, content_uid)')
-      .eq('campaign_id', campaignId)
-      .range(from_v, to_v);
+  const allSalesStats = dailyStatsRes.data || [];
+  const allLiveSessions = liveStatsRes.data || [];
 
-    if (error) {
-      console.error("Error fetching creators for videos:", error);
-      break;
-    }
+  // 2. Fetch campaign_creators, videos, and ads in parallel batches (pageSize = 1000)
+  const ccCount = ccCountRes.count || 0;
+  const vidCount = vidCountRes.count || 0;
+  const adsCount = adsCountRes.count || 0;
+  const batchSize = 1000;
 
-    if (ccData && ccData.length > 0) {
-      allVideosFromCreators = [...allVideosFromCreators, ...ccData];
-      if (ccData.length < 1000) {
-        hasMore_v = false;
-      } else {
-        from_v += 1000;
-        to_v += 1000;
-      }
-    } else {
-      hasMore_v = false;
-    }
+  const ccPromises = [];
+  for (let i = 0; i < ccCount; i += batchSize) {
+    ccPromises.push(
+      supabase
+        .from('campaign_creators')
+        .select('id, approved_at, creators(username)')
+        .eq('campaign_id', campaignId)
+        .order('id', { ascending: true })
+        .range(i, i + batchSize - 1)
+    );
   }
 
-  // 3. Fetch Ads Performance (for GMV Ads Delta)
+  const vidPromises = [];
+  for (let i = 0; i < vidCount; i += batchSize) {
+    vidPromises.push(
+      supabase
+        .from('videos')
+        .select('id, campaign_creator_id, created_at, link_video, content_uid, campaign_creators!inner(campaign_id)')
+        .eq('campaign_creators.campaign_id', campaignId)
+        .order('id', { ascending: true })
+        .range(i, i + batchSize - 1)
+    );
+  }
+
+  const adsPromises = [];
+  for (let i = 0; i < adsCount; i += batchSize) {
+    adsPromises.push(
+      supabase
+        .from('ads_performance')
+        .select('ad_id, tanggal, gross_revenue_usd, kurs')
+        .eq('campaign_id', campaignId)
+        .order('tanggal', { ascending: true })
+        .range(i, i + batchSize - 1)
+    );
+  }
+
+  const [ccResults, vidResults, adsResults] = await Promise.all([
+    Promise.all(ccPromises),
+    Promise.all(vidPromises),
+    Promise.all(adsPromises)
+  ]);
+
+  let allVideosFromCreators: any[] = [];
+  ccResults.forEach(r => { if (r.data) allVideosFromCreators = allVideosFromCreators.concat(r.data); });
+
+  let allVideos: any[] = [];
+  vidResults.forEach(r => { if (r.data) allVideos = allVideos.concat(r.data); });
+
   let allAds: any[] = [];
-  let adsFrom = 0;
-  let adsTo = 999;
-  let adsHasMore = true;
-  while (adsHasMore) {
-    const { data: adsData, error } = await supabase
-      .from('ads_performance')
-      .select('ad_id, tanggal, gross_revenue_usd, kurs')
-      .eq('campaign_id', campaignId)
-      .order('tanggal', { ascending: true })
-      .range(adsFrom, adsTo);
+  adsResults.forEach(r => { if (r.data) allAds = allAds.concat(r.data); });
 
-    if (error) {
-      console.error("Error fetching ads:", error);
-      break;
-    }
-
-    if (adsData && adsData.length > 0) {
-      allAds = [...allAds, ...adsData];
-      if (adsData.length < 1000) adsHasMore = false;
-      else { adsFrom += 1000; adsTo += 1000; }
-    } else {
-      adsHasMore = false;
-    }
+  // Map videos to creators
+  const videosByCcId = new Map<number, any[]>();
+  for (const v of allVideos) {
+    const list = videosByCcId.get(v.campaign_creator_id);
+    if (list) list.push(v);
+    else videosByCcId.set(v.campaign_creator_id, [v]);
   }
-
-  // 4. Fetch Live Sessions via RPC (for accurate Sesi Live count)
-  const { data: liveStats } = await supabase.rpc('get_campaign_live_stats', { p_campaign_id: campaignId });
-  const allLiveSessions = liveStats || [];
+  for (const cc of allVideosFromCreators) {
+    cc.videos = videosByCcId.get(cc.id) || [];
+  }
 
   // Group by Date and Month
   const grouped: Record<string, { gmv: number; gmvAds: number; creators: Set<string>; videos: Set<string>; gmvLive: number; gmvVT: number; ordersLive: number; ordersVT: number; liveSessions: Set<string> }> = {};
