@@ -116,7 +116,7 @@ function CampaignLayoutInner({ children }: { children: React.ReactNode }) {
         budget_ads_plafon: campaign.budget_ads_plafon?.toString() || '',
         require_client_approval: campaign.require_client_approval || false,
         pin: campaign.pin || '',
-        tiktok_campaign_ids: campaign.tiktok_campaign_ids?.join(', ') || '',
+        tiktok_campaign_ids: Array.isArray(campaign.tiktok_campaign_ids) ? campaign.tiktok_campaign_ids.join(', ') : (typeof campaign.tiktok_campaign_ids === 'string' ? campaign.tiktok_campaign_ids : ''),
         status: (campaign as any).status || 'aktif'
       });
     }

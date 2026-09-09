@@ -91,28 +91,19 @@ const parseSmartNumber = (val: string): string => {
 
 export default function SpreadsheetImportCreatorClient() {
   const router = useRouter();
-  const { id } = useParams();
-  const campaignId = Number(id);
+  const rawParams = useParams();
+  const rawId = rawParams?.id;
+  const campaignId = Number(Array.isArray(rawId) ? rawId[0] : rawId);
   const supabase = createClient();
   const { campaigns } = useDatabaseStore();
   const { profile, canEditCampaign } = useAuth();
   
   const campaign = campaigns.find(c => c.id === campaignId);
   const isClientApprovalRequired = campaign?.require_client_approval || false;
-  const hasAccess = canEditCampaign(campaignId);
+  const hasAccess = !isNaN(campaignId) ? canEditCampaign(campaignId) : false;
   
-  const [rows, setRows] = useState<SpreadsheetRow[]>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem(`tnt_import_creator_${campaignId}`);
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-        } catch (err) {}
-      }
-    }
-    return Array(5).fill(null).map(getEmptyRow);
-  });
+  const [rows, setRows] = useState<SpreadsheetRow[]>(() => Array(5).fill(null).map(getEmptyRow));
+  const [isLoaded, setIsLoaded] = useState(false);
   
   const [isVerifying, setIsVerifying] = useState(false);
   const [isAutoDetecting, setIsAutoDetecting] = useState(false);
@@ -126,9 +117,77 @@ export default function SpreadsheetImportCreatorClient() {
   const [incompleteRows, setIncompleteRows] = useState<SpreadsheetRow[]>([]);
   const [selectedDuplicateIds, setSelectedDuplicateIds] = useState<Set<string>>(new Set());
 
+  // Safely load draft from localStorage after mount to prevent hydration mismatches and handle corrupted data
   useEffect(() => {
-    localStorage.setItem(`tnt_import_creator_${campaignId}`, JSON.stringify(rows));
-  }, [rows, campaignId]);
+    if (!campaignId || isNaN(campaignId)) return;
+    
+    if (typeof window !== 'undefined') {
+      try {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('reset') === 'true') {
+          try {
+            localStorage.removeItem(`tnt_import_creator_${campaignId}`);
+            window.history.replaceState({}, '', window.location.pathname);
+          } catch (e) {}
+          setIsLoaded(true);
+          return;
+        }
+
+        const saved = localStorage.getItem(`tnt_import_creator_${campaignId}`);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            const cleaned = parsed.slice(0, 500).map((r: any): SpreadsheetRow => ({
+              id: (r && typeof r.id === 'string' && r.id) ? r.id : Math.random().toString(36).substring(2, 9),
+              username: (r && typeof r.username === 'string') ? r.username : '',
+              followers: (r && typeof r.followers === 'string') ? r.followers : (r?.followers?.toString() || ''),
+              gmv_30_days: (r && typeof r.gmv_30_days === 'string') ? r.gmv_30_days : (r?.gmv_30_days?.toString() || ''),
+              gmv_30_days_video: (r && typeof r.gmv_30_days_video === 'string') ? r.gmv_30_days_video : (r?.gmv_30_days_video?.toString() || ''),
+              gmv_30_days_live: (r && typeof r.gmv_30_days_live === 'string') ? r.gmv_30_days_live : (r?.gmv_30_days_live?.toString() || ''),
+              rate_card: (r && typeof r.rate_card === 'string') ? r.rate_card : (r?.rate_card?.toString() || '0'),
+              qty_vt: (r && typeof r.qty_vt === 'string') ? r.qty_vt : (r?.qty_vt?.toString() || '1'),
+              qty_live: (r && typeof r.qty_live === 'string') ? r.qty_live : (r?.qty_live?.toString() || '0'),
+              content_type: (r && typeof r.content_type === 'string') ? r.content_type : 'Video',
+              no_wa: (r && typeof r.no_wa === 'string') ? r.no_wa : (r?.no_wa?.toString() || ''),
+              level: (r && typeof r.level === 'string') ? r.level : (r?.level?.toString() || ''),
+              status: (r && ['baru', 'update', 'error', 'duplicate_campaign', 'incomplete'].includes(r.status)) ? r.status : undefined,
+              errorMsg: (r && typeof r.errorMsg === 'string') ? r.errorMsg : undefined,
+              creatorId: (r && typeof r.creatorId === 'number') ? r.creatorId : undefined,
+              existingData: r?.existingData || undefined,
+              action: (r && ['update', 'skip'].includes(r.action)) ? r.action : undefined,
+            }));
+
+            if (cleaned.length > 0) {
+              setRows(cleaned);
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("Failed to load draft from localStorage:", err);
+        try {
+          localStorage.removeItem(`tnt_import_creator_${campaignId}`);
+        } catch (e) {}
+      }
+    }
+    setIsLoaded(true);
+  }, [campaignId]);
+
+  // Safely persist draft to localStorage
+  useEffect(() => {
+    if (!isLoaded || !campaignId || isNaN(campaignId)) return;
+    if (typeof window === 'undefined') return;
+
+    try {
+      const hasData = rows.some(r => r && (r.username || '').trim() !== '');
+      if (hasData) {
+        localStorage.setItem(`tnt_import_creator_${campaignId}`, JSON.stringify(rows));
+      } else {
+        localStorage.removeItem(`tnt_import_creator_${campaignId}`);
+      }
+    } catch (err) {
+      console.warn("Failed to save draft to localStorage:", err);
+    }
+  }, [rows, campaignId, isLoaded]);
 
   useEffect(() => {
     const handleGlobalMouseUp = () => {
@@ -453,7 +512,7 @@ export default function SpreadsheetImportCreatorClient() {
   };
 
   const handleAutofillRatecard = async () => {
-    const validRows = rows.filter(r => r.username.trim() !== '' && (!r.rate_card || r.rate_card === '0'));
+    const validRows = rows.filter(r => r && (r.username || '').trim() !== '' && (!r.rate_card || r.rate_card === '0'));
     if (validRows.length === 0) {
       alert("Semua kreator sudah memiliki Rate Card > 0, atau tidak ada Username yang diisi.");
       return;
@@ -461,7 +520,7 @@ export default function SpreadsheetImportCreatorClient() {
     
     setIsAutoDetecting(true);
     try {
-      const usernames = validRows.map(r => r.username.trim());
+      const usernames = validRows.map(r => (r.username || '').trim());
       const { data: matchedCreators } = await supabase.from('creators')
         .select('username, creator_snapshots(ratecard, id)')
         .in('username', usernames);
@@ -473,10 +532,11 @@ export default function SpreadsheetImportCreatorClient() {
           
           for (let i = 0; i < newRows.length; i++) {
             const row = newRows[i];
-            const uname = row.username.trim();
+            if (!row) continue;
+            const uname = (row.username || '').trim();
             if (!uname || (row.rate_card && row.rate_card !== '0')) continue;
             
-            const matched = matchedCreators.find((c: any) => c.username.toLowerCase() === uname);
+            const matched = matchedCreators.find((c: any) => c && (c.username || '').toLowerCase() === uname.toLowerCase());
             if (!matched) continue;
             
             const snaps = (matched.creator_snapshots || []).sort((a: any, b: any) => b.id - a.id);
@@ -502,9 +562,13 @@ export default function SpreadsheetImportCreatorClient() {
   };
 
   const clearAll = () => {
-    if (confirm("Kosongkan semua data?")) {
+    if (confirm("Kosongkan semua data di tabel?")) {
       setRows(Array(5).fill(null).map(getEmptyRow));
-      localStorage.removeItem(`tnt_import_creator_${campaignId}`);
+      if (typeof window !== 'undefined' && campaignId) {
+        try {
+          localStorage.removeItem(`tnt_import_creator_${campaignId}`);
+        } catch (e) {}
+      }
     }
   };
 
@@ -521,7 +585,9 @@ export default function SpreadsheetImportCreatorClient() {
     setSelectedDuplicateIds(new Set());
     
     const validated = [...rows];
-    const toCheckUsernames = validated.filter(r => r.username.trim()).map(r => r.username.trim().toLowerCase());
+    const toCheckUsernames = validated
+      .filter(r => r && (r.username || '').trim())
+      .map(r => (r.username || '').trim().toLowerCase());
     const uniqueUsernames = [...new Set(toCheckUsernames)];
     
     // Fetch central creators DB for snapshot data (case-insensitive)
@@ -534,7 +600,7 @@ export default function SpreadsheetImportCreatorClient() {
       if (data) allExistingCreators.push(...data);
       
       // Also try case variations - fetch by ilike for ones not found
-      const foundUsernames = new Set((data || []).map((c: any) => c.username.toLowerCase()));
+      const foundUsernames = new Set((data || []).map((c: any) => (c.username || '').toLowerCase()));
       const notFound = batch.filter(u => !foundUsernames.has(u));
       for (const u of notFound) {
         const { data: ilikeData } = await supabase.from('creators')
@@ -550,8 +616,11 @@ export default function SpreadsheetImportCreatorClient() {
       .select('creator_id, price, qty_vt, qty_live, creators(username)')
       .eq('campaign_id', campaignId);
       
-    const campaignMap = new Map((campaignCreatorsData || []).map(cc => [cc.creators?.username?.toLowerCase(), cc]));
-    const existingMap = new Map(allExistingCreators.map(c => [c.username.toLowerCase(), c]));
+    const campaignMap = new Map((campaignCreatorsData || []).map((cc: any) => {
+      const u = Array.isArray(cc.creators) ? cc.creators[0]?.username : cc.creators?.username;
+      return [u ? u.toLowerCase() : '', cc];
+    }));
+    const existingMap = new Map(allExistingCreators.map((c: any) => [(c.username || '').toLowerCase(), c]));
 
     let hasDuplicates = false;
     let hasIncompletes = false;
@@ -561,7 +630,7 @@ export default function SpreadsheetImportCreatorClient() {
 
     for (let i = 0; i < validated.length; i++) {
       const row = validated[i];
-      if (!row.username.trim()) continue;
+      if (!row || !(row.username || '').trim()) continue;
       
       const vt = Number(row.qty_vt) || 0;
       const live = Number(row.qty_live) || 0;
@@ -572,7 +641,7 @@ export default function SpreadsheetImportCreatorClient() {
         continue;
       }
       
-      const uname = row.username.trim();
+      const uname = (row.username || '').trim();
       const unameLower = uname.toLowerCase();
       
       // Check if same username already appears earlier in this spreadsheet
@@ -709,7 +778,7 @@ export default function SpreadsheetImportCreatorClient() {
 
   const executeSaveToDatabase = async () => {
     setShowConfirmPopup(false);
-    const dataToSave = rows.filter(r => r.username.trim() && r.status !== 'error' && r.status !== 'incomplete');
+    const dataToSave = rows.filter(r => r && (r.username || '').trim() && r.status !== 'error' && r.status !== 'incomplete');
     
     if (dataToSave.length === 0) {
       alert("Tidak ada data valid yang bisa disimpan.");
@@ -902,58 +971,59 @@ export default function SpreadsheetImportCreatorClient() {
               </thead>
               <tbody>
                 {rows.map((row, idx) => {
+                  if (!row) return null;
                   return (
-                    <tr key={row.id} className="hover:bg-slate-50/50">
+                    <tr key={row.id || idx} className="hover:bg-slate-50/50">
                       <td className="px-2 py-1 border-b border-r border-slate-300 text-center text-xs text-slate-400 font-mono bg-slate-50">
                         {idx + 1}
                       </td>
                       
                       <td className="relative p-0 border-b border-r border-slate-300 group">
-                        <input type="text" value={row.username} onChange={(e) => updateCell(idx, 'username', e.target.value)} onBlur={(e) => handleUsernameBlur(idx, e.target.value)} onPaste={(e) => handlePaste(e, idx, 'username')} className={`w-full h-full min-h-[36px] px-3 py-1 outline-none text-sm transition-colors focus:bg-blue-50 w-48`} />
+                        <input type="text" value={row.username || ''} onChange={(e) => updateCell(idx, 'username', e.target.value)} onBlur={(e) => handleUsernameBlur(idx, e.target.value)} onPaste={(e) => handlePaste(e, idx, 'username')} className={`w-full h-full min-h-[36px] px-3 py-1 outline-none text-sm transition-colors focus:bg-blue-50 w-48`} />
                       </td>
                       
                       <td className="relative p-0 border-b border-r border-slate-300 group">
-                        <input type="text" value={row.no_wa} onChange={(e) => updateCell(idx, 'no_wa', e.target.value)} onPaste={(e) => handlePaste(e, idx, 'no_wa')} className={`w-full h-full min-h-[36px] px-3 py-1 outline-none text-sm transition-colors focus:bg-blue-50 w-40`} />
+                        <input type="text" value={row.no_wa || ''} onChange={(e) => updateCell(idx, 'no_wa', e.target.value)} onPaste={(e) => handlePaste(e, idx, 'no_wa')} className={`w-full h-full min-h-[36px] px-3 py-1 outline-none text-sm transition-colors focus:bg-blue-50 w-40`} />
                       </td>
                       
                       <td className="relative p-0 border-b border-r border-slate-300 group">
-                        <input type="text" value={row.followers} onChange={(e) => updateCell(idx, 'followers', e.target.value)} onPaste={(e) => handlePaste(e, idx, 'followers')} className={`w-full h-full min-h-[36px] px-3 py-1 outline-none text-sm transition-colors focus:bg-blue-50 w-32`} />
+                        <input type="text" value={row.followers || ''} onChange={(e) => updateCell(idx, 'followers', e.target.value)} onPaste={(e) => handlePaste(e, idx, 'followers')} className={`w-full h-full min-h-[36px] px-3 py-1 outline-none text-sm transition-colors focus:bg-blue-50 w-32`} />
                       </td>
 
                       <td className="relative p-0 border-b border-r border-slate-300 group">
-                        <input type="text" value={row.level} onChange={(e) => updateCell(idx, 'level', e.target.value)} onPaste={(e) => handlePaste(e, idx, 'level')} className={`w-full h-full min-h-[36px] px-3 py-1 outline-none text-sm transition-colors focus:bg-blue-50 w-24`} />
+                        <input type="text" value={row.level || ''} onChange={(e) => updateCell(idx, 'level', e.target.value)} onPaste={(e) => handlePaste(e, idx, 'level')} className={`w-full h-full min-h-[36px] px-3 py-1 outline-none text-sm transition-colors focus:bg-blue-50 w-24`} />
                       </td>
                       
                       <td className="relative p-0 border-b border-r border-slate-300 group">
-                        <input type="text" value={row.gmv_30_days} onChange={(e) => updateCell(idx, 'gmv_30_days', e.target.value)} onPaste={(e) => handlePaste(e, idx, 'gmv_30_days')} className={`w-full h-full min-h-[36px] px-3 py-1 outline-none text-sm transition-colors focus:bg-blue-50 w-40`} />
+                        <input type="text" value={row.gmv_30_days || ''} onChange={(e) => updateCell(idx, 'gmv_30_days', e.target.value)} onPaste={(e) => handlePaste(e, idx, 'gmv_30_days')} className={`w-full h-full min-h-[36px] px-3 py-1 outline-none text-sm transition-colors focus:bg-blue-50 w-40`} />
                       </td>
                       <td className="relative p-0 border-b border-r border-slate-300 group">
-                        <input type="text" value={row.gmv_30_days_video} onChange={(e) => updateCell(idx, 'gmv_30_days_video', e.target.value)} onPaste={(e) => handlePaste(e, idx, 'gmv_30_days_video')} className={`w-full h-full min-h-[36px] px-3 py-1 outline-none text-sm transition-colors focus:bg-blue-50 w-32`} />
+                        <input type="text" value={row.gmv_30_days_video || ''} onChange={(e) => updateCell(idx, 'gmv_30_days_video', e.target.value)} onPaste={(e) => handlePaste(e, idx, 'gmv_30_days_video')} className={`w-full h-full min-h-[36px] px-3 py-1 outline-none text-sm transition-colors focus:bg-blue-50 w-32`} />
                       </td>
                       <td className="relative p-0 border-b border-r border-slate-300 group">
-                        <input type="text" value={row.gmv_30_days_live} onChange={(e) => updateCell(idx, 'gmv_30_days_live', e.target.value)} onPaste={(e) => handlePaste(e, idx, 'gmv_30_days_live')} className={`w-full h-full min-h-[36px] px-3 py-1 outline-none text-sm transition-colors focus:bg-blue-50 w-32`} />
+                        <input type="text" value={row.gmv_30_days_live || ''} onChange={(e) => updateCell(idx, 'gmv_30_days_live', e.target.value)} onPaste={(e) => handlePaste(e, idx, 'gmv_30_days_live')} className={`w-full h-full min-h-[36px] px-3 py-1 outline-none text-sm transition-colors focus:bg-blue-50 w-32`} />
                       </td>
                       
                       <td className="relative p-0 border-b border-r border-slate-300 group">
-                        <input type="text" value={row.rate_card} onChange={(e) => updateCell(idx, 'rate_card', e.target.value)} onPaste={(e) => handlePaste(e, idx, 'rate_card')} className={`w-full h-full min-h-[36px] px-3 py-1 outline-none text-sm transition-colors focus:bg-blue-50 w-40`} />
+                        <input type="text" value={row.rate_card || ''} onChange={(e) => updateCell(idx, 'rate_card', e.target.value)} onPaste={(e) => handlePaste(e, idx, 'rate_card')} className={`w-full h-full min-h-[36px] px-3 py-1 outline-none text-sm transition-colors focus:bg-blue-50 w-40`} />
                       </td>
                       
                       {/* QTY VT */}
                       <td className="relative p-0 border-b border-r border-slate-300 group" onMouseEnter={() => handleDragFillEnter(idx)}>
-                        <input type="text" value={row.qty_vt} onChange={(e) => updateCell(idx, 'qty_vt', e.target.value)} onPaste={(e) => handlePaste(e, idx, 'qty_vt')} className={`w-full h-full min-h-[36px] px-3 py-1 outline-none text-sm transition-colors focus:bg-blue-50 w-24`} />
-                        <div className="absolute right-0 bottom-0 w-2 h-2 bg-blue-500 cursor-crosshair opacity-0 group-hover:opacity-100 transition-opacity z-10" onMouseDown={(e) => { e.preventDefault(); handleDragFillStart(idx, 'qty_vt', row.qty_vt); }} />
+                        <input type="text" value={row.qty_vt || ''} onChange={(e) => updateCell(idx, 'qty_vt', e.target.value)} onPaste={(e) => handlePaste(e, idx, 'qty_vt')} className={`w-full h-full min-h-[36px] px-3 py-1 outline-none text-sm transition-colors focus:bg-blue-50 w-24`} />
+                        <div className="absolute right-0 bottom-0 w-2 h-2 bg-blue-500 cursor-crosshair opacity-0 group-hover:opacity-100 transition-opacity z-10" onMouseDown={(e) => { e.preventDefault(); handleDragFillStart(idx, 'qty_vt', row.qty_vt || ''); }} />
                       </td>
                       
                       {/* QTY LIVE */}
                       <td className="relative p-0 border-b border-r border-slate-300 group" onMouseEnter={() => handleDragFillEnter(idx)}>
-                        <input type="text" value={row.qty_live} onChange={(e) => updateCell(idx, 'qty_live', e.target.value)} onPaste={(e) => handlePaste(e, idx, 'qty_live')} className={`w-full h-full min-h-[36px] px-3 py-1 outline-none text-sm transition-colors focus:bg-blue-50 w-24`} />
-                        <div className="absolute right-0 bottom-0 w-2 h-2 bg-blue-500 cursor-crosshair opacity-0 group-hover:opacity-100 transition-opacity z-10" onMouseDown={(e) => { e.preventDefault(); handleDragFillStart(idx, 'qty_live', row.qty_live); }} />
+                        <input type="text" value={row.qty_live || ''} onChange={(e) => updateCell(idx, 'qty_live', e.target.value)} onPaste={(e) => handlePaste(e, idx, 'qty_live')} className={`w-full h-full min-h-[36px] px-3 py-1 outline-none text-sm transition-colors focus:bg-blue-50 w-24`} />
+                        <div className="absolute right-0 bottom-0 w-2 h-2 bg-blue-500 cursor-crosshair opacity-0 group-hover:opacity-100 transition-opacity z-10" onMouseDown={(e) => { e.preventDefault(); handleDragFillStart(idx, 'qty_live', row.qty_live || ''); }} />
                       </td>
                       
                       {/* TIPE KONTEN */}
                       <td className="p-0 border-b border-r border-slate-300 bg-slate-50">
                         <div className="w-full h-full min-h-[36px] px-3 py-1 text-sm flex items-center font-medium text-slate-700 w-32">
-                          {row.content_type}
+                          {row.content_type || ''}
                         </div>
                       </td>
                       
