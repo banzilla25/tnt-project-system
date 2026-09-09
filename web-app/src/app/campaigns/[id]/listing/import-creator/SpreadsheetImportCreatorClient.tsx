@@ -109,6 +109,8 @@ export default function SpreadsheetImportCreatorClient() {
   const [isVerifying, setIsVerifying] = useState(false);
   const [isAutoDetecting, setIsAutoDetecting] = useState(false);
   const [isLoadingAuto, setIsLoadingAuto] = useState(false);
+  const [autoApprovalFilter, setAutoApprovalFilter] = useState<'all' | 'approve' | 'not_approve' | 'pending' | 'alternate'>('all');
+  const [showAutoFilterMenu, setShowAutoFilterMenu] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [saveProgress, setSaveProgress] = useState({ current: 0, total: 0 });
   const [dragFill, setDragFill] = useState<DragFillState | null>(null);
@@ -200,6 +202,19 @@ export default function SpreadsheetImportCreatorClient() {
     window.addEventListener('mouseup', handleGlobalMouseUp);
     return () => window.removeEventListener('mouseup', handleGlobalMouseUp);
   }, [dragFill]);
+
+  // Close filter dropdown when clicking outside
+  useEffect(() => {
+    if (!showAutoFilterMenu) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('[data-auto-filter-menu]')) {
+        setShowAutoFilterMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showAutoFilterMenu]);
 
   const handleDragFillStart = (idx: number, colName: keyof SpreadsheetRow, value: string) => {
     setDragFill({ active: true, startRowIdx: idx, currentRowIdx: idx, colName, value });
@@ -563,28 +578,45 @@ export default function SpreadsheetImportCreatorClient() {
     setIsAutoDetecting(false);
   };
 
-  const handleLoadIncompleteAuto = async () => {
+  const handleLoadIncompleteAuto = async (approvalFilter: 'all' | 'approve' | 'not_approve' | 'pending' | 'alternate' = autoApprovalFilter) => {
     if (!campaignId) return;
     setIsLoadingAuto(true);
+    setShowAutoFilterMenu(false);
     try {
-      // 1. Ambil seluruh kreator Auto-Detect pada campaign ini
-      const { data: autoList, error: autoErr } = await supabase
+      // 1. Ambil seluruh kreator pada campaign ini (semua tier), filter approval sesuai pilihan
+      let query = supabase
         .from('campaign_creators')
         .select(`
-          id, creator_id, price, qty_vt, qty_live, content_type, tier,
+          id, creator_id, price, qty_vt, qty_live, content_type, tier, approval,
           creators!inner (
             id, username,
             creator_contacts ( id, nomor, status ),
             creator_snapshots ( id, followers, level, gmv_30d, gmv_30d_video, gmv_30d_live, ratecard, tanggal_update )
           )
         `)
-        .eq('campaign_id', campaignId)
-        .eq('tier', 'Auto-Detect');
+        .eq('campaign_id', campaignId);
+
+      // Apply approval filter
+      if (approvalFilter === 'approve') query = query.eq('approval', 'approve');
+      else if (approvalFilter === 'not_approve') query = query.eq('approval', 'not_approve');
+      else if (approvalFilter === 'pending') query = query.eq('approval', 'pending');
+      else if (approvalFilter === 'alternate') query = query.eq('approval', 'alternate');
+      // 'all' = tidak filter, tampilkan semua
+
+      const { data: autoList, error: autoErr } = await query;
 
       if (autoErr) throw autoErr;
 
+      const filterLabel: Record<string, string> = {
+        all: 'semua approval',
+        approve: 'Approve',
+        not_approve: 'Not Approve',
+        pending: 'Pending',
+        alternate: 'Alternate',
+      };
+
       if (!autoList || autoList.length === 0) {
-        alert("Tidak ada kreator Auto-Detect yang terdaftar di campaign ini.");
+        alert(`Tidak ada kreator dengan status ${filterLabel[approvalFilter]} yang terdaftar di campaign ini.`);
         setIsLoadingAuto(false);
         return;
       }
@@ -628,7 +660,7 @@ export default function SpreadsheetImportCreatorClient() {
         if (!rateCard || rateCard === '0') missingScore++;
         if (!contentType || contentType === '-') missingScore++;
 
-        // Masukkan hanya yang ada kolom belum lengkap (tanpa terkecuali)
+        // Masukkan hanya yang ada kolom belum lengkap
         if (missingScore > 0) {
           evaluatedRows.push({
             id: Math.random().toString(36).substring(2, 9),
@@ -652,22 +684,22 @@ export default function SpreadsheetImportCreatorClient() {
       }
 
       if (evaluatedRows.length === 0) {
-        alert("Semua data kreator Auto di campaign ini sudah lengkap 100%!");
+        alert(`Semua data kreator (${filterLabel[approvalFilter]}) di campaign ini sudah lengkap 100%!`);
         setIsLoadingAuto(false);
         return;
       }
 
-      // 3. Urutkan data dari atas kebawah dari yang paling tidak lengkap ke yang lumayan lengkap
+      // 3. Urutkan dari yang paling tidak lengkap ke yang lumayan lengkap
       evaluatedRows.sort((a, b) => b.missingScore - a.missingScore);
 
       // 4. Bersihkan property missingScore dan masukkan ke tabel rows
       const cleanRows: SpreadsheetRow[] = evaluatedRows.map(({ missingScore, ...rest }) => rest);
       setRows(cleanRows);
 
-      alert(`Ditemukan ${cleanRows.length} kreator Auto yang datanya belum lengkap.\nData berhasil dimuat dan diurutkan dari yang paling belum lengkap ke yang lumayan lengkap.`);
+      alert(`Ditemukan ${cleanRows.length} kreator (${filterLabel[approvalFilter]}) yang datanya belum lengkap.\nData berhasil dimuat dan diurutkan dari yang paling belum lengkap ke yang lumayan lengkap.`);
     } catch (err: any) {
       console.error("Error load auto incomplete:", err);
-      alert("Gagal memuat kreator auto: " + (err.message || err.toString()));
+      alert("Gagal memuat kreator: " + (err.message || err.toString()));
     } finally {
       setIsLoadingAuto(false);
     }
@@ -1102,16 +1134,59 @@ export default function SpreadsheetImportCreatorClient() {
           <Button variant="outline" onClick={handleExportExcel} className="text-emerald-700 bg-emerald-50 border-emerald-300 hover:bg-emerald-100 shadow-sm flex items-center gap-1.5" title="Ekspor data di tabel saat ini ke file Excel">
             <Download className="w-4 h-4 mr-1" /> Export Excel
           </Button>
-          <Button 
-            variant="outline" 
-            onClick={handleLoadIncompleteAuto} 
-            disabled={isLoadingAuto || isImporting || isVerifying || isAutoDetecting}
-            className="text-amber-700 bg-amber-50 border-amber-300 hover:bg-amber-100 shadow-sm flex items-center gap-1.5"
-            title="Tampilkan semua kreator Auto-Detect yang kolom datanya belum lengkap, diurutkan dari yang paling tidak lengkap"
-          >
-            {isLoadingAuto ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
-            {isLoadingAuto ? 'Memuat Data Auto...' : 'Tampilkan Kreator Auto Belum Lengkap'}
-          </Button>
+          {/* Split Button: Tampilkan Kreator Belum Lengkap + Filter Approval */}
+          <div className="relative flex items-stretch" data-auto-filter-menu="true">
+            {/* Main button */}
+            <Button
+              variant="outline"
+              onClick={() => handleLoadIncompleteAuto(autoApprovalFilter)}
+              disabled={isLoadingAuto || isImporting || isVerifying || isAutoDetecting}
+              className="rounded-r-none border-r-0 text-amber-700 bg-amber-50 border-amber-300 hover:bg-amber-100 shadow-sm flex items-center gap-1.5"
+              title="Tampilkan kreator yang datanya belum lengkap"
+            >
+              {isLoadingAuto ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
+              {isLoadingAuto
+                ? 'Memuat...'
+                : `Kreator Belum Lengkap${autoApprovalFilter !== 'all' ? ` (${autoApprovalFilter === 'approve' ? 'Approve' : autoApprovalFilter === 'not_approve' ? 'Not Approve' : autoApprovalFilter === 'pending' ? 'Pending' : 'Alternate'})` : ''}`
+              }
+            </Button>
+            {/* Dropdown toggle */}
+            <button
+              type="button"
+              disabled={isLoadingAuto || isImporting || isVerifying || isAutoDetecting}
+              onClick={() => setShowAutoFilterMenu(v => !v)}
+              className="px-2 rounded-r border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-700 flex items-center shadow-sm transition-colors disabled:opacity-50"
+              title="Pilih filter approval"
+            >
+              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
+            </button>
+            {/* Dropdown menu */}
+            {showAutoFilterMenu && (
+              <div className="absolute top-full right-0 mt-1 w-52 bg-white border border-slate-200 rounded-lg shadow-lg z-50 py-1 text-sm">
+                <div className="px-3 py-1.5 text-xs font-semibold text-slate-400 uppercase tracking-wide border-b border-slate-100">Filter Status Approval</div>
+                {([
+                  { value: 'all', label: '✦ Semua Kreator', desc: 'Tanpa filter approval' },
+                  { value: 'approve', label: '✅ Approve', desc: 'Hanya yang diapprove' },
+                  { value: 'not_approve', label: '❌ Not Approve', desc: 'Hanya yang ditolak' },
+                  { value: 'pending', label: '⏳ Pending', desc: 'Hanya yang pending' },
+                  { value: 'alternate', label: '🔄 Alternate', desc: 'Hanya yang alternate' },
+                ] as const).map(opt => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    className={`w-full text-left px-3 py-2 hover:bg-amber-50 transition-colors flex flex-col gap-0.5 ${autoApprovalFilter === opt.value ? 'bg-amber-50 font-semibold text-amber-800' : 'text-slate-700'}`}
+                    onClick={() => {
+                      setAutoApprovalFilter(opt.value);
+                      handleLoadIncompleteAuto(opt.value);
+                    }}
+                  >
+                    <span>{opt.label}</span>
+                    <span className="text-xs text-slate-400 font-normal">{opt.desc}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <Button onClick={verifyData} disabled={isVerifying || isAutoDetecting || isLoadingAuto} className="bg-slate-800 hover:bg-slate-900 text-white shadow-sm min-w-[120px]">
             {isVerifying ? 'Memeriksa...' : 'Cek Data'}
           </Button>
