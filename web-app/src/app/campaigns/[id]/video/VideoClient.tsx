@@ -456,11 +456,11 @@ export default function CampaignVideoPage({
     video: any, 
     fields: Record<string, any>
   ) => {
-    const isPhantom = typeof video.id === 'string' && (video.id.startsWith('phantom_') || video.id.startsWith('auto_'));
+    const realNumericId = typeof video.id === 'number' ? video.id : null;
     
     // 1. Optimistic update in localVideos
     setLocalVideos((prev: any[]) => {
-      const exists = prev.find(v => v.campaign_creator_id === ccId && v.urutan === video.urutan);
+      const exists = prev.some(v => v.campaign_creator_id === ccId && v.urutan === video.urutan);
       if (exists) {
         return prev.map(v => {
           if (v.campaign_creator_id === ccId && v.urutan === video.urutan) {
@@ -470,6 +470,7 @@ export default function CampaignVideoPage({
         });
       } else {
         return [...prev, {
+          ...video,
           campaign_creator_id: ccId,
           urutan: video.urutan,
           concept: video.concept || '',
@@ -483,42 +484,76 @@ export default function CampaignVideoPage({
 
     // 2. Persist to Supabase
     try {
-      if (!isPhantom && typeof video.id === 'number') {
+      if (realNumericId) {
         const { error } = await supabase
           .from('videos')
           .update(fields)
-          .eq('id', video.id);
+          .eq('id', realNumericId);
         if (error) throw error;
       } else {
-        // Insert new row into videos
-        const insertData: any = {
-          campaign_creator_id: ccId,
-          urutan: video.urutan,
-          concept: video.concept || '',
-          concept_updated_at: video.concept_updated_at || null,
-          concept_updated_by: video.concept_updated_by || null,
-          link_draft: video.link_draft || null,
-          link_video: video.link_video || null,
-          vt_approval: video.vt_approval || 'pending',
-          ...fields
-        };
-        const { data, error } = await supabase
+        // Check if row already exists in DB for this ccId and urutan
+        const { data: existingRow } = await supabase
           .from('videos')
-          .insert(insertData)
-          .select()
-          .single();
-        if (error) throw error;
-        
-        if (data) {
-          // Replace phantom video with real database row
-          setLocalVideos((prev: any[]) => {
-            return prev.map(v => {
-              if (v.campaign_creator_id === ccId && v.urutan === video.urutan) {
-                return { ...v, ...data };
-              }
-              return v;
+          .select('id')
+          .eq('campaign_creator_id', ccId)
+          .eq('urutan', video.urutan)
+          .maybeSingle();
+
+        if (existingRow && existingRow.id) {
+          const { data: updatedData, error: updateErr } = await supabase
+            .from('videos')
+            .update(fields)
+            .eq('id', existingRow.id)
+            .select()
+            .single();
+          if (updateErr) throw updateErr;
+
+          if (updatedData) {
+            setLocalVideos((prev: any[]) => {
+              return prev.map(v => {
+                if (v.campaign_creator_id === ccId && v.urutan === video.urutan) {
+                  return { ...v, ...updatedData };
+                }
+                return v;
+              });
             });
-          });
+          }
+        } else {
+          // Insert new row into videos
+          const insertData: any = {
+            campaign_creator_id: ccId,
+            urutan: video.urutan,
+            concept: video.concept || '',
+            concept_updated_at: video.concept_updated_at || null,
+            concept_updated_by: video.concept_updated_by || null,
+            link_draft: video.link_draft || null,
+            link_video: video.link_video || null,
+            vt_approval: video.vt_approval || 'pending',
+            ...fields
+          };
+          const { data: insertedData, error: insertErr } = await supabase
+            .from('videos')
+            .insert(insertData)
+            .select()
+            .single();
+          if (insertErr) throw insertErr;
+          
+          if (insertedData) {
+            // Replace phantom video with real database row
+            setLocalVideos((prev: any[]) => {
+              const exists = prev.some(v => v.campaign_creator_id === ccId && v.urutan === video.urutan);
+              if (exists) {
+                return prev.map(v => {
+                  if (v.campaign_creator_id === ccId && v.urutan === video.urutan) {
+                    return { ...v, ...insertedData };
+                  }
+                  return v;
+                });
+              } else {
+                return [...prev, insertedData];
+              }
+            });
+          }
         }
       }
     } catch (err) {
@@ -1976,14 +2011,16 @@ export default function CampaignVideoPage({
                                   Konsep #
                                 </button>
                                 <input
+                                  key={`concept_input_${v.ccId}_${v.urutan}_${v.id || 'new'}`}
                                   type="number"
                                   min="0"
                                   className="w-full bg-transparent border-0 p-0 text-[13px] font-bold focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                   defaultValue={v.concept || ''}
                                   onBlur={(e) => {
-                                    if (hasAccess && e.target.value !== (v.concept || '')) {
+                                    const val = e.target.value.trim();
+                                    if (hasAccess && val !== (v.concept || '')) {
                                       handleUpdateSingleVideoField(v.ccId, v, { 
-                                        concept: e.target.value,
+                                        concept: val,
                                         concept_updated_at: new Date().toISOString(),
                                         concept_updated_by: profile?.nama || 'System'
                                       });
@@ -2033,13 +2070,15 @@ export default function CampaignVideoPage({
                                 <div className="flex-1">
                                   {hasAccess && v.vt_approval !== 'approved' ? (
                                     <input 
+                                      key={`draft_input_${v.ccId}_${v.urutan}_${v.id || 'new'}`}
                                       type="text" 
                                       className="input w-full !text-[12px] !p-1.5"
                                       placeholder="Tempel link GDrive..."
                                       defaultValue={v.link_draft || ''}
                                       onBlur={(e) => {
-                                        if (e.target.value !== (v.link_draft || '')) {
-                                          handleUpdateSingleVideoField(v.ccId, v, { link_draft: e.target.value });
+                                        const val = e.target.value.trim();
+                                        if (val !== (v.link_draft || '')) {
+                                          handleUpdateSingleVideoField(v.ccId, v, { link_draft: val });
                                         }
                                       }}
                                       onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}

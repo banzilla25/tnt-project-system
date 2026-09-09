@@ -20,15 +20,18 @@ export function useDraftLocalStorage<T>(key: string, initialValue: T) {
 
   // Return a wrapped version of useState's setter function that persists the new value to localStorage.
   const setValueWrapped = (valueToStore: T | ((val: T) => T)) => {
-    try {
-      const valueToSave = valueToStore instanceof Function ? valueToStore(value) : valueToStore;
-      setValue(valueToSave);
-      if (typeof window !== 'undefined') {
-        window.localStorage.setItem(key, JSON.stringify(valueToSave));
+    setValue((current) => {
+      try {
+        const valueToSave = valueToStore instanceof Function ? valueToStore(current) : valueToStore;
+        if (typeof window !== 'undefined') {
+          window.localStorage.setItem(key, JSON.stringify(valueToSave));
+        }
+        return valueToSave;
+      } catch (error) {
+        console.warn(`Error setting localStorage key "${key}":`, error);
+        return current;
       }
-    } catch (error) {
-      console.warn(`Error setting localStorage key "${key}":`, error);
-    }
+    });
   };
 
   const clearDraft = () => {
