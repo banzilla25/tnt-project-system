@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { useDatabaseStore } from "@/store/useDatabaseStore";
-import { Calendar, Trash2, Plus, ArrowUp, ArrowDown, ArrowUpDown, CheckCircle2, XCircle } from "lucide-react";
+import { Calendar, Trash2, Plus, ArrowUp, ArrowDown, ArrowUpDown, CheckCircle2, XCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import { useCampaignFilter } from "@/providers/CampaignFilterProvider";
 
@@ -247,8 +247,38 @@ export default function LiveSchedulePage() {
         const countB = live_schedules.filter(l => l.campaign_creator_id === b.id).length;
         return (countA - countB) * dir;
       }
-      return 0;
     });
+
+  // ─── Pagination ──────────────────────────────────────────────────────────
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, activeFilter, sortConfig, pageSize]);
+
+  const totalItems = approvedCCs.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const validCurrentPage = Math.min(currentPage, totalPages);
+  const startIndex = (validCurrentPage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, totalItems);
+  const paginatedCCs = approvedCCs.slice(startIndex, endIndex);
+
+  const pageNumbers = (() => {
+    const pages: (number | string)[] = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      if (validCurrentPage > 3) pages.push('...');
+      const start = Math.max(2, validCurrentPage - 1);
+      const end = Math.min(totalPages - 1, validCurrentPage + 1);
+      for (let i = start; i <= end; i++) pages.push(i);
+      if (validCurrentPage < totalPages - 2) pages.push('...');
+      pages.push(totalPages);
+    }
+    return pages;
+  })();
 
   const handleAddSchedule = async (ccId: number) => {
     const date = dateInputs[ccId];
@@ -459,7 +489,7 @@ export default function LiveSchedulePage() {
                   </td>
                 </tr>
               ) : (
-                approvedCCs.map((cc) => {
+                paginatedCCs.map((cc) => {
                   const creator = cc.creators;
                   const schedules = live_schedules
                     .filter(l => l.campaign_creator_id === cc.id)
@@ -630,6 +660,68 @@ export default function LiveSchedulePage() {
             </tbody>
           </table>
         </div>
+
+        {/* ── Pagination Bar ── */}
+        {totalItems > 0 && (
+          <div className="p-4 border-t border-line flex flex-col sm:flex-row items-center justify-between gap-3 bg-slate-50/70 text-[13px] text-slate-600">
+            <div className="flex items-center gap-3">
+              <span>
+                Menampilkan <span className="font-semibold text-slate-900">{startIndex + 1}</span> - <span className="font-semibold text-slate-900">{endIndex}</span> dari <span className="font-semibold text-slate-900">{totalItems.toLocaleString('id-ID')}</span> kreator
+              </span>
+              <select
+                className="px-2 py-1 border border-slate-200 rounded text-[12px] bg-white text-slate-700 outline-none"
+                value={pageSize}
+                onChange={e => setPageSize(Number(e.target.value))}
+              >
+                <option value={25}>25 / hal</option>
+                <option value={50}>50 / hal</option>
+                <option value={100}>100 / hal</option>
+              </select>
+            </div>
+
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={validCurrentPage === 1}
+                className="p-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                title="Halaman Sebelumnya"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+
+              {pageNumbers.map((p, idx) => {
+                if (p === '...') {
+                  return (
+                    <span key={`dots-${idx}`} className="px-2 py-1 text-slate-400">...</span>
+                  );
+                }
+                const isSelected = p === validCurrentPage;
+                return (
+                  <button
+                    key={p}
+                    onClick={() => setCurrentPage(Number(p))}
+                    className={`min-w-[32px] h-8 px-2 rounded-lg text-[13px] font-medium transition-colors ${
+                      isSelected
+                        ? 'bg-blue-600 text-white shadow-sm'
+                        : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    {p}
+                  </button>
+                );
+              })}
+
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                disabled={validCurrentPage === totalPages}
+                className="p-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                title="Halaman Berikutnya"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

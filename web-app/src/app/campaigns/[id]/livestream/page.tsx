@@ -26,6 +26,7 @@ export default async function CampaignLiveStreamPage({
       initialCreators={data.creators}
       initialSalesData={data.salesData}
       initialLiveMetrics={data.liveMetrics}
+      initialLiveStats={data.liveStats || []}
     />
   );
 }

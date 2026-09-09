@@ -3,133 +3,168 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useDatabaseStore } from "@/store/useDatabaseStore";
 import { createClient } from "@/utils/supabase/client";
-import { useParams } from "next/navigation";
-import { Search, Radio, Loader2, ArrowUpDown } from "lucide-react";
-import { useAuth } from "@/providers/AuthProvider";
+import { Search, Radio, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import { useCampaignFilter } from "@/providers/CampaignFilterProvider";
 
 export default function CampaignLiveStreamClient({
   campaign,
   initialCreators,
   initialSalesData,
-  initialLiveMetrics
+  initialLiveMetrics,
+  initialLiveStats
 }: {
   campaign: any;
   initialCreators: any[];
   initialSalesData: any[];
-  initialLiveMetrics: any[];
+  initialLiveMetrics?: any[];
+  initialLiveStats?: any[];
 }) {
   const campaignId = campaign.id;
 
-  const [creators, setCreators] = useState<any[]>(initialCreators || []);
-  const [salesData, setSalesData] = useState<any[]>(initialSalesData || []);
-  const [liveMetrics, setLiveMetrics] = useState<any[]>(initialLiveMetrics || []);
-  const [isLoading, setIsLoading] = useState(false);
+  const [creators] = useState<any[]>(initialCreators || []);
+  const [salesData] = useState<any[]>(initialSalesData || []);
+  const [actualLives, setActualLives] = useState<any[]>(initialLiveStats || []);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('sesi');
   const [statusFilter, setStatusFilter] = useState('all');
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
   
   const { isCreatorVisible } = useCampaignFilter();
-
-  // ─── Fetch Actual Lives via RPC (for Leaderboard) ──
-  const [actualLives, setActualLives] = useState<any[]>([]);
   const supabase = createClient();
-  
+
+  // ─── Fetch Actual Lives via RPC (background refresh if initial was empty) ──
   useEffect(() => {
-    const fetchActualLives = async () => {
-      if (!campaignId) return;
-      const { data, error } = await supabase.rpc('get_campaign_live_stats', {
-        p_campaign_id: campaignId,
-      });
-      if (!error && data) {
-        setActualLives(Array.isArray(data) ? data : []);
-      }
-    };
-    fetchActualLives();
-  }, [campaignId]);
-
-  // ─── Pre-compute maps for Leaderboard ──
-  const creatorGmvMap    = new Map<string, number>();
-  const creatorLivesMap  = new Map<string, number>();
-  const creatorViewsMap  = new Map<string, number>();
-  const creatorLikesMap  = new Map<string, number>();
-  
-  actualLives.forEach(l => {
-    let u = l.creator_username;
-    if (u) {
-      u = u.replace(/^@/, '').toLowerCase();
-      creatorGmvMap.set(u,   (creatorGmvMap.get(u)   || 0) + (Number(l.gmv)          || 0));
-      creatorLivesMap.set(u, (creatorLivesMap.get(u) || 0) + 1);
-      creatorViewsMap.set(u, (creatorViewsMap.get(u) || 0) + (Number(l.video_views)  || 0));
-      creatorLikesMap.set(u, (creatorLikesMap.get(u) || 0) + (Number(l.video_likes)  || 0));
+    if (!campaignId) return;
+    // Only refetch if initialLiveStats was empty
+    if (!initialLiveStats || initialLiveStats.length === 0) {
+      const fetchActualLives = async () => {
+        try {
+          const { data, error } = await supabase.rpc('get_campaign_live_stats', {
+            p_campaign_id: campaignId,
+          });
+          if (!error && data && Array.isArray(data) && data.length > 0) {
+            setActualLives(data);
+          }
+        } catch (e) {
+          console.warn("Client live stats fetch skipped:", e);
+        }
+      };
+      fetchActualLives();
     }
-  });
+  }, [campaignId, initialLiveStats]);
 
-  const top5CreatorsBySession = Array.from(creatorLivesMap.entries())
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5)
-    .map(([username, sessions]) => ({
-      username,
-      sessions,
-      gmv:   creatorGmvMap.get(username)   || 0,
-      views: creatorViewsMap.get(username) || 0,
-      likes: creatorLikesMap.get(username) || 0,
-    }));
+  // ─── Pre-compute maps & Leaderboard in single O(M) pass ──
+  const { creatorLiveStatsMap, top5CreatorsBySession, top5CreatorsByGmv, top5SessionsByGmv } = useMemo(() => {
+    const statsMap = new Map<string, {
+      gmv: number;
+      sessions: number;
+      views: number;
+      likes: number;
+      orders: number;
+    }>();
 
-  const top5CreatorsByGmv = Array.from(creatorGmvMap.entries())
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5)
-    .map(([username, gmv]) => ({
-      username,
-      gmv,
-      sessions: creatorLivesMap.get(username) || 0,
-      views:    creatorViewsMap.get(username) || 0,
-      likes:    creatorLikesMap.get(username) || 0,
-    }));
+    actualLives.forEach(l => {
+      const raw = l.creator_username;
+      if (!raw) return;
+      const u = raw.replace(/^@/, '').toLowerCase();
+      const cur = statsMap.get(u) || { gmv: 0, sessions: 0, views: 0, likes: 0, orders: 0 };
+      cur.gmv += (Number(l.gmv) || 0);
+      cur.sessions += 1;
+      cur.views += (Number(l.video_views) || 0);
+      cur.likes += (Number(l.video_likes) || 0);
+      cur.orders += (Number(l.orders) || 0);
+      statsMap.set(u, cur);
+    });
 
-  const top5SessionsByGmv = [...actualLives]
-    .filter(l => (l.gmv || 0) > 0)
-    .sort((a, b) => (b.gmv || 0) - (a.gmv || 0))
-    .slice(0, 5);
+    // Complement orders from salesData if not present in actualLives
+    salesData.forEach(s => {
+      const raw = s.creator_username;
+      if (!raw) return;
+      const u = raw.replace(/^@/, '').toLowerCase();
+      const cur = statsMap.get(u);
+      if (cur && cur.orders === 0) {
+        cur.orders += (Number(s.quantity) || 0);
+      } else if (!cur) {
+        statsMap.set(u, {
+          gmv: Number(s.gmv) || 0,
+          sessions: 0,
+          views: 0,
+          likes: 0,
+          orders: Number(s.quantity) || 0
+        });
+      }
+    });
+
+    // Top 5 by Session
+    const top5BySession = Array.from(statsMap.entries())
+      .filter(([_, data]) => data.sessions > 0)
+      .sort((a, b) => b[1].sessions - a[1].sessions || b[1].gmv - a[1].gmv)
+      .slice(0, 5)
+      .map(([username, data]) => ({
+        username,
+        sessions: data.sessions,
+        gmv: data.gmv,
+        views: data.views,
+        likes: data.likes,
+      }));
+
+    // Top 5 by GMV
+    const top5ByGmv = Array.from(statsMap.entries())
+      .filter(([_, data]) => data.gmv > 0)
+      .sort((a, b) => b[1].gmv - a[1].gmv || b[1].sessions - a[1].sessions)
+      .slice(0, 5)
+      .map(([username, data]) => ({
+        username,
+        gmv: data.gmv,
+        sessions: data.sessions,
+        views: data.views,
+        likes: data.likes,
+      }));
+
+    // Top 5 Sessions by GMV
+    const top5Sessions = [...actualLives]
+      .filter(l => (Number(l.gmv) || 0) > 0)
+      .sort((a, b) => (Number(b.gmv) || 0) - (Number(a.gmv) || 0))
+      .slice(0, 5);
+
+    return {
+      creatorLiveStatsMap: statsMap,
+      top5CreatorsBySession: top5BySession,
+      top5CreatorsByGmv: top5ByGmv,
+      top5SessionsByGmv: top5Sessions,
+    };
+  }, [actualLives, salesData]);
 
   const rankBadge = (rank: number) => {
     const medals: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' };
     return medals[rank] ?? `#${rank}`;
   };
 
-  const aggregatedData = React.useMemo(() => {
+  // ─── Filter & Sort via O(1) Map Lookup ──
+  const aggregatedData = useMemo(() => {
     let data = creators.map(cc => {
-      const creatorUsername = cc.creators.username;
+      const creatorUsername = cc.creators?.username || cc.username || '';
       const normalizedCreatorUname = (creatorUsername || '').replace(/^@/, '').toLowerCase();
       
-      // Use actualLives from the RPC as the single source of truth for sessions, views, likes, and GMV
-      const cLives = actualLives.filter(l => (l.creator_username || '').replace(/^@/, '').toLowerCase() === normalizedCreatorUname);
-      
-      // Keep using salesData for totalOrders (quantity) since the RPC might not return it
-      const cSales = salesData.filter(s => (s.creator_username || '').replace(/^@/, '').toLowerCase() === normalizedCreatorUname);
-
-      let totalOrders = 0;
-      cSales.forEach(s => {
-        totalOrders += (s.quantity || 0);
-      });
-
-      let totalGmv = 0;
-      let totalViews = 0;
-      let totalLikes = 0;
-      
-      cLives.forEach(l => {
-        totalGmv += (Number(l.gmv) || 0);
-        totalViews += (Number(l.video_views) || 0);
-        totalLikes += (Number(l.video_likes) || 0);
-      });
+      const stats = creatorLiveStatsMap.get(normalizedCreatorUname) || {
+        gmv: 0,
+        sessions: 0,
+        views: 0,
+        likes: 0,
+        orders: 0
+      };
 
       return {
         ...cc,
-        totalGmv,
-        totalOrders,
-        totalViews,
-        totalLikes,
-        liveCount: cLives.length
+        totalGmv: stats.gmv,
+        totalOrders: stats.orders,
+        totalViews: stats.views,
+        totalLikes: stats.likes,
+        liveCount: stats.sessions,
+        _uname: creatorUsername
       };
     });
 
@@ -137,36 +172,58 @@ export default function CampaignLiveStreamClient({
       data = data.filter(d => d.approval === statusFilter);
     }
 
-    if (searchQuery) {
-      data = data.filter(d => d.creators.username.toLowerCase().includes(searchQuery.toLowerCase()));
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      data = data.filter(d => d._uname.toLowerCase().includes(q));
     }
 
     if (sortBy === 'gmv') {
-      data.sort((a, b) => {
-        if (b.totalGmv !== a.totalGmv) return b.totalGmv - a.totalGmv;
-        return b.liveCount - a.liveCount;
-      });
+      data.sort((a, b) => b.totalGmv - a.totalGmv || b.liveCount - a.liveCount);
     } else if (sortBy === 'views') {
       data.sort((a, b) => b.totalViews - a.totalViews);
     } else if (sortBy === 'orders') {
       data.sort((a, b) => b.totalOrders - a.totalOrders);
     } else if (sortBy === 'sesi') {
-      data.sort((a, b) => {
-        if (b.liveCount !== a.liveCount) return b.liveCount - a.liveCount;
-        return b.totalGmv - a.totalGmv;
-      });
+      data.sort((a, b) => b.liveCount - a.liveCount || b.totalGmv - a.totalGmv);
     }
 
     return data;
-  }, [creators, salesData, liveMetrics, searchQuery, sortBy, statusFilter, isCreatorVisible]);
+  }, [creators, creatorLiveStatsMap, searchQuery, sortBy, statusFilter]);
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center p-12">
-        <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
-      </div>
-    );
-  }
+  // Reset pagination on filter change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, statusFilter, sortBy, pageSize]);
+
+  // Pagination calculation
+  const totalItems = aggregatedData.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const validCurrentPage = Math.min(currentPage, totalPages);
+  const startIndex = (validCurrentPage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, totalItems);
+
+  const paginatedData = useMemo(() => {
+    return aggregatedData.slice(startIndex, endIndex);
+  }, [aggregatedData, startIndex, endIndex]);
+
+  // Smart page numbers calculation
+  const pageNumbers = useMemo(() => {
+    const pages: (number | string)[] = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      if (validCurrentPage > 3) pages.push('...');
+      
+      const start = Math.max(2, validCurrentPage - 1);
+      const end = Math.min(totalPages - 1, validCurrentPage + 1);
+      for (let i = start; i <= end; i++) pages.push(i);
+      
+      if (validCurrentPage < totalPages - 2) pages.push('...');
+      pages.push(totalPages);
+    }
+    return pages;
+  }, [totalPages, validCurrentPage]);
 
   return (
     <div className="space-y-6">
@@ -283,6 +340,7 @@ export default function CampaignLiveStreamClient({
         </div>
       )}
 
+      {/* ── Search & Filter Controls ── */}
       <div className="ccard p-4 flex flex-wrap gap-4 items-center bg-white border border-slate-200 rounded-xl shadow-sm">
         <div className="relative max-w-sm flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -294,7 +352,7 @@ export default function CampaignLiveStreamClient({
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center flex-wrap">
           <select 
             className="px-3 py-2 border rounded-lg text-[13px] outline-none"
             value={statusFilter}
@@ -312,14 +370,24 @@ export default function CampaignLiveStreamClient({
             onChange={(e) => setSortBy(e.target.value)}
           >
             <option value="none">Urutkan</option>
-            <option value="gmv">GMV Tertinggi</option>
             <option value="sesi">Sesi Terbanyak</option>
+            <option value="gmv">GMV Tertinggi</option>
             <option value="views">Views Terbanyak</option>
             <option value="orders">Order Terbanyak</option>
+          </select>
+          <select
+            className="px-3 py-2 border rounded-lg text-[13px] outline-none bg-slate-50 text-slate-700"
+            value={pageSize}
+            onChange={(e) => setPageSize(Number(e.target.value))}
+          >
+            <option value={25}>25 / halaman</option>
+            <option value={50}>50 / halaman</option>
+            <option value={100}>100 / halaman</option>
           </select>
         </div>
       </div>
 
+      {/* ── Main Table ── */}
       <div className="bg-white border border-slate-200 shadow-sm rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
@@ -333,45 +401,102 @@ export default function CampaignLiveStreamClient({
               </tr>
             </thead>
             <tbody>
-              {aggregatedData.map((item, idx) => (
-                <tr key={item.id} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors">
-                  <td className="px-4 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center font-bold text-[12px]">
-                        {item.creators.username.charAt(0).toUpperCase()}
+              {paginatedData.map((item) => {
+                const uname = item._uname || item.creators?.username || item.username || 'creator';
+                return (
+                  <tr key={item.id} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors">
+                    <td className="px-4 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center font-bold text-[12px]">
+                          {uname.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <p className="text-[13px] font-medium text-slate-900">@{uname}</p>
+                          {item.approval && (
+                            <span className="text-[10px] text-slate-400 capitalize">{item.approval}</span>
+                          )}
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-[13px] font-medium text-slate-900">@{item.creators.username}</p>
+                    </td>
+                    <td className="px-4 py-4 text-[13px] text-slate-600">
+                      <div className="flex items-center gap-1.5">
+                        <Radio className="w-3.5 h-3.5 text-rose-500" />
+                        {item.liveCount} Sesi
                       </div>
-                    </div>
-                  </td>
-                  <td className="px-4 py-4 text-[13px] text-slate-600">
-                    <div className="flex items-center gap-1.5">
-                      <Radio className="w-3.5 h-3.5 text-rose-500" />
-                      {item.liveCount} Sesi
-                    </div>
-                  </td>
-                  <td className="px-4 py-4 text-[13px] text-slate-600 font-medium text-right">
-                    {item.totalViews.toLocaleString()}
-                  </td>
-                  <td className="px-4 py-4 text-[13px] text-slate-600 font-medium text-right">
-                    {item.totalOrders.toLocaleString()}
-                  </td>
-                  <td className="px-4 py-4 text-[13px] text-slate-900 font-semibold text-right">
-                    Rp {item.totalGmv.toLocaleString()}
-                  </td>
-                </tr>
-              ))}
-              {aggregatedData.length === 0 && (
+                    </td>
+                    <td className="px-4 py-4 text-[13px] text-slate-600 font-medium text-right">
+                      {item.totalViews.toLocaleString('id-ID')}
+                    </td>
+                    <td className="px-4 py-4 text-[13px] text-slate-600 font-medium text-right">
+                      {item.totalOrders.toLocaleString('id-ID')}
+                    </td>
+                    <td className="px-4 py-4 text-[13px] text-slate-900 font-semibold text-right">
+                      Rp {item.totalGmv.toLocaleString('id-ID')}
+                    </td>
+                  </tr>
+                );
+              })}
+              {paginatedData.length === 0 && (
                 <tr>
                   <td colSpan={5} className="px-4 py-8 text-center text-[13px] text-slate-500">
-                    Tidak ada data performa Live Stream. Silakan import Custom Report Livestream.
+                    {searchQuery ? `Tidak ada kreator yang cocok dengan "${searchQuery}".` : 'Tidak ada data performa Live Stream. Silakan import Custom Report Livestream.'}
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
+
+        {/* ── Pagination Bar ── */}
+        {totalItems > 0 && (
+          <div className="p-4 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 bg-slate-50/70 text-[13px] text-slate-600">
+            <div>
+              Menampilkan <span className="font-semibold text-slate-900">{startIndex + 1}</span> - <span className="font-semibold text-slate-900">{endIndex}</span> dari <span className="font-semibold text-slate-900">{totalItems.toLocaleString('id-ID')}</span> kreator
+            </div>
+
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={validCurrentPage === 1}
+                className="p-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                title="Halaman Sebelumnya"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+
+              {pageNumbers.map((p, idx) => {
+                if (p === '...') {
+                  return (
+                    <span key={`dots-${idx}`} className="px-2 py-1 text-slate-400">...</span>
+                  );
+                }
+                const isSelected = p === validCurrentPage;
+                return (
+                  <button
+                    key={p}
+                    onClick={() => setCurrentPage(Number(p))}
+                    className={`min-w-[32px] h-8 px-2 rounded-lg text-[13px] font-medium transition-colors ${
+                      isSelected
+                        ? 'bg-orange-500 text-white shadow-sm'
+                        : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    {p}
+                  </button>
+                );
+              })}
+
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                disabled={validCurrentPage === totalPages}
+                className="p-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                title="Halaman Berikutnya"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

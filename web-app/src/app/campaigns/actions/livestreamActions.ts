@@ -20,9 +20,10 @@ export async function getLivestreamData(campaignId: number) {
     
     if (count && count > 0) {
       const promises = [];
-      for (let i = 0; i < count; i += 1000) {
+      const chunkSize = 1000;
+      for (let i = 0; i < count; i += chunkSize) {
         promises.push(
-          queryParams(supabase.from(table).select(selectString)).range(i, i + 999)
+          queryParams(supabase.from(table).select(selectString)).range(i, i + chunkSize - 1)
         );
       }
       const results = await Promise.all(promises);
@@ -33,41 +34,97 @@ export async function getLivestreamData(campaignId: number) {
     return all;
   };
 
+  // 1. Fetch lean campaign metadata
   const { data: campaign } = await supabase
     .from('campaigns')
-    .select('*')
+    .select('id, nama, brand_id, start_date, end_date')
     .eq('id', campaignId)
     .single();
 
   if (!campaign) return null;
 
-  const ccData = await fetchParallel(
+  // 2. Fetch lean campaign creators (only id, approval, and creator username/nama)
+  // Selecting lean columns avoids transfer of huge bio, notes, raw json columns
+  const ccDataPromise = fetchParallel(
     'campaign_creators', 
     (q) => q.eq('campaign_id', campaignId), 
-    '*, creators!inner(*)'
+    'id, approval, creators(username, nama_asli)'
   );
 
-  const sData = await fetchParallel(
+  // 3. Fetch lean sales for live stream (only needed attributes)
+  const salesPromise = fetchParallel(
     'sales', 
     (q) => q.eq('campaign_id', campaignId).or('content_type.ilike.livestream,content_type.ilike.live'), 
-    '*'
+    'creator_username, content_uid, quantity, gmv, tanggal'
   );
 
-  const contentUids = sData ? Array.from(new Set(sData.map(s => s.content_uid).filter(Boolean))) : [];
-  let metricsData: any[] = [];
-  
-  if (contentUids.length > 0) {
-    const { data: oData } = await supabase
-      .from('organic_videos')
-      .select('*')
-      .in('content_uid', contentUids);
-    if (oData) metricsData = oData;
+  // 4. Try getting live stats via RPC concurrently
+  const rpcPromise = (async () => {
+    try {
+      const { data: rpcData, error: rpcErr } = await supabase.rpc('get_campaign_live_stats', {
+        p_campaign_id: campaignId
+      });
+      if (!rpcErr && Array.isArray(rpcData)) {
+        return rpcData;
+      }
+    } catch (e) {
+      console.warn('Livestream RPC skipped or timed out on server:', e);
+    }
+    return [];
+  })();
+
+  const [ccData, sData, rpcLives] = await Promise.all([
+    ccDataPromise,
+    salesPromise,
+    rpcPromise
+  ]);
+
+  // If RPC returned empty (e.g. statement timeout on Supabase), build fallback session items from sales
+  let liveStats = rpcLives || [];
+  if (liveStats.length === 0 && sData && sData.length > 0) {
+    // Deduplicate and aggregate sales by (content_uid, creator_username)
+    const salesMap = new Map<string, {
+      content_uid: string;
+      creator_username: string;
+      start_time: string;
+      gmv: number;
+      orders: number;
+      video_views: number;
+      video_likes: number;
+      duration_str: string;
+    }>();
+
+    sData.forEach((s: any) => {
+      const u = (s.creator_username || '').replace(/^@/, '').toLowerCase();
+      const uid = s.content_uid ? s.content_uid.replace(/^video_/, '') : `session_${u}_${s.tanggal || 'unknown'}`;
+      const key = `${uid}_${u}`;
+
+      if (!salesMap.has(key)) {
+        salesMap.set(key, {
+          content_uid: uid,
+          creator_username: u,
+          start_time: s.tanggal || '',
+          gmv: Number(s.gmv || 0),
+          orders: Number(s.quantity || 0),
+          video_views: 0,
+          video_likes: 0,
+          duration_str: ''
+        });
+      } else {
+        const item = salesMap.get(key)!;
+        item.gmv += Number(s.gmv || 0);
+        item.orders += Number(s.quantity || 0);
+      }
+    });
+
+    liveStats = Array.from(salesMap.values());
   }
 
   return {
     campaign,
     creators: ccData || [],
     salesData: sData || [],
-    liveMetrics: metricsData
+    liveMetrics: [], // Empty to save egress; liveStats already contains consolidated data
+    liveStats
   };
 }
