@@ -33,19 +33,19 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
   const fetchData = async () => {
     setLoading(true);
     try {
-      // 1. Fetch metadata, RPC aggregates, and counts concurrently
+      // 1. Phase 1: Fetch metadata, indexed sales, skus, and counts concurrently
       const [
         campaignRes,
-        dailyStatsRes,
-        liveStatsRes,
+        skusRes,
+        salesRes,
         ccCountRes,
         vidCountRes,
         adsCountRes,
         orgVideosRes
       ] = await Promise.all([
         supabase.from('campaigns').select('*').eq('id', campaignId).single(),
-        supabase.rpc('get_campaign_daily_stats', { p_campaign_id: campaignId }),
-        supabase.rpc('get_campaign_live_stats', { p_campaign_id: campaignId }),
+        supabase.from('skus').select('product_id').eq('campaign_id', campaignId),
+        supabase.from('sales').select('tanggal, gmv, quantity, creator_username, content_uid, content_type, product_id').eq('campaign_id', campaignId),
         supabase.from('campaign_creators').select('id', { count: 'exact', head: true }).eq('campaign_id', campaignId),
         supabase.from('videos').select('id, campaign_creators!inner(campaign_id)', { count: 'exact', head: true }).eq('campaign_creators.campaign_id', campaignId),
         supabase.from('ads_performance').select('id', { count: 'exact', head: true }).eq('campaign_id', campaignId),
@@ -56,8 +56,7 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
       if (!campaignData) return;
       setCampaign(campaignData);
 
-      const allSalesStats = dailyStatsRes.data || [];
-      const allLiveSessions = liveStatsRes.data || [];
+      const skuSet = new Set((skusRes.data || []).map(s => s.product_id).filter(Boolean));
       const allOrganicVideos = orgVideosRes.data || [];
 
       // 2. Fetch campaign_creators, videos, and ads in parallel batches (pageSize = 1000)
@@ -71,7 +70,7 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
         ccPromises.push(
           supabase
             .from('campaign_creators')
-            .select('id, creator_id, tier, created_at, approved_at, content_type, qty_vt, qty_live, creators(username)')
+            .select('id, creator_id, tier, approval, created_at, approved_at, content_type, qty_vt, qty_live, creators(username)')
             .eq('campaign_id', campaignId)
             .order('id', { ascending: true })
             .range(i, i + batchSize - 1)
@@ -162,8 +161,58 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
       const grouped: Record<string, { gmv: number; gmvAds: number; creators: Map<string, string>; pendingCreators: Map<string, string>; videos: Set<string>; videoCreators: Set<string>; gmvLive: number; gmvVT: number; ordersLive: number; ordersVT: number; liveSessions: Set<string>; liveCreators: Map<string, string>; pendingLiveCreators: Map<string, string> }> = {};
       const monthlyGrouped: Record<string, { gmv: number; gmvAds: number; creators: Map<string, string>; pendingCreators: Map<string, string>; videos: Set<string>; videoCreators: Set<string>; gmvLive: number; gmvVT: number; ordersLive: number; ordersVT: number; liveSessions: Set<string>; liveCreators: Map<string, string>; pendingLiveCreators: Map<string, string> }> = {};
 
-      const campaignStartStr = campaignData.start_date || '';
-      const campaignEndStr = ''; // End date diabaikan sesuai request user
+      // 4. Compute daily sales stats directly from sales table
+      const approvedUsernameSet = new Set(
+        allVideosFromCreators
+          .filter(cc => cc.approval === 'approved' || cc.approval === 'alternate')
+          .map(cc => cc.creators?.username?.toLowerCase())
+          .filter(Boolean)
+      );
+
+      const dailySalesMap = new Map<string, {
+        date_str: string;
+        total_gmv: number;
+        gmv_live: number;
+        gmv_vt: number;
+        orders_live: number;
+        orders_vt: number;
+      }>();
+
+      (salesRes.data || []).forEach(s => {
+        const u = (s.creator_username || '').toLowerCase();
+        if (approvedUsernameSet.size > 0 && !approvedUsernameSet.has(u)) return;
+        if (skuSet.size > 0 && s.product_id && !skuSet.has(s.product_id)) return;
+
+        const dateStr = s.tanggal ? (s.tanggal.includes('T') ? toWIBDateStr(s.tanggal) : s.tanggal.substring(0, 10)) : null;
+        if (!dateStr) return;
+
+        if (!dailySalesMap.has(dateStr)) {
+          dailySalesMap.set(dateStr, {
+            date_str: dateStr,
+            total_gmv: 0,
+            gmv_live: 0,
+            gmv_vt: 0,
+            orders_live: 0,
+            orders_vt: 0
+          });
+        }
+        const day = dailySalesMap.get(dateStr)!;
+        const gmv = Number(s.gmv || 0);
+        const qty = Number(s.quantity || 0);
+        const cType = (s.content_type || '').toLowerCase();
+
+        day.total_gmv += gmv;
+
+        if (cType === 'livestream' || cType === 'live') {
+          day.gmv_live += gmv;
+          day.orders_live += qty;
+        } else {
+          day.gmv_vt += gmv;
+          day.orders_vt += qty;
+        }
+      });
+
+      const allSalesStats = Array.from(dailySalesMap.values());
 
       if (allSalesStats.length > 0) {
         allSalesStats.forEach((stat: any) => {
@@ -310,28 +359,7 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
         });
       }
 
-      if (allLiveSessions.length > 0) {
-        allLiveSessions.forEach((l: any) => {
-          if (!l.start_time) return;
-          const dateStr = toWIBDateStr(String(l.start_time));
-          if (!dateStr) return;
-          if (campaignStartStr && dateStr < campaignStartStr) return;
-          if (campaignEndStr && dateStr > campaignEndStr) return;
-          
-          if (!grouped[dateStr]) grouped[dateStr] = { gmv: 0, gmvAds: 0, creators: new Map(), pendingCreators: new Map(), videos: new Set(), videoCreators: new Set(), gmvLive: 0, gmvVT: 0, ordersLive: 0, ordersVT: 0, liveSessions: new Set(), liveCreators: new Map(), pendingLiveCreators: new Map() };
-          
-          const uidStr = l.content_uid ? l.content_uid.toString() : '';
-          const isDummy = !uidStr || uidStr === '-' || uidStr === '0' || uidStr.toLowerCase() === 'n/a' || uidStr === 'null';
-          const uniqueKey = isDummy ? `dummy_${l.creator_username}_${dateStr}_${Math.random()}` : uidStr;
 
-          grouped[dateStr].liveSessions.add(uniqueKey);
-
-          const monthStr = dateStr.substring(0, 7);
-          if (!monthlyGrouped[monthStr]) monthlyGrouped[monthStr] = { gmv: 0, gmvAds: 0, creators: new Map(), pendingCreators: new Map(), videos: new Set(), videoCreators: new Set(), gmvLive: 0, gmvVT: 0, ordersLive: 0, ordersVT: 0, liveSessions: new Set(), liveCreators: new Map(), pendingLiveCreators: new Map() };
-          
-          monthlyGrouped[monthStr].liveSessions.add(uniqueKey);
-        });
-      }
 
       if (allAds.length > 0) {
         const previousAdValues: Record<string, number> = {};

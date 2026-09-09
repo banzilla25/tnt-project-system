@@ -12,6 +12,14 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey, {
   }
 });
 
+const toWIBDateStr = (utcString: string | null | undefined): string | null => {
+  if (!utcString) return null;
+  const d = new Date(utcString);
+  if (isNaN(d.getTime())) return null;
+  const wibTime = new Date(d.getTime() + (7 * 60 * 60 * 1000));
+  return wibTime.toISOString().substring(0, 10);
+};
+
 export async function getDailyData(campaignId: number) {
   const { data: campaign } = await supabase
     .from('campaigns')
@@ -27,23 +35,22 @@ export async function getDailyData(campaignId: number) {
   const isAwareness = campaign.tipe_campaign === 'awareness';
   const isHybrid = campaign.tipe_campaign === 'gmv_awareness';
 
-  // 1. Fetch metadata, RPC aggregates, and counts concurrently
+  // 1. Fetch metadata, indexed sales, skus, and counts concurrently
   const [
-    dailyStatsRes,
-    liveStatsRes,
+    skusRes,
+    salesRes,
     ccCountRes,
     vidCountRes,
     adsCountRes
   ] = await Promise.all([
-    supabase.rpc('get_campaign_daily_stats', { p_campaign_id: campaignId }),
-    supabase.rpc('get_campaign_live_stats', { p_campaign_id: campaignId }),
+    supabase.from('skus').select('product_id').eq('campaign_id', campaignId),
+    supabase.from('sales').select('tanggal, gmv, quantity, creator_username, content_uid, content_type, product_id').eq('campaign_id', campaignId),
     supabase.from('campaign_creators').select('id', { count: 'exact', head: true }).eq('campaign_id', campaignId),
     supabase.from('videos').select('id, campaign_creators!inner(campaign_id)', { count: 'exact', head: true }).eq('campaign_creators.campaign_id', campaignId),
     supabase.from('ads_performance').select('id', { count: 'exact', head: true }).eq('campaign_id', campaignId)
   ]);
 
-  const allSalesStats = dailyStatsRes.data || [];
-  const allLiveSessions = liveStatsRes.data || [];
+  const skuSet = new Set((skusRes.data || []).map((s: any) => s.product_id).filter(Boolean));
 
   // 2. Fetch campaign_creators, videos, and ads in parallel batches (pageSize = 1000)
   const ccCount = ccCountRes.count || 0;
@@ -56,7 +63,7 @@ export async function getDailyData(campaignId: number) {
     ccPromises.push(
       supabase
         .from('campaign_creators')
-        .select('id, approved_at, creators(username)')
+        .select('id, approval, approved_at, creators(username)')
         .eq('campaign_id', campaignId)
         .order('id', { ascending: true })
         .range(i, i + batchSize - 1)
@@ -119,6 +126,69 @@ export async function getDailyData(campaignId: number) {
 
   const campaignStartStr = campaign.start_date || '';
   const campaignEndStr = ''; // End date hanya pengingat, tidak filter data
+
+  // Compute daily sales stats directly from sales table
+  const approvedUsernameSet = new Set(
+    allVideosFromCreators
+      .filter(cc => cc.approval === 'approved' || cc.approval === 'alternate')
+      .map(cc => cc.creators?.username?.toLowerCase())
+      .filter(Boolean)
+  );
+
+  const dailySalesMap = new Map<string, {
+    date_str: string;
+    total_gmv: number;
+    gmv_live: number;
+    gmv_vt: number;
+    orders_live: number;
+    orders_vt: number;
+    active_creators: Set<string>;
+    active_videos: Set<string>;
+  }>();
+
+  (salesRes.data || []).forEach((s: any) => {
+    const u = (s.creator_username || '').toLowerCase();
+    if (approvedUsernameSet.size > 0 && !approvedUsernameSet.has(u)) return;
+    if (skuSet.size > 0 && s.product_id && !skuSet.has(s.product_id)) return;
+
+    const dateStr = s.tanggal ? (s.tanggal.includes('T') ? toWIBDateStr(s.tanggal) : s.tanggal.substring(0, 10)) : null;
+    if (!dateStr) return;
+
+    if (!dailySalesMap.has(dateStr)) {
+      dailySalesMap.set(dateStr, {
+        date_str: dateStr,
+        total_gmv: 0,
+        gmv_live: 0,
+        gmv_vt: 0,
+        orders_live: 0,
+        orders_vt: 0,
+        active_creators: new Set(),
+        active_videos: new Set()
+      });
+    }
+    const day = dailySalesMap.get(dateStr)!;
+    const gmv = Number(s.gmv || 0);
+    const qty = Number(s.quantity || 0);
+    const cType = (s.content_type || '').toLowerCase();
+
+    day.total_gmv += gmv;
+    if (s.creator_username) day.active_creators.add(s.creator_username);
+
+    if (cType === 'livestream' || cType === 'live') {
+      day.gmv_live += gmv;
+      day.orders_live += qty;
+    } else {
+      day.gmv_vt += gmv;
+      day.orders_vt += qty;
+      if (s.content_uid) day.active_videos.add(s.content_uid);
+    }
+  });
+
+  const allSalesStats = Array.from(dailySalesMap.values()).map(d => ({
+    ...d,
+    active_creators: Array.from(d.active_creators),
+    active_videos: Array.from(d.active_videos)
+  }));
 
   if (allSalesStats.length > 0) {
     allSalesStats.forEach((stat: any) => {

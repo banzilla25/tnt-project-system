@@ -13,36 +13,35 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey, {
 });
 
 export async function getInternalPerformaData(campaignId: number) {
-  // 1. Fetch Campaign, RPCs, and counts concurrently
+  // 1. Fetch metadata, indexed sales, skus, and counts concurrently
   const [
     campaignRes,
-    rpcPerfRes,
-    creatorPerfRes,
-    videoGmvRes,
+    skusRes,
+    salesRes,
     rawAdsRes,
+    orgCountRes,
     ccCountRes,
     vidCountRes
   ] = await Promise.all([
     supabase.from('campaigns').select('*').eq('id', campaignId).single(),
-    supabase.rpc('get_campaign_performance', { p_campaign_id: campaignId }),
-    supabase.rpc('get_campaign_creator_performance', { p_campaign_id: campaignId }),
-    supabase.rpc('get_campaign_video_gmv', { p_campaign_id: campaignId }),
+    supabase.from('skus').select('product_id').eq('campaign_id', campaignId),
+    supabase.from('sales').select('tanggal, gmv, quantity, creator_username, content_uid, content_type, product_id').eq('campaign_id', campaignId),
     supabase.from('ads_performance').select('*, creators(username)').eq('campaign_id', campaignId),
-    supabase.from('campaign_creators').select('id', { count: 'exact', head: true }).eq('campaign_id', campaignId).in('approval', ['approved', 'pending']),
+    supabase.from('organic_videos').select('id', { count: 'exact', head: true }).eq('campaign_id', campaignId),
+    supabase.from('campaign_creators').select('id', { count: 'exact', head: true }).eq('campaign_id', campaignId).in('approval', ['approved', 'pending', 'alternate']),
     supabase.from('videos').select('id, campaign_creators!inner(campaign_id)', { count: 'exact', head: true }).eq('campaign_creators.campaign_id', campaignId)
   ]);
 
   const campaign = campaignRes.data;
   if (!campaign) return null;
 
-  const rpcPerformance = rpcPerfRes.data;
-  const creatorPerformance = creatorPerfRes.data;
-  const videoGmvData = videoGmvRes.data;
-  const rawAdsData = rawAdsRes.data;
+  const rawAdsData = rawAdsRes.data || [];
+  const skuSet = new Set((skusRes.data || []).map((s: any) => s.product_id).filter(Boolean));
 
-  // 2. Fetch creators and videos in parallel batches (pageSize = 1000)
+  // 2. Fetch creators, videos, and organic_videos in parallel batches (pageSize = 1000)
   const ccCount = ccCountRes.count || 0;
   const vidCount = vidCountRes.count || 0;
+  const orgCount = orgCountRes.count || 0;
   const pageSize = 1000;
 
   const ccPromises = [];
@@ -52,7 +51,7 @@ export async function getInternalPerformaData(campaignId: number) {
         .from('campaign_creators')
         .select('id, creator_id, approval, created_at, approved_at, content_type, qty_vt, qty_live, creators(id, username, nama_asli, link_account)')
         .eq('campaign_id', campaignId)
-        .in('approval', ['approved', 'pending'])
+        .in('approval', ['approved', 'pending', 'alternate'])
         .order('id', { ascending: true })
         .range(i, i + pageSize - 1)
     );
@@ -70,9 +69,21 @@ export async function getInternalPerformaData(campaignId: number) {
     );
   }
 
-  const [ccResults, vidResults] = await Promise.all([
+  const orgPromises = [];
+  for (let i = 0; i < orgCount; i += pageSize) {
+    orgPromises.push(
+      supabase
+        .from('organic_videos')
+        .select('content_uid, post_time, content_type, creator_username, video_views, video_likes, product_id')
+        .eq('campaign_id', campaignId)
+        .range(i, i + pageSize - 1)
+    );
+  }
+
+  const [ccResults, vidResults, orgResults] = await Promise.all([
     Promise.all(ccPromises),
-    Promise.all(vidPromises)
+    Promise.all(vidPromises),
+    Promise.all(orgPromises)
   ]);
 
   let ccData: any[] = [];
@@ -85,6 +96,11 @@ export async function getInternalPerformaData(campaignId: number) {
     if (res.data) vidsData = vidsData.concat(res.data);
   });
 
+  let orgVidsData: any[] = [];
+  orgResults.forEach(res => {
+    if (res.data) orgVidsData = orgVidsData.concat(res.data);
+  });
+
   // Map videos back to creators
   const videosByCcId = new Map<number, any[]>();
   for (const v of vidsData) {
@@ -95,6 +111,114 @@ export async function getInternalPerformaData(campaignId: number) {
   for (const cc of ccData) {
     cc.videos = videosByCcId.get(cc.id) || [];
   }
+
+  // 3. Fast In-Memory Aggregation of Sales and Organic Videos
+  const approvedUsernames = new Set<string>();
+  for (const cc of ccData) {
+    const u = cc.creators?.username?.toLowerCase();
+    if (u && (cc.approval === 'approved' || cc.approval === 'alternate')) {
+      approvedUsernames.add(u);
+    }
+  }
+
+  const perfMap = new Map<string, any>();
+  const getOrCreatePerf = (usernameLower: string) => {
+    if (!perfMap.has(usernameLower)) {
+      perfMap.set(usernameLower, {
+        username: usernameLower,
+        gmv_organic: 0,
+        items_sold: 0,
+        video_views: 0,
+        video_likes: 0,
+        video_count: 0,
+        live_count: 0,
+        video_uids: new Set<string>(),
+        live_uids: new Set<string>()
+      });
+    }
+    return perfMap.get(usernameLower)!;
+  };
+
+  let calcOrganicGmv = 0;
+  let calcUnattributedGmv = 0;
+
+  (salesRes.data || []).forEach((s: any) => {
+    if (skuSet.size > 0 && s.product_id && !skuSet.has(s.product_id)) return;
+    const u = (s.creator_username || '').toLowerCase();
+    const gmv = Number(s.gmv || 0);
+    const qty = Number(s.quantity || 0);
+    const cType = (s.content_type || '').toLowerCase();
+
+    if (approvedUsernames.has(u)) {
+      calcOrganicGmv += gmv;
+      const perf = getOrCreatePerf(u);
+      perf.gmv_organic += gmv;
+      perf.items_sold += qty;
+      if (s.content_uid) {
+        if (cType === 'livestream' || cType === 'live') {
+          perf.live_uids.add(s.content_uid);
+        } else {
+          perf.video_uids.add(s.content_uid);
+        }
+      }
+    } else {
+      calcUnattributedGmv += gmv;
+    }
+  });
+
+  const orgUidMap = new Map<string, { views: number; likes: number; creator: string; contentType: string }>();
+  (orgVidsData || []).forEach((v: any) => {
+    if (skuSet.size > 0 && v.product_id && !skuSet.has(v.product_id)) return;
+    const uid = v.content_uid;
+    if (!uid) return;
+
+    if (!orgUidMap.has(uid)) {
+      orgUidMap.set(uid, {
+        creator: (v.creator_username || '').toLowerCase(),
+        views: Number(v.video_views || 0),
+        likes: Number(v.video_likes || 0),
+        contentType: (v.content_type || 'video').toLowerCase()
+      });
+    } else {
+      const cur = orgUidMap.get(uid)!;
+      cur.views = Math.max(cur.views, Number(v.video_views || 0));
+      cur.likes = Math.max(cur.likes, Number(v.video_likes || 0));
+    }
+  });
+
+  let calcTotalViews = 0;
+  let calcTotalLikes = 0;
+  let calcUniqueVideos = 0;
+
+  for (const [uid, v] of orgUidMap.entries()) {
+    if (v.contentType !== 'livestream' && v.contentType !== 'live') {
+      calcUniqueVideos++;
+    }
+    calcTotalViews += v.views;
+    calcTotalLikes += v.likes;
+
+    if (v.creator) {
+      const perf = getOrCreatePerf(v.creator);
+      perf.video_views += v.views;
+      perf.video_likes += v.likes;
+      if (v.contentType === 'livestream' || v.contentType === 'live') {
+        perf.live_uids.add(uid);
+      } else {
+        perf.video_uids.add(uid);
+      }
+    }
+  }
+
+  for (const perf of perfMap.values()) {
+    perf.video_count = perf.video_uids.size;
+    perf.live_count = perf.live_uids.size;
+  }
+
+  const videoGmvData = (salesRes.data || []).map((s: any) => ({
+    creator_username: s.creator_username,
+    content_uid: s.content_uid,
+    content_type: s.content_type
+  }));
     
   const latestAdsMap = new Map();
   if (rawAdsData) {
@@ -133,12 +257,8 @@ export async function getInternalPerformaData(campaignId: number) {
   // 6. Enrichment
   const baseCreatorStats = ccData.map((cc: any) => {
     const creator = Array.isArray(cc.creators) ? cc.creators[0] : cc.creators;
-    const snap = creator?.creator_snapshots 
-      ? (Array.isArray(creator.creator_snapshots) ? creator.creator_snapshots[0] : creator.creator_snapshots)
-      : null;
     const username = creator?.username || 'Unknown';
-
-    const perf = creatorPerformance?.find((p: any) => p.username === username.toLowerCase());
+    const perf = perfMap.get(username.toLowerCase());
 
     const gmvOrganic = perf?.gmv_organic || 0;
     const itemsSold = perf?.items_sold || 0;
@@ -220,7 +340,13 @@ export async function getInternalPerformaData(campaignId: number) {
 
   return {
     campaign,
-    rpcPerformance: Array.isArray(rpcPerformance) ? rpcPerformance[0] : rpcPerformance,
+    rpcPerformance: {
+      organic_gmv: calcOrganicGmv,
+      unattributed_gmv: calcUnattributedGmv,
+      total_views: calcTotalViews,
+      total_likes: calcTotalLikes,
+      total_videos: calcUniqueVideos
+    },
     baseCreatorStats,
     totalAdsGmv: globalAdsGmv,
     totalAdsGmvUsd: globalAdsGmvUsd,
