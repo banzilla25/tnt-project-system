@@ -307,6 +307,10 @@ function CampaignListingContent() {
                else newTier = 'Mega';
             }
             
+            if (newTier) {
+              await updateCampaignCreator(ccId, { tier: newTier }, profile?.nama || 'System');
+            }
+
             await useDatabaseStore.getState().addCreatorSnapshot({
               creator_id: change.original.creator_id,
               tanggal_update: change.original.cc_created_at || new Date().toISOString(),
@@ -620,7 +624,6 @@ function CampaignListingContent() {
 
   const checkDuplicates = useCallback(async () => {
     let allData: any[] = [];
-    let start = 0;
     const pageSize = 1000;
     
     const { count } = await supabase
@@ -634,11 +637,7 @@ function CampaignListingContent() {
         promises.push(
           supabase
             .from('campaign_creators')
-            .select(`
-              id, campaign_id, creator_id, price, qty_vt, approval, sample_progress, status_bayar, notes_manager, notes_pic,
-              creators ( username ),
-              videos ( id, urutan, concept, concept_updated_at, concept_updated_by, link_video, vt_approval )
-            `)
+            .select('id, campaign_id, creator_id, creators!inner(username)')
             .eq('campaign_id', campaignId)
             .order('id', { ascending: true })
             .range(i, i + pageSize - 1)
@@ -652,7 +651,7 @@ function CampaignListingContent() {
 
     const groupings: Record<string, any[]> = {};
     for (const row of allData) {
-      const uname = row.creators?.username?.toLowerCase() || `unknown_${row.id}`;
+      const uname = (row.creators as any)?.username?.toLowerCase() || `unknown_${row.id}`;
       const key = `${row.campaign_id}_${uname}`;
       if (!groupings[key]) groupings[key] = [];
       groupings[key].push(row);
@@ -664,7 +663,25 @@ function CampaignListingContent() {
         dups.push(rows);
       }
     }
-    setDuplicateGroups(dups);
+
+    // Hanya jika ada duplikat, ambil detail lengkap (video, notes, status) untuk baris duplikat tersebut saja
+    if (dups.length > 0) {
+      const allDupIds = dups.flat().map(r => r.id);
+      const { data: fullDupRows } = await supabase
+        .from('campaign_creators')
+        .select(`
+          id, campaign_id, creator_id, price, qty_vt, approval, sample_progress, status_bayar, notes_manager, notes_pic,
+          creators ( username ),
+          videos ( id, urutan, concept, concept_updated_at, concept_updated_by, link_video, vt_approval )
+        `)
+        .in('id', allDupIds);
+      
+      const fullMap = new Map((fullDupRows || []).map(r => [r.id, r]));
+      const fullDups = dups.map(group => group.map(r => fullMap.get(r.id) || r));
+      setDuplicateGroups(fullDups);
+    } else {
+      setDuplicateGroups([]);
+    }
   }, [campaignId]);
 
   useEffect(() => {
@@ -709,8 +726,8 @@ function CampaignListingContent() {
           supabase
             .from('campaign_creators')
             .select(`
-              id, approval, approved_at, created_at, added_by, tier, creator_id,
-              creators ( username, creator_snapshots ( id, tier, tanggal_update ) )
+              id, approval, approved_at, not_approved_at, created_at, added_by, tier, creator_id,
+              creators!inner ( username )
             `)
             .eq('campaign_id', campaignId)
             .order('id', { ascending: true })
@@ -721,10 +738,49 @@ function CampaignListingContent() {
       results.forEach(res => {
         if (res.data) {
           allRecapData = allRecapData.concat(res.data);
-          setRecapLoadingProgress(prev => prev + res.data.length);
+          setRecapLoadingProgress(prev => (prev || 0) + (res.data?.length || 0));
         }
       });
     }
+
+    // Resolusi fallback snapshot untuk kreator yang tier-nya masih kosong secara batch cepat
+    const missingTierCreatorIds = Array.from(new Set(
+      allRecapData.filter(r => !r.tier).map(r => r.creator_id)
+    ));
+    if (missingTierCreatorIds.length > 0) {
+      const snapMap = new Map();
+      const BATCH = 500;
+      const snapPromises = [];
+      for (let i = 0; i < missingTierCreatorIds.length; i += BATCH) {
+        const batchIds = missingTierCreatorIds.slice(i, i + BATCH);
+        snapPromises.push(
+          supabase
+            .from('creator_snapshots')
+            .select('creator_id, tier, followers')
+            .in('creator_id', batchIds)
+            .order('tanggal_update', { ascending: false })
+        );
+      }
+      const snapResults = await Promise.all(snapPromises);
+      snapResults.forEach(res => {
+        (res.data || []).forEach((s: any) => {
+          if (!snapMap.has(s.creator_id)) {
+            let t = s.tier;
+            if (!t && s.followers !== null) {
+              const f = Number(s.followers);
+              t = f < 10000 ? 'Nano' : f < 100000 ? 'Micro' : f < 1000000 ? 'Macro' : 'Mega';
+            }
+            snapMap.set(s.creator_id, t || 'Nano');
+          }
+        });
+      });
+      allRecapData.forEach(r => {
+        if (!r.tier) {
+          r.tier = snapMap.get(r.creator_id) || 'Nano';
+        }
+      });
+    }
+
     setRecapLoadingProgress(null);
 
     // Deduplicate by username (or fallback to id)
@@ -804,26 +860,12 @@ function CampaignListingContent() {
           group[createDateKey].pending++;
         }
         
-        let snapshotTier = null;
-        if (r.creators?.creator_snapshots) {
-          const sortedSnaps = [...r.creators.creator_snapshots].sort((a: any, b: any) => {
-            const tDiff = new Date(b.tanggal_update || 0).getTime() - new Date(a.tanggal_update || 0).getTime();
-            if (tDiff !== 0) return tDiff;
-            return (b.id || 0) - (a.id || 0);
-          });
-          const validSnap = sortedSnaps.find((s: any) => s.tier);
-          if (validSnap) snapshotTier = validSnap.tier;
-        }
-        let t = snapshotTier || r.tier;
-        if (t) {
-          t = t.toLowerCase();
-          if (t === 'mega') group[createDateKey].mega++;
-          else if (t === 'macro') group[createDateKey].macro++;
-          else if (t === 'micro') group[createDateKey].micro++;
-          else group[createDateKey].nano++;
-        } else {
-          group[createDateKey].nano++;
-        }
+        let t = r.tier || 'Nano';
+        t = t.toLowerCase();
+        if (t === 'mega') group[createDateKey].mega++;
+        else if (t === 'macro') group[createDateKey].macro++;
+        else if (t === 'micro') group[createDateKey].micro++;
+        else group[createDateKey].nano++;
       }
 
       // 2. Process Action (Approved, Alternate, Not Approved) based on approved_at
@@ -853,31 +895,14 @@ function CampaignListingContent() {
     };
 
     rawRecapData.forEach(r => {
-      let snapshotTier = null;
-      if (r.creators?.creator_snapshots) {
-        // Sort snapshots by tanggal_update DESC, then id DESC
-        const sortedSnaps = [...r.creators.creator_snapshots].sort((a: any, b: any) => {
-          const tDiff = new Date(b.tanggal_update || 0).getTime() - new Date(a.tanggal_update || 0).getTime();
-          if (tDiff !== 0) return tDiff;
-          return (b.id || 0) - (a.id || 0);
-        });
-        // Find the most recent snapshot with a valid tier
-        const validSnap = sortedSnaps.find((s: any) => s.tier);
-        if (validSnap) snapshotTier = validSnap.tier;
-      }
-      let t = snapshotTier || r.tier;
-      
-      if (t) {
-        t = t.toLowerCase();
-        if (t === 'mega') t = 'Mega';
-        else if (t === 'macro') t = 'Macro';
-        else if (t === 'micro') t = 'Micro';
-        else t = 'Nano';
-      } else {
-        t = 'Nano';
-      }
+      let t = r.tier || 'Nano';
+      t = t.toLowerCase();
+      if (t === 'mega') t = 'Mega';
+      else if (t === 'macro') t = 'Macro';
+      else if (t === 'micro') t = 'Micro';
+      else t = 'Nano';
 
-      if (t && ['Nano', 'Micro', 'Macro', 'Mega'].includes(t)) {
+      if (['Nano', 'Micro', 'Macro', 'Mega'].includes(t)) {
         tCounts.all[t]++;
         if (r.approval === 'approved') tCounts.approved[t]++;
         else if (r.approval === 'alternate') tCounts.alternate[t]++;
