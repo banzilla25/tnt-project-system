@@ -273,7 +273,6 @@ export async function getDailyData(campaignId: number) {
         const dateStr = v.created_at.substring(0, 10);
         
         if (campaignStartStr && dateStr < campaignStartStr) return;
-        if (campaignEndStr && dateStr > campaignEndStr) return;
         
         if (!grouped[dateStr]) grouped[dateStr] = { gmv: 0, gmvAds: 0, creators: new Set(), videos: new Set(), gmvLive: 0, gmvVT: 0, ordersLive: 0, ordersVT: 0, liveSessions: new Set() };
         
@@ -297,7 +296,6 @@ export async function getDailyData(campaignId: number) {
       const dateStr = String(l.start_time).substring(0, 10);
       
       if (campaignStartStr && dateStr < campaignStartStr) return;
-      if (campaignEndStr && dateStr > campaignEndStr) return;
       
       if (!grouped[dateStr]) grouped[dateStr] = { gmv: 0, gmvAds: 0, creators: new Set(), videos: new Set(), gmvLive: 0, gmvVT: 0, ordersLive: 0, ordersVT: 0, liveSessions: new Set() };
       if (l.content_uid) grouped[dateStr].liveSessions.add(l.content_uid);
@@ -316,7 +314,6 @@ export async function getDailyData(campaignId: number) {
       const dateStr = ad.tanggal.substring(0, 10);
       
       if (campaignStartStr && dateStr < campaignStartStr) return;
-      if (campaignEndStr && dateStr > campaignEndStr) return;
       
       const currentGmv = ad.gross_revenue_usd || 0;
       const prevGmv = previousAdValues[ad.ad_id] || 0;

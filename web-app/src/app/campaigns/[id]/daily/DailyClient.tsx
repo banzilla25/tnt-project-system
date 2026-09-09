@@ -308,7 +308,6 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
             const addedDateStr = toWIBDateStr(cc.created_at);
             let countAdded = true;
             if (addedDateStr && campaignStartStr && addedDateStr < campaignStartStr) countAdded = false;
-            if (addedDateStr && campaignEndStr && addedDateStr > campaignEndStr) countAdded = false;
             
             if (countAdded && addedDateStr) {
               if (!grouped[addedDateStr]) grouped[addedDateStr] = { gmv: 0, gmvAds: 0, creators: new Map(), pendingCreators: new Map(), videos: new Set(), videoCreators: new Set(), gmvLive: 0, gmvVT: 0, ordersLive: 0, ordersVT: 0, liveSessions: new Set(), liveCreators: new Map(), pendingLiveCreators: new Map() };
@@ -330,7 +329,6 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
             const approvedDateStr = toWIBDateStr(cc.approved_at);
             let countCreator = true;
             if (approvedDateStr && campaignStartStr && approvedDateStr < campaignStartStr) countCreator = false;
-            if (approvedDateStr && campaignEndStr && approvedDateStr > campaignEndStr) countCreator = false;
             
             if (countCreator && approvedDateStr) {
               if (!grouped[approvedDateStr]) grouped[approvedDateStr] = { gmv: 0, gmvAds: 0, creators: new Map(), pendingCreators: new Map(), videos: new Set(), videoCreators: new Set(), gmvLive: 0, gmvVT: 0, ordersLive: 0, ordersVT: 0, liveSessions: new Set(), liveCreators: new Map(), pendingLiveCreators: new Map() };
@@ -354,7 +352,6 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
             const dateStr = toWIBDateStr(v.created_at);
             if (!dateStr) return;
             if (campaignStartStr && dateStr < campaignStartStr) return;
-            if (campaignEndStr && dateStr > campaignEndStr) return;
             
             if (!grouped[dateStr]) grouped[dateStr] = { gmv: 0, gmvAds: 0, creators: new Map(), pendingCreators: new Map(), videos: new Set(), videoCreators: new Set(), gmvLive: 0, gmvVT: 0, ordersLive: 0, ordersVT: 0, liveSessions: new Set(), liveCreators: new Map(), pendingLiveCreators: new Map() };
             
@@ -381,7 +378,6 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
           const dateStr = toWIBDateStr(String(v.post_time));
           if (!dateStr) return;
           if (campaignStartStr && dateStr < campaignStartStr) return;
-          if (campaignEndStr && dateStr > campaignEndStr) return;
 
           if (!grouped[dateStr]) grouped[dateStr] = { gmv: 0, gmvAds: 0, creators: new Map(), pendingCreators: new Map(), videos: new Set(), videoCreators: new Set(), gmvLive: 0, gmvVT: 0, ordersLive: 0, ordersVT: 0, liveSessions: new Set(), liveCreators: new Map(), pendingLiveCreators: new Map() };
           const monthStr = dateStr.substring(0, 7);
@@ -420,7 +416,6 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
           previousAdValues[ad.ad_id] = currentGmv;
 
           if (campaignStartStr && dateStr < campaignStartStr) return;
-          if (campaignEndStr && dateStr > campaignEndStr) return;
           
           if (deltaUsd > 0) {
             const kurs = (ad.kurs && ad.kurs < 1000) ? ad.kurs * 1000 : (ad.kurs || 16000);
