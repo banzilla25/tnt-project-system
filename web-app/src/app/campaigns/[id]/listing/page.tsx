@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useDatabaseStore } from "@/store/useDatabaseStore";
 import { getCreatorType, getJenisKerjasama } from "@/utils/computed";
 import { formatAbbreviated } from "@/utils/formatters";
-import { ChevronDown, ChevronRight, ChevronLeft, Edit2, Check, X, Loader2, Trash2, Download, ArrowUp, ArrowDown, ArrowUpDown, Plus, AlertCircle, CheckCircle2, Save, Filter } from "lucide-react";
+import { ChevronDown, ChevronRight, ChevronLeft, Edit2, Check, X, Loader2, Trash2, Download, ArrowUp, ArrowDown, ArrowUpDown, Plus, AlertCircle, CheckCircle2, Save, Filter, GitMerge } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -443,6 +443,7 @@ function CampaignListingContent() {
   const [filterPendingWithVideo, setFilterPendingWithVideo] = useState(false);
   const [duplicateGroups, setDuplicateGroups] = useState<any[]>([]);
   const [isDuplicateModalOpen, setIsDuplicateModalOpen] = useState(false);
+  const [isMerging, setIsMerging] = useState(false);
   const [selectedCreators, setSelectedCreators] = useState<Set<number>>(new Set());
   const [bulkActionProcessing, setBulkActionProcessing] = useState(false);
 
@@ -687,6 +688,160 @@ function CampaignListingContent() {
   useEffect(() => {
     checkDuplicates();
   }, [checkDuplicates]);
+
+  const handleMergeDuplicateGroup = async (group: any[], gIdx: number) => {
+    if (!group || group.length < 2) return;
+    const username = group[0]?.creators?.username || 'kreator';
+    
+    if (!confirm(`Gabungkan (Merge) semua data dobel untuk @${username}? \n\nSistem akan mengambil data tertinggi / paling lengkap, memindahkan semua video ke satu baris utama, dan menghapus baris duplikat lainnya.`)) {
+      return;
+    }
+
+    setIsMerging(true);
+    try {
+      // 1. Tentukan baris utama (surviving row) - baris dengan ID terkecil
+      const sortedGroup = [...group].sort((a, b) => a.id - b.id);
+      const survivingRow = sortedGroup[0];
+      const otherRows = sortedGroup.slice(1);
+
+      // 2. Hitung nilai gabungan (ambil nilai tertinggi / terlengkap)
+      const mergedPrice = Math.max(...group.map(r => Number(r.price) || 0));
+      const mergedQtyVt = Math.max(...group.map(r => Number(r.qty_vt) || 0));
+      const mergedQtyLive = Math.max(...group.map(r => Number(r.qty_live) || 0));
+
+      const approvalPriority: Record<string, number> = {
+        approved: 4,
+        alternate: 3,
+        pending: 2,
+        not_approved: 1
+      };
+      let mergedApproval = survivingRow.approval;
+      let highestApprovalScore = approvalPriority[survivingRow.approval] || 0;
+      let approvedBy = survivingRow.approved_by;
+      let approvedAt = survivingRow.approved_at;
+      let notApprovedBy = survivingRow.not_approved_by;
+      let notApprovedAt = survivingRow.not_approved_at;
+
+      for (const r of group) {
+        const score = approvalPriority[r.approval] || 0;
+        if (score > highestApprovalScore) {
+          highestApprovalScore = score;
+          mergedApproval = r.approval;
+          if (r.approval === 'approved') {
+            approvedBy = r.approved_by || profile?.id;
+            approvedAt = r.approved_at || new Date().toISOString();
+          } else if (r.approval === 'alternate' || r.approval === 'not_approved') {
+            notApprovedBy = r.not_approved_by || profile?.id;
+            notApprovedAt = r.not_approved_at || new Date().toISOString();
+          }
+        }
+      }
+
+      const validSample = group.find(r => r.sample_progress && r.sample_progress !== '-' && r.sample_progress !== 'Belum' && r.sample_progress !== 'belum');
+      const mergedSampleProgress = validSample ? validSample.sample_progress : (group.find(r => r.sample_progress && r.sample_progress !== '-')?.sample_progress || survivingRow.sample_progress);
+
+      const payPriority: Record<string, number> = {
+        paid: 3,
+        lunas: 3,
+        request: 2,
+        belum: 1
+      };
+      let mergedStatusBayar = survivingRow.status_bayar || 'belum';
+      let highestPayScore = payPriority[(mergedStatusBayar || '').toLowerCase()] || 0;
+      for (const r of group) {
+        const pScore = payPriority[(r.status_bayar || '').toLowerCase()] || 0;
+        if (pScore > highestPayScore) {
+          highestPayScore = pScore;
+          mergedStatusBayar = r.status_bayar;
+        }
+      }
+
+      const allContentTypes = group.map(r => r.content_type).filter(Boolean);
+      let mergedContentType = survivingRow.content_type;
+      if (allContentTypes.some(c => c.toLowerCase().includes('video') && c.toLowerCase().includes('live')) || 
+          (allContentTypes.some(c => c.toLowerCase().includes('video')) && allContentTypes.some(c => c.toLowerCase().includes('live')))) {
+        mergedContentType = 'Video & Live';
+      } else if (allContentTypes.length > 0) {
+        mergedContentType = allContentTypes[0];
+      }
+
+      const tierPriority: Record<string, number> = {
+        mega: 5,
+        macro: 4,
+        micro: 3,
+        nano: 2,
+        'auto-detect': 1
+      };
+      let mergedTier = survivingRow.tier;
+      let highestTierScore = tierPriority[(survivingRow.tier || '').toLowerCase()] || 0;
+      for (const r of group) {
+        const tScore = tierPriority[(r.tier || '').toLowerCase()] || 0;
+        if (tScore > highestTierScore) {
+          highestTierScore = tScore;
+          mergedTier = r.tier;
+        }
+      }
+
+      const managerNotes = Array.from(new Set(group.map(r => r.notes_manager).filter(Boolean))).join(' | ');
+      const picNotes = Array.from(new Set(group.map(r => r.notes_pic).filter(Boolean))).join(' | ');
+      const allSkus = Array.from(new Set(group.flatMap(r => r.assigned_sku_ids || [])));
+
+      // 3. Pindahkan semua video dari baris lain ke baris utama
+      for (const r of otherRows) {
+        if (r.videos && r.videos.length > 0) {
+          for (const v of r.videos) {
+            await supabase.from('videos').update({ campaign_creator_id: survivingRow.id }).eq('id', v.id);
+          }
+        }
+      }
+
+      // 4. Update baris utama dengan nilai gabungan tertinggi
+      const updateData: any = {
+        price: mergedPrice,
+        qty_vt: mergedQtyVt,
+        qty_live: mergedQtyLive,
+        approval: mergedApproval,
+        sample_progress: mergedSampleProgress,
+        status_bayar: mergedStatusBayar,
+        content_type: mergedContentType,
+        tier: mergedTier,
+        notes_manager: managerNotes || null,
+        notes_pic: picNotes || null,
+        assigned_sku_ids: allSkus.length > 0 ? allSkus : null,
+      };
+      if (approvedBy) updateData.approved_by = approvedBy;
+      if (approvedAt) updateData.approved_at = approvedAt;
+      if (notApprovedBy) updateData.not_approved_by = notApprovedBy;
+      if (notApprovedAt) updateData.not_approved_at = notApprovedAt;
+
+      const { error: updateErr } = await supabase
+        .from('campaign_creators')
+        .update(updateData)
+        .eq('id', survivingRow.id);
+
+      if (updateErr) throw updateErr;
+
+      // 5. Hapus baris duplikat lainnya
+      const otherIds = otherRows.map(r => r.id);
+      const { error: delErr } = await supabase
+        .from('campaign_creators')
+        .delete()
+        .in('id', otherIds);
+
+      if (delErr) throw delErr;
+
+      // 6. Update UI
+      setDuplicateGroups(prev => prev.filter((_, idx) => idx !== gIdx));
+      await fetchListing(0, true);
+      await fetchCounts();
+      alert(`Berhasil menggabungkan data dobel @${username}!`);
+    } catch (err: any) {
+      console.error("Merge error:", err);
+      alert("Gagal melakukan merge data: " + (err.message || err.toString()));
+    } finally {
+      setIsMerging(false);
+    }
+  };
 
   const fetchCounts = useCallback(async () => {
     // 1. Try fast RPC for instant counts (only if no action date filter is applied)
@@ -2798,14 +2953,25 @@ function CampaignListingContent() {
                 <div className="space-y-6">
                   {duplicateGroups.map((group, gIdx) => (
                     <div key={gIdx} className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-                      <div className="bg-slate-100 px-4 py-3 border-b border-slate-200 flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-sm">
-                          {gIdx + 1}
+                      <div className="bg-slate-100 px-4 py-3 border-b border-slate-200 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-sm">
+                            {gIdx + 1}
+                          </div>
+                          <div>
+                            <h4 className="font-bold text-slate-800">@{group[0]?.creators?.username}</h4>
+                            <span className="text-xs text-slate-500">Terdapat {group.length} baris data</span>
+                          </div>
                         </div>
-                        <div>
-                          <h4 className="font-bold text-slate-800">@{group[0]?.creators?.username}</h4>
-                          <span className="text-xs text-slate-500">Terdapat {group.length} baris data</span>
-                        </div>
+                        <button
+                          className="btn btn-sm bg-blue-600 text-white hover:bg-blue-700 shadow-sm border-0 font-medium px-3 flex items-center gap-1.5 transition-all"
+                          onClick={() => handleMergeDuplicateGroup(group, gIdx)}
+                          disabled={isMerging}
+                          title="Gabungkan data dobel: ambil nilai tertinggi / paling lengkap dan satukan video"
+                        >
+                          {isMerging ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <GitMerge className="w-3.5 h-3.5" />}
+                          Merge Data
+                        </button>
                       </div>
                       <div className="p-4 overflow-x-auto">
                         <table className="w-full text-sm text-left">

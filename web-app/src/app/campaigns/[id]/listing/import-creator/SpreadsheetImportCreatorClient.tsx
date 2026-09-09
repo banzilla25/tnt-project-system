@@ -5,7 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { createClient } from "@/utils/supabase/client";
-import { ArrowLeft, Save, Plus, AlertCircle, CheckCircle2, Wand2 } from "lucide-react";
+import { ArrowLeft, Save, Plus, AlertCircle, CheckCircle2, Wand2, Loader2 } from "lucide-react";
 import { useDatabaseStore } from "@/store/useDatabaseStore";
 import { useAuth } from "@/providers/AuthProvider";
 
@@ -107,6 +107,7 @@ export default function SpreadsheetImportCreatorClient() {
   
   const [isVerifying, setIsVerifying] = useState(false);
   const [isAutoDetecting, setIsAutoDetecting] = useState(false);
+  const [isLoadingAuto, setIsLoadingAuto] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [saveProgress, setSaveProgress] = useState({ current: 0, total: 0 });
   const [dragFill, setDragFill] = useState<DragFillState | null>(null);
@@ -561,6 +562,116 @@ export default function SpreadsheetImportCreatorClient() {
     setIsAutoDetecting(false);
   };
 
+  const handleLoadIncompleteAuto = async () => {
+    if (!campaignId) return;
+    setIsLoadingAuto(true);
+    try {
+      // 1. Ambil seluruh kreator Auto-Detect pada campaign ini
+      const { data: autoList, error: autoErr } = await supabase
+        .from('campaign_creators')
+        .select(`
+          id, creator_id, price, qty_vt, qty_live, content_type, tier,
+          creators!inner (
+            id, username,
+            creator_contacts ( id, nomor, status ),
+            creator_snapshots ( id, followers, level, gmv_30d, gmv_30d_video, gmv_30d_live, ratecard, tanggal_update )
+          )
+        `)
+        .eq('campaign_id', campaignId)
+        .eq('tier', 'Auto-Detect');
+
+      if (autoErr) throw autoErr;
+
+      if (!autoList || autoList.length === 0) {
+        alert("Tidak ada kreator Auto-Detect yang terdaftar di campaign ini.");
+        setIsLoadingAuto(false);
+        return;
+      }
+
+      // 2. Evaluasi setiap kreator dan hitung tingkat ketidaklengkapan datanya
+      const evaluatedRows: (SpreadsheetRow & { missingScore: number })[] = [];
+
+      for (const cc of autoList) {
+        const c = Array.isArray(cc.creators) ? cc.creators[0] : cc.creators;
+        if (!c) continue;
+
+        const activeContact = (c.creator_contacts || []).find((ct: any) => ct.status === 'aktif') || c.creator_contacts?.[0];
+        const noWa = activeContact?.nomor ? String(activeContact.nomor).trim() : '';
+
+        // Ambil snapshot terbaru
+        const sortedSnaps = [...(c.creator_snapshots || [])].sort((a: any, b: any) => {
+          const tDiff = new Date(b.tanggal_update || 0).getTime() - new Date(a.tanggal_update || 0).getTime();
+          if (tDiff !== 0) return tDiff;
+          return (b.id || 0) - (a.id || 0);
+        });
+        const snap = sortedSnaps[0];
+
+        const followers = snap?.followers ? String(snap.followers) : '';
+        const level = snap?.level ? String(snap.level) : '';
+        const gmv30d = snap?.gmv_30d ? String(snap.gmv_30d) : '';
+        const gmv30dVid = snap?.gmv_30d_video ? String(snap.gmv_30d_video) : '';
+        const gmv30dLive = snap?.gmv_30d_live ? String(snap.gmv_30d_live) : '';
+        const rateCard = cc.price ? String(cc.price) : (snap?.ratecard ? String(snap.ratecard) : '0');
+        const qtyVt = cc.qty_vt !== null && cc.qty_vt !== undefined ? String(cc.qty_vt) : '1';
+        const qtyLive = cc.qty_live !== null && cc.qty_live !== undefined ? String(cc.qty_live) : '0';
+        const contentType = cc.content_type || 'Video';
+
+        // Hitung skor ketidaklengkapan (setiap kolom yang kosong / bernilai 0 menambah skor)
+        let missingScore = 0;
+        if (!noWa || noWa === '-' || noWa === '_') missingScore++;
+        if (!followers || followers === '0') missingScore++;
+        if (!level || level === '0') missingScore++;
+        if (!gmv30d || gmv30d === '0') missingScore++;
+        if (!gmv30dVid || gmv30dVid === '0') missingScore++;
+        if (!gmv30dLive || gmv30dLive === '0') missingScore++;
+        if (!rateCard || rateCard === '0') missingScore++;
+        if (!contentType || contentType === '-') missingScore++;
+
+        // Masukkan hanya yang ada kolom belum lengkap (tanpa terkecuali)
+        if (missingScore > 0) {
+          evaluatedRows.push({
+            id: Math.random().toString(36).substring(2, 9),
+            username: c.username || '',
+            no_wa: noWa,
+            followers,
+            level,
+            gmv_30_days: gmv30d,
+            gmv_30_days_video: gmv30dVid,
+            gmv_30_days_live: gmv30dLive,
+            rate_card: rateCard,
+            qty_vt: qtyVt,
+            qty_live: qtyLive,
+            content_type: contentType,
+            creatorId: c.id,
+            status: 'update',
+            action: 'update',
+            missingScore
+          });
+        }
+      }
+
+      if (evaluatedRows.length === 0) {
+        alert("Semua data kreator Auto di campaign ini sudah lengkap 100%!");
+        setIsLoadingAuto(false);
+        return;
+      }
+
+      // 3. Urutkan data dari atas kebawah dari yang paling tidak lengkap ke yang lumayan lengkap
+      evaluatedRows.sort((a, b) => b.missingScore - a.missingScore);
+
+      // 4. Bersihkan property missingScore dan masukkan ke tabel rows
+      const cleanRows: SpreadsheetRow[] = evaluatedRows.map(({ missingScore, ...rest }) => rest);
+      setRows(cleanRows);
+
+      alert(`Ditemukan ${cleanRows.length} kreator Auto yang datanya belum lengkap.\nData berhasil dimuat dan diurutkan dari yang paling belum lengkap ke yang lumayan lengkap.`);
+    } catch (err: any) {
+      console.error("Error load auto incomplete:", err);
+      alert("Gagal memuat kreator auto: " + (err.message || err.toString()));
+    } finally {
+      setIsLoadingAuto(false);
+    }
+  };
+
   const clearAll = () => {
     if (confirm("Kosongkan semua data di tabel?")) {
       setRows(Array(5).fill(null).map(getEmptyRow));
@@ -937,7 +1048,17 @@ export default function SpreadsheetImportCreatorClient() {
           <Button variant="outline" onClick={clearAll} className="text-slate-600 bg-white shadow-sm hover:bg-slate-50">
             Bersihkan
           </Button>
-          <Button onClick={verifyData} disabled={isVerifying || isAutoDetecting} className="bg-slate-800 hover:bg-slate-900 text-white shadow-sm min-w-[120px]">
+          <Button 
+            variant="outline" 
+            onClick={handleLoadIncompleteAuto} 
+            disabled={isLoadingAuto || isImporting || isVerifying || isAutoDetecting}
+            className="text-amber-700 bg-amber-50 border-amber-300 hover:bg-amber-100 shadow-sm flex items-center gap-1.5"
+            title="Tampilkan semua kreator Auto-Detect yang kolom datanya belum lengkap, diurutkan dari yang paling tidak lengkap"
+          >
+            {isLoadingAuto ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
+            {isLoadingAuto ? 'Memuat Data Auto...' : 'Tampilkan Kreator Auto Belum Lengkap'}
+          </Button>
+          <Button onClick={verifyData} disabled={isVerifying || isAutoDetecting || isLoadingAuto} className="bg-slate-800 hover:bg-slate-900 text-white shadow-sm min-w-[120px]">
             {isVerifying ? 'Memeriksa...' : 'Cek Data'}
           </Button>
           <Button onClick={handleSimpan} disabled={isImporting} className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm min-w-[140px]">
