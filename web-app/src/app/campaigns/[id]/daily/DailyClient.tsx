@@ -56,6 +56,9 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
       if (!campaignData) return;
       setCampaign(campaignData);
 
+      const campaignStartStr = campaignData.start_date ? campaignData.start_date.substring(0, 10) : null;
+      const campaignEndStr = campaignData.end_date ? campaignData.end_date.substring(0, 10) : null;
+
       const skuSet = new Set((skusRes.data || []).map(s => s.product_id).filter(Boolean));
 
       // 2. Fetch campaign_creators, videos, ads, sales in parallel batches, and organic_videos in controlled chunks

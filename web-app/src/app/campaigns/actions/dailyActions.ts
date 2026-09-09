@@ -29,8 +29,12 @@ export async function getDailyData(campaignId: number) {
 
   if (!campaign) return null;
 
+  const campaignStartStr = campaign.start_date ? campaign.start_date.substring(0, 10) : null;
+  const campaignEndStr = campaign.end_date ? campaign.end_date.substring(0, 10) : null;
+
   let allSales: any[] = [];
   let allVideosFromCreators: any[] = [];
+  let allLiveSessions: any[] = [];
   
   const isAwareness = campaign.tipe_campaign === 'awareness';
   const isHybrid = campaign.tipe_campaign === 'gmv_awareness';
@@ -113,7 +117,7 @@ export async function getDailyData(campaignId: number) {
     Promise.all(salesPromises)
   ]);
 
-  let allVideosFromCreators: any[] = [];
+  allVideosFromCreators = [];
   ccResults.forEach(r => { if (r.data) allVideosFromCreators = allVideosFromCreators.concat(r.data); });
 
   let allVideos: any[] = [];
