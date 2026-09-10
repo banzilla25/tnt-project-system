@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Loader2, Link as LinkIcon, Search } from 'lucide-react';
 import { fetchCampaignCreatorMutations } from '../app/campaigns/actions/paymentActions';
+import { formatDateTime } from '@/utils/formatters';
 
 export function CampaignCreatorMutationTab({ campaignId }: { campaignId: number }) {
   const [mutations, setMutations] = useState<any[]>([]);
@@ -102,7 +103,7 @@ export function CampaignCreatorMutationTab({ campaignId }: { campaignId: number 
                   const biayaTf = Number(item.biaya_transfer || 0);
                   const total = nominal + biayaTf;
                   const bankName = item.creator_bank_accounts?.bank_name || item.metode_pembayaran || 'Bank';
-                  const datePaid = item.payment_batches?.paid_at ? new Date(item.payment_batches.paid_at).toLocaleDateString('id-ID', {day: 'numeric', month: 'short', year: 'numeric'}) : '-';
+                  const datePaid = formatDateTime(item.payment_batches?.paid_at);
                   const username = item.campaign_creators?.creators?.username || '-';
 
                   return (

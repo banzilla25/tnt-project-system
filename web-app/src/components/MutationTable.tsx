@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Download, RefreshCcw, Search, Link, Loader2, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { fetchMutationsPaginated, fetchMutationsExport } from '../app/campaigns/actions/paymentActions';
+import { formatDateTime, formatDateTimeShort } from '@/utils/formatters';
 
 export function MutationTable() {
   const [selectedMonth, setSelectedMonth] = useState<string>('all');
@@ -82,7 +83,7 @@ export function MutationTable() {
       
       const headers = ['Tanggal', 'Campaign', 'Batch', 'Penerima', 'Username', 'Rekening', 'Tipe Pembayaran', 'Nominal', 'Biaya Transfer', 'Total', 'Catatan', 'Bukti Transfer'];
       const rows = allData.map(m => {
-        const d = m.paid_at ? new Date(m.paid_at).toLocaleDateString('id-ID') : '-';
+        const d = formatDateTime(m.paid_at);
         return [
           d,
           m.campaign_nama || '-',
@@ -202,7 +203,7 @@ export function MutationTable() {
               mutations.map((m) => {
                 const total = (m.nominal || 0) + (m.biaya_transfer || 0);
                 const bankName = m.bank_name || m.metode_pembayaran || 'Bank';
-                const datePaid = m.paid_at ? new Date(m.paid_at).toLocaleDateString('id-ID', {day: 'numeric', month: 'short', year: 'numeric'}) : '-';
+                const datePaid = formatDateTime(m.paid_at);
                 
                 return (
                   <tr key={m.id} className="hover:bg-slate-50 transition-colors">

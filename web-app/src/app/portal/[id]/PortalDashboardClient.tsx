@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/Badge";
 import { TrendingUp, Video, Users, Package, Calendar, CheckCircle, CheckCircle2, XCircle, Activity, BarChart3, ChevronDown, ChevronUp, Search, ChevronLeft, ChevronRight, Filter, ArrowUp, ArrowDown, ArrowUpDown, Download, ShoppingCart, Loader2, Eye, ExternalLink } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/Table";
 import { submitClientApproval, updateResiByClient, batchUpdateResiByClient, type BatchUpdateData, updateClientNotes } from "../actions/portalActions";
-import { formatAbbreviated } from "@/utils/formatters";
+import { formatAbbreviated, formatDateTime, formatDateTimeShort } from "@/utils/formatters";
 import { useRouter } from "next/navigation";
 
 const SortableHeader = ({ label, sortKey, currentSort, onSort, className = "" }: { label: string, sortKey: string, currentSort: {key: string, direction: 'asc'|'desc'} | null, onSort: (k: string) => void, className?: string }) => {
@@ -1320,7 +1320,7 @@ export default function PortalDashboardClient({ data, campaignId }: { data: any,
                                   {addr.resi_updated_at && (
                                     <span className="text-[9px] text-slate-400 mt-1 leading-tight">
                                       Diupdate oleh {addr.resi_updated_by || 'Unknown'} <br/>
-                                      {new Date(addr.resi_updated_at).toLocaleDateString('id-ID', {day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'})}
+                                      {formatDateTimeShort(addr.resi_updated_at)}
                                     </span>
                                   )}
                                 </div>

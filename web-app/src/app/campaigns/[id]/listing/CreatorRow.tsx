@@ -1,7 +1,7 @@
 import React from "react";
 import Link from "next/link";
 import { ChevronDown, ChevronRight, Trash2, Edit2, Loader2, PlayCircle } from "lucide-react";
-import { formatAbbreviated } from "@/utils/formatters";
+import { formatAbbreviated, formatDateTime, formatDateTimeShort } from "@/utils/formatters";
 import { getCreatorType, getJenisKerjasama, getConceptColor } from "@/utils/computed";
 import { MultiSelect } from "@/components/MultiSelect";
 import { NotesTimeline } from "@/components/NotesTimeline";
@@ -302,7 +302,7 @@ export const CreatorRow = React.memo(({
         </td>
         <td>
           <div className="text-[12px] text-text">
-            {cc.created_at ? new Date(cc.created_at).toLocaleDateString('id-ID') : '-'}
+            {formatDateTime(cc.created_at)}
           </div>
           <div className="text-[11px] text-text-soft mt-[2px]">
             Oleh: {cc.added_by_profile?.nama || 'System'}
@@ -672,7 +672,7 @@ export const CreatorRow = React.memo(({
                               )}
                               {v.concept && v.concept_updated_at && v.concept_updated_by ? (
                                 <p className="text-[9px] text-slate-400 leading-tight mt-1">
-                                  Diinput pd {new Date(v.concept_updated_at).toLocaleDateString('id-ID')} <br/>
+                                  Diinput pd {formatDateTimeShort(v.concept_updated_at)} <br/>
                                   Oleh: <span className="font-medium text-slate-500">{v.concept_updated_by}</span>
                                 </p>
                               ) : null}
@@ -854,7 +854,7 @@ export const CreatorRow = React.memo(({
                             <span className="text-text-soft block mb-[2px]">Ditambahkan Oleh:</span>
                             <span className="font-semibold text-text">
                               {staffProfiles.find((p: any) => p.id === cc.added_by)?.nama || 'Unknown'}
-                              {cc.created_at && <span className="text-text-soft font-normal ml-1">({new Date(cc.created_at).toLocaleDateString('id-ID', {day: 'numeric', month: 'short', year: 'numeric'})})</span>}
+                              {cc.created_at && <span className="text-text-soft font-normal ml-1">({formatDateTimeShort(cc.created_at)})</span>}
                             </span>
                           </div>
                           {cc.approval === 'approved' && cc.approved_by && (
@@ -862,7 +862,7 @@ export const CreatorRow = React.memo(({
                               <span className="text-text-soft block mb-[2px]">Di-approve Oleh:</span>
                               <span className="font-semibold text-green-600">
                                 {staffProfiles.find((p: any) => p.id === cc.approved_by)?.nama || '-'} 
-                                {cc.approved_at && <span className="text-text-soft ml-[4px] font-normal">({new Date(cc.approved_at).toLocaleDateString('id-ID')})</span>}
+                                {cc.approved_at && <span className="text-text-soft ml-[4px] font-normal">({formatDateTimeShort(cc.approved_at)})</span>}
                               </span>
                             </div>
                           )}
@@ -871,7 +871,7 @@ export const CreatorRow = React.memo(({
                               <span className="text-text-soft block mb-[2px]">Ditolak Oleh:</span>
                               <span className="font-semibold text-red-600">
                                 {staffProfiles.find((p: any) => p.id === cc.not_approved_by)?.nama || '-'} 
-                                {cc.not_approved_at && <span className="text-text-soft ml-[4px] font-normal">({new Date(cc.not_approved_at).toLocaleDateString('id-ID')})</span>}
+                                {cc.not_approved_at && <span className="text-text-soft ml-[4px] font-normal">({formatDateTimeShort(cc.not_approved_at)})</span>}
                               </span>
                             </div>
                           )}

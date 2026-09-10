@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { approveUser, rejectUser, deactivateUser, assignCampaignsToUser, addWhitelistEmail, removeWhitelistEmail, changeUserRole } from "./actions";
 import { Check, X, ShieldAlert, UserCog, UserCheck, Search, ShieldCheck, MailPlus, Trash2, Loader2 } from "lucide-react";
+import { formatDateTime } from "@/utils/formatters";
 
 export default function ManajemenAkunClient({ 
   initialProfiles, 
@@ -164,7 +165,7 @@ export default function ManajemenAkunClient({
                             {user.nama}
                           </td>
                           <td className="px-4 py-3 text-slate-500">{user.email}</td>
-                          <td className="px-4 py-3 text-slate-500">{new Date(user.created_at).toLocaleDateString('id-ID')}</td>
+                          <td className="px-4 py-3 text-slate-500">{formatDateTime(user.created_at)}</td>
                           <td className="px-4 py-3 text-right space-x-2">
                             <Button 
                               size="sm" 
@@ -233,7 +234,7 @@ export default function ManajemenAkunClient({
                           </select>
                         </td>
                         <td className="px-4 py-3 text-slate-500">
-                          {user.approved_at ? new Date(user.approved_at).toLocaleDateString('id-ID') : '-'}
+                          {user.approved_at ? formatDateTime(user.approved_at) : '-'}
                         </td>
                         <td className="px-4 py-3 text-right">
                           {user.role !== 'manager' && (

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Loader2, ArrowRight } from 'lucide-react';
 import { fetchPendingAdsTopUp, fetchMutationsPaginated } from '../app/campaigns/actions/paymentActions';
+import { formatDateTime } from '@/utils/formatters';
 
 export function RekapAdsTab() {
   const [pendingAds, setPendingAds] = useState<any[]>([]);
@@ -141,7 +142,7 @@ export function RekapAdsTab() {
               ) : (
                 paidAds.map(item => {
                   const total = (item.nominal || 0) + (item.biaya_transfer || 0);
-                  const datePaid = item.paid_at ? new Date(item.paid_at).toLocaleDateString('id-ID', {day: 'numeric', month: 'short', year: 'numeric'}) : '-';
+                  const datePaid = formatDateTime(item.paid_at);
                   return (
                     <tr key={item.id} className="hover:bg-slate-50">
                       <td className="px-4 py-3 text-slate-600">{datePaid}</td>

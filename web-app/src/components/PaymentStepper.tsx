@@ -1,6 +1,7 @@
 "use client";
 
 import { Check, Clock, X, Circle, Loader2 } from "lucide-react";
+import { formatDateTime } from "@/utils/formatters";
 
 export type PaymentBatchStatus = 'draft' | 'pending_manager' | 'pending_executive_1' | 'pending_finance' | 'pending_executive' | 'ready_to_pay' | 'paid' | 'cancelled';
 
@@ -147,7 +148,7 @@ export function PaymentStepper({
                 {(step.actor || step.date) && (
                   <div className="mt-1">
                     {step.actor && <p className="text-[10px] text-slate-600 font-medium">{step.actor}</p>}
-                    {step.date && <p className="text-[10px] text-slate-400">{new Date(step.date).toLocaleDateString('id-ID')}</p>}
+                    {step.date && <p className="text-[10px] text-slate-400">{formatDateTime(step.date)}</p>}
                   </div>
                 )}
               </div>

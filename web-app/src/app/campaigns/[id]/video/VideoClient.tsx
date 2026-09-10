@@ -5,6 +5,7 @@ import { useDatabaseStore } from "@/store/useDatabaseStore";
 // Replaced standard UI imports
 import { createClient } from "@/utils/supabase/client";
 import { getCreatorType, getConceptColor } from "@/utils/computed";
+import { formatDateTime, formatDateTimeShort } from "@/utils/formatters";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { AlertCircle, Link as LinkIcon, Save, Edit2, Loader2, ChevronDown, ChevronRight, Plus, PlayCircle, X, Download, ExternalLink, CheckCircle2, Clock, Film, FileVideo, RotateCw } from "lucide-react";
@@ -1709,7 +1710,7 @@ export default function CampaignVideoPage({
                                     </div>
                                     {v.concept && v.concept_updated_at && v.concept_updated_by ? (
                                       <p className="text-[10px] text-slate-400 leading-tight">
-                                        Diinput pd {new Date(v.concept_updated_at).toLocaleDateString('id-ID')} <br/>
+                                        Diinput pd {formatDateTimeShort(v.concept_updated_at)} <br/>
                                         Oleh: <span className="font-medium text-slate-500">{v.concept_updated_by}</span>
                                       </p>
                                     ) : null}
@@ -1717,7 +1718,7 @@ export default function CampaignVideoPage({
                                 </td>
                                 <td className="p-3 align-middle text-center">
                                   {v.post_time ? (
-                                    <span className="text-[13px] font-medium text-slate-700 whitespace-nowrap">{new Date(v.post_time).toLocaleDateString('id-ID')}</span>
+                                    <span className="text-[13px] font-medium text-slate-700 whitespace-nowrap">{formatDateTimeShort(v.post_time)}</span>
                                   ) : (
                                     <span className="text-slate-400 italic text-[12px]">-</span>
                                   )}
@@ -2180,7 +2181,7 @@ export default function CampaignVideoPage({
                               )}
                               {v.concept && v.concept_updated_at && v.concept_updated_by ? (
                                 <p className="text-[9px] text-slate-400 leading-tight">
-                                  {new Date(v.concept_updated_at).toLocaleDateString('id-ID')} ({v.concept_updated_by})
+                                  {formatDateTimeShort(v.concept_updated_at)} ({v.concept_updated_by})
                                 </p>
                               ) : null}
                             </div>
