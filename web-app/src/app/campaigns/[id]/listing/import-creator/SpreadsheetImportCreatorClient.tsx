@@ -109,7 +109,7 @@ export default function SpreadsheetImportCreatorClient() {
   const [isVerifying, setIsVerifying] = useState(false);
   const [isAutoDetecting, setIsAutoDetecting] = useState(false);
   const [isLoadingAuto, setIsLoadingAuto] = useState(false);
-  const [autoApprovalFilter, setAutoApprovalFilter] = useState<'all' | 'approve' | 'not_approve' | 'pending' | 'alternate'>('all');
+  const [autoApprovalFilter, setAutoApprovalFilter] = useState<'all' | 'approve' | 'not_approve' | 'pending' | 'alternate' | 'auto_detect'>('all');
   const [showAutoFilterMenu, setShowAutoFilterMenu] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [saveProgress, setSaveProgress] = useState({ current: 0, total: 0 });
@@ -578,12 +578,12 @@ export default function SpreadsheetImportCreatorClient() {
     setIsAutoDetecting(false);
   };
 
-  const handleLoadIncompleteAuto = async (approvalFilter: 'all' | 'approve' | 'not_approve' | 'pending' | 'alternate' = autoApprovalFilter) => {
+  const handleLoadIncompleteAuto = async (approvalFilter: 'all' | 'approve' | 'not_approve' | 'pending' | 'alternate' | 'auto_detect' = autoApprovalFilter) => {
     if (!campaignId) return;
     setIsLoadingAuto(true);
     setShowAutoFilterMenu(false);
     try {
-      // 1. Ambil seluruh kreator pada campaign ini (semua tier), filter approval sesuai pilihan
+      // 1. Ambil seluruh kreator pada campaign ini, filter status/tier sesuai pilihan
       let query = supabase
         .from('campaign_creators')
         .select(`
@@ -596,11 +596,12 @@ export default function SpreadsheetImportCreatorClient() {
         `)
         .eq('campaign_id', campaignId);
 
-      // Apply approval filter
+      // Apply filter
       if (approvalFilter === 'approve') query = query.eq('approval', 'approve');
       else if (approvalFilter === 'not_approve') query = query.eq('approval', 'not_approve');
       else if (approvalFilter === 'pending') query = query.eq('approval', 'pending');
       else if (approvalFilter === 'alternate') query = query.eq('approval', 'alternate');
+      else if (approvalFilter === 'auto_detect') query = query.eq('tier', 'Auto-Detect');
       // 'all' = tidak filter, tampilkan semua
 
       const { data: autoList, error: autoErr } = await query;
@@ -608,11 +609,12 @@ export default function SpreadsheetImportCreatorClient() {
       if (autoErr) throw autoErr;
 
       const filterLabel: Record<string, string> = {
-        all: 'semua approval',
+        all: 'semua kreator',
         approve: 'Approve',
         not_approve: 'Not Approve',
         pending: 'Pending',
         alternate: 'Alternate',
+        auto_detect: 'Auto-Detect',
       };
 
       if (!autoList || autoList.length === 0) {
@@ -1147,7 +1149,7 @@ export default function SpreadsheetImportCreatorClient() {
               {isLoadingAuto ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
               {isLoadingAuto
                 ? 'Memuat...'
-                : `Kreator Belum Lengkap${autoApprovalFilter !== 'all' ? ` (${autoApprovalFilter === 'approve' ? 'Approve' : autoApprovalFilter === 'not_approve' ? 'Not Approve' : autoApprovalFilter === 'pending' ? 'Pending' : 'Alternate'})` : ''}`
+                : `Kreator Belum Lengkap${autoApprovalFilter !== 'all' ? ` (${autoApprovalFilter === 'approve' ? 'Approve' : autoApprovalFilter === 'not_approve' ? 'Not Approve' : autoApprovalFilter === 'pending' ? 'Pending' : autoApprovalFilter === 'alternate' ? 'Alternate' : 'Auto-Detect'})` : ''}`
               }
             </Button>
             {/* Dropdown toggle */}
@@ -1156,16 +1158,17 @@ export default function SpreadsheetImportCreatorClient() {
               disabled={isLoadingAuto || isImporting || isVerifying || isAutoDetecting}
               onClick={() => setShowAutoFilterMenu(v => !v)}
               className="px-2 rounded-r border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-700 flex items-center shadow-sm transition-colors disabled:opacity-50"
-              title="Pilih filter approval"
+              title="Pilih filter"
             >
               <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
             </button>
             {/* Dropdown menu */}
             {showAutoFilterMenu && (
-              <div className="absolute top-full right-0 mt-1 w-52 bg-white border border-slate-200 rounded-lg shadow-lg z-50 py-1 text-sm">
-                <div className="px-3 py-1.5 text-xs font-semibold text-slate-400 uppercase tracking-wide border-b border-slate-100">Filter Status Approval</div>
+              <div className="absolute top-full right-0 mt-1 w-56 bg-white border border-slate-200 rounded-lg shadow-lg z-50 py-1 text-sm">
+                <div className="px-3 py-1.5 text-xs font-semibold text-slate-400 uppercase tracking-wide border-b border-slate-100">Filter Kreator Belum Lengkap</div>
                 {([
-                  { value: 'all', label: '✦ Semua Kreator', desc: 'Tanpa filter approval' },
+                  { value: 'all', label: '✦ Semua Kreator', desc: 'Tanpa filter status/tier' },
+                  { value: 'auto_detect', label: '⚡ Auto-Detect', desc: 'Hanya tier Auto-Detect' },
                   { value: 'approve', label: '✅ Approve', desc: 'Hanya yang diapprove' },
                   { value: 'not_approve', label: '❌ Not Approve', desc: 'Hanya yang ditolak' },
                   { value: 'pending', label: '⏳ Pending', desc: 'Hanya yang pending' },
