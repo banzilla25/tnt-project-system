@@ -2,6 +2,9 @@ import React from "react";
 import { getInternalVideoData } from "../../actions/videoActions";
 import CampaignVideoClient from "./VideoClient";
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export default async function CampaignVideoPage({
   params
 }: {

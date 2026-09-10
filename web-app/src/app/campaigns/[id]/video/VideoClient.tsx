@@ -8,7 +8,7 @@ import { createClient } from "@/utils/supabase/client";
 import { getCreatorType, getConceptColor } from "@/utils/computed";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { AlertCircle, Link as LinkIcon, Save, Edit2, Loader2, ChevronDown, ChevronRight, Plus, PlayCircle, X, Download, ExternalLink, CheckCircle2, Clock, Film, FileVideo } from "lucide-react";
+import { AlertCircle, Link as LinkIcon, Save, Edit2, Loader2, ChevronDown, ChevronRight, Plus, PlayCircle, X, Download, ExternalLink, CheckCircle2, Clock, Film, FileVideo, RotateCw } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/Dialog";
 import { useAuth } from "@/providers/AuthProvider";
 import { useCampaignFilter } from "@/providers/CampaignFilterProvider";
@@ -57,7 +57,7 @@ const extractCampaignSnapshot = (creator: any, campaignCreatedAt?: string) => {
 function extractTikTokUploadDate(videoId: string): string | null {
   try {
     const id = BigInt(videoId);
-    const timestamp = Number(id >> 32n) * 1000;
+    const timestamp = Number(id >> BigInt(32)) * 1000;
     const date = new Date(timestamp);
     if (isNaN(date.getTime())) return null;
     return date.toISOString();
@@ -217,17 +217,32 @@ export default function CampaignVideoPage({
         }
       }
     } catch (err) {
-      console.error("Error fetching video data:", e);
+      console.error("Error fetching video data:", err);
     } finally {
       setIsLoading(false);
     }
   };
+
+  // Sync state if initialListingData arrives or updates from SSR
+  useEffect(() => {
+    if (initialListingData && initialListingData.length > 0 && listingData.length === 0) {
+      setListingData(initialListingData);
+    }
+    if (initialVideos && initialVideos.length > 0 && localVideos.length === 0) {
+      setLocalVideos(initialVideos);
+    }
+  }, [initialListingData, initialVideos]);
 
   const [isFirstMount, setIsFirstMount] = useState(true);
 
   useEffect(() => {
     if (isFirstMount) {
       setIsFirstMount(false);
+      // If initialListingData is empty, auto-fetch on mount to self-heal
+      if ((!initialListingData || initialListingData.length === 0) && campaignId) {
+        setPage(0);
+        fetchApprovedCreators(0, true);
+      }
       return;
     }
     if (campaignId) {
@@ -235,6 +250,13 @@ export default function CampaignVideoPage({
       fetchApprovedCreators(0, true);
     }
   }, [debouncedSearch]);
+
+  const handleManualRefresh = () => {
+    if (campaignId && !isLoading) {
+      setPage(0);
+      fetchApprovedCreators(0, true);
+    }
+  };
 
   const handleLoadMore = () => {
     const next = page + 1;
@@ -317,6 +339,41 @@ export default function CampaignVideoPage({
 
   const handleExport = () => {
     try {
+      if (viewMode === 'draft') {
+        if (processedDraftsData.length === 0) {
+          alert("Belum ada draft video untuk diekspor");
+          return;
+        }
+        setIsExporting(true);
+
+        const formattedDraftData = processedDraftsData.map((d: any, idx: number) => {
+          const conceptNum = parseInt(d.concept);
+          const matchedConcept = !isNaN(conceptNum) ? masterConcepts.find((c: any) => c.no_konsep === conceptNum) : null;
+          
+          return {
+            'No': idx + 1,
+            'Creator Name': d.creatorUsername ? `@${d.creatorUsername}` : '-',
+            'Tier': d.creatorTier || '-',
+            'No WA': d.creatorContact || '-',
+            'Urutan VT': d.urutan || '-',
+            'Konsep #': d.concept || '-',
+            'Judul Konsep': matchedConcept?.judul_konsep || '-',
+            'Link Draft Video (GDrive)': d.link_draft || '-',
+            'Status Draft': d.link_draft ? 'Sudah Setor' : 'Belum Setor',
+            'Link Video (TikTok)': d.link_video || '-',
+            'Status VT Approval': d.vt_approval || 'pending',
+            'Disetujui Oleh': d.vt_approved_by || '-',
+            'Tanggal Approval': d.vt_approved_at ? new Date(d.vt_approved_at).toLocaleString('id-ID') : '-'
+          };
+        });
+
+        const ws = XLSX.utils.json_to_sheet(formattedDraftData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Draft Videos");
+        XLSX.writeFile(wb, `Export_Draft_Video_Campaign_${campaignId}_${new Date().toISOString().split('T')[0]}.xlsx`);
+        return;
+      }
+
       if (processedVideosData.length === 0) {
         alert("Belum ada video untuk diekspor");
         return;
@@ -331,7 +388,10 @@ export default function CampaignVideoPage({
         const sku: any = skus.find(s => s.id === v.sku_id) || {};
         
         let postTime = '-';
-        if (v.content_uid) {
+        if (v.post_time) {
+          const d = new Date(v.post_time);
+          postTime = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`;
+        } else if (v.content_uid) {
            const extractedDate = extractTikTokUploadDate(v.content_uid);
            if (extractedDate) {
               // TikTok format: YYYY-MM-DD HH:mm:ss
@@ -1282,6 +1342,15 @@ export default function CampaignVideoPage({
                    </button>
                 </div>
                 <div className="flex items-center gap-2">
+                  <button 
+                    onClick={handleManualRefresh} 
+                    disabled={isLoading} 
+                    className="btn bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 flex items-center gap-2 whitespace-nowrap h-fit"
+                    title="Muat ulang data terbaru"
+                  >
+                    <RotateCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-primary' : ''}`} />
+                    <span className="hidden sm:inline">Refresh</span>
+                  </button>
                   <button onClick={handleExport} disabled={isExporting} className="btn bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 flex items-center gap-2 whitespace-nowrap h-fit">
                      {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />} Export
                   </button>
@@ -1416,12 +1485,19 @@ export default function CampaignVideoPage({
 
       <div className="ccard p-[24px]">
         {isLoading ? (
-          <div className="text-center py-[48px] text-text-soft">
-            Memuat data creator...
+          <div className="text-center py-[48px] text-text-soft flex flex-col items-center justify-center gap-3">
+            <Loader2 className="w-6 h-6 animate-spin text-primary" />
+            <span>Memuat data creator & video...</span>
           </div>
         ) : listingData.length === 0 ? (
-          <div className="text-center py-[48px] text-text-soft">
-            Belum ada creator yang berstatus "Approved" di campaign ini.
+          <div className="text-center py-[48px] text-text-soft flex flex-col items-center justify-center gap-3">
+            <p>Belum ada creator yang berstatus "Approved" di campaign ini atau data sedang dimuat.</p>
+            <button 
+              onClick={handleManualRefresh}
+              className="btn btn-outline flex items-center gap-2 text-xs"
+            >
+              <RotateCw className="w-3.5 h-3.5" /> Muat Ulang Data
+            </button>
           </div>
         ) : viewMode === 'creator' ? (
           <div className={isFiltering ? "opacity-50 transition-opacity space-y-[48px] pb-[24px]" : "transition-opacity space-y-[48px] pb-[24px]"}>
@@ -1564,7 +1640,7 @@ export default function CampaignVideoPage({
                                         type="number"
                                         min="0"
                                         className="w-full bg-transparent border-0 p-0 text-[14px] font-bold focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                        value={v.concept || 0}
+                                        value={v.concept || ''}
                                         onChange={(e) => handleVideoChange(cc.id, v.urutan, 'concept', e.target.value)}
                                         disabled={!hasAccess}
                                       />
@@ -1750,7 +1826,7 @@ export default function CampaignVideoPage({
                                type="number"
                                min="0"
                                className="w-full bg-transparent border-0 p-0 text-[14px] font-bold focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                               value={v.concept || 0}
+                               value={v.concept || ''}
                                onChange={(e) => handleVideoChange(v.ccId, v.urutan, 'concept', e.target.value)}
                                disabled={!hasAccess || v.vt_approval === 'approved'}
                                title={v.vt_approval === 'approved' ? "Tidak bisa diubah karena VT sudah di-approve" : "Ubah angka konsep"}
