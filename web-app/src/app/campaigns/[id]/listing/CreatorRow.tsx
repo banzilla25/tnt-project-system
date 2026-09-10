@@ -453,16 +453,16 @@ export const CreatorRow = React.memo(({
                 
                 if (isApprovalPending) {
                   name = profile?.nama || 'Unknown';
-                  dateStr = new Date().toLocaleDateString('id-ID', {day: 'numeric', month: 'short', year: 'numeric'});
+                  dateStr = formatDateTime(new Date());
                 } else if (approvalVal === 'pending') {
                   name = staffProfiles.find((p: any) => p.id === cc.added_by)?.nama || 'System';
-                  dateStr = cc.created_at ? new Date(cc.created_at).toLocaleDateString('id-ID', {day: 'numeric', month: 'short', year: 'numeric'}) : '-';
+                  dateStr = cc.created_at ? formatDateTime(cc.created_at) : '-';
                 } else if (approvalVal === 'approved') {
                   name = staffProfiles.find((p: any) => p.id === (cc.approved_by || cc.added_by))?.nama || 'System';
-                  dateStr = (cc.approved_at || cc.created_at) ? new Date(cc.approved_at || cc.created_at).toLocaleDateString('id-ID', {day: 'numeric', month: 'short', year: 'numeric'}) : '-';
+                  dateStr = (cc.approved_at || cc.created_at) ? formatDateTime(cc.approved_at || cc.created_at) : '-';
                 } else if (approvalVal === 'not_approved' || approvalVal === 'alternate') {
                   name = staffProfiles.find((p: any) => p.id === (cc.not_approved_by || cc.added_by))?.nama || 'System';
-                  dateStr = (cc.not_approved_at || cc.created_at) ? new Date(cc.not_approved_at || cc.created_at).toLocaleDateString('id-ID', {day: 'numeric', month: 'short', year: 'numeric'}) : '-';
+                  dateStr = (cc.not_approved_at || cc.created_at) ? formatDateTime(cc.not_approved_at || cc.created_at) : '-';
                 }
 
                 return (
