@@ -31,6 +31,7 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
   const [initialTotalViews, setInitialTotalViews] = useState(0);
   const [initialTotalLikes, setInitialTotalLikes] = useState(0);
   const [initialTotalVideos, setInitialTotalVideos] = useState(0);
+  const [hasSkus, setHasSkus] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -74,7 +75,7 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
       ] = await Promise.all([
         supabase.from('campaigns').select('*').eq('id', campaignId).single(),
         supabase.from('campaign_concepts').select('*, skus(nama_produk)').eq('campaign_id', campaignId),
-        supabase.from('skus').select('product_id').eq('campaign_id', campaignId),
+        supabase.from('skus').select('id, product_id').eq('campaign_id', campaignId),
         supabase.from('sales').select('id', { count: 'exact', head: true }).eq('campaign_id', campaignId),
         supabase.from('ads_performance').select('id', { count: 'exact', head: true }).eq('campaign_id', campaignId),
         supabase.rpc('get_campaign_creator_counts', { p_campaign_id: campaignId }),
@@ -89,14 +90,33 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
       if (campaignRes.data) setCampaign(campaignRes.data);
       if (conceptsRes.data) setMasterConcepts(conceptsRes.data);
 
+      const skuList = (skusRes.data || []).map((s: any) => s.product_id).filter(Boolean);
+      const campaignSkuIds = new Set((skusRes.data || []).map((s: any) => s.id).filter(Boolean));
+      const currentHasSkus = skuList.length > 0;
+      setHasSkus(currentHasSkus);
+
       const rpcSummary = perfSummaryRes?.data?.[0] || null;
       if (rpcSummary) {
         setRpcPerformance(rpcSummary);
-        if (Number(rpcSummary.total_views || 0) > 0) setInitialTotalViews(Number(rpcSummary.total_views));
-        if (Number(rpcSummary.total_likes || 0) > 0) setInitialTotalLikes(Number(rpcSummary.total_likes));
-        if (Number(rpcSummary.total_videos || 0) > 0) setInitialTotalVideos(Number(rpcSummary.total_videos));
-        if (Number(rpcSummary.organic_gmv || 0) > 0) setInitialTotalOrganic(Number(rpcSummary.organic_gmv));
-        if (Number(rpcSummary.unattributed_gmv || 0) > 0) setInitialUnattributedGmv(Number(rpcSummary.unattributed_gmv));
+        if (currentHasSkus) {
+          setInitialTotalViews(Number(rpcSummary.total_views || 0));
+          setInitialTotalLikes(Number(rpcSummary.total_likes || 0));
+          setInitialTotalVideos(Number(rpcSummary.total_videos || 0));
+          setInitialTotalOrganic(Number(rpcSummary.organic_gmv || 0));
+          setInitialUnattributedGmv(Number(rpcSummary.unattributed_gmv || 0));
+        } else {
+          setInitialTotalViews(0);
+          setInitialTotalLikes(0);
+          setInitialTotalVideos(0);
+          setInitialTotalOrganic(0);
+          setInitialUnattributedGmv(0);
+        }
+      } else {
+        setInitialTotalViews(0);
+        setInitialTotalLikes(0);
+        setInitialTotalVideos(0);
+        setInitialTotalOrganic(0);
+        setInitialUnattributedGmv(0);
       }
 
       // Fast creator counts
@@ -110,9 +130,9 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
       }
       setFastCountsData(fastCounts);
 
-      // Fast video counts
+      // Fast video counts - ONLY valid if campaign has registered SKUs
       let fastVideoCounts = { approved: 0, pending: 0, livestream: 0 };
-      if (videoCountsRes.data && videoCountsRes.data.length > 0) {
+      if (currentHasSkus && videoCountsRes.data && videoCountsRes.data.length > 0) {
         fastVideoCounts = {
           approved: Number(videoCountsRes.data[0].total_approved || 0),
           pending: Number(videoCountsRes.data[0].total_pending || 0),
@@ -271,8 +291,8 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
         return perfMap.get(usernameLower)!;
       };
 
-      // Pre-seed perfMap with fast aggregated creator performance from PostgreSQL RPC
-      if (creatorPerfRes?.data && Array.isArray(creatorPerfRes.data)) {
+      // Pre-seed perfMap with fast aggregated creator performance from PostgreSQL RPC (only if hasSkus)
+      if (currentHasSkus && creatorPerfRes?.data && Array.isArray(creatorPerfRes.data)) {
         creatorPerfRes.data.forEach((cp: any) => {
           const u = (cp.username || '').toLowerCase();
           if (!u) return;
@@ -289,55 +309,59 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
       let calcOrganicGmv = 0;
       let calcUnattributedGmv = 0;
 
-      salesData.forEach((s: any) => {
-        if (skuSet.size > 0 && s.product_id && !skuSet.has(s.product_id)) return;
-        const u = (s.creator_username || '').toLowerCase();
-        const gmv = Number(s.gmv || 0);
-        const qty = Number(s.quantity || 0);
-        const cType = (s.content_type || '').toLowerCase();
+      if (currentHasSkus) {
+        salesData.forEach((s: any) => {
+          if (!s.product_id || !skuSet.has(s.product_id)) return;
+          const u = (s.creator_username || '').toLowerCase();
+          const gmv = Number(s.gmv || 0);
+          const qty = Number(s.quantity || 0);
+          const cType = (s.content_type || '').toLowerCase();
 
-        if (approvedUsernames.has(u)) {
-          calcOrganicGmv += gmv;
-          const perf = getOrCreatePerf(u);
-          perf.gmv_organic += gmv;
-          perf.items_sold += qty;
-          if (s.content_uid) {
-            if (cType === 'livestream' || cType === 'live') {
-              perf.live_uids.add(s.content_uid);
-            } else {
-              perf.video_uids.add(s.content_uid);
+          if (approvedUsernames.has(u)) {
+            calcOrganicGmv += gmv;
+            const perf = getOrCreatePerf(u);
+            perf.gmv_organic += gmv;
+            perf.items_sold += qty;
+            if (s.content_uid) {
+              if (cType === 'livestream' || cType === 'live') {
+                perf.live_uids.add(s.content_uid);
+              } else {
+                perf.video_uids.add(s.content_uid);
+              }
             }
+          } else {
+            calcUnattributedGmv += gmv;
           }
-        } else {
-          calcUnattributedGmv += gmv;
-        }
-      });
+        });
+      }
 
       const orgUidMap = new Map<string, { views: number; likes: number; creator: string; contentType: string }>();
-      (orgVidsData || []).forEach((v: any) => {
-        if (skuSet.size > 0 && v.product_id && !skuSet.has(v.product_id)) return;
-        const uid = v.content_uid;
-        if (!uid) return;
+      if (currentHasSkus) {
+        (orgVidsData || []).forEach((v: any) => {
+          if (!v.product_id || !skuSet.has(v.product_id)) return;
+          const uid = v.content_uid;
+          if (!uid) return;
 
-        if (!orgUidMap.has(uid)) {
-          orgUidMap.set(uid, {
-            creator: (v.creator_username || '').toLowerCase(),
-            views: Number(v.video_views || 0),
-            likes: Number(v.video_likes || 0),
-            contentType: (v.content_type || 'video').toLowerCase()
-          });
-        } else {
-          const cur = orgUidMap.get(uid)!;
-          cur.views = Math.max(cur.views, Number(v.video_views || 0));
-          cur.likes = Math.max(cur.likes, Number(v.video_likes || 0));
-        }
-      });
+          if (!orgUidMap.has(uid)) {
+            orgUidMap.set(uid, {
+              creator: (v.creator_username || '').toLowerCase(),
+              views: Number(v.video_views || 0),
+              likes: Number(v.video_likes || 0),
+              contentType: (v.content_type || 'video').toLowerCase()
+            });
+          } else {
+            const cur = orgUidMap.get(uid)!;
+            cur.views = Math.max(cur.views, Number(v.video_views || 0));
+            cur.likes = Math.max(cur.likes, Number(v.video_likes || 0));
+          }
+        });
+      }
 
       let calcTotalViews = 0;
       let calcTotalLikes = 0;
       let calcUniqueVideos = 0;
 
-      if (orgVidsData.length > 0) {
+      if (currentHasSkus && orgVidsData.length > 0) {
         for (const perf of perfMap.values()) {
           perf.video_views = 0;
           perf.video_likes = 0;
@@ -366,20 +390,23 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
           if (perf.video_uids.size > 0) perf.video_count = perf.video_uids.size;
           if (perf.live_uids.size > 0) perf.live_count = perf.live_uids.size;
         }
-
-        if (calcTotalViews > 0) setInitialTotalViews(calcTotalViews);
-        if (calcTotalLikes > 0) setInitialTotalLikes(calcTotalLikes);
-        if (calcUniqueVideos > 0) setInitialTotalVideos(calcUniqueVideos);
       }
 
-      if (calcOrganicGmv > 0) setInitialTotalOrganic(calcOrganicGmv);
-      if (calcUnattributedGmv > 0) setInitialUnattributedGmv(calcUnattributedGmv);
+      setInitialTotalViews(calcTotalViews);
+      setInitialTotalLikes(calcTotalLikes);
+      setInitialTotalVideos(calcUniqueVideos);
+      setInitialTotalOrganic(calcOrganicGmv);
+      setInitialUnattributedGmv(calcUnattributedGmv);
 
-      const videoGmvData = salesData.map((s: any) => ({
-        creator_username: s.creator_username,
-        content_uid: s.content_uid,
-        content_type: s.content_type
-      }));
+      const videoGmvData = currentHasSkus
+        ? salesData
+            .filter((s: any) => s.product_id && skuSet.has(s.product_id))
+            .map((s: any) => ({
+              creator_username: s.creator_username,
+              content_uid: s.content_uid,
+              content_type: s.content_type
+            }))
+        : [];
 
       const latestAdsMap = new Map();
       if (rawAdsData) {
@@ -455,48 +482,55 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
         const roas = costAds > 0 ? (gmvAds / costAds).toFixed(2) : '-';
 
         const autoSalesVideos = videoGmvData?.filter((v: any) => v.creator_username === username) || [];
-        const dbVideos = cc.videos || [];
+        const dbVideos = currentHasSkus ? (cc.videos || []).filter((v: any) => {
+          if (campaignSkuIds.size > 0 && v.sku_id && !campaignSkuIds.has(v.sku_id)) return false;
+          return true;
+        }) : [];
         const uniqueVideoIds = new Map<string, string>(); 
         const uniqueLiveIds = new Set<string>();
 
-        dbVideos.forEach((v: any) => {
-          const id = v.content_uid;
-          if (id) {
-              uniqueVideoIds.set(id, v.vt_approval || 'approved');
-          }
-        });
+        if (currentHasSkus) {
+          dbVideos.forEach((v: any) => {
+            const id = v.content_uid;
+            if (id) {
+                uniqueVideoIds.set(id, v.vt_approval || 'approved');
+            }
+          });
 
-        autoSalesVideos.forEach((s: any) => {
-           let vid = s.content_uid;
-           if (vid && vid.startsWith('video_')) {
-             const parts = vid.split('_');
-             if (parts.length >= 2) {
-               vid = parts[1];
-             }
-           }
-           if (vid) {
-             if ((s.content_type || '').toLowerCase() === 'livestream' || (s.content_type || '').toLowerCase() === 'live') {
-               uniqueLiveIds.add(vid);
-             } else {
-               if (!uniqueVideoIds.has(vid)) {
-                 uniqueVideoIds.set(vid, 'approved');
+          autoSalesVideos.forEach((s: any) => {
+             let vid = s.content_uid;
+             if (vid && vid.startsWith('video_')) {
+               const parts = vid.split('_');
+               if (parts.length >= 2) {
+                 vid = parts[1];
                }
              }
-           }
-        });
+             if (vid) {
+               if ((s.content_type || '').toLowerCase() === 'livestream' || (s.content_type || '').toLowerCase() === 'live') {
+                 uniqueLiveIds.add(vid);
+               } else {
+                 if (!uniqueVideoIds.has(vid)) {
+                   uniqueVideoIds.set(vid, 'approved');
+                 }
+               }
+             }
+          });
+        }
 
         let approvedVtCount = 0;
         let pendingVtCount = 0;
         
-        if (cc.approval === 'pending') {
-            pendingVtCount = Math.max(trackedVideos || 0, uniqueVideoIds.size);
-        } else {
-            approvedVtCount = Math.max(trackedVideos || 0, uniqueVideoIds.size);
-            pendingVtCount = 0;
+        if (currentHasSkus) {
+          if (cc.approval === 'pending') {
+              pendingVtCount = Math.max(trackedVideos || 0, uniqueVideoIds.size);
+          } else {
+              approvedVtCount = Math.max(trackedVideos || 0, uniqueVideoIds.size);
+              pendingVtCount = 0;
+          }
         }
 
         const totalVt = approvedVtCount + pendingVtCount;
-        const totalLive = Math.max(trackedLives, uniqueLiveIds.size);
+        const totalLive = currentHasSkus ? Math.max(trackedLives, uniqueLiveIds.size) : 0;
 
         const conceptsSet = new Set<string>();
         dbVideos.forEach((v: any) => {
@@ -700,19 +734,19 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
 
   // Aggregation moved up to prevent TDZ
 
-  const totalApprovedVideos = isFiltered 
+  const totalApprovedVideos = !hasSkus ? 0 : (isFiltered 
     ? fbApprovedVideos 
-    : (fastVideoCountsData ? fastVideoCountsData.approved : (initialTotalVideos || Number(rpcPerformance?.total_videos || 0) || fbApprovedVideos));
+    : (fastVideoCountsData ? fastVideoCountsData.approved : (initialTotalVideos || Number(rpcPerformance?.total_videos || 0) || fbApprovedVideos)));
 
-  const totalPendingVideos = isFiltered 
+  const totalPendingVideos = !hasSkus ? 0 : (isFiltered 
     ? fbPendingVideos 
-    : (fastVideoCountsData ? fastVideoCountsData.pending : fbPendingVideos);
+    : (fastVideoCountsData ? fastVideoCountsData.pending : fbPendingVideos));
 
-  const totalCampaignLivestreams = isFiltered 
+  const totalCampaignLivestreams = !hasSkus ? 0 : (isFiltered 
     ? fbLivestreams 
-    : (fastVideoCountsData ? fastVideoCountsData.livestream : (Number(totalSales?.totalLivestreams || 0) || fbLivestreams));
+    : (fastVideoCountsData ? fastVideoCountsData.livestream : (Number(totalSales?.totalLivestreams || 0) || fbLivestreams)));
 
-  const totalOrganic = isFiltered ? fbOrganic : (initialTotalOrganic || fbOrganic);
+  const totalOrganic = !hasSkus ? 0 : (isFiltered ? fbOrganic : (initialTotalOrganic || fbOrganic));
   // Total Ads GMV = ALL ads in this campaign (global, same as Ads Report page)
   // Always use client-side calculation for consistency with Ads Report
   const totalAdsGmv = isFiltered ? fbAds : initialTotalAdsGmv; 
@@ -720,7 +754,7 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
   const mappedAdsGmv = isFiltered ? fbAds : initialMappedAdsGmv;
   const unmappedAdsGmv = Math.max(0, totalAdsGmv - mappedAdsGmv);
   
-  const unattributedGmv = isFiltered ? 0 : initialUnattributedGmv;
+  const unattributedGmv = !hasSkus ? 0 : (isFiltered ? 0 : initialUnattributedGmv);
   
   // Total All = Approved GMV (totalOrganic) + Ads GMV
   // As per user request: unattributed GMV is kept separate and NOT included in Total Achievement
@@ -731,16 +765,16 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
   const attributionGap = unattributedGmv;
   const gapPercentage = totalOrganic > 0 ? Math.round((attributionGap / (totalOrganic + attributionGap)) * 100) : 0;
 
-  const totalCampaignViews = isFiltered ? fbViews : (initialTotalViews || Number(rpcPerformance?.total_views || 0) || fbViews);
-  const totalCampaignLikes = isFiltered ? fbLikes : (initialTotalLikes || Number(rpcPerformance?.total_likes || 0) || fbLikes);
-  const totalCampaignVideos = isFiltered 
+  const totalCampaignViews = !hasSkus ? 0 : (isFiltered ? fbViews : (initialTotalViews || Number(rpcPerformance?.total_views || 0) || fbViews));
+  const totalCampaignLikes = !hasSkus ? 0 : (isFiltered ? fbLikes : (initialTotalLikes || Number(rpcPerformance?.total_likes || 0) || fbLikes));
+  const totalCampaignVideos = !hasSkus ? 0 : (isFiltered 
     ? fbVideos 
     : (fastVideoCountsData && (fastVideoCountsData.approved + fastVideoCountsData.pending) > 0
         ? (fastVideoCountsData.approved + fastVideoCountsData.pending)
-        : (initialTotalVideos || Number(rpcPerformance?.total_videos || 0) || fbVideos));
+        : (initialTotalVideos || Number(rpcPerformance?.total_videos || 0) || fbVideos)));
   
-  const creatorsWithVideo = isFiltered ? fbWithVideo : Number(totalSales?.creatorsWithVideo || fbWithVideo);
-  const creatorsWithLive = isFiltered ? fbWithLive : Number(totalSales?.creatorsWithLive || fbWithLive);
+  const creatorsWithVideo = !hasSkus ? 0 : (isFiltered ? fbWithVideo : Number(totalSales?.creatorsWithVideo || fbWithVideo));
+  const creatorsWithLive = !hasSkus ? 0 : (isFiltered ? fbWithLive : Number(totalSales?.creatorsWithLive || fbWithLive));
   
   const targetVideo = campaign.target_video || 0;
   const percentCapaiVideo = targetVideo > 0 ? Math.round((totalCampaignVideos / targetVideo) * 100) : 0;

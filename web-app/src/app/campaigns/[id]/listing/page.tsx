@@ -1187,16 +1187,24 @@ function CampaignListingContent() {
 
       let finalData = data || [];
 
-      // Auto-detect videos from sales
+      // Auto-detect videos from sales (strictly filtered by campaign SKUs)
       if (finalData.length > 0) {
-        const creatorUsernames = finalData.map((cc: any) => cc.creators?.username).filter(Boolean);
-        if (creatorUsernames.length > 0) {
-          const { data: sData } = await supabase.from('sales')
-            .select('content_uid, creator_username')
-            .eq('campaign_id', campaignId)
-            .in('creator_username', creatorUsernames)
-            .not('content_uid', 'is', null)
-            .neq('content_uid', '');
+        const { data: campaignSkus } = await supabase.from('skus')
+          .select('product_id')
+          .eq('campaign_id', campaignId);
+        
+        const skuList = (campaignSkus || []).map((s: any) => s.product_id).filter(Boolean);
+
+        if (skuList.length > 0) {
+          const creatorUsernames = finalData.map((cc: any) => cc.creators?.username).filter(Boolean);
+          if (creatorUsernames.length > 0) {
+            const { data: sData } = await supabase.from('sales')
+              .select('content_uid, creator_username, product_id')
+              .eq('campaign_id', campaignId)
+              .in('creator_username', creatorUsernames)
+              .in('product_id', skuList)
+              .not('content_uid', 'is', null)
+              .neq('content_uid', '');
             
           if (sData && sData.length > 0) {
             finalData = finalData.map((cc: any) => {
@@ -1231,6 +1239,7 @@ function CampaignListingContent() {
           }
         }
       }
+    }
 
       // Deduplicate finalData by username to hide duplicates from the table UI
       const uniqueMap = new Map();

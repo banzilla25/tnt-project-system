@@ -34,14 +34,23 @@ export async function getLivestreamData(campaignId: number) {
     return all;
   };
 
-  // 1. Fetch lean campaign metadata
-  const { data: campaign } = await supabase
-    .from('campaigns')
-    .select('id, nama, brand_id, start_date, end_date')
-    .eq('id', campaignId)
-    .single();
+  // 1. Fetch lean campaign metadata and skus
+  const [{ data: campaign }, { data: skusData }] = await Promise.all([
+    supabase
+      .from('campaigns')
+      .select('id, nama, brand_id, start_date, end_date')
+      .eq('id', campaignId)
+      .single(),
+    supabase
+      .from('skus')
+      .select('product_id')
+      .eq('campaign_id', campaignId)
+  ]);
 
   if (!campaign) return null;
+
+  const skuSet = new Set((skusData || []).map((s: any) => s.product_id).filter(Boolean));
+  const hasSkus = skuSet.size > 0;
 
   // 2. Fetch lean campaign creators (only id, approval, and creator username/nama)
   // Selecting lean columns avoids transfer of huge bio, notes, raw json columns
@@ -51,11 +60,22 @@ export async function getLivestreamData(campaignId: number) {
     'id, approval, creators(username, nama_asli)'
   );
 
-  // 3. Fetch lean sales for live stream (only needed attributes)
+  if (!hasSkus) {
+    const ccData = await ccDataPromise;
+    return {
+      campaign,
+      creators: ccData || [],
+      salesData: [],
+      liveMetrics: [],
+      liveStats: []
+    };
+  }
+
+  // 3. Fetch lean sales for live stream (only needed attributes including product_id)
   const salesPromise = fetchParallel(
     'sales', 
     (q) => q.eq('campaign_id', campaignId).or('content_type.ilike.livestream,content_type.ilike.live'), 
-    'creator_username, content_uid, quantity, gmv, tanggal'
+    'creator_username, content_uid, quantity, gmv, tanggal, product_id'
   );
 
   // 4. Try getting live stats via RPC concurrently
@@ -73,11 +93,13 @@ export async function getLivestreamData(campaignId: number) {
     return [];
   })();
 
-  const [ccData, sData, rpcLives] = await Promise.all([
+  const [ccData, sDataRaw, rpcLives] = await Promise.all([
     ccDataPromise,
     salesPromise,
     rpcPromise
   ]);
+
+  const sData = (sDataRaw || []).filter((s: any) => s.product_id && skuSet.has(s.product_id));
 
   // If RPC returned empty (e.g. statement timeout on Supabase), build fallback session items from sales
   let liveStats = rpcLives || [];

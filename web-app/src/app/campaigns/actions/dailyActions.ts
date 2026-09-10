@@ -55,6 +55,7 @@ export async function getDailyData(campaignId: number) {
   ]);
 
   const skuSet = new Set((skusRes.data || []).map((s: any) => s.product_id).filter(Boolean));
+  const hasSkus = skuSet.size > 0;
 
   // 2. Fetch campaign_creators, videos, ads, and sales in parallel batches (pageSize = 1000)
   const ccCount = ccCountRes.count || 0;
@@ -143,9 +144,6 @@ export async function getDailyData(campaignId: number) {
   const grouped: Record<string, { gmv: number; gmvAds: number; creators: Set<string>; videos: Set<string>; gmvLive: number; gmvVT: number; ordersLive: number; ordersVT: number; liveSessions: Set<string> }> = {};
   const monthlyGrouped: Record<string, { gmv: number; gmvAds: number; creators: Set<string>; videos: Set<string>; gmvLive: number; gmvVT: number; ordersLive: number; ordersVT: number; liveSessions: Set<string> }> = {};
 
-  const campaignStartStr = campaign.start_date || '';
-  const campaignEndStr = ''; // End date hanya pengingat, tidak filter data
-
   // Compute daily sales stats directly from sales table
   const approvedUsernameSet = new Set(
     allVideosFromCreators
@@ -168,7 +166,7 @@ export async function getDailyData(campaignId: number) {
   allSales.forEach((s: any) => {
     const u = (s.creator_username || '').toLowerCase();
     if (approvedUsernameSet.size > 0 && !approvedUsernameSet.has(u)) return;
-    if (skuSet.size > 0 && s.product_id && !skuSet.has(s.product_id)) return;
+    if (!hasSkus || !s.product_id || !skuSet.has(s.product_id)) return;
 
     const dateStr = s.tanggal ? (s.tanggal.includes('T') ? toWIBDateStr(s.tanggal) : s.tanggal.substring(0, 10)) : null;
     if (!dateStr) return;
@@ -265,7 +263,7 @@ export async function getDailyData(campaignId: number) {
       }
 
       // Hitung Video berdasarkan created_at (VT saja)
-      if (!cc.videos || cc.videos.length === 0) return;
+      if (!hasSkus || !cc.videos || cc.videos.length === 0) return;
       
       cc.videos.forEach((v: any) => {
         if (!v.created_at || !v.link_video) return; 
@@ -288,7 +286,7 @@ export async function getDailyData(campaignId: number) {
   }
 
   // Hitung Sesi Live dari RPC
-  if (allLiveSessions.length > 0) {
+  if (hasSkus && allLiveSessions.length > 0) {
     allLiveSessions.forEach((l: any) => {
       if (!l.start_time) return;
       

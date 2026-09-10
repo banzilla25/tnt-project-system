@@ -41,6 +41,7 @@ export async function getInternalPerformaData(campaignId: number) {
 
   const rpcSummary = perfSummaryRes?.data?.[0] || null;
   const skuSet = new Set((skusRes.data || []).map((s: any) => s.product_id).filter(Boolean));
+  const hasSkus = skuSet.size > 0;
 
   // 2. Fetch creators, videos, sales, ads in parallel batches, and organic_videos in controlled chunks
   const ccCount = ccCountRes.count || 0;
@@ -189,8 +190,8 @@ export async function getInternalPerformaData(campaignId: number) {
     return perfMap.get(usernameLower)!;
   };
 
-  // Pre-seed perfMap with fast aggregated creator performance from PostgreSQL RPC
-  if (creatorPerfRes?.data && Array.isArray(creatorPerfRes.data)) {
+  // Pre-seed perfMap with fast aggregated creator performance from PostgreSQL RPC (only if hasSkus)
+  if (hasSkus && creatorPerfRes?.data && Array.isArray(creatorPerfRes.data)) {
     creatorPerfRes.data.forEach((cp: any) => {
       const u = (cp.username || '').toLowerCase();
       if (!u) return;
@@ -207,55 +208,59 @@ export async function getInternalPerformaData(campaignId: number) {
   let calcOrganicGmv = 0;
   let calcUnattributedGmv = 0;
 
-  salesData.forEach((s: any) => {
-    if (skuSet.size > 0 && s.product_id && !skuSet.has(s.product_id)) return;
-    const u = (s.creator_username || '').toLowerCase();
-    const gmv = Number(s.gmv || 0);
-    const qty = Number(s.quantity || 0);
-    const cType = (s.content_type || '').toLowerCase();
+  if (hasSkus) {
+    salesData.forEach((s: any) => {
+      if (!s.product_id || !skuSet.has(s.product_id)) return;
+      const u = (s.creator_username || '').toLowerCase();
+      const gmv = Number(s.gmv || 0);
+      const qty = Number(s.quantity || 0);
+      const cType = (s.content_type || '').toLowerCase();
 
-    if (approvedUsernames.has(u)) {
-      calcOrganicGmv += gmv;
-      const perf = getOrCreatePerf(u);
-      perf.gmv_organic += gmv;
-      perf.items_sold += qty;
-      if (s.content_uid) {
-        if (cType === 'livestream' || cType === 'live') {
-          perf.live_uids.add(s.content_uid);
-        } else {
-          perf.video_uids.add(s.content_uid);
+      if (approvedUsernames.has(u)) {
+        calcOrganicGmv += gmv;
+        const perf = getOrCreatePerf(u);
+        perf.gmv_organic += gmv;
+        perf.items_sold += qty;
+        if (s.content_uid) {
+          if (cType === 'livestream' || cType === 'live') {
+            perf.live_uids.add(s.content_uid);
+          } else {
+            perf.video_uids.add(s.content_uid);
+          }
         }
+      } else {
+        calcUnattributedGmv += gmv;
       }
-    } else {
-      calcUnattributedGmv += gmv;
-    }
-  });
+    });
+  }
 
   const orgUidMap = new Map<string, { views: number; likes: number; creator: string; contentType: string }>();
-  (orgVidsData || []).forEach((v: any) => {
-    if (skuSet.size > 0 && v.product_id && !skuSet.has(v.product_id)) return;
-    const uid = v.content_uid;
-    if (!uid) return;
+  if (hasSkus) {
+    (orgVidsData || []).forEach((v: any) => {
+      if (!v.product_id || !skuSet.has(v.product_id)) return;
+      const uid = v.content_uid;
+      if (!uid) return;
 
-    if (!orgUidMap.has(uid)) {
-      orgUidMap.set(uid, {
-        creator: (v.creator_username || '').toLowerCase(),
-        views: Number(v.video_views || 0),
-        likes: Number(v.video_likes || 0),
-        contentType: (v.content_type || 'video').toLowerCase()
-      });
-    } else {
-      const cur = orgUidMap.get(uid)!;
-      cur.views = Math.max(cur.views, Number(v.video_views || 0));
-      cur.likes = Math.max(cur.likes, Number(v.video_likes || 0));
-    }
-  });
+      if (!orgUidMap.has(uid)) {
+        orgUidMap.set(uid, {
+          creator: (v.creator_username || '').toLowerCase(),
+          views: Number(v.video_views || 0),
+          likes: Number(v.video_likes || 0),
+          contentType: (v.content_type || 'video').toLowerCase()
+        });
+      } else {
+        const cur = orgUidMap.get(uid)!;
+        cur.views = Math.max(cur.views, Number(v.video_views || 0));
+        cur.likes = Math.max(cur.likes, Number(v.video_likes || 0));
+      }
+    });
+  }
 
   let calcTotalViews = 0;
   let calcTotalLikes = 0;
   let calcUniqueVideos = 0;
 
-  if (orgVidsData.length > 0) {
+  if (hasSkus && orgVidsData.length > 0) {
     for (const perf of perfMap.values()) {
       perf.video_views = 0;
       perf.video_likes = 0;
@@ -286,11 +291,15 @@ export async function getInternalPerformaData(campaignId: number) {
     }
   }
 
-  const videoGmvData = salesData.map((s: any) => ({
-    creator_username: s.creator_username,
-    content_uid: s.content_uid,
-    content_type: s.content_type
-  }));
+  const videoGmvData = hasSkus
+    ? salesData
+        .filter((s: any) => s.product_id && skuSet.has(s.product_id))
+        .map((s: any) => ({
+          creator_username: s.creator_username,
+          content_uid: s.content_uid,
+          content_type: s.content_type
+        }))
+    : [];
     
   const latestAdsMap = new Map();
   if (rawAdsData) {
@@ -329,6 +338,9 @@ export async function getInternalPerformaData(campaignId: number) {
   // 6. Enrichment
   const baseCreatorStats = ccData.map((cc: any) => {
     const creator = Array.isArray(cc.creators) ? cc.creators[0] : cc.creators;
+    const snap = creator?.creator_snapshots 
+      ? (Array.isArray(creator.creator_snapshots) ? creator.creator_snapshots[0] : creator.creator_snapshots)
+      : null;
     const username = creator?.username || 'Unknown';
     const perf = perfMap.get(username.toLowerCase());
 
@@ -349,48 +361,52 @@ export async function getInternalPerformaData(campaignId: number) {
 
     // Calculate Total VT and Total Live mimicking the Internal Dashboard logic
     const autoSalesVideos = videoGmvData?.filter((v: any) => v.creator_username === username) || [];
-    const dbVideos = cc.videos || [];
+    const dbVideos = hasSkus ? (cc.videos || []) : [];
     const uniqueVideoIds = new Map<string, string>(); 
     const uniqueLiveIds = new Set<string>();
 
-    dbVideos.forEach((v: any) => {
-      const id = v.content_uid;
-      if (id) {
-          uniqueVideoIds.set(id, v.vt_approval || 'approved');
-      }
-    });
+    if (hasSkus) {
+      dbVideos.forEach((v: any) => {
+        const id = v.content_uid;
+        if (id) {
+            uniqueVideoIds.set(id, v.vt_approval || 'approved');
+        }
+      });
 
-    autoSalesVideos.forEach((s: any) => {
-       let vid = s.content_uid;
-       if (vid && vid.startsWith('video_')) {
-         const parts = vid.split('_');
-         if (parts.length >= 2) {
-           vid = parts[1];
-         }
-       }
-       if (vid) {
-         if ((s.content_type || '').toLowerCase() === 'livestream' || (s.content_type || '').toLowerCase() === 'live') {
-           uniqueLiveIds.add(vid);
-         } else {
-           if (!uniqueVideoIds.has(vid)) {
-             uniqueVideoIds.set(vid, 'approved');
+      autoSalesVideos.forEach((s: any) => {
+         let vid = s.content_uid;
+         if (vid && vid.startsWith('video_')) {
+           const parts = vid.split('_');
+           if (parts.length >= 2) {
+             vid = parts[1];
            }
          }
-       }
-    });
+         if (vid) {
+           if ((s.content_type || '').toLowerCase() === 'livestream' || (s.content_type || '').toLowerCase() === 'live') {
+             uniqueLiveIds.add(vid);
+           } else {
+             if (!uniqueVideoIds.has(vid)) {
+               uniqueVideoIds.set(vid, 'approved');
+             }
+           }
+         }
+      });
+    }
 
     let approvedVtCount = 0;
     let pendingVtCount = 0;
     
-    if (cc.approval === 'pending') {
-        pendingVtCount = Math.max(trackedVideos || 0, uniqueVideoIds.size);
-    } else {
-        approvedVtCount = Math.max(trackedVideos || 0, uniqueVideoIds.size);
-        pendingVtCount = 0;
+    if (hasSkus) {
+      if (cc.approval === 'pending') {
+          pendingVtCount = Math.max(trackedVideos || 0, uniqueVideoIds.size);
+      } else {
+          approvedVtCount = Math.max(trackedVideos || 0, uniqueVideoIds.size);
+          pendingVtCount = 0;
+      }
     }
 
     const totalVt = approvedVtCount + pendingVtCount;
-    const totalLive = uniqueLiveIds.size;
+    const totalLive = hasSkus ? Math.max(trackedVideos || 0, uniqueLiveIds.size) : 0;
 
     return {
       ...cc,
@@ -413,11 +429,11 @@ export async function getInternalPerformaData(campaignId: number) {
   return {
     campaign,
     rpcPerformance: {
-      organic_gmv: calcOrganicGmv > 0 ? calcOrganicGmv : Number(rpcSummary?.organic_gmv || 0),
-      unattributed_gmv: calcUnattributedGmv,
-      total_views: calcTotalViews > 0 ? calcTotalViews : Number(rpcSummary?.total_views || 0),
-      total_likes: calcTotalLikes > 0 ? calcTotalLikes : Number(rpcSummary?.total_likes || 0),
-      total_videos: calcUniqueVideos > 0 ? calcUniqueVideos : Number(rpcSummary?.total_videos || 0)
+      organic_gmv: hasSkus ? (calcOrganicGmv > 0 ? calcOrganicGmv : Number(rpcSummary?.organic_gmv || 0)) : 0,
+      unattributed_gmv: hasSkus ? calcUnattributedGmv : 0,
+      total_views: hasSkus ? (calcTotalViews > 0 ? calcTotalViews : Number(rpcSummary?.total_views || 0)) : 0,
+      total_likes: hasSkus ? (calcTotalLikes > 0 ? calcTotalLikes : Number(rpcSummary?.total_likes || 0)) : 0,
+      total_videos: hasSkus ? (calcUniqueVideos > 0 ? calcUniqueVideos : Number(rpcSummary?.total_videos || 0)) : 0
     },
     baseCreatorStats,
     totalAdsGmv: globalAdsGmv,

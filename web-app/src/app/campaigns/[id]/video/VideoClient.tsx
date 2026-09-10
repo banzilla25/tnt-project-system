@@ -328,7 +328,7 @@ export default function CampaignVideoPage({
         const creator = cc?.creators || {};
         const noWa = creator.creator_contacts?.find((c: any) => c.status === 'aktif')?.nomor || creator.creator_contacts?.[0]?.nomor || '-';
         
-        const sku = skus.find(s => s.id === v.sku_id) || {};
+        const sku: any = skus.find(s => s.id === v.sku_id) || {};
         
         let postTime = '-';
         if (v.content_uid) {

@@ -60,6 +60,7 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
       const campaignEndStr = campaignData.end_date ? campaignData.end_date.substring(0, 10) : null;
 
       const skuSet = new Set((skusRes.data || []).map(s => s.product_id).filter(Boolean));
+      const hasSkus = skuSet.size > 0;
 
       // 2. Fetch campaign_creators, videos, ads, sales in parallel batches, and organic_videos in controlled chunks
       const ccCount = ccCountRes.count || 0;
@@ -119,7 +120,7 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
       // Fetch organic_videos in controlled chunks (concurrency 4) to avoid Postgres statement timeouts
       const fetchOrgVideosChunked = async () => {
         const results: any[] = [];
-        if (orgCount <= 0) return results;
+        if (!hasSkus || orgCount <= 0) return results;
         const orgConcurrency = 4;
         for (let i = 0; i < orgCount; i += batchSize * orgConcurrency) {
           const chunk = [];
@@ -129,7 +130,7 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
             chunk.push(
               supabase
                 .from('organic_videos')
-                .select('content_uid, post_time, content_type, creator_username')
+                .select('content_uid, post_time, content_type, creator_username, product_id')
                 .eq('campaign_id', campaignId)
                 .range(from, to)
             );
@@ -225,7 +226,7 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
       allSales.forEach(s => {
         const u = (s.creator_username || '').toLowerCase();
         if (approvedUsernameSet.size > 0 && !approvedUsernameSet.has(u)) return;
-        if (skuSet.size > 0 && s.product_id && !skuSet.has(s.product_id)) return;
+        if (!hasSkus || !s.product_id || !skuSet.has(s.product_id)) return;
 
         const dateStr = s.tanggal ? (s.tanggal.includes('T') ? toWIBDateStr(s.tanggal) : s.tanggal.substring(0, 10)) : null;
         if (!dateStr) return;
@@ -346,7 +347,7 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
             }
           }
 
-          if (!cc.videos || cc.videos.length === 0) return;
+          if (!hasSkus || !cc.videos || cc.videos.length === 0) return;
           cc.videos.forEach((v: any) => {
             if (!v.created_at || !v.link_video) return; 
             const dateStr = toWIBDateStr(v.created_at);
@@ -374,6 +375,7 @@ export default function CampaignDailyPerformanceClient({ campaignId }: { campaig
 
         // Map organic videos already fetched in parallel Phase 1
         allOrganicVideos.forEach(v => {
+          if (!hasSkus || !v.product_id || !skuSet.has(v.product_id)) return;
           if (!v.post_time || !v.content_uid) return;
           const dateStr = toWIBDateStr(String(v.post_time));
           if (!dateStr) return;
