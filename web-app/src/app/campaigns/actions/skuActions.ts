@@ -118,6 +118,75 @@ export async function deleteSkuAction(skuId: number, campaignId: number) {
 }
 
 /**
+ * Safely delete multiple SKUs in a single batch operation
+ */
+export async function deleteBatchSkusAction(skuIds: number[], campaignId: number) {
+  try {
+    if (!skuIds || skuIds.length === 0 || !campaignId) {
+      return { success: false, error: "Tidak ada produk yang dipilih" };
+    }
+
+    // 1. Unlink sales where sku_id in (skuIds)
+    const { error: salesErr } = await supabase
+      .from('sales')
+      .update({ sku_id: null })
+      .in('sku_id', skuIds);
+
+    if (salesErr) console.warn("Warning unlinking sales:", salesErr.message);
+
+    // 2. Unlink campaign_concepts where sku_id in (skuIds)
+    const { error: conceptsErr } = await supabase
+      .from('campaign_concepts')
+      .update({ sku_id: null })
+      .in('sku_id', skuIds);
+
+    if (conceptsErr) console.warn("Warning unlinking concepts:", conceptsErr.message);
+
+    // 3. Unlink videos where sku_id in (skuIds)
+    const { error: vidsErr } = await supabase
+      .from('videos')
+      .update({ sku_id: null })
+      .in('sku_id', skuIds);
+
+    if (vidsErr) console.warn("Warning unlinking videos:", vidsErr.message);
+
+    // 4. Remove skuIds from campaign_creators.assigned_sku_ids
+    const { data: affectedCcs } = await supabase
+      .from('campaign_creators')
+      .select('id, assigned_sku_ids')
+      .eq('campaign_id', campaignId);
+
+    if (affectedCcs && affectedCcs.length > 0) {
+      const skuIdSet = new Set(skuIds);
+      for (const cc of affectedCcs) {
+        if (!cc.assigned_sku_ids || cc.assigned_sku_ids.length === 0) continue;
+        const filtered = cc.assigned_sku_ids.filter((id: number) => !skuIdSet.has(id));
+        if (filtered.length !== cc.assigned_sku_ids.length) {
+          await supabase
+            .from('campaign_creators')
+            .update({ assigned_sku_ids: filtered.length > 0 ? filtered : null })
+            .eq('id', cc.id);
+        }
+      }
+    }
+
+    // 5. Delete all selected SKUs
+    const { error: delErr } = await supabase
+      .from('skus')
+      .delete()
+      .in('id', skuIds)
+      .eq('campaign_id', campaignId);
+
+    if (delErr) throw delErr;
+
+    return { success: true, count: skuIds.length };
+  } catch (err: any) {
+    console.error("Error deleteBatchSkusAction:", err);
+    return { success: false, error: err.message || 'Gagal menghapus produk terpilih' };
+  }
+}
+
+/**
  * Update a SKU with validation and duplicate prevention
  */
 export async function updateSkuAction(skuId: number, campaignId: number, payload: SkuInput) {

@@ -2,12 +2,13 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useDatabaseStore } from "@/store/useDatabaseStore";
-import { Plus, Edit2, Trash2, Loader2, CheckCircle2, AlertCircle, X } from "lucide-react";
+import { Plus, Edit2, Trash2, Loader2, CheckCircle2, AlertCircle, X, CheckSquare, Square } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useAuth } from "@/providers/AuthProvider";
 import {
   getCampaignSkus,
   deleteSkuAction,
+  deleteBatchSkusAction,
   updateSkuAction,
   saveBatchSkusAction
 } from "@/app/campaigns/actions/skuActions";
@@ -30,6 +31,10 @@ export default function SkuPage() {
   // Local state for campaign SKUs to ensure instant responsiveness & zero stale cache
   const [localSkus, setLocalSkus] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Selection state for testing & batch delete
+  const [selectedSkuIds, setSelectedSkuIds] = useState<number[]>([]);
+  const [isDeletingBatch, setIsDeletingBatch] = useState(false);
 
   // Batch Add state
   const [isAdding, setIsAdding] = useState(false);
@@ -66,7 +71,6 @@ export default function SkuPage() {
       if (res.success && res.data) {
         setLocalSkus(res.data);
       } else {
-        // Fallback to store if server action encounters an issue
         const storeSkus = skus.filter(s => s.campaign_id === campaignId);
         setLocalSkus(storeSkus);
       }
@@ -82,6 +86,24 @@ export default function SkuPage() {
   useEffect(() => {
     loadSkus();
   }, [campaignId]);
+
+  // Selection Handlers
+  const isAllSelected = localSkus.length > 0 && selectedSkuIds.length === localSkus.length;
+  const isSomeSelected = selectedSkuIds.length > 0 && selectedSkuIds.length < localSkus.length;
+
+  const handleSelectAll = () => {
+    if (isAllSelected) {
+      setSelectedSkuIds([]);
+    } else {
+      setSelectedSkuIds(localSkus.map(s => s.id));
+    }
+  };
+
+  const handleToggleSelect = (skuId: number) => {
+    setSelectedSkuIds(prev =>
+      prev.includes(skuId) ? prev.filter(id => id !== skuId) : [...prev, skuId]
+    );
+  };
 
   // Handle Add Batch Click
   const handleAddClick = () => {
@@ -154,7 +176,6 @@ export default function SkuPage() {
         let currColIdx = colIdx;
         cols.forEach(rawColText => {
           if (currColIdx < fields.length) {
-            // Clean surrounding Excel quotes and extra spaces
             let cleaned = rawColText.trim().replace(/^"|"$/g, '').replace(/""/g, '"');
             if (fields[currColIdx] === 'commission') {
               cleaned = cleaned.replace(/%/g, '').trim();
@@ -240,7 +261,6 @@ export default function SkuPage() {
         return;
       }
 
-      // Optimistically update local state & store
       setLocalSkus(prev => prev.map(s => s.id === editingSkuId ? { ...s, ...res.data } : s));
       try {
         storeUpdateSku(editingSkuId, res.data);
@@ -256,7 +276,7 @@ export default function SkuPage() {
     }
   };
 
-  // Delete SKU with Safe Unlinking (Prevents 23503 foreign key violation)
+  // Delete Single SKU
   const handleDelete = async (sku: any) => {
     if (!hasAccess) return;
 
@@ -276,9 +296,8 @@ export default function SkuPage() {
         return;
       }
 
-      // Remove from local list immediately
       setLocalSkus(prev => prev.filter(s => s.id !== sku.id));
-      // Remove from store
+      setSelectedSkuIds(prev => prev.filter(id => id !== sku.id));
       try {
         await storeDeleteSku(sku.id);
       } catch (e) {}
@@ -293,22 +312,88 @@ export default function SkuPage() {
     }
   };
 
+  // Batch Delete Selected SKUs
+  const handleDeleteSelected = async () => {
+    if (selectedSkuIds.length === 0 || !hasAccess) return;
+
+    const count = selectedSkuIds.length;
+    const isAll = count === localSkus.length;
+
+    const confirmMsg = isAll
+      ? `⚠️ PERINGATAN HAPUS SEMUA PRODUK:\n\n` +
+        `Anda akan menghapus SEMUA (${count}) produk pada campaign ini.\n\n` +
+        `• Riwayat data transaksi di database tetap tersimpan rapi.\n` +
+        `• Tampilan performa GMV & kuantitas terjual di menu Performa/Daily akan menjadi 0 sampai produk didaftarkan kembali.\n\n` +
+        `Lanjutkan menghapus semua produk?`
+      : `Yakin ingin menghapus ${count} produk terpilih?\n\n` +
+        `💡 Catatan: Riwayat data penjualan lampau tetap aman tersimpan di database. Keterkaitan SKU terpilih akan dilepas.`;
+
+    if (!confirm(confirmMsg)) return;
+
+    setIsDeletingBatch(true);
+    try {
+      const res = await deleteBatchSkusAction(selectedSkuIds, campaignId);
+      if (!res.success) {
+        showNotification('error', res.error || 'Gagal menghapus produk terpilih');
+        alert("Gagal menghapus: " + res.error);
+        return;
+      }
+
+      const deletedSet = new Set(selectedSkuIds);
+      setLocalSkus(prev => prev.filter(s => !deletedSet.has(s.id)));
+      for (const id of selectedSkuIds) {
+        try { await storeDeleteSku(id); } catch (e) {}
+      }
+
+      showNotification('success', `Berhasil menghapus ${res.count || count} produk terpilih.`);
+      setSelectedSkuIds([]);
+    } catch (err: any) {
+      console.error("Error delete selected:", err);
+      showNotification('error', err.message || 'Terjadi kesalahan saat menghapus produk terpilih');
+    } finally {
+      setIsDeletingBatch(false);
+    }
+  };
+
+  // Delete All SKUs Quick Action
+  const handleDeleteAllPrompt = () => {
+    if (localSkus.length === 0 || !hasAccess) return;
+    setSelectedSkuIds(localSkus.map(s => s.id));
+    setTimeout(() => {
+      handleDeleteSelected();
+    }, 50);
+  };
+
   return (
     <div className="space-y-[24px] pb-[80px]">
       {/* Header */}
-      <div className="flex justify-between items-center mb-[24px]">
+      <div className="flex flex-wrap justify-between items-center gap-4 mb-[24px]">
         <div>
           <h2 className="text-[20px] font-bold text-text">Daftar SKU Produk</h2>
-          <p className="text-[13px] text-text-soft">Kelola master produk untuk campaign ini.</p>
+          <p className="text-[13px] text-text-soft">
+            Kelola master produk untuk campaign ini. ({localSkus.length} produk terdaftar)
+          </p>
         </div>
         {hasAccess && (
-          <button
-            className="btn btn-primary flex items-center gap-[8px]"
-            onClick={handleAddClick}
-            disabled={isAdding || isSavingBatch}
-          >
-            <Plus className="w-4 h-4" /> Tambah Produk Massal
-          </button>
+          <div className="flex items-center gap-2">
+            {localSkus.length > 0 && (
+              <button
+                className="btn btn-outline text-red-600 hover:bg-red-50 hover:border-red-300 flex items-center gap-[8px] text-xs font-semibold !py-2 !px-3"
+                onClick={handleDeleteAllPrompt}
+                disabled={isDeletingBatch || isLoading}
+                title="Hapus semua produk dari campaign ini sekaligus untuk tes"
+              >
+                <Trash2 className="w-4 h-4" /> Hapus Semua Produk
+              </button>
+            )}
+            <button
+              className="btn btn-primary flex items-center gap-[8px]"
+              onClick={handleAddClick}
+              disabled={isAdding || isSavingBatch || isDeletingBatch}
+            >
+              <Plus className="w-4 h-4" /> Tambah Produk Massal
+            </button>
+          </div>
         )}
       </div>
 
@@ -338,12 +423,77 @@ export default function SkuPage() {
         </div>
       )}
 
+      {/* Batch Selection Action Bar (Appears when 1 or more SKUs are selected) */}
+      {hasAccess && selectedSkuIds.length > 0 && (
+        <div className="bg-amber-50 border border-amber-300 p-3.5 rounded-xl flex flex-wrap items-center justify-between gap-3 shadow-sm animate-in fade-in">
+          <div className="flex items-center gap-3">
+            <span className="inline-flex items-center justify-center bg-amber-200 text-amber-900 text-xs font-bold px-2.5 py-1 rounded-full">
+              {selectedSkuIds.length} Dipilih
+            </span>
+            <span className="text-sm font-medium text-amber-900">
+              {selectedSkuIds.length === localSkus.length
+                ? 'Semua produk pada campaign ini telah dipilih'
+                : `${selectedSkuIds.length} dari ${localSkus.length} produk dipilih untuk tindakan massal`}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            {!isAllSelected && (
+              <button
+                type="button"
+                onClick={handleSelectAll}
+                className="btn btn-outline !py-1.5 !px-3 text-xs bg-white hover:bg-slate-50"
+              >
+                Pilih Semua ({localSkus.length})
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setSelectedSkuIds([])}
+              className="btn btn-outline !py-1.5 !px-3 text-xs bg-white hover:bg-slate-50"
+            >
+              Batal Pilihan
+            </button>
+            <button
+              type="button"
+              onClick={handleDeleteSelected}
+              disabled={isDeletingBatch}
+              className="btn bg-red-600 hover:bg-red-700 text-white !py-1.5 !px-3.5 text-xs flex items-center gap-1.5 font-semibold shadow-sm"
+            >
+              {isDeletingBatch ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" /> Menghapus...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="w-3.5 h-3.5" /> Hapus Terpilih ({selectedSkuIds.length})
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Main Table Card */}
       <div className="ccard !p-0 overflow-hidden shadow-sm">
         <div className="tbl-wrap !border-0 !rounded-none overflow-x-auto">
           <table className="w-full">
             <thead className="border-b border-line bg-slate-50">
               <tr>
+                {hasAccess && (
+                  <th className="py-[16px] px-3 w-12 text-center">
+                    <input
+                      type="checkbox"
+                      className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                      checked={isAllSelected}
+                      ref={input => {
+                        if (input) input.indeterminate = isSomeSelected;
+                      }}
+                      onChange={handleSelectAll}
+                      disabled={localSkus.length === 0 || isDeletingBatch}
+                      title={isAllSelected ? "Batalkan semua pilihan" : "Pilih semua produk"}
+                    />
+                  </th>
+                )}
                 <th className="py-[16px] px-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
                   Nama Produk
                 </th>
@@ -368,12 +518,15 @@ export default function SkuPage() {
               {isAdding && hasAccess && (
                 <>
                   <tr className="bg-amber-50/60 border-b border-amber-200">
-                    <td colSpan={hasAccess ? 5 : 4} className="px-4 py-2 text-xs font-semibold text-amber-800">
+                    <td colSpan={hasAccess ? 6 : 4} className="px-4 py-2 text-xs font-semibold text-amber-800">
                       📝 Mode Tambah Produk Massal (Ketik langsung atau Paste dari tabel Excel)
                     </td>
                   </tr>
-                  {newRows.map((row, idx) => (
+                  {newRows.map((row) => (
                     <tr key={row.id} className="bg-blue-50/40 hover:bg-blue-50/70 transition-colors">
+                      <td className="px-3 py-2 text-center text-slate-400 font-mono text-xs">
+                        •
+                      </td>
                       <td className="p-1.5">
                         <input
                           type="text"
@@ -427,7 +580,7 @@ export default function SkuPage() {
                     </tr>
                   ))}
                   <tr className="bg-blue-50/20 border-t border-blue-100">
-                    <td colSpan={hasAccess ? 5 : 4} className="p-4">
+                    <td colSpan={hasAccess ? 6 : 4} className="p-4">
                       <div className="flex flex-wrap justify-between items-center gap-3">
                         <div className="flex items-center gap-[12px]">
                           <button
@@ -477,7 +630,7 @@ export default function SkuPage() {
               {/* Loading Indicator */}
               {isLoading && localSkus.length === 0 ? (
                 <tr>
-                  <td colSpan={hasAccess ? 5 : 4} className="text-center py-12 text-slate-400">
+                  <td colSpan={hasAccess ? 6 : 4} className="text-center py-12 text-slate-400">
                     <div className="flex flex-col items-center gap-2">
                       <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
                       <span className="text-sm">Memuat data produk...</span>
@@ -486,7 +639,7 @@ export default function SkuPage() {
                 </tr>
               ) : localSkus.length === 0 && !isAdding ? (
                 <tr>
-                  <td colSpan={hasAccess ? 5 : 4} className="text-center py-12 text-text-soft">
+                  <td colSpan={hasAccess ? 6 : 4} className="text-center py-12 text-text-soft">
                     <div className="flex flex-col items-center gap-2">
                       <p className="font-medium text-slate-600">Belum ada produk terdaftar</p>
                       <p className="text-xs text-slate-400">Klik tombol "+ Tambah Produk Massal" di atas untuk menambahkan produk.</p>
@@ -497,6 +650,7 @@ export default function SkuPage() {
                 localSkus.map(sku => (
                   sku.id === editingSkuId ? (
                     <tr key={sku.id} className="bg-amber-50/30 border-b border-amber-200">
+                      {hasAccess && <td className="px-3 py-2 text-center text-slate-300">•</td>}
                       <td className="p-2">
                         <input
                           type="text"
@@ -556,7 +710,23 @@ export default function SkuPage() {
                       </td>
                     </tr>
                   ) : (
-                    <tr key={sku.id} className="border-b border-line hover:bg-slate-50/60 transition-colors">
+                    <tr
+                      key={sku.id}
+                      className={`border-b border-line hover:bg-slate-50/70 transition-colors ${
+                        selectedSkuIds.includes(sku.id) ? 'bg-blue-50/40' : ''
+                      }`}
+                    >
+                      {hasAccess && (
+                        <td className="px-3 py-3.5 text-center">
+                          <input
+                            type="checkbox"
+                            className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                            checked={selectedSkuIds.includes(sku.id)}
+                            onChange={() => handleToggleSelect(sku.id)}
+                            disabled={deletingSkuId !== null || isDeletingBatch}
+                          />
+                        </td>
+                      )}
                       <td className="px-4 py-3.5 font-medium text-text text-sm">
                         {sku.nama_produk}
                       </td>
@@ -579,7 +749,7 @@ export default function SkuPage() {
                               className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                               onClick={() => startEdit(sku)}
                               title="Edit Produk"
-                              disabled={deletingSkuId !== null}
+                              disabled={deletingSkuId !== null || isDeletingBatch}
                             >
                               <Edit2 className="w-4 h-4" />
                             </button>
@@ -588,7 +758,7 @@ export default function SkuPage() {
                               className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
                               onClick={() => handleDelete(sku)}
                               title="Hapus Produk"
-                              disabled={deletingSkuId !== null}
+                              disabled={deletingSkuId !== null || isDeletingBatch}
                             >
                               {deletingSkuId === sku.id ? (
                                 <Loader2 className="w-4 h-4 animate-spin text-red-600" />
