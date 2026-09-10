@@ -849,6 +849,11 @@ export const useDatabaseStore = create<DatabaseState>((set, get) => ({
   },
 
   deleteSku: async (id) => {
+    // Unlink foreign keys so delete succeeds without 23503 FK error
+    await supabase.from('sales').update({ sku_id: null }).eq('sku_id', id);
+    await supabase.from('campaign_concepts').update({ sku_id: null }).eq('sku_id', id);
+    await supabase.from('videos').update({ sku_id: null }).eq('sku_id', id);
+
     const { error } = await supabase.from('skus').delete().eq('id', id);
     if (error) throw error;
     set(state => ({
