@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from "react";
 import { useDatabaseStore } from "@/store/useDatabaseStore";
-import { useDraftLocalStorage } from "@/hooks/useDraftLocalStorage";
 // Replaced standard UI imports
 import { createClient } from "@/utils/supabase/client";
 import { getCreatorType, getConceptColor } from "@/utils/computed";
@@ -94,8 +93,17 @@ export default function CampaignVideoPage({
   const isAwareness = campaign?.tipe_campaign === 'awareness';
 
   const [saving, setSaving] = useState<Record<number, boolean>>({});
-  const [localVideos, setLocalVideos] = useDraftLocalStorage<any[]>(`draft_videos_campaign_${campaignId}`, initialVideos || []);
+  const [localVideos, setLocalVideos] = useState<any[]>(initialVideos || []);
   const [listingData, setListingData] = useState<any[]>(initialListingData || []);
+
+  // Clean up any stale draft_videos_campaign from localStorage to prevent cache corruption
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        window.localStorage.removeItem(`draft_videos_campaign_${campaignId}`);
+      } catch {}
+    }
+  }, [campaignId]);
   const [isLoading, setIsLoading] = useState(false);
   const [expandingLinks, setExpandingLinks] = useState<Record<string, boolean>>({});
   const [bulkImportOpen, setBulkImportOpen] = useState(false);
@@ -225,21 +233,24 @@ export default function CampaignVideoPage({
 
   // Sync state if initialListingData arrives or updates from SSR
   useEffect(() => {
-    if (initialListingData && initialListingData.length > 0 && listingData.length === 0) {
+    if (initialListingData && initialListingData.length > 0) {
       setListingData(initialListingData);
     }
-    if (initialVideos && initialVideos.length > 0 && localVideos.length === 0) {
+  }, [initialListingData]);
+
+  useEffect(() => {
+    if (initialVideos && initialVideos.length > 0) {
       setLocalVideos(initialVideos);
     }
-  }, [initialListingData, initialVideos]);
+  }, [initialVideos]);
 
   const [isFirstMount, setIsFirstMount] = useState(true);
 
   useEffect(() => {
     if (isFirstMount) {
       setIsFirstMount(false);
-      // If initialListingData is empty, auto-fetch on mount to self-heal
-      if ((!initialListingData || initialListingData.length === 0) && campaignId) {
+      // If initialListingData or initialVideos is empty, auto-fetch on mount to self-heal
+      if ((!initialListingData || initialListingData.length === 0 || !initialVideos || initialVideos.length === 0) && campaignId) {
         setPage(0);
         fetchApprovedCreators(0, true);
       }
@@ -886,6 +897,9 @@ export default function CampaignVideoPage({
        if (!creator) return;
        
        let creatorVideos = localVideos.filter(v => v.campaign_creator_id === cc.id);
+       if (creatorVideos.length === 0 && cc.videos && cc.videos.length > 0) {
+          creatorVideos = cc.videos;
+       }
        const uploadedVtCount = creatorVideos.filter(v => v.link_video).length;
        const targetVt = cc.qty_vt || 0;
        
@@ -894,21 +908,23 @@ export default function CampaignVideoPage({
        let totalViews = 0;
        let totalLikes = 0;
 
-       const validContentUids = new Set(
-           creatorVideos
-               .map(v => {
-                   if (v.content_uid) return v.content_uid;
-                   if (v.link_video) {
-                       const match = v.link_video.match(/video\/(\d+)/);
-                       if (match) return match[1];
-                   }
-                   return null;
-               })
-               .filter(Boolean)
-       );
+       const validContentUids = new Set<string>();
+       creatorVideos.forEach((v: any) => {
+          if (v.content_uid) {
+             validContentUids.add(v.content_uid);
+             validContentUids.add(v.content_uid.replace(/^video_/, ''));
+          }
+          if (v.link_video) {
+             const match = v.link_video.match(/video\/(\d+)/);
+             if (match) {
+                validContentUids.add(match[1]);
+             }
+          }
+       });
 
        vStats.forEach((s: any) => {
-          if (s.content_uid && validContentUids.has(s.content_uid)) {
+          const sUid = s.content_uid ? s.content_uid.replace(/^video_/, '') : '';
+          if (s.content_uid && (validContentUids.has(s.content_uid) || validContentUids.has(sUid))) {
              totalGmv += (s.gmv || 0);
              totalViews += (s.views || 0);
              totalLikes += (s.likes || 0);
@@ -953,8 +969,11 @@ export default function CampaignVideoPage({
 
     if (filterConcept) {
        data = data.filter(cc => {
-          const creatorVideos = localVideos.filter(v => v.campaign_creator_id === cc.id);
-          return creatorVideos.some(v => v.concept === filterConcept);
+          let creatorVideos = localVideos.filter(v => v.campaign_creator_id === cc.id);
+          if (creatorVideos.length === 0 && cc.videos && cc.videos.length > 0) {
+             creatorVideos = cc.videos;
+          }
+          return creatorVideos.some(v => String(v.concept || '') === String(filterConcept));
        });
     }
 
@@ -964,10 +983,13 @@ export default function CampaignVideoPage({
           const mb = metricsMap.get(b.id);
           
           if (sortBy === 'latest_post') {
-             const getMaxDate = (ccId: number) => {
-                const vids = localVideos.filter(v => v.campaign_creator_id === ccId && v.content_uid);
+             const getMaxDate = (ccItem: any) => {
+                let vids = localVideos.filter(v => v.campaign_creator_id === ccItem.id && v.content_uid);
+                if (vids.length === 0 && ccItem.videos && ccItem.videos.length > 0) {
+                   vids = ccItem.videos.filter((v: any) => v.content_uid);
+                }
                 let maxT = 0;
-                vids.forEach(v => {
+                vids.forEach((v: any) => {
                    let t = 0;
                    if (v.post_time) {
                      t = new Date(v.post_time).getTime();
@@ -979,20 +1001,18 @@ export default function CampaignVideoPage({
                 });
                 return maxT;
              };
-             return getMaxDate(b.id) - getMaxDate(a.id);
+             return getMaxDate(b) - getMaxDate(a);
           }
 
-          if (!ma || !mb) return 0;
-
           switch(sortBy) {
-             case 'gmv_desc': return mb.totalGmv - ma.totalGmv;
-             case 'gmv_asc': return ma.totalGmv - mb.totalGmv;
-             case 'vt_desc': return mb.uploadedVtCount - ma.uploadedVtCount;
-             case 'vt_asc': return ma.uploadedVtCount - mb.uploadedVtCount;
-             case 'views_desc': return mb.totalViews - ma.totalViews;
-             case 'views_asc': return ma.totalViews - mb.totalViews;
-             case 'likes_desc': return mb.totalLikes - ma.totalLikes;
-             case 'likes_asc': return ma.totalLikes - mb.totalLikes;
+             case 'gmv_desc': return (mb?.totalGmv || 0) - (ma?.totalGmv || 0);
+             case 'gmv_asc': return (ma?.totalGmv || 0) - (mb?.totalGmv || 0);
+             case 'vt_desc': return (mb?.uploadedVtCount || 0) - (ma?.uploadedVtCount || 0);
+             case 'vt_asc': return (ma?.uploadedVtCount || 0) - (mb?.uploadedVtCount || 0);
+             case 'views_desc': return (mb?.totalViews || 0) - (ma?.totalViews || 0);
+             case 'views_asc': return (ma?.totalViews || 0) - (mb?.totalViews || 0);
+             case 'likes_desc': return (mb?.totalLikes || 0) - (ma?.totalLikes || 0);
+             case 'likes_asc': return (ma?.totalLikes || 0) - (mb?.totalLikes || 0);
              default: return 0;
           }
        });
@@ -1008,22 +1028,34 @@ export default function CampaignVideoPage({
   const processedVideosData = React.useMemo(() => {
     let allVids: any[] = [];
     
-    localVideos.forEach(v => {
+    const sourceVideos = localVideos.length > 0 ? localVideos : (initialVideos && initialVideos.length > 0 ? initialVideos : listingData.flatMap(c => c.videos || []));
+
+    sourceVideos.forEach(v => {
        const cc = listingData.find(c => c.id === v.campaign_creator_id);
        if (!cc || !cc.creators || !isCreatorVisible(cc.creators.username)) return;
        
        const creator = cc.creators;
        const vStats = cc._videoStats || [];
        
-       const hasContentUid = v.content_uid && v.content_uid !== '';
-       const dynamicContentUid = hasContentUid ? v.content_uid : null;
+       let dynamicContentUid = (v.content_uid && v.content_uid !== '') ? v.content_uid : null;
+       if (!dynamicContentUid && v.link_video) {
+         const match = v.link_video.match(/video\/(\d+)/);
+         if (match) {
+           dynamicContentUid = match[1];
+         }
+       }
+       const hasContentUid = Boolean(dynamicContentUid);
        
        let vidGmv = 0;
        let vidViews = 0;
        let vidLikes = 0;
        
-       if (hasContentUid) {
-          const matchingStat = vStats.find((s: any) => s.content_uid === dynamicContentUid);
+       if (dynamicContentUid) {
+          const rawUid = dynamicContentUid.replace(/^video_/, '');
+          const matchingStat = vStats.find((s: any) => {
+            const sUid = s.content_uid ? s.content_uid.replace(/^video_/, '') : '';
+            return s.content_uid === dynamicContentUid || sUid === rawUid;
+          });
           if (matchingStat) {
               vidGmv = matchingStat.gmv || 0;
               vidViews = matchingStat.views || 0;
@@ -1033,8 +1065,8 @@ export default function CampaignVideoPage({
        
        const rpm = vidViews > 0 ? (vidGmv / vidViews) * 1000 : 0;
        
-       // Filter out empty "Tambah Baris" that haven't been filled if in "Semua Video" mode
-       if (!v.link_video && !v.content_uid && v.concept === '') return;
+       // Filter out empty rows that haven't been filled
+       if (!v.link_video && !dynamicContentUid && !v.concept) return;
 
        allVids.push({
           ...v,
@@ -1050,6 +1082,16 @@ export default function CampaignVideoPage({
           dynamicContentUid
        });
     });
+
+    if (debouncedSearch) {
+       const term = debouncedSearch.toLowerCase().trim();
+       allVids = allVids.filter(v => 
+          v.creatorUsername?.toLowerCase().includes(term) ||
+          v.link_video?.toLowerCase().includes(term) ||
+          String(v.content_uid || '').includes(term) ||
+          String(v.dynamicContentUid || '').includes(term)
+       );
+    }
 
     if (filterSow !== 'all') {
        allVids = allVids.filter(v => {
@@ -1070,11 +1112,17 @@ export default function CampaignVideoPage({
     }
 
     if (filterSku !== 'all') {
-       allVids = allVids.filter(v => v.sku_id === filterSku);
+       allVids = allVids.filter(v => {
+          const skuObj = skus.find(s => s.product_id === filterSku);
+          if (skuObj && v.sku_id === skuObj.id) return true;
+          if (v.product_id === filterSku) return true;
+          if (String(v.sku_id) === String(filterSku)) return true;
+          return false;
+       });
     }
 
     if (filterConcept) {
-       allVids = allVids.filter(v => v.concept === filterConcept);
+       allVids = allVids.filter(v => String(v.concept || '') === String(filterConcept));
     }
 
     if (sortBy !== 'none') {
@@ -1083,13 +1131,13 @@ export default function CampaignVideoPage({
              let timeA = 0;
              let timeB = 0;
              if (a.post_time) timeA = new Date(a.post_time).getTime();
-             else if (a.content_uid) {
-               const dateA = extractTikTokUploadDate(a.content_uid);
+             else if (a.dynamicContentUid) {
+               const dateA = extractTikTokUploadDate(a.dynamicContentUid);
                if (dateA) timeA = new Date(dateA).getTime();
              }
              if (b.post_time) timeB = new Date(b.post_time).getTime();
-             else if (b.content_uid) {
-               const dateB = extractTikTokUploadDate(b.content_uid);
+             else if (b.dynamicContentUid) {
+               const dateB = extractTikTokUploadDate(b.dynamicContentUid);
                if (dateB) timeB = new Date(dateB).getTime();
              }
              return timeB - timeA;
@@ -1109,7 +1157,7 @@ export default function CampaignVideoPage({
     }
 
     return allVids;
-  }, [localVideos, listingData, metricsMap, filterSow, filterSales, filterSku, filterConcept, sortBy, isCreatorVisible]);
+  }, [localVideos, initialVideos, listingData, metricsMap, debouncedSearch, filterSow, filterSales, filterSku, filterConcept, sortBy, isCreatorVisible, skus]);
 
   const visibleVideosData = processedVideosData.slice(0, clientPage * CLIENT_PAGE_SIZE);
   const hasMoreVideosClient = processedVideosData.length > visibleVideosData.length;
@@ -1131,6 +1179,9 @@ export default function CampaignVideoPage({
       }
 
       let creatorVideos = localVideos.filter(v => v.campaign_creator_id === cc.id);
+      if (creatorVideos.length === 0 && cc.videos && cc.videos.length > 0) {
+        creatorVideos = cc.videos;
+      }
       const target = cc.qty_vt || 0;
       
       const vids = [...creatorVideos];
@@ -1231,6 +1282,9 @@ export default function CampaignVideoPage({
       if (!isCreatorVisible(creator.username)) return;
 
       let creatorVideos = localVideos.filter(v => v.campaign_creator_id === cc.id);
+      if (creatorVideos.length === 0 && cc.videos && cc.videos.length > 0) {
+        creatorVideos = cc.videos;
+      }
       const target = cc.qty_vt || 0;
       const count = Math.max(target, creatorVideos.length, 1);
       
@@ -1268,7 +1322,8 @@ export default function CampaignVideoPage({
 
   const historyVideos = React.useMemo(() => {
     if (!historyOpen) return [];
-    const videos = localVideos.filter(v => typeof v.id === 'number' && v.created_at);
+    const sourceVids = localVideos.length > 0 ? localVideos : (initialVideos && initialVideos.length > 0 ? initialVideos : listingData.flatMap(c => c.videos || []));
+    const videos = sourceVids.filter(v => typeof v.id === 'number' && v.created_at);
     videos.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     
     return videos.map(v => {
@@ -1279,7 +1334,7 @@ export default function CampaignVideoPage({
         creatorName: cc?.creators?.nama_asli || '-'
       };
     });
-  }, [localVideos, listingData, historyOpen]);
+  }, [localVideos, initialVideos, listingData, historyOpen]);
   const HISTORY_PAGE_SIZE = 15;
   const paginatedHistoryVideos = historyVideos.slice(historyPage * HISTORY_PAGE_SIZE, (historyPage + 1) * HISTORY_PAGE_SIZE);
   const totalHistoryPages = Math.ceil(historyVideos.length / HISTORY_PAGE_SIZE);
@@ -1506,6 +1561,9 @@ export default function CampaignVideoPage({
               if (!creator) return null;
               
               let creatorVideos = localVideos.filter(v => v.campaign_creator_id === cc.id);
+              if (creatorVideos.length === 0 && cc.videos && cc.videos.length > 0) {
+                 creatorVideos = cc.videos;
+              }
               
               // Re-assign urutan for auto videos so they appear at the bottom sequentially
               let maxUrutan = Math.max(0, ...creatorVideos.filter(v => typeof v.id === 'number').map(v => v.urutan));
@@ -1549,7 +1607,7 @@ export default function CampaignVideoPage({
                         </div>
                         <div className="text-center px-2 lg:px-4 border-l border-slate-200">
                           <p className="text-[10px] text-slate-500 font-medium">TOTAL VT</p>
-                          <p className="font-bold text-slate-700">{localVideos.filter(v => v.campaign_creator_id === cc.id && v.link_video).length}</p>
+                          <p className="font-bold text-slate-700">{m?.uploadedVtCount ?? creatorVideos.filter((v: any) => v.link_video).length}</p>
                         </div>
                         <div className="text-center px-2 lg:px-4 border-l border-slate-200">
                           <p className="text-[10px] text-emerald-600 font-medium">TOTAL GMV</p>
@@ -1617,7 +1675,11 @@ export default function CampaignVideoPage({
 
                             if (hasContentUid) {
                                const vStats = cc._videoStats || [];
-                               const matchingStat = vStats.find((s: any) => s.content_uid === dynamicContentUid);
+                               const rawUid = dynamicContentUid.replace(/^video_/, '');
+                               const matchingStat = vStats.find((s: any) => {
+                                 const sUid = s.content_uid ? s.content_uid.replace(/^video_/, '') : '';
+                                 return s.content_uid === dynamicContentUid || sUid === rawUid;
+                               });
                                if (matchingStat) {
                                   vidGmv = matchingStat.gmv || 0;
                                   vidViews = matchingStat.views || 0;
@@ -1804,9 +1866,16 @@ export default function CampaignVideoPage({
                 </tr>
               </thead>
               <tbody className={isFiltering ? "opacity-50 transition-opacity" : "transition-opacity"}>
-                {visibleVideosData.map(v => {
-                  const warningShortLink = v.link_video?.includes('vt.tiktok.com');
-                  return (
+                {visibleVideosData.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="p-8 text-center text-text-soft">
+                      Tidak ada video yang ditemukan.
+                    </td>
+                  </tr>
+                ) : (
+                  visibleVideosData.map(v => {
+                    const warningShortLink = v.link_video?.includes('vt.tiktok.com');
+                    return (
                     <tr key={v.id} className="border-b border-slate-100 hover:bg-slate-50/50">
                       <td className="p-4 align-top">
                         <div>
@@ -1936,8 +2005,8 @@ export default function CampaignVideoPage({
                         )}
                       </td>
                     </tr>
-                  )
-                })}
+                  );
+                }))}
               </tbody>
             </table>
             
