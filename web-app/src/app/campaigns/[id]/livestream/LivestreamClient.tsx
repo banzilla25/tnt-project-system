@@ -297,26 +297,6 @@ export default function CampaignLiveStreamClient({
           <p className="text-[13px] text-slate-500">Analitik performa khusus untuk Live Stream berdasarkan data impor organik.</p>
         </div>
         
-        {/* Toggle Switch Mode */}
-        <div className="flex items-center bg-slate-100 p-1 rounded-lg border border-slate-200">
-          <button
-            onClick={() => setViewMode('creator')}
-            className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-[13px] font-medium transition-all ${
-              viewMode === 'creator' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            <User className="w-4 h-4" />
-            Per Kreator
-          </button>
-          <button
-            onClick={() => setViewMode('date')}
-            className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-[13px] font-medium transition-all ${
-              viewMode === 'date' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            <Calendar className="w-4 h-4" />
-            Per Tanggal
-          </button>
         </div>
       </div>
 
@@ -431,6 +411,16 @@ export default function CampaignLiveStreamClient({
         <>
           {/* ── Search & Filter Controls ── */}
           <div className="ccard p-4 flex flex-wrap gap-4 items-center bg-white border border-slate-200 rounded-xl shadow-sm">
+            {/* Toggle Switch Mode */}
+            <div className="flex items-center bg-slate-100 p-1 rounded-lg border border-slate-200 mr-2">
+              <button onClick={() => setViewMode('creator')} className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-[13px] font-medium transition-all ${viewMode === 'creator' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+                <User className="w-4 h-4" /> Per Kreator
+              </button>
+              <button onClick={() => setViewMode('date')} className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-[13px] font-medium transition-all ${viewMode === 'date' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+                <Calendar className="w-4 h-4" /> Per Tanggal
+              </button>
+            </div>
+
             <div className="relative max-w-sm flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input 
@@ -592,6 +582,16 @@ export default function CampaignLiveStreamClient({
         <>
           {/* ── Date Mode Controls ── */}
           <div className="ccard p-4 flex flex-wrap gap-4 items-center bg-white border border-slate-200 rounded-xl shadow-sm">
+            {/* Toggle Switch Mode */}
+            <div className="flex items-center bg-slate-100 p-1 rounded-lg border border-slate-200 mr-2">
+              <button onClick={() => setViewMode('creator')} className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-[13px] font-medium transition-all ${viewMode === 'creator' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+                <User className="w-4 h-4" /> Per Kreator
+              </button>
+              <button onClick={() => setViewMode('date')} className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-[13px] font-medium transition-all ${viewMode === 'date' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+                <Calendar className="w-4 h-4" /> Per Tanggal
+              </button>
+            </div>
+
               <div className="relative max-w-sm flex-1 min-w-[200px]">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input 
@@ -691,21 +691,40 @@ export default function CampaignLiveStreamClient({
                             <tr>
                               <th className="px-4 py-3">Waktu</th>
                               <th className="px-4 py-3">Kreator</th>
-                              <th className="px-4 py-3 hidden sm:table-cell">Durasi</th>
-                              <th className="px-4 py-3 text-right">Views</th>
+                              
                               <th className="px-4 py-3 text-right">Orders</th>
                               <th className="px-4 py-3 text-right">Live GMV</th>
-                              <th className="px-4 py-3 text-right hidden md:table-cell">GPM</th>
+                              
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100">
                             {day.sessions.map((session: any, sidx: number) => {
                               const sTime = new Date(session.start_time);
-                              const timeStr = !isNaN(sTime.getTime()) ? sTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB' : '-';
-                              const vViews = Number(session.video_views) || 0;
+                              let endTimeStr = 'Selesai';
+                              if (!isNaN(sTime.getTime()) && session.duration_str) {
+                                let totalSeconds = 0;
+                                const dStr = session.duration_str.toString().toLowerCase();
+                                if (/^\d{2}:\d{2}:\d{2}$/.test(dStr)) {
+                                  const parts = dStr.split(':');
+                                  totalSeconds = parseInt(parts[0]) * 3600 + parseInt(parts[1]) * 60 + parseInt(parts[2]);
+                                } else {
+                                  const h = dStr.match(/(\d+)\s*(j|h)/);
+                                  const m = dStr.match(/(\d+)\s*(m)/);
+                                  const s = dStr.match(/(\d+)\s*(s|d)/);
+                                  if (h) totalSeconds += parseInt(h[1]) * 3600;
+                                  if (m) totalSeconds += parseInt(m[1]) * 60;
+                                  if (s) totalSeconds += parseInt(s[1]);
+                                }
+                                if (totalSeconds > 0) {
+                                  const eTime = new Date(sTime.getTime() + totalSeconds * 1000);
+                                  endTimeStr = eTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + ' WIB';
+                                }
+                              }
+                              const startTimeStr = !isNaN(sTime.getTime()) ? sTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + ' WIB' : '-';
+                              const timeStr = startTimeStr !== '-' ? `${startTimeStr} - ${endTimeStr}` : '-';
+                              
                               const vOrders = Number(session.orders) || 0;
                               const vGmv = Number(session.gmv) || 0;
-                              const gpm = vViews > 0 ? (vGmv / vViews * 1000) : 0;
                               
                               return (
                                 <tr key={session.content_uid || sidx} className="hover:bg-slate-50 text-[13px] transition-colors">
@@ -718,20 +737,11 @@ export default function CampaignLiveStreamClient({
                                   <td className="px-4 py-3 font-semibold text-slate-800">
                                     @{session.creator_username?.replace(/^@/, '')}
                                   </td>
-                                  <td className="px-4 py-3 text-slate-500 hidden sm:table-cell">
-                                    {session.duration_str || '-'}
-                                  </td>
-                                  <td className="px-4 py-3 text-right font-medium text-slate-700">
-                                    {vViews.toLocaleString('id-ID')}
-                                  </td>
                                   <td className="px-4 py-3 text-right font-medium text-slate-700">
                                     {vOrders.toLocaleString('id-ID')}
                                   </td>
                                   <td className="px-4 py-3 text-right font-semibold text-green-600">
                                     Rp {vGmv.toLocaleString('id-ID')}
-                                  </td>
-                                  <td className="px-4 py-3 text-right text-slate-500 hidden md:table-cell">
-                                    Rp {gpm.toLocaleString('id-ID', { maximumFractionDigits: 0 })}
                                   </td>
                                 </tr>
                               );
