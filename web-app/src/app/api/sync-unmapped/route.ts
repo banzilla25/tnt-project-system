@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
         .in('creators.username', usernames);
         
       const existingCcNames = new Set((existingCcs || []).map(cc => cc.creators.username.toLowerCase()));
-      const missingCcs = usernames.filter(u => !existingCcNames.has(u));
+      const missingCcs = usernames.filter(u => !existingCcNames.has(u.toLowerCase()));
       
       if (missingCcs.length > 0) {
         // We need the creator IDs for those missing

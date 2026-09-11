@@ -719,18 +719,27 @@ export default function OrganicImport({ mode = 'sales' }: { mode?: 'sales' | 'vi
     try {
       const uniqueUsernames = Array.from(new Set(uniquePayload.map(p => p.creator_username).filter(Boolean)));
       if (uniqueUsernames.length > 0) {
-        // 1. Fetch existing creators in chunks
+        // 1. Fetch existing creators in chunks (case-insensitive match)
         const creatorMap = new Map();
         for (let i = 0; i < uniqueUsernames.length; i += 200) {
           const chunk = uniqueUsernames.slice(i, i + 200);
+          // First: exact match lookup
           const { data: chunkExisting } = await supabase.from('creators').select('id, username').in('username', chunk);
           if (chunkExisting) {
-            chunkExisting.forEach(c => creatorMap.set(c.username, c.id));
+            chunkExisting.forEach(c => creatorMap.set(c.username.toLowerCase(), c.id));
+          }
+          // Second: for any still-missing usernames, try case-insensitive (ilike) lookup
+          const stillMissing = chunk.filter(u => !creatorMap.has(u.toLowerCase()));
+          for (const uname of stillMissing) {
+            const { data: ilikeResult } = await supabase.from('creators').select('id, username').ilike('username', uname).limit(1);
+            if (ilikeResult && ilikeResult.length > 0) {
+              creatorMap.set(ilikeResult[0].username.toLowerCase(), ilikeResult[0].id);
+            }
           }
         }
         
-        // 2. Insert missing creators in chunks
-        const missingUsernames = uniqueUsernames.filter(u => !creatorMap.has(u));
+        // 2. Insert missing creators in chunks (only if truly missing after case-insensitive check)
+        const missingUsernames = uniqueUsernames.filter(u => !creatorMap.has(u.toLowerCase()));
         if (missingUsernames.length > 0) {
           for (let i = 0; i < missingUsernames.length; i += 500) {
             const chunk = missingUsernames.slice(i, i + 500);
@@ -738,15 +747,16 @@ export default function OrganicImport({ mode = 'sales' }: { mode?: 'sales' | 'vi
               chunk.map(u => ({ username: u, added_by: 'system' }))
             ).select('id, username');
             if (!errInsert && newCreators) {
-              newCreators.forEach(c => creatorMap.set(c.username, c.id));
+              newCreators.forEach(c => creatorMap.set(c.username.toLowerCase(), c.id));
             }
           }
         }
 
+
         // 3. Group by campaign -> creator -> set of sku_ids
         const assignments: Record<number, Record<number, Set<number>>> = {};
         for (const item of uniquePayload) {
-          const cId = creatorMap.get(item.creator_username);
+          const cId = creatorMap.get(item.creator_username?.toLowerCase());
           if (cId && item.campaign_id) {
             if (!assignments[item.campaign_id]) assignments[item.campaign_id] = {};
             if (!assignments[item.campaign_id][cId]) assignments[item.campaign_id][cId] = new Set();
