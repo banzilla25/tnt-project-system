@@ -1104,8 +1104,6 @@ function CampaignListingContent() {
       if (filterType === 'auto_detect') query = query.eq('tier', 'Auto-Detect');
       if (filterType === 'regular') query = query.or('tier.neq.Auto-Detect,tier.is.null');
       
-      let creatorsWithAnyVideo = new Set<number>();
-      
       if (filterPendingWithVideo) {
         query = query.neq('approval', 'approved');
         
@@ -1127,10 +1125,30 @@ function CampaignListingContent() {
         const salesUsernames = Array.from(new Set((salesData || []).map(s => s.creator_username.toLowerCase())));
         
         const combinedUsernames = Array.from(new Set([...orgUsernames, ...salesUsernames]));
+        let allVideoCreatorIds: number[] = [];
         
         if (combinedUsernames.length > 0) {
           const { data: cData } = await supabase.from('creators').select('id').in('username', combinedUsernames);
-          (cData || []).forEach(c => creatorsWithAnyVideo.add(c.id));
+          (cData || []).forEach(c => allVideoCreatorIds.push(c.id));
+        }
+        
+        // Also fetch creators who ALREADY have rows in `videos` table
+        const { data: vData } = await supabase.from('videos')
+          .select('campaign_creator_id, campaign_creators!inner(campaign_id, creator_id)')
+          .eq('campaign_creators.campaign_id', campaignId);
+          
+        (vData || []).forEach((v: any) => {
+          if (v.campaign_creators?.creator_id) {
+            allVideoCreatorIds.push(v.campaign_creators.creator_id);
+          }
+        });
+        
+        allVideoCreatorIds = Array.from(new Set(allVideoCreatorIds));
+        
+        if (allVideoCreatorIds.length > 0) {
+          query = query.in('creator_id', allVideoCreatorIds);
+        } else {
+          query = query.eq('id', -1); // Force empty result if nobody has videos
         }
       } else if (filterUnattributed) {
         query = query.neq('approval', 'approved');
@@ -1283,10 +1301,6 @@ function CampaignListingContent() {
       }
       finalData = Array.from(uniqueMap.values());
       
-      if (filterPendingWithVideo) {
-        finalData = finalData.filter(row => creatorsWithAnyVideo.has(row.creators?.id) || (row.videos && row.videos.length > 0));
-      }
-
       if (filterNotes === 'Ada Notes') {
         const parseNotesList = (raw: string) => {
           if (!raw) return [];
