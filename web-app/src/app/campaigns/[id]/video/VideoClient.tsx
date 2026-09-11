@@ -1560,6 +1560,13 @@ export default function CampaignVideoPage({
                    >
                      Tampilan: Semua Video
                    </button>
+                     <div className="w-[1px] bg-slate-200"></div>
+                     <button 
+                       onClick={() => setViewMode('date')}
+                       className={`px-4 py-2 text-sm font-semibold transition-colors ${viewMode === 'date' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-50'}`}
+                     >
+                       Tampilan: Per Tanggal
+                     </button>
                    <div className="w-[1px] bg-slate-200"></div>
                    <button 
                      onClick={() => setViewMode('draft')}
