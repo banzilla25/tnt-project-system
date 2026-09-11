@@ -1093,7 +1093,7 @@ function CampaignListingContent() {
           creator_snapshots${filterTier || filterLevel ? '!inner' : ''} ( id, audience_age, level, gmv_30d, gmv_30d_video, gmv_30d_live, tanggal_update, followers, tier ),
           creator_niches${filterNiche ? '!inner' : ''} ( niche_id, niches ( nama ) )
         ),
-        videos${filterPendingWithVideo || filterConcept ? '!inner' : ''} (
+        videos${filterConcept ? '!inner' : ''} (
           id, urutan, concept, concept_updated_at, concept_updated_by, link_video, vt_approval
         )
       `;
@@ -1104,8 +1104,34 @@ function CampaignListingContent() {
       if (filterType === 'auto_detect') query = query.eq('tier', 'Auto-Detect');
       if (filterType === 'regular') query = query.or('tier.neq.Auto-Detect,tier.is.null');
       
+      let creatorsWithAnyVideo = new Set<number>();
+      
       if (filterPendingWithVideo) {
         query = query.neq('approval', 'approved');
+        
+        // Find creators who have videos in organic_videos
+        const { data: orgData } = await supabase
+          .from('organic_videos')
+          .select('creator_username')
+          .eq('campaign_id', campaignId);
+          
+        const orgUsernames = Array.from(new Set((orgData || []).map(o => o.creator_username.toLowerCase())));
+        
+        // Find creators who have sales videos
+        const { data: salesData } = await supabase
+          .from('sales')
+          .select('creator_username')
+          .eq('campaign_id', campaignId)
+          .not('content_uid', 'is', null);
+          
+        const salesUsernames = Array.from(new Set((salesData || []).map(s => s.creator_username.toLowerCase())));
+        
+        const combinedUsernames = Array.from(new Set([...orgUsernames, ...salesUsernames]));
+        
+        if (combinedUsernames.length > 0) {
+          const { data: cData } = await supabase.from('creators').select('id').in('username', combinedUsernames);
+          (cData || []).forEach(c => creatorsWithAnyVideo.add(c.id));
+        }
       } else if (filterUnattributed) {
         query = query.neq('approval', 'approved');
         
@@ -1256,6 +1282,10 @@ function CampaignListingContent() {
          }
       }
       finalData = Array.from(uniqueMap.values());
+      
+      if (filterPendingWithVideo) {
+        finalData = finalData.filter(row => creatorsWithAnyVideo.has(row.creators?.id) || (row.videos && row.videos.length > 0));
+      }
 
       if (filterNotes === 'Ada Notes') {
         const parseNotesList = (raw: string) => {
