@@ -145,6 +145,11 @@ export default function CampaignVideoPage({
   const [debouncedSearch, setDebouncedSearch] = useState('');
   
   // New Filters & Sort states
+    const [dateSortBy, setDateSortBy] = useState<'latest'|'oldest'|'gmv_desc'|'views_desc'>('latest');
+  const [expandedDates, setExpandedDates] = useState<string[]>([]);
+  const toggleDateExpanded = (d: string) => {
+    setExpandedDates(prev => prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d]);
+  };
   const [filterSow, setFilterSow] = useState('all');
   const [filterSales, setFilterSales] = useState('all');
   const [filterSku, setFilterSku] = useState('all');
@@ -152,7 +157,7 @@ export default function CampaignVideoPage({
   const [sortBy, setSortBy] = useState('latest_post');
   const [expandedGroups, setExpandedGroups] = useState<Set<number>>(new Set());
   const [clientPage, setClientPage] = useState(1);
-  const [viewMode, setViewMode] = useState<'creator' | 'video' | 'draft'>('creator');
+  const [viewMode, setViewMode] = useState<'creator' | 'video' | 'draft' | 'date'>('creator');
   const [isFiltering, setIsFiltering] = useState(false);
 
   // Draft Video specific states
@@ -1444,6 +1449,52 @@ export default function CampaignVideoPage({
     return { total, readyForReview, approved, revisi, noDraft };
   }, [listingData, localVideos, isCreatorVisible]);
 
+  
+  const aggregatedByDate = React.useMemo(() => {
+    const grouped = new Map<string, any[]>();
+    processedVideosData.forEach(v => {
+      if (!v.post_time) return;
+      const d = new Date(v.post_time);
+      if (isNaN(d.getTime())) return;
+      
+      const pad = (n: number) => n.toString().padStart(2, '0');
+      const dateKey = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+      
+      if (!grouped.has(dateKey)) grouped.set(dateKey, []);
+      grouped.get(dateKey).push(v);
+    });
+
+    const result = Array.from(grouped.entries()).map(([dateStr, vids]) => {
+      const creatorsSet = new Set(vids.map(v => (v.creatorUsername || '').toLowerCase()));
+      const totalCreators = creatorsSet.size;
+      const totalVideos = vids.length;
+      const totalViews = vids.reduce((acc, v) => acc + (Number(v.vidViews) || 0), 0);
+      const totalLikes = vids.reduce((acc, v) => acc + (Number(v.vidLikes) || 0), 0);
+      const totalGmv = vids.reduce((acc, v) => acc + (Number(v.vidGmv) || 0), 0);
+      
+      return {
+        dateStr,
+        dateObj: new Date(dateStr),
+        totalCreators,
+        totalVideos,
+        totalViews,
+        totalLikes,
+        totalGmv,
+        vids: vids.sort((a, b) => new Date(a.post_time).getTime() - new Date(b.post_time).getTime())
+      };
+    });
+
+    result.sort((a, b) => {
+      if (dateSortBy === 'latest') return b.dateObj.getTime() - a.dateObj.getTime();
+      if (dateSortBy === 'oldest') return a.dateObj.getTime() - b.dateObj.getTime();
+      if (dateSortBy === 'gmv_desc') return b.totalGmv - a.totalGmv;
+      if (dateSortBy === 'views_desc') return b.totalViews - a.totalViews;
+      return 0;
+    });
+    
+    return result;
+  }, [processedVideosData, dateSortBy]);
+
   const visibleDraftsData = processedDraftsData.slice(0, clientPage * CLIENT_PAGE_SIZE);
   const hasMoreDrafts = processedDraftsData.length > visibleDraftsData.length;
 
@@ -1554,7 +1605,7 @@ export default function CampaignVideoPage({
               </div>
 
               {/* Filter Rentang Tanggal Posting (Paling Atas, Khusus Tampilan: Semua Video) */}
-              {viewMode === 'video' && (
+              {(viewMode === 'video' || viewMode === 'date') && (
                 <div className="bg-white p-3.5 rounded-lg border border-indigo-100 shadow-xs flex flex-col gap-3">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="flex items-center gap-2 flex-wrap">
@@ -1701,11 +1752,11 @@ export default function CampaignVideoPage({
               <div className="flex flex-wrap gap-4 items-end">
                  <div className="space-y-2 flex-1 min-w-[200px]">
                     <label className="text-xs font-semibold text-text-soft">
-                       {viewMode === 'video' ? 'Pencarian Kreator / Link / UID' : 'Pencarian Kreator'}
+                       {(viewMode === 'video' || viewMode === 'date') ? 'Pencarian Kreator / Link / UID' : 'Pencarian Kreator'}
                     </label>
                     <input 
                        type="text" 
-                       placeholder={viewMode === 'video' ? "Cari username, link tiktok, atau UID..." : "Cari username..."} 
+                       placeholder={(viewMode === 'video' || viewMode === 'date') ? "Cari username, link tiktok, atau UID..." : "Cari username..."} 
                        className="input w-full"
                        value={searchQuery}
                        onChange={e => setSearchQuery(e.target.value)}
