@@ -291,12 +291,10 @@ export default function CampaignLiveStreamClient({
 
   return (
     <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-[20px] font-bold text-slate-800">Performa Live Stream</h2>
           <p className="text-[13px] text-slate-500">Analitik performa khusus untuk Live Stream berdasarkan data impor organik.</p>
-        </div>
-        
         </div>
       </div>
 
