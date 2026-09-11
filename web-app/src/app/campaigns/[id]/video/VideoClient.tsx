@@ -5,10 +5,10 @@ import { useDatabaseStore } from "@/store/useDatabaseStore";
 // Replaced standard UI imports
 import { createClient } from "@/utils/supabase/client";
 import { getCreatorType, getConceptColor } from "@/utils/computed";
-import { formatDateTime, formatDateTimeShort } from "@/utils/formatters";
+import { formatDateTime, formatDateTimeShort, formatDate } from "@/utils/formatters";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { AlertCircle, Link as LinkIcon, Save, Edit2, Loader2, ChevronDown, ChevronRight, Plus, PlayCircle, X, Download, ExternalLink, CheckCircle2, Clock, Film, FileVideo, RotateCw } from "lucide-react";
+import { AlertCircle, Link as LinkIcon, Save, Edit2, Loader2, ChevronDown, ChevronRight, Plus, PlayCircle, X, Download, ExternalLink, CheckCircle2, Clock, Film, FileVideo, RotateCw, Calendar } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/Dialog";
 import { useAuth } from "@/providers/AuthProvider";
 import { useCampaignFilter } from "@/providers/CampaignFilterProvider";
@@ -163,6 +163,98 @@ export default function CampaignVideoPage({
   const [masterConcepts, setMasterConcepts] = useState<any[]>([]);
   const [selectedConcept, setSelectedConcept] = useState<any | null>(null);
 
+  // Posting Date Range Filter states (specifically for 'video' viewMode)
+  const [postDateStart, setPostDateStart] = useState<string>('');
+  const [postDateEnd, setPostDateEnd] = useState<string>('');
+  const [datePreset, setDatePreset] = useState<string>('all');
+
+  const handleApplyDatePreset = (preset: string) => {
+    const today = new Date();
+    const formatDateStr = (d: Date) => {
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+
+    if (preset === 'all') {
+      setPostDateStart('');
+      setPostDateEnd('');
+      setDatePreset('all');
+      return;
+    }
+
+    if (preset === '3d') {
+      const start = new Date(today);
+      start.setDate(today.getDate() - 2);
+      setPostDateStart(formatDateStr(start));
+      setPostDateEnd(formatDateStr(today));
+      setDatePreset('3d');
+      return;
+    }
+
+    if (preset === '7d') {
+      const start = new Date(today);
+      start.setDate(today.getDate() - 6);
+      setPostDateStart(formatDateStr(start));
+      setPostDateEnd(formatDateStr(today));
+      setDatePreset('7d');
+      return;
+    }
+
+    if (preset === '14d') {
+      const start = new Date(today);
+      start.setDate(today.getDate() - 13);
+      setPostDateStart(formatDateStr(start));
+      setPostDateEnd(formatDateStr(today));
+      setDatePreset('14d');
+      return;
+    }
+
+    if (preset === '30d') {
+      const start = new Date(today);
+      start.setDate(today.getDate() - 29);
+      setPostDateStart(formatDateStr(start));
+      setPostDateEnd(formatDateStr(today));
+      setDatePreset('30d');
+      return;
+    }
+
+    if (preset === 'this_month') {
+      const start = new Date(today.getFullYear(), today.getMonth(), 1);
+      setPostDateStart(formatDateStr(start));
+      setPostDateEnd(formatDateStr(today));
+      setDatePreset('this_month');
+      return;
+    }
+
+    if (preset === 'campaign_period' && campaign?.start_date) {
+      setPostDateStart(campaign.start_date.substring(0, 10));
+      if (campaign.end_date) {
+        setPostDateEnd(campaign.end_date.substring(0, 10));
+      } else {
+        setPostDateEnd(formatDateStr(today));
+      }
+      setDatePreset('campaign_period');
+      return;
+    }
+  };
+
+  const handleResetDateFilter = () => {
+    setPostDateStart('');
+    setPostDateEnd('');
+    setDatePreset('all');
+  };
+
+  const formatDateInputDisplay = (dateStr: string) => {
+    if (!dateStr) return '';
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+      return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+    return dateStr;
+  };
+
   // Fetch master concepts for this campaign
   useEffect(() => {
     if (!campaignId) return;
@@ -181,12 +273,12 @@ export default function CampaignVideoPage({
     setClientPage(1);
     const timer = setTimeout(() => setIsFiltering(false), 300);
     return () => clearTimeout(timer);
-  }, [debouncedSearch, filterSow, filterSales, filterSku, filterConcept, sortBy, viewMode, filterDraftApproval, filterDraftLink, filterDraftTiktok]);
+  }, [debouncedSearch, filterSow, filterSales, filterSku, filterConcept, sortBy, viewMode, filterDraftApproval, filterDraftLink, filterDraftTiktok, postDateStart, postDateEnd]);
   const CLIENT_PAGE_SIZE = 50;
 
   useEffect(() => {
     setClientPage(1);
-  }, [filterSow, filterSales, filterSku, filterConcept, sortBy, debouncedSearch, viewMode, filterDraftApproval, filterDraftLink, filterDraftTiktok]);
+  }, [filterSow, filterSales, filterSku, filterConcept, sortBy, debouncedSearch, viewMode, filterDraftApproval, filterDraftLink, filterDraftTiktok, postDateStart, postDateEnd]);
   
   const toggleGroup = (id: number) => {
     setExpandedGroups(prev => {
@@ -431,7 +523,8 @@ export default function CampaignVideoPage({
       const ws = XLSX.utils.json_to_sheet(formattedData);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Videos");
-      XLSX.writeFile(wb, `Export_Video_Campaign_${campaignId}_${new Date().toISOString().split('T')[0]}.xlsx`);
+      const dateRangeSuffix = (postDateStart || postDateEnd) ? `_${postDateStart || 'start'}_sd_${postDateEnd || 'end'}` : '';
+      XLSX.writeFile(wb, `Export_Video_Campaign_${campaignId}${dateRangeSuffix}_${new Date().toISOString().split('T')[0]}.xlsx`);
 
     } catch (err: any) {
       console.error("Export Error:", err);
@@ -1069,8 +1162,14 @@ export default function CampaignVideoPage({
        // Filter out empty rows that haven't been filled
        if (!v.link_video && !dynamicContentUid && !v.concept) return;
 
+       let effectivePostTime = v.post_time || null;
+       if (!effectivePostTime && dynamicContentUid) {
+         effectivePostTime = extractTikTokUploadDate(dynamicContentUid);
+       }
+
        allVids.push({
           ...v,
+          post_time: effectivePostTime,
           creatorUsername: creator.username,
           creatorTier: cc.tier,
           creatorId: creator.id,
@@ -1083,6 +1182,33 @@ export default function CampaignVideoPage({
           dynamicContentUid
        });
     });
+
+    // 1. Posting Date Range Filter (Khusus Tampilan: Semua Video)
+    if (postDateStart || postDateEnd) {
+       let effectiveStart = postDateStart;
+       let effectiveEnd = postDateEnd;
+       if (postDateStart && postDateEnd && postDateStart > postDateEnd) {
+          effectiveStart = postDateEnd;
+          effectiveEnd = postDateStart;
+       }
+
+       const startTime = effectiveStart ? new Date(`${effectiveStart}T00:00:00`).getTime() : null;
+       const endTime = effectiveEnd ? new Date(`${effectiveEnd}T23:59:59.999`).getTime() : null;
+
+       allVids = allVids.filter(v => {
+          let vidTime: number | null = null;
+          if (v.post_time) {
+             vidTime = new Date(v.post_time).getTime();
+          } else if (v.dynamicContentUid) {
+             const d = extractTikTokUploadDate(v.dynamicContentUid);
+             if (d) vidTime = new Date(d).getTime();
+          }
+          if (vidTime === null || isNaN(vidTime)) return false;
+          if (startTime !== null && vidTime < startTime) return false;
+          if (endTime !== null && vidTime > endTime) return false;
+          return true;
+       });
+    }
 
     if (debouncedSearch) {
        const term = debouncedSearch.toLowerCase().trim();
@@ -1158,7 +1284,7 @@ export default function CampaignVideoPage({
     }
 
     return allVids;
-  }, [localVideos, initialVideos, listingData, metricsMap, debouncedSearch, filterSow, filterSales, filterSku, filterConcept, sortBy, isCreatorVisible, skus]);
+  }, [localVideos, initialVideos, listingData, metricsMap, debouncedSearch, filterSow, filterSales, filterSku, filterConcept, sortBy, isCreatorVisible, skus, postDateStart, postDateEnd]);
 
   const visibleVideosData = processedVideosData.slice(0, clientPage * CLIENT_PAGE_SIZE);
   const hasMoreVideosClient = processedVideosData.length > visibleVideosData.length;
@@ -1426,12 +1552,160 @@ export default function CampaignVideoPage({
                   )}
                 </div>
               </div>
+
+              {/* Filter Rentang Tanggal Posting (Paling Atas, Khusus Tampilan: Semua Video) */}
+              {viewMode === 'video' && (
+                <div className="bg-white p-3.5 rounded-lg border border-indigo-100 shadow-xs flex flex-col gap-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
+                        <Calendar className="w-4 h-4 text-indigo-600" />
+                        <span>Rentang Tanggal Posting:</span>
+                      </div>
+                      
+                      {(postDateStart || postDateEnd) ? (
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                          <span>
+                            {postDateStart ? formatDateInputDisplay(postDateStart) : 'Awal'} — {postDateEnd ? formatDateInputDisplay(postDateEnd) : 'Sekarang'}
+                          </span>
+                          <button 
+                            type="button"
+                            onClick={handleResetDateFilter}
+                            className="hover:bg-indigo-200/60 p-0.5 rounded-full transition-colors text-indigo-600 hover:text-indigo-900"
+                            title="Reset ke All Time"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-xs font-medium text-slate-400 bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-200">
+                          All Time (Semua Waktu)
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Ringkasan metrik video pada rentang tanggal aktif */}
+                    <div className="flex items-center gap-2 sm:gap-3 text-xs text-slate-600 flex-wrap">
+                      <span className="bg-slate-50 px-2.5 py-1 rounded-md border border-slate-200">
+                        Total Video: <strong className="text-slate-800">{processedVideosData.length}</strong>
+                      </span>
+                      <span className="bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200 text-emerald-800">
+                        Total GMV: <strong>Rp {processedVideosData.reduce((acc, v) => acc + (v.vidGmv || 0), 0).toLocaleString('id-ID')}</strong>
+                      </span>
+                      <span className="bg-indigo-50 px-2.5 py-1 rounded-md border border-indigo-200 text-indigo-800">
+                        Total Views: <strong>{processedVideosData.reduce((acc, v) => acc + (v.vidViews || 0), 0).toLocaleString('id-ID')}</strong>
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Tombol Preset & Input Tanggal Kustom */}
+                  <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-100">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mr-1">Preset:</span>
+                      <button
+                        type="button"
+                        onClick={() => handleApplyDatePreset('all')}
+                        className={`px-2.5 py-1 text-xs rounded-md font-medium transition-colors ${datePreset === 'all' && !postDateStart && !postDateEnd ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                      >
+                        Semua Waktu
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleApplyDatePreset('3d')}
+                        className={`px-2.5 py-1 text-xs rounded-md font-medium transition-colors ${datePreset === '3d' ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                      >
+                        3 Hari Terakhir
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleApplyDatePreset('7d')}
+                        className={`px-2.5 py-1 text-xs rounded-md font-medium transition-colors ${datePreset === '7d' ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                      >
+                        7 Hari (1 Minggu)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleApplyDatePreset('14d')}
+                        className={`px-2.5 py-1 text-xs rounded-md font-medium transition-colors ${datePreset === '14d' ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                      >
+                        14 Hari
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleApplyDatePreset('30d')}
+                        className={`px-2.5 py-1 text-xs rounded-md font-medium transition-colors ${datePreset === '30d' ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                      >
+                        30 Hari
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleApplyDatePreset('this_month')}
+                        className={`px-2.5 py-1 text-xs rounded-md font-medium transition-colors ${datePreset === 'this_month' ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                      >
+                        Bulan Ini
+                      </button>
+                      {campaign?.start_date && (
+                        <button
+                          type="button"
+                          onClick={() => handleApplyDatePreset('campaign_period')}
+                          className={`px-2.5 py-1 text-xs rounded-md font-medium transition-colors ${datePreset === 'campaign_period' ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                        >
+                          Periode Campaign
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2 ml-auto flex-wrap">
+                      <span className="text-xs text-slate-500 font-medium">Pilih Tanggal:</span>
+                      <div className="flex items-center gap-1.5 bg-slate-50 p-1 rounded-md border border-slate-200">
+                        <input
+                          type="date"
+                          className="px-2 py-1 bg-white border border-slate-300 rounded text-xs focus:ring-1 focus:ring-indigo-500 text-slate-700"
+                          value={postDateStart}
+                          onChange={(e) => {
+                            setPostDateStart(e.target.value);
+                            setDatePreset('custom');
+                          }}
+                          placeholder="Dari"
+                          title="Tanggal Mulai Posting"
+                        />
+                        <span className="text-xs text-slate-400 font-medium">s/d</span>
+                        <input
+                          type="date"
+                          className="px-2 py-1 bg-white border border-slate-300 rounded text-xs focus:ring-1 focus:ring-indigo-500 text-slate-700"
+                          value={postDateEnd}
+                          onChange={(e) => {
+                            setPostDateEnd(e.target.value);
+                            setDatePreset('custom');
+                          }}
+                          placeholder="Sampai"
+                          title="Tanggal Akhir Posting"
+                        />
+                      </div>
+                      {(postDateStart || postDateEnd) && (
+                        <button
+                          type="button"
+                          onClick={handleResetDateFilter}
+                          className="btn bg-white border border-rose-200 text-rose-600 hover:bg-rose-50 text-xs py-1 px-2.5 h-auto flex items-center gap-1 font-medium"
+                          title="Reset ke All Time"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                          <span>Reset Tanggal</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="flex flex-wrap gap-4 items-end">
                  <div className="space-y-2 flex-1 min-w-[200px]">
-                    <label className="text-xs font-semibold text-text-soft">Pencarian Kreator</label>
+                    <label className="text-xs font-semibold text-text-soft">
+                       {viewMode === 'video' ? 'Pencarian Kreator / Link / UID' : 'Pencarian Kreator'}
+                    </label>
                     <input 
                        type="text" 
-                       placeholder="Cari username..." 
+                       placeholder={viewMode === 'video' ? "Cari username, link tiktok, atau UID..." : "Cari username..."} 
                        className="input w-full"
                        value={searchQuery}
                        onChange={e => setSearchQuery(e.target.value)}
@@ -1912,7 +2186,14 @@ export default function CampaignVideoPage({
                       </td>
                       <td className="p-4 align-middle text-center">
                         {v.post_time ? (
-                          <span className="text-[13px] font-medium text-slate-700 whitespace-nowrap">{new Date(v.post_time).toLocaleDateString('id-ID')}</span>
+                          <div className="flex flex-col items-center">
+                            <span className="text-[13px] font-medium text-slate-700 whitespace-nowrap">
+                              {formatDate(v.post_time)}
+                            </span>
+                            <span className="text-[10px] text-slate-400">
+                              {new Date(v.post_time).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </div>
                         ) : (
                           <span className="text-slate-400 italic text-[12px]">-</span>
                         )}
