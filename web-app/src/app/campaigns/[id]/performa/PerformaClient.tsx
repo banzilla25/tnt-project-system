@@ -552,6 +552,8 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
           videoViews,
           videoLikes,
           totalVt,
+          approvedVtCount,
+          pendingVtCount,
           totalLive,
           concepts
         };
