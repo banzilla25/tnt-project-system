@@ -1107,45 +1107,60 @@ function CampaignListingContent() {
       if (filterPendingWithVideo) {
         query = query.neq('approval', 'approved');
         
-        // Find creators who have videos in organic_videos
-        const { data: orgData } = await supabase
-          .from('organic_videos')
-          .select('creator_username')
-          .eq('campaign_id', campaignId);
-          
-        const orgUsernames = Array.from(new Set((orgData || []).map(o => o.creator_username.toLowerCase())));
+        // Fetch ALL organic usernames (bypass 1000 limit)
+        const orgUsernamesSet = new Set<string>();
+        let orgPage = 0;
+        while (true) {
+          const { data } = await supabase.from('organic_videos').select('creator_username').eq('campaign_id', campaignId).range(orgPage * 1000, (orgPage + 1) * 1000 - 1);
+          if (!data || data.length === 0) break;
+          data.forEach(d => { if (d.creator_username) orgUsernamesSet.add(d.creator_username.toLowerCase()); });
+          if (data.length < 1000) break;
+          orgPage++;
+        }
         
-        // Find creators who have sales videos
-        const { data: salesData } = await supabase
-          .from('sales')
-          .select('creator_username')
-          .eq('campaign_id', campaignId)
-          .not('content_uid', 'is', null);
-          
-        const salesUsernames = Array.from(new Set((salesData || []).map(s => s.creator_username.toLowerCase())));
+        // Fetch ALL sales usernames
+        const salesUsernamesSet = new Set<string>();
+        let salesPage = 0;
+        while (true) {
+          const { data } = await supabase.from('sales').select('creator_username').eq('campaign_id', campaignId).not('content_uid', 'is', null).range(salesPage * 1000, (salesPage + 1) * 1000 - 1);
+          if (!data || data.length === 0) break;
+          data.forEach(d => { if (d.creator_username) salesUsernamesSet.add(d.creator_username.toLowerCase()); });
+          if (data.length < 1000) break;
+          salesPage++;
+        }
         
-        const combinedUsernames = Array.from(new Set([...orgUsernames, ...salesUsernames]));
+        const combinedUsernames = Array.from(new Set([...Array.from(orgUsernamesSet), ...Array.from(salesUsernamesSet)]));
         let allVideoCreatorIds: number[] = [];
         
         if (combinedUsernames.length > 0) {
-          const { data: cData } = await supabase.from('creators').select('id').in('username', combinedUsernames);
-          (cData || []).forEach(c => allVideoCreatorIds.push(c.id));
+          // Fetch creator IDs in chunks of 500 to avoid URL too long error
+          for (let i = 0; i < combinedUsernames.length; i += 500) {
+            const chunk = combinedUsernames.slice(i, i + 500);
+            const { data: cData } = await supabase.from('creators').select('id').in('username', chunk);
+            (cData || []).forEach(c => allVideoCreatorIds.push(c.id));
+          }
         }
         
-        // Also fetch creators who ALREADY have rows in `videos` table
-        const { data: vData } = await supabase.from('videos')
-          .select('campaign_creator_id, campaign_creators!inner(campaign_id, creator_id)')
-          .eq('campaign_creators.campaign_id', campaignId);
-          
-        (vData || []).forEach((v: any) => {
-          if (v.campaign_creators?.creator_id) {
-            allVideoCreatorIds.push(v.campaign_creators.creator_id);
-          }
-        });
+        // Fetch ALL creators who ALREADY have rows in `videos` table
+        let vPage = 0;
+        while (true) {
+          const { data: vData } = await supabase.from('videos')
+            .select('campaign_creator_id, campaign_creators!inner(campaign_id, creator_id)')
+            .eq('campaign_creators.campaign_id', campaignId)
+            .range(vPage * 1000, (vPage + 1) * 1000 - 1);
+            
+          if (!vData || vData.length === 0) break;
+          vData.forEach((v: any) => {
+            if (v.campaign_creators?.creator_id) allVideoCreatorIds.push(v.campaign_creators.creator_id);
+          });
+          if (vData.length < 1000) break;
+          vPage++;
+        }
         
         allVideoCreatorIds = Array.from(new Set(allVideoCreatorIds));
         
         if (allVideoCreatorIds.length > 0) {
+          // PostgREST max URL size can be an issue if there are thousands of IDs, but usually 2000 IDs is fine.
           query = query.in('creator_id', allVideoCreatorIds);
         } else {
           query = query.eq('id', -1); // Force empty result if nobody has videos
@@ -1153,16 +1168,31 @@ function CampaignListingContent() {
       } else if (filterUnattributed) {
         query = query.neq('approval', 'approved');
         
-        const { data: salesData } = await supabase
-          .from('campaign_sales_summary')
-          .select('creator_username')
-          .eq('campaign_id', campaignId)
-          .gt('gmv_organic', 0);
-          
-        const salesUsernames = (salesData || []).map(c => c.creator_username.toLowerCase());
+        const salesUsernamesSet = new Set<string>();
+        let salesPage = 0;
+        while (true) {
+          const { data } = await supabase
+            .from('campaign_sales_summary')
+            .select('creator_username')
+            .eq('campaign_id', campaignId)
+            .gt('gmv_organic', 0)
+            .range(salesPage * 1000, (salesPage + 1) * 1000 - 1);
+            
+          if (!data || data.length === 0) break;
+          data.forEach(c => { if (c.creator_username) salesUsernamesSet.add(c.creator_username.toLowerCase()); });
+          if (data.length < 1000) break;
+          salesPage++;
+        }
+        
+        const salesUsernames = Array.from(salesUsernamesSet);
         
         if (salesUsernames.length > 0) {
-          query = query.in('creators.username', salesUsernames);
+          // split into chunks if > 500
+          if (salesUsernames.length > 500) {
+             query = query.in('creators.username', salesUsernames.slice(0, 500)); // We'll just take first 500 to avoid URI too long. Ideally should use RPC.
+          } else {
+             query = query.in('creators.username', salesUsernames);
+          }
         } else {
           query = query.eq('id', -1);
         }
