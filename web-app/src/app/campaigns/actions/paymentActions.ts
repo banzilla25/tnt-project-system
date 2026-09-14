@@ -68,49 +68,32 @@ export async function fetchCampaignCreatorMutations(campaignId: number) {
 export async function fetchUnpaidCreators(campaignId: number) {
   try {
     const supabase = await createClient();
-    
-    let allData: any[] = [];
-    let page = 0;
-    const limit = 1000;
-    let hasMore = true;
-    
-    while (hasMore) {
-      const { data, error } = await supabase.from('campaign_creators')
-        .select(`
-          id, price, tier, qty_vt, qty_live, approval,
-          creator_id,
-          creators ( 
-            id,
-            username, 
-            nama_asli,
-            avatar_url,
-            creator_snapshots ( id, followers, gmv_30d, ratecard ),
-            creator_bank_accounts ( id, bank_name, account_number, account_holder )
-          ),
-          videos ( id, link_video ),
-          payment_items ( id, final_status, payment_type, nominal )
-        `)
-        .eq('campaign_id', campaignId)
-        .eq('approval', 'approved')
-        .order('created_at', { ascending: false })
-        .range(page * limit, (page + 1) * limit - 1);
+    const { data, error } = await supabase.from('campaign_creators')
+      .select(`
+        id, price, tier, qty_vt, qty_live, approval,
+        creator_id,
+        creators ( 
+          id,
+          username, 
+          nama_asli,
+          avatar_url,
+          creator_snapshots ( id, followers, gmv_30d, ratecard ),
+          creator_bank_accounts ( id, bank_name, account_number, account_holder )
+        ),
+        videos ( id, link_video ),
+        payment_items ( id, final_status, payment_type, nominal )
+      `)
+      .eq('campaign_id', campaignId)
+      .eq('approval', 'approved')
+      .order('created_at', { ascending: false })
+      .range(0, 4999);
 
-      if (error) {
-        console.error("Supabase Error in fetchUnpaidCreators:", error);
-        throw new Error(error.message);
-      }
-      
-      if (data && data.length > 0) {
-        allData = [...allData, ...data];
-        page++;
-      }
-      
-      if (!data || data.length < limit) {
-        hasMore = false;
-      }
+    if (error) {
+      console.error("Supabase Error in fetchUnpaidCreators:", error);
+      throw new Error(error.message);
     }
     
-    return allData;
+    return data || [];
   } catch (err: any) {
     console.error("Exception in fetchUnpaidCreators:", err);
     throw err;
@@ -120,44 +103,25 @@ export async function fetchUnpaidCreators(campaignId: number) {
 export async function fetchApprovedCreatorsForBatch(campaignId: number) {
   try {
     const supabase = await createClient();
-    
-    // Fetch in chunks to avoid any potential limits
-    let allData: any[] = [];
-    let page = 0;
-    const limit = 1000;
-    let hasMore = true;
-    
-    while (hasMore) {
-      const { data, error } = await supabase.from('campaign_creators')
-        .select(`
-          id, campaign_id, creator_id, tier, price, qty_vt, content_type, approval, status_bayar, created_at,
-          creators (
-            id,
-            username,
-            nama_asli,
-            creator_snapshots ( id, ratecard, followers, gmv_30d )
-          )
-        `)
-        .eq('campaign_id', campaignId)
-        .eq('approval', 'approved')
-        .range(page * limit, (page + 1) * limit - 1);
+    const { data, error } = await supabase.from('campaign_creators')
+      .select(`
+        id, campaign_id, creator_id, tier, price, qty_vt, content_type, approval, status_bayar, created_at,
+        creators (
+          id,
+          username,
+          nama_asli
+        )
+      `)
+      .eq('campaign_id', campaignId)
+      .eq('approval', 'approved')
+      .range(0, 4999);
 
-      if (error) {
-        console.error("Supabase Error in fetchApprovedCreatorsForBatch:", error);
-        throw new Error(error.message);
-      }
-      
-      if (data && data.length > 0) {
-        allData = [...allData, ...data];
-        page++;
-      }
-      
-      if (!data || data.length < limit) {
-        hasMore = false;
-      }
+    if (error) {
+      console.error("Supabase Error in fetchApprovedCreatorsForBatch:", error);
+      throw new Error(error.message);
     }
     
-    return allData;
+    return data || [];
   } catch (err: any) {
     console.error("Exception in fetchApprovedCreatorsForBatch:", err);
     throw err;

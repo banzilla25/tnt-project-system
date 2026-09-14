@@ -91,7 +91,7 @@ export function UnpaidCreatorsTab({ campaignId, onSuccess }: { campaignId: numbe
   const filteredCreators = creators.filter(c => {
     const search = searchTerm.trim().replace(/^@/, '').toLowerCase();
     const username = (c.creators?.username || '').toLowerCase();
-    const name = (c.creators?.nama_lengkap || '').toLowerCase();
+    const name = (c.creators?.nama_asli || c.creators?.nama_lengkap || '').toLowerCase();
     return username.includes(search) || name.includes(search);
   });
 
