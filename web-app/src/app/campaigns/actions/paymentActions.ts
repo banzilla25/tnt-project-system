@@ -91,6 +91,33 @@ export async function fetchUnpaidCreators(campaignId: number) {
   return data;
 }
 
+export async function fetchApprovedCreatorsForBatch(campaignId: number) {
+  const supabase = await createClient();
+  const { data, error } = await supabase.from('campaign_creators')
+    .select(`
+      *,
+      creators (
+        id,
+        username,
+        nama_lengkap,
+        nama_wa_pic,
+        nomor_wa_dealing,
+        alamat_ktp,
+        nik,
+        link_ktp,
+        link_npwp,
+        link_kontrak,
+        creator_snapshots ( ratecard, followers, gmv_30d )
+      )
+    `)
+    .eq('campaign_id', campaignId)
+    .eq('approval', 'approved')
+    .range(0, 4999);
+
+  if (error) throw new Error(error.message);
+  return data;
+}
+
 export async function fetchMutationsPaginated(page: number, limit: number, month: string, search: string, paymentType: string = 'all') {
   const supabase = await createClient();
   let query = supabase.from('vw_payment_mutations').select('*', { count: 'exact' });

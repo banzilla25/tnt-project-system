@@ -5,16 +5,13 @@ import { useDatabaseStore } from "@/store/useDatabaseStore";
 import { Loader2, Plus, ArrowRight, Wallet, Activity, CheckCircle2, Search, X, Check, Trash2, Pencil, StickyNote } from "lucide-react";
 import { useParams } from "next/navigation";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { createClient } from "@/utils/supabase/client";
 import { useAuth } from "@/providers/AuthProvider";
 import { BatchForm } from "./BatchForm";
 import { BatchDetail } from "./BatchDetail";
-import { getPaymentBatches, getPaymentBatchDetail } from "../../actions/paymentActions";
+import { getPaymentBatches, getPaymentBatchDetail, fetchApprovedCreatorsForBatch } from "../../actions/paymentActions";
 import { CampaignCreatorMutationTab } from "@/components/CampaignCreatorMutationTab";
 import { UnpaidCreatorsTab } from "@/components/UnpaidCreatorsTab";
 import { formatDateTime, formatUserWithRole } from "@/utils/formatters";
-
-const supabase = createClient();
 
 type ViewState = 'list' | 'form' | 'detail' | 'mutasi_kreator' | 'unpaid_creators';
 
@@ -68,28 +65,8 @@ function CampaignKeuanganContent() {
       });
       setTotalTerpakai(terpakai);
 
-      // Fetch approved creators for form
-      const { data: ccData } = await supabase
-        .from('campaign_creators')
-        .select(`
-          *,
-          creators (
-            id,
-            username,
-            nama_lengkap,
-            nama_wa_pic,
-            nomor_wa_dealing,
-            alamat_ktp,
-            nik,
-            link_ktp,
-            link_npwp,
-            link_kontrak,
-            creator_snapshots ( ratecard, followers, gmv_30d )
-          )
-        `)
-        .eq('campaign_id', campaignId)
-        .eq('approval', 'approved')
-        .range(0, 4999);
+      // Fetch approved creators for form (via server action to bypass RLS)
+      const ccData = await fetchApprovedCreatorsForBatch(campaignId);
 
       const creatorHistory: Record<number, any[]> = {};
       data?.forEach(b => {
