@@ -14,7 +14,23 @@ export interface OperationalItem {
   notes_dari_pic: string;
 }
 
-export function BatchForm({ campaignId, creators, creatorHistory, initialItems, onCancel, onSuccess }: { campaignId: number, creators: any[], creatorHistory: Record<number, any[]>, initialItems?: any[], onCancel: () => void, onSuccess: () => void }) {
+export function BatchForm({ 
+  campaignId, 
+  creators, 
+  creatorHistory, 
+  initialItems, 
+  isLoadingCreators = false,
+  onCancel, 
+  onSuccess 
+}: { 
+  campaignId: number, 
+  creators: any[], 
+  creatorHistory: Record<number, any[]>, 
+  initialItems?: any[], 
+  isLoadingCreators?: boolean,
+  onCancel: () => void, 
+  onSuccess: () => void 
+}) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [batchLabel, setBatchLabel] = useState(`Batch - ${new Date().toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}`);
   
@@ -137,7 +153,7 @@ export function BatchForm({ campaignId, creators, creatorHistory, initialItems, 
     if (c.approval !== 'approved') return false;
     if (!cleanSearch) return true;
     const u = (c.creators?.username || '').toLowerCase();
-    const n = (c.creators?.nama_lengkap || '').toLowerCase();
+    const n = (c.creators?.nama_asli || c.creators?.nama_lengkap || '').toLowerCase();
     return u.includes(cleanSearch) || n.includes(cleanSearch);
   });
 
@@ -336,34 +352,42 @@ export function BatchForm({ campaignId, creators, creatorHistory, initialItems, 
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredCreators.map(c => {
-                  const isSelected = !!selectedCreators.find(s => s.id === c.id);
-                  return (
-                    <tr key={c.id} className={`hover:bg-slate-50 ${isSelected ? 'bg-blue-50/50' : ''}`}>
-                      <td className="px-4 py-2 text-center">
-                        <input 
-                          type="checkbox" 
-                          className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500 cursor-pointer"
-                          checked={isSelected}
-                          onChange={(e) => handleToggleCreator(c, e.target.checked)}
-                        />
-                      </td>
-                      <td className="px-4 py-2 font-medium">
-                        @{c.creators?.username}
-                      </td>
-                      <td className="px-4 py-2 text-right font-semibold text-slate-700 flex items-center justify-end gap-2">
-                        {c.isFullyPaid && <span className="text-xs font-semibold text-orange-700 bg-orange-100 px-2 py-0.5 rounded-full">Ratecard Lunas</span>}
-                        {Number(c.price || 0).toLocaleString()}
-                      </td>
-                    </tr>
-                  )
-                })}
-                {filteredCreators.length === 0 && (
+                {isLoadingCreators ? (
+                  <tr>
+                    <td colSpan={3} className="px-4 py-8 text-center text-slate-500">
+                      <Loader2 className="w-6 h-6 animate-spin mx-auto text-blue-500 mb-2" />
+                      Memuat daftar kreator...
+                    </td>
+                  </tr>
+                ) : filteredCreators.length === 0 ? (
                   <tr>
                     <td colSpan={3} className="px-4 py-8 text-center text-slate-500">
                       {searchQuery ? "Kreator tidak ditemukan" : "Belum ada kreator yang di-approve di campaign ini."}
                     </td>
                   </tr>
+                ) : (
+                  filteredCreators.map(c => {
+                    const isSelected = !!selectedCreators.find(s => s.id === c.id);
+                    return (
+                      <tr key={c.id} className={`hover:bg-slate-50 ${isSelected ? 'bg-blue-50/50' : ''}`}>
+                        <td className="px-4 py-2 text-center">
+                          <input 
+                            type="checkbox" 
+                            className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500 cursor-pointer"
+                            checked={isSelected}
+                            onChange={(e) => handleToggleCreator(c, e.target.checked)}
+                          />
+                        </td>
+                        <td className="px-4 py-2 font-medium">
+                          @{c.creators?.username}
+                        </td>
+                        <td className="px-4 py-2 text-right font-semibold text-slate-700 flex items-center justify-end gap-2">
+                          {c.isFullyPaid && <span className="text-xs font-semibold text-orange-700 bg-orange-100 px-2 py-0.5 rounded-full">Ratecard Lunas</span>}
+                          {Number(c.price || 0).toLocaleString()}
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>

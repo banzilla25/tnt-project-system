@@ -80,11 +80,11 @@ export async function fetchUnpaidCreators(campaignId: number) {
           id, price, tier, qty_vt, qty_live, approval,
           creator_id,
           creators ( 
+            id,
             username, 
-            nama_lengkap,
-            avatar_url, 
-            nik, link_ktp, link_npwp, link_kontrak, nama_wa_pic, nomor_wa_dealing, alamat_ktp,
-            creator_snapshots ( followers, gmv_30d, ratecard ),
+            nama_asli,
+            avatar_url,
+            creator_snapshots ( id, followers, gmv_30d, ratecard ),
             creator_bank_accounts ( id, bank_name, account_number, account_holder )
           ),
           videos ( id, link_video ),
@@ -130,19 +130,12 @@ export async function fetchApprovedCreatorsForBatch(campaignId: number) {
     while (hasMore) {
       const { data, error } = await supabase.from('campaign_creators')
         .select(`
-          *,
+          id, campaign_id, creator_id, tier, price, qty_vt, content_type, approval, status_bayar, created_at,
           creators (
             id,
             username,
-            nama_lengkap,
-            nama_wa_pic,
-            nomor_wa_dealing,
-            alamat_ktp,
-            nik,
-            link_ktp,
-            link_npwp,
-            link_kontrak,
-            creator_snapshots ( ratecard, followers, gmv_30d )
+            nama_asli,
+            creator_snapshots ( id, ratecard, followers, gmv_30d )
           )
         `)
         .eq('campaign_id', campaignId)

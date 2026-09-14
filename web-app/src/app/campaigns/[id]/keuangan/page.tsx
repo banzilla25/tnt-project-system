@@ -358,6 +358,7 @@ function CampaignKeuanganContent() {
               campaignId={campaignId} 
               creators={creators} 
               creatorHistory={creatorHistory}
+              isLoadingCreators={isLoadingBatches}
               onCancel={() => setViewState('list')} 
               onSuccess={() => { setViewState('list'); fetchData(); }} 
             />
