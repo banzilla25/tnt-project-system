@@ -85,6 +85,7 @@ export async function fetchUnpaidCreators(campaignId: number) {
       `)
       .eq('campaign_id', campaignId)
       .eq('approval', 'approved')
+      .gt('price', 0)
       .order('created_at', { ascending: false })
       .range(0, 4999);
 
@@ -113,7 +114,6 @@ export async function fetchApprovedCreatorsForBatch(campaignId: number) {
         )
       `)
       .eq('campaign_id', campaignId)
-      .eq('approval', 'approved')
       .range(0, 4999);
 
     if (error) {

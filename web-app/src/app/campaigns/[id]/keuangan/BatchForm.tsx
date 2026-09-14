@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { createPaymentBatch, addPaymentItem, submitBatchToManager, getCreatorBankAccounts } from "../../actions/paymentActions";
-import { Loader2, Plus, Trash2, Save, Send, ArrowLeft } from "lucide-react";
+import { Loader2, Plus, Trash2, Save, Send, ArrowLeft, CheckCircle2, AlertCircle } from "lucide-react";
 
 export interface OperationalItem {
   id: string;
@@ -44,7 +44,19 @@ export function BatchForm({
   const [searchQuery, setSearchQuery] = useState("");
   const [showBulkSelect, setShowBulkSelect] = useState(false);
   const [bulkText, setBulkText] = useState("");
-  const [bulkNotFoundWarning, setBulkNotFoundWarning] = useState<string[]>([]);
+  const [bulkStatusWarnings, setBulkStatusWarnings] = useState<{
+    notFound: string[];
+    pending: string[];
+    notApproved: string[];
+    alternate: string[];
+    addedCount: number;
+  }>({
+    notFound: [],
+    pending: [],
+    notApproved: [],
+    alternate: [],
+    addedCount: 0
+  });
 
   const [showWarning, setShowWarning] = useState(false);
   const [pendingSubmitType, setPendingSubmitType] = useState<boolean | null>(null);
@@ -119,15 +131,25 @@ export function BatchForm({
     if (!bulkText.trim()) return;
     const rawList = bulkText.split(/[\n,]+/).map(s => s.trim().replace(/^@/, '').toLowerCase()).filter(s => s);
     const uniqueRawList = Array.from(new Set(rawList));
-    const approvedCreators = creators.filter(c => c.approval === 'approved');
     
     const notFound: string[] = [];
+    const pending: string[] = [];
+    const notApproved: string[] = [];
+    const alternate: string[] = [];
     const toAdd: any[] = [];
     
     uniqueRawList.forEach(username => {
-      const cc = approvedCreators.find(c => c.creators?.username?.toLowerCase() === username);
-      if (cc) {
+      const cc = creators.find(c => c.creators?.username?.toLowerCase() === username);
+      if (!cc) {
+        notFound.push(username);
+      } else if (cc.approval === 'approved') {
         toAdd.push(cc);
+      } else if (cc.approval === 'pending') {
+        pending.push(username);
+      } else if (cc.approval === 'not_approved') {
+        notApproved.push(username);
+      } else if (cc.approval === 'alternate') {
+        alternate.push(username);
       } else {
         notFound.push(username);
       }
@@ -138,24 +160,36 @@ export function BatchForm({
       handleToggleCreator(cc, true);
     });
 
-    if (notFound.length > 0) {
-      setBulkNotFoundWarning(notFound);
-      setBulkText(notFound.join('\n'));
-    } else {
-      setBulkNotFoundWarning([]);
+    setBulkStatusWarnings({
+      notFound,
+      pending,
+      notApproved,
+      alternate,
+      addedCount: toAdd.length
+    });
+
+    if (notFound.length === 0 && pending.length === 0 && notApproved.length === 0 && alternate.length === 0) {
       setBulkText("");
       setShowBulkSelect(false);
     }
   };
 
   const cleanSearch = searchQuery.trim().replace(/^@/, '').toLowerCase();
-  const filteredCreators = creators.filter(c => {
-    if (c.approval !== 'approved') return false;
-    if (!cleanSearch) return true;
-    const u = (c.creators?.username || '').toLowerCase();
-    const n = (c.creators?.nama_asli || c.creators?.nama_lengkap || '').toLowerCase();
-    return u.includes(cleanSearch) || n.includes(cleanSearch);
-  });
+  const filteredCreators = creators
+    .filter(c => {
+      if (c.approval !== 'approved') return false;
+      if (!cleanSearch) return true;
+      const u = (c.creators?.username || '').toLowerCase();
+      const n = (c.creators?.nama_asli || c.creators?.nama_lengkap || '').toLowerCase();
+      return u.includes(cleanSearch) || n.includes(cleanSearch);
+    })
+    .sort((a, b) => {
+      const aSelected = selectedCreators.some(s => s.id === a.id);
+      const bSelected = selectedCreators.some(s => s.id === b.id);
+      if (aSelected && !bSelected) return -1;
+      if (!aSelected && bSelected) return 1;
+      return 0;
+    });
 
   const handleRemoveCreator = (ccId: number) => {
     setSelectedCreators(prev => prev.filter(c => c.id !== ccId));
@@ -318,25 +352,68 @@ export function BatchForm({
           </div>
 
           {showBulkSelect && (
-            <div className="mb-4 bg-slate-50 p-4 rounded-lg border border-slate-200">
-              {bulkNotFoundWarning.length > 0 && (
-                <div className="mb-3 p-3 bg-red-50 border border-red-200 text-red-600 rounded text-xs font-medium">
-                  Kreator {bulkNotFoundWarning.map(u => `@${u}`).join(', ')} tidak ada di daftar campaign, bisa anda tambahkan dulu di menu listing.
+            <div className="mb-4 bg-slate-50 p-4 rounded-lg border border-slate-200 space-y-3">
+              {bulkStatusWarnings.addedCount > 0 && (
+                <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-lg text-xs font-medium flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                  <span>Berhasil menceklis & menambahkan <strong>{bulkStatusWarnings.addedCount}</strong> kreator ke batch.</span>
                 </div>
               )}
-              <label className="block text-xs font-semibold text-slate-600 mb-2">Paste list username (dipisah enter atau koma)</label>
+
+              {bulkStatusWarnings.notFound.length > 0 && (
+                <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-xs font-medium flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-bold">Tidak ditemukan di listing campaign ({bulkStatusWarnings.notFound.length}):</span> {bulkStatusWarnings.notFound.map(u => `@${u}`).join(', ')}
+                    <div className="text-red-500 text-[11px] mt-0.5">Silakan tambahkan kreator ini terlebih dahulu melalui menu Listing.</div>
+                  </div>
+                </div>
+              )}
+
+              {bulkStatusWarnings.pending.length > 0 && (
+                <div className="p-3 bg-amber-50 border border-amber-200 text-amber-800 rounded-lg text-xs font-medium flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-bold">Status Masih Pending / Belum Di-approve ({bulkStatusWarnings.pending.length}):</span> {bulkStatusWarnings.pending.map(u => `@${u}`).join(', ')}
+                    <div className="text-amber-700 text-[11px] mt-0.5">Kreator harus di-approve terlebih dahulu di menu Listing sebelum dapat diajukan pembayarannya.</div>
+                  </div>
+                </div>
+              )}
+
+              {bulkStatusWarnings.notApproved.length > 0 && (
+                <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-lg text-xs font-medium flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-bold">Status Not Approved / Ditolak ({bulkStatusWarnings.notApproved.length}):</span> {bulkStatusWarnings.notApproved.map(u => `@${u}`).join(', ')}
+                  </div>
+                </div>
+              )}
+
+              {bulkStatusWarnings.alternate.length > 0 && (
+                <div className="p-3 bg-purple-50 border border-purple-200 text-purple-700 rounded-lg text-xs font-medium flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 text-purple-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-bold">Status Alternate / Cadangan ({bulkStatusWarnings.alternate.length}):</span> {bulkStatusWarnings.alternate.map(u => `@${u}`).join(', ')}
+                  </div>
+                </div>
+              )}
+
+              <label className="block text-xs font-semibold text-slate-600">Paste list username (dipisah baris baru atau koma)</label>
               <textarea 
                 className="w-full p-3 border border-slate-300 rounded-md outline-none focus:ring-2 focus:ring-blue-500 text-sm h-32"
-                placeholder="@budi, @andi&#10;@cindy"
+                placeholder="@sasyaaaasyz&#10;@saskiyyaulia&#10;@budi"
                 value={bulkText}
                 onChange={e => {
                   setBulkText(e.target.value);
-                  if (bulkNotFoundWarning.length > 0) setBulkNotFoundWarning([]);
+                  if (bulkStatusWarnings.addedCount > 0 || bulkStatusWarnings.notFound.length > 0 || bulkStatusWarnings.pending.length > 0) {
+                    setBulkStatusWarnings({ notFound: [], pending: [], notApproved: [], alternate: [], addedCount: 0 });
+                  }
                 }}
               />
-              <div className="flex justify-end mt-2">
+              <div className="flex justify-between items-center mt-2">
+                <span className="text-[11px] text-slate-400">Contoh: @sasyaaaasyz, @saskiyyaulia</span>
                 <button onClick={handleProcessBulk} className="btn btn-primary btn-sm flex items-center gap-2 px-3 py-1.5 text-xs">
-                  <Plus className="w-3 h-3" /> Tambahkan ke Batch
+                  <Plus className="w-3 h-3" /> Ceklis & Tambahkan ke Batch
                 </button>
               </div>
             </div>
