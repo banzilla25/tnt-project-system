@@ -32,9 +32,11 @@ export function UnpaidCreatorsTab({ campaignId, onSuccess }: { campaignId: numbe
         const paidOrPendingTypes = history.filter((h: any) => h.final_status !== 'rejected' && h.final_status !== 'cancelled').map((h: any) => h.payment_type);
         const isFullyPaid = paidOrPendingTypes.includes('100_akhir') || (paidOrPendingTypes.includes('50_awal') && paidOrPendingTypes.includes('50_akhir'));
         
-        // Find latest snapshot for GMV/Followers
+        // Find latest snapshot for GMV/Followers and Ratecard
         const snapshots = cc.creators?.creator_snapshots || [];
-        const latestSnapshot = snapshots.length > 0 ? snapshots[snapshots.length - 1] : { followers: 0, gmv_30d: 0 };
+        const latestSnapshot = snapshots.length > 0 ? snapshots[snapshots.length - 1] : { followers: 0, gmv_30d: 0, ratecard: 0 };
+        const validSnap = snapshots.find((s: any) => Number(s.ratecard || 0) > 0);
+        const effectivePrice = Number(cc.price || 0) || Number(validSnap?.ratecard || 0);
         
         const hasVideo = cc.videos && cc.videos.length > 0;
         const gmv = latestSnapshot.gmv_30d || 0;
@@ -47,6 +49,7 @@ export function UnpaidCreatorsTab({ campaignId, onSuccess }: { campaignId: numbe
 
         return {
           ...cc,
+          price: effectivePrice,
           isFullyPaid,
           hasVideo,
           gmv,
@@ -86,9 +89,10 @@ export function UnpaidCreatorsTab({ campaignId, onSuccess }: { campaignId: numbe
   };
 
   const filteredCreators = creators.filter(c => {
-    const search = searchTerm.toLowerCase();
-    const username = c.creators?.username?.toLowerCase() || '';
-    return username.includes(search);
+    const search = searchTerm.trim().replace(/^@/, '').toLowerCase();
+    const username = (c.creators?.username || '').toLowerCase();
+    const name = (c.creators?.nama_lengkap || '').toLowerCase();
+    return username.includes(search) || name.includes(search);
   });
 
   const handleAjukanPembayaran = () => {

@@ -10,7 +10,8 @@ import {
 } from "../../actions/paymentActions";
 import { getLogicalStatus } from "@/utils/statusHelper";
 import { useAuth } from "@/providers/AuthProvider";
-import { Check, X, Loader2, ArrowLeft, Send, Trash2, Pencil, Save, ChevronDown, ChevronRight, Download, Upload } from "lucide-react";
+import { Check, X, Loader2, ArrowLeft, Send, Trash2, Pencil, Save, ChevronDown, ChevronRight, Download, Upload, Clock, UserCheck, ShieldCheck, History } from "lucide-react";
+import { formatDateTime, formatUserWithRole } from "@/utils/formatters";
 import * as XLSX from "xlsx";
 
 export function BatchDetail({ batch, creatorHistory, onBack, onRefresh }: { batch: any, creatorHistory: Record<number, any[]>, onBack: () => void, onRefresh: () => void }) {
@@ -412,6 +413,70 @@ export function BatchDetail({ batch, creatorHistory, onBack, onRefresh }: { batc
           </div>
         </div>
 
+        {/* Audit Trail Timeline */}
+        <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-3 text-xs font-bold text-slate-700 uppercase tracking-wider">
+            <History className="w-4 h-4 text-blue-600" />
+            Riwayat & Jejak Persetujuan (Audit Trail)
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3 text-xs">
+            {/* 1. Pengajuan */}
+            <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
+              <div className="text-[11px] font-semibold text-slate-500 mb-1">1. Pengajuan Awal</div>
+              <div className="font-bold text-slate-800 truncate" title={batch.submitter?.nama}>
+                {batch.submitter?.nama ? formatUserWithRole(batch.submitter.nama, batch.submitter.role) : '-'}
+              </div>
+              <div className="text-[10px] text-slate-500 font-mono mt-0.5">
+                {batch.submitted_at || batch.created_at ? formatDateTime(batch.submitted_at || batch.created_at) : '-'}
+              </div>
+            </div>
+
+            {/* 2. Manager Review */}
+            <div className={`p-3 rounded-lg border shadow-sm ${batch.manager_reviewed_at ? 'bg-white border-slate-200' : 'bg-slate-50/70 border-dashed border-slate-200 text-slate-400'}`}>
+              <div className="text-[11px] font-semibold text-slate-500 mb-1">2. Review Manager</div>
+              <div className="font-bold text-slate-800 truncate" title={batch.manager?.nama}>
+                {batch.manager?.nama ? formatUserWithRole(batch.manager.nama, batch.manager.role) : (batch.manager_reviewed_at ? 'Disetujui' : 'Menunggu')}
+              </div>
+              <div className="text-[10px] text-slate-500 font-mono mt-0.5">
+                {batch.manager_reviewed_at ? formatDateTime(batch.manager_reviewed_at) : '-'}
+              </div>
+            </div>
+
+            {/* 3. Finance Review */}
+            <div className={`p-3 rounded-lg border shadow-sm ${batch.finance_reviewed_at ? 'bg-white border-slate-200' : 'bg-slate-50/70 border-dashed border-slate-200 text-slate-400'}`}>
+              <div className="text-[11px] font-semibold text-slate-500 mb-1">3. Review Finance</div>
+              <div className="font-bold text-slate-800 truncate" title={batch.finance?.nama}>
+                {batch.finance?.nama ? formatUserWithRole(batch.finance.nama, batch.finance.role) : (batch.finance_reviewed_at ? 'Direview' : 'Menunggu')}
+              </div>
+              <div className="text-[10px] text-slate-500 font-mono mt-0.5">
+                {batch.finance_reviewed_at ? formatDateTime(batch.finance_reviewed_at) : '-'}
+              </div>
+            </div>
+
+            {/* 4. Executive Final Approval */}
+            <div className={`p-3 rounded-lg border shadow-sm ${batch.executive_reviewed_at ? 'bg-white border-slate-200' : 'bg-slate-50/70 border-dashed border-slate-200 text-slate-400'}`}>
+              <div className="text-[11px] font-semibold text-slate-500 mb-1">4. Executive Approval</div>
+              <div className="font-bold text-slate-800 truncate" title={batch.executive?.nama}>
+                {batch.executive?.nama ? formatUserWithRole(batch.executive.nama, batch.executive.role) : (batch.executive_reviewed_at ? 'Disetujui' : 'Menunggu')}
+              </div>
+              <div className="text-[10px] text-slate-500 font-mono mt-0.5">
+                {batch.executive_reviewed_at ? formatDateTime(batch.executive_reviewed_at) : '-'}
+              </div>
+            </div>
+
+            {/* 5. Pencairan / Lunas */}
+            <div className={`p-3 rounded-lg border shadow-sm ${batch.paid_at || batch.status === 'paid' ? 'bg-emerald-50 border-emerald-200 text-emerald-900' : 'bg-slate-50/70 border-dashed border-slate-200 text-slate-400'}`}>
+              <div className="text-[11px] font-semibold text-slate-500 mb-1">5. Pencairan (Paid)</div>
+              <div className="font-bold text-slate-800 truncate">
+                {batch.paid_at || batch.status === 'paid' ? 'Selesai Dibayar' : 'Belum Ditransfer'}
+              </div>
+              <div className="text-[10px] text-slate-500 font-mono mt-0.5">
+                {batch.paid_at ? formatDateTime(batch.paid_at) : '-'}
+              </div>
+            </div>
+          </div>
+        </div>
+
         
         {/* Render Grouped Items */}
         <div className="space-y-8">
@@ -553,7 +618,9 @@ export function BatchDetail({ batch, creatorHistory, onBack, onRefresh }: { batc
                       )}
                     </td>
                     <td className="px-4 py-3 text-xs text-slate-600 font-medium">
-                      {item.campaign_creators?.profiles?.nama || '-'}
+                      {item.campaign_creators?.profiles?.nama 
+                        ? formatUserWithRole(item.campaign_creators.profiles.nama, item.campaign_creators.profiles.role) 
+                        : '-'}
                     </td>
                     <td className="px-4 py-3 text-xs text-slate-500 max-w-[200px] truncate">
                       {bank ? (
@@ -671,6 +738,14 @@ export function BatchDetail({ batch, creatorHistory, onBack, onRefresh }: { batc
                               <span className="col-span-2 font-medium">{item.link_ktp ? <a href={item.link_ktp} target="_blank" className="text-blue-600 hover:underline">Lihat KTP</a> : '-'}</span>
                               <span className="text-slate-500">Link Kontrak:</span>
                               <span className="col-span-2 font-medium">{item.link_kontrak ? <a href={item.link_kontrak} target="_blank" className="text-blue-600 hover:underline">Lihat Kontrak</a> : '-'}</span>
+                              <span className="text-slate-500">Waktu Diajukan:</span>
+                              <span className="col-span-2 font-medium font-mono">{formatDateTime(item.created_at)}</span>
+                              {item.paid_at && (
+                                <>
+                                  <span className="text-slate-500">Waktu Dibayar:</span>
+                                  <span className="col-span-2 font-medium font-mono text-emerald-700">{formatDateTime(item.paid_at)}</span>
+                                </>
+                              )}
                               <span className="text-slate-500">Catatan PIC:</span>
                               <span className="col-span-2 font-medium text-orange-700 bg-orange-50 px-2 py-1 rounded">{item.notes || '-'}</span>
                             </div>

@@ -38,24 +38,42 @@ export function formatDate(value: string | Date | null | undefined): string {
 }
 
 /**
- * Format tanggal + jam:menit (lengkap): "10 Sep 2026, 14:30"
- * Digunakan untuk semua field timestamp seperti:
+ * Format tanggal + jam:menit:detik lengkap: "DD/MM/YYYY, HH:mm:ss"
+ * Digunakan untuk semua field timestamp audit seperti:
  * created_at, approved_at, not_approved_at, vt_approved_at,
  * paid_at, submitted_at, manager_reviewed_at, finance_reviewed_at,
- * executive_reviewed_at, manager_acted_at, executive_acted_at,
- * resi_updated_at, concept_updated_at, imported_at, dll.
+ * executive_reviewed_at, manager_acted_at, executive_acted_at, dll.
  */
-export function formatDateTime(value: string | Date | null | undefined): string {
+export function formatDateTime(value: string | Date | null | undefined, includeSeconds: boolean = true): string {
   if (!value) return '-';
   const d = typeof value === 'string' ? new Date(value) : value;
   if (isNaN(d.getTime())) return '-';
-  return d.toLocaleString('id-ID', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  const day = pad(d.getDate());
+  const month = pad(d.getMonth() + 1);
+  const year = d.getFullYear();
+  const hours = pad(d.getHours());
+  const minutes = pad(d.getMinutes());
+  const seconds = pad(d.getSeconds());
+  
+  if (includeSeconds) {
+    return `${day}/${month}/${year}, ${hours}:${minutes}:${seconds}`;
+  }
+  return `${day}/${month}/${year}, ${hours}:${minutes}`;
+}
+
+/**
+ * Format nama user beserta rolenya sesuai aturan:
+ * - manager, finance, executive -> tampilkan nama + role, misal "Budi (Finance)"
+ * - anggota -> HANYA nama saja, misal "Siti" (tanpa role)
+ */
+export function formatUserWithRole(nama: string | null | undefined, role: string | null | undefined): string {
+  if (!nama) return '-';
+  if (!role || role.toLowerCase() === 'anggota') {
+    return nama;
+  }
+  const roleName = role.charAt(0).toUpperCase() + role.slice(1).toLowerCase();
+  return `${nama} (${roleName})`;
 }
 
 /**

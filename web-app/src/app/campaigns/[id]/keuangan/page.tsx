@@ -12,6 +12,7 @@ import { BatchDetail } from "./BatchDetail";
 import { getPaymentBatches, getPaymentBatchDetail } from "../../actions/paymentActions";
 import { CampaignCreatorMutationTab } from "@/components/CampaignCreatorMutationTab";
 import { UnpaidCreatorsTab } from "@/components/UnpaidCreatorsTab";
+import { formatDateTime, formatUserWithRole } from "@/utils/formatters";
 
 const supabase = createClient();
 
@@ -70,9 +71,25 @@ function CampaignKeuanganContent() {
       // Fetch approved creators for form
       const { data: ccData } = await supabase
         .from('campaign_creators')
-        .select(`*, creators(username)`)
+        .select(`
+          *,
+          creators (
+            id,
+            username,
+            nama_lengkap,
+            nama_wa_pic,
+            nomor_wa_dealing,
+            alamat_ktp,
+            nik,
+            link_ktp,
+            link_npwp,
+            link_kontrak,
+            creator_snapshots ( ratecard, followers, gmv_30d )
+          )
+        `)
         .eq('campaign_id', campaignId)
-        .eq('approval', 'approved');
+        .eq('approval', 'approved')
+        .range(0, 4999);
 
       const creatorHistory: Record<number, any[]> = {};
       data?.forEach(b => {
@@ -94,12 +111,23 @@ function CampaignKeuanganContent() {
         });
       });
 
-      const filteredCreators = (ccData || []).filter(cc => Number(cc.price || 0) > 0).map(cc => {
+      const filteredCreators = (ccData || []).map(cc => {
         const history = creatorHistory[cc.id] || [];
         const types = history.map(h => h.payment_type);
         const isFullyPaid = types.includes('100_akhir') || (types.includes('50_awal') && types.includes('50_akhir'));
+        
+        // Cek ratecard dari campaign_creators.price, jika 0/kosong fallback ke snapshot terbaru
+        let effectivePrice = Number(cc.price || 0);
+        if (!effectivePrice && cc.creators?.creator_snapshots?.length > 0) {
+          const validSnap = cc.creators.creator_snapshots.find((s: any) => Number(s.ratecard || 0) > 0);
+          if (validSnap) {
+            effectivePrice = Number(validSnap.ratecard || 0);
+          }
+        }
+
         return {
           ...cc,
+          price: effectivePrice,
           isFullyPaid
         };
       });
@@ -309,9 +337,9 @@ function CampaignKeuanganContent() {
                           <tr key={b.id} className="hover:bg-slate-50/80 transition-colors">
                             <td className="px-4 py-3 text-center text-slate-400">{idx + 1}</td>
                             <td className="px-4 py-3 font-semibold text-slate-700">{b.batch_label}
-                              <div className="text-xs font-normal text-slate-400">{new Date(b.created_at).toLocaleDateString('id-ID')}</div>
+                              <div className="text-xs font-normal text-slate-400">{formatDateTime(b.submitted_at || b.created_at)}</div>
                             </td>
-                            <td className="px-4 py-3 font-medium text-slate-600">{b.submitter?.nama}</td>
+                            <td className="px-4 py-3 font-medium text-slate-600">{formatUserWithRole(b.submitter?.nama, b.submitter?.role)}</td>
                             <td className="px-4 py-3">
                               <div className="flex flex-col gap-1 items-center text-[10px] w-24 mx-auto">
                                 <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-semibold w-full text-center">Diajukan: {totalItem}</span>

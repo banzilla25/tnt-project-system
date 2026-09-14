@@ -11,6 +11,7 @@ import { RekapAdsTab } from "@/components/RekapAdsTab";
 import { GlobalCommandCenter } from "@/components/GlobalCommandCenter";
 import { useAuth } from "@/providers/AuthProvider";
 import { BatchDetail } from "../campaigns/[id]/keuangan/BatchDetail";
+import { formatDateTime, formatUserWithRole } from "@/utils/formatters";
 
 const supabase = createClient();
 
@@ -238,6 +239,7 @@ function GlobalBudgetingContent() {
                       <th className="px-4 py-4 text-center w-12">No</th>
                       <th className="px-4 py-4">Campaign</th>
                       <th className="px-4 py-4">Batch Label</th>
+                      <th className="px-4 py-4">Tgl Pengajuan</th>
                       <th className="px-4 py-4">PIC Submit</th>
                       <th className="px-4 py-4 text-center">Jml Item</th>
                       <th className="px-4 py-4 text-right">Total Nominal</th>
@@ -249,16 +251,19 @@ function GlobalBudgetingContent() {
                     {batches.map((b, idx) => {
                       const totalNominal = b.payment_items?.reduce((acc: number, cur: any) => acc + Number(cur.nominal) + Number(cur.biaya_transfer), 0) || 0;
                       return (
-                        <tr key={b.id}>
+                        <tr key={b.id} className="hover:bg-slate-50 transition-colors">
                           <td className="px-4 py-3 text-center">{idx + 1}</td>
-                          <td className="px-4 py-3">{b.campaigns?.nama}</td>
-                          <td className="px-4 py-3">{b.batch_label}</td>
-                          <td className="px-4 py-3">{b.submitter?.nama}</td>
+                          <td className="px-4 py-3 font-semibold text-slate-800">{b.campaigns?.nama}</td>
+                          <td className="px-4 py-3 font-medium text-slate-700">{b.batch_label}</td>
+                          <td className="px-4 py-3 text-xs text-slate-500">{formatDateTime(b.submitted_at || b.created_at)}</td>
+                          <td className="px-4 py-3">{formatUserWithRole(b.submitter?.nama, b.submitter?.role)}</td>
                           <td className="px-4 py-3 text-center">{b.payment_items?.length}</td>
-                          <td className="px-4 py-3 text-right">Rp {totalNominal.toLocaleString()}</td>
-                          <td className="px-4 py-3 text-center">{b.status}</td>
+                          <td className="px-4 py-3 text-right font-bold text-slate-800">Rp {totalNominal.toLocaleString()}</td>
                           <td className="px-4 py-3 text-center">
-                            <button onClick={() => setSelectedBatchId(b.id)} className="text-blue-600 font-semibold hover:bg-blue-50 px-3 py-1 rounded-md transition-all">Detail</button>
+                            <span className="px-2 py-1 bg-slate-100 text-slate-700 rounded text-xs font-semibold uppercase">{b.status}</span>
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <button onClick={() => setSelectedBatchId(b.id)} className="text-blue-600 font-semibold hover:bg-blue-50 px-3 py-1 rounded-md transition-all text-xs">Detail</button>
                           </td>
                         </tr>
                       );

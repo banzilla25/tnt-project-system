@@ -132,10 +132,14 @@ export function BatchForm({ campaignId, creators, creatorHistory, initialItems, 
     }
   };
 
-  const filteredCreators = creators.filter(c => 
-    c.approval === 'approved' && 
-    (!searchQuery || c.creators?.username?.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  const cleanSearch = searchQuery.trim().replace(/^@/, '').toLowerCase();
+  const filteredCreators = creators.filter(c => {
+    if (c.approval !== 'approved') return false;
+    if (!cleanSearch) return true;
+    const u = (c.creators?.username || '').toLowerCase();
+    const n = (c.creators?.nama_lengkap || '').toLowerCase();
+    return u.includes(cleanSearch) || n.includes(cleanSearch);
+  });
 
   const handleRemoveCreator = (ccId: number) => {
     setSelectedCreators(prev => prev.filter(c => c.id !== ccId));

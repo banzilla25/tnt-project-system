@@ -11,11 +11,15 @@ export async function getPaymentBatches(campaignId?: number, status?: string) {
   const supabase = await createClient();
   let query = supabase.from('payment_batches').select(`
     *,
-    submitter:profiles!submitted_by(nama),
+    submitter:profiles!submitted_by(nama, role),
+    manager:profiles!manager_reviewed_by(nama, role),
+    finance:profiles!finance_reviewed_by(nama, role),
+    executive:profiles!executive_reviewed_by(nama, role),
+    payer:profiles!paid_by(nama, role),
     campaigns(nama),
     payment_items(
-      id, nominal, biaya_transfer, final_status, payment_type, campaign_creator_id, metode_pembayaran, nomor_rekening, nama_penerima, notes, ratecard_awal, actual_transfer, executive_note, manager_note,
-      campaign_creators(creators(username, nama_asli), profiles:profiles!added_by(nama)),
+      id, nominal, biaya_transfer, final_status, payment_type, campaign_creator_id, metode_pembayaran, nomor_rekening, nama_penerima, notes, ratecard_awal, actual_transfer, executive_note, manager_note, created_at,
+      campaign_creators(creators(username, nama_asli), profiles:profiles!added_by(nama, role)),
       creator_bank_accounts(bank_name, account_number, account_holder)
     )
   `).order('created_at', { ascending: false });
@@ -36,7 +40,7 @@ export async function fetchPendingAdsTopUp() {
       payment_batches!inner(batch_label, status, campaigns!inner(nama))
     `)
     .eq('payment_type', 'ads')
-    .in('payment_batches.status', ['pending_finance', 'pending_executive', 'ready_to_pay'])
+    .not('final_status', 'in', '("paid","rejected","cancelled")')
     .order('created_at', { ascending: false });
 
   if (error) throw new Error(error.message);
@@ -69,9 +73,10 @@ export async function fetchUnpaidCreators(campaignId: number) {
       creator_id,
       creators ( 
         username, 
+        nama_lengkap,
         avatar_url, 
         nik, link_ktp, link_npwp, link_kontrak, nama_wa_pic, nomor_wa_dealing, alamat_ktp,
-        creator_snapshots ( followers, gmv_30d ),
+        creator_snapshots ( followers, gmv_30d, ratecard ),
         creator_bank_accounts ( id, bank_name, account_number, account_holder )
       ),
       videos ( id, link_video ),
@@ -79,7 +84,8 @@ export async function fetchUnpaidCreators(campaignId: number) {
     `)
     .eq('campaign_id', campaignId)
     .eq('approval', 'approved')
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false })
+    .range(0, 4999);
 
   if (error) throw new Error(error.message);
   return data;
@@ -143,16 +149,16 @@ export async function getPaymentBatchDetail(batchId: number) {
   const supabase = await createClient();
   const { data, error } = await supabase.from('payment_batches').select(`
     *,
-    submitter:profiles!submitted_by(nama),
-    manager:profiles!manager_reviewed_by(nama),
-    finance:profiles!finance_reviewed_by(nama),
-    executive:profiles!executive_reviewed_by(nama),
-    payer:profiles!paid_by(nama),
+    submitter:profiles!submitted_by(nama, role),
+    manager:profiles!manager_reviewed_by(nama, role),
+    finance:profiles!finance_reviewed_by(nama, role),
+    executive:profiles!executive_reviewed_by(nama, role),
+    payer:profiles!paid_by(nama, role),
     campaigns(nama),
     payment_items(
       *,
       campaign_creators(
-        id, tier, price, qty_vt, creators(id, username, nama_asli), profiles:profiles!added_by(nama)
+        id, tier, price, qty_vt, creators(id, username, nama_asli), profiles:profiles!added_by(nama, role)
       ),
       creator_bank_accounts(bank_name, account_number, account_holder)
     )
@@ -165,7 +171,7 @@ export async function getPaymentBatchDetail(batchId: number) {
   if (!data) return null;
 
   if (data?.executive_reviewed_1_by) {
-    const { data: exec1 } = await supabase.from('profiles').select('nama').eq('id', data.executive_reviewed_1_by).single();
+    const { data: exec1 } = await supabase.from('profiles').select('nama, role').eq('id', data.executive_reviewed_1_by).single();
     if (exec1) {
       data.executive1 = exec1;
     }
@@ -575,26 +581,91 @@ export async function financeSubmitToExecutive(batchId: number) {
   revalidatePath('/budgeting');
 }
 
+/**
+ * Auto-Split / Rollover Batch:
+ * Jika sebagian item dalam batch dibayar dan ada item yang belum dibayar (misal pending_finance_outstanding, dll),
+ * item-item yang belum dibayar tersebut otomatis dipindahkan ke batch baru bertajuk:
+ * "[Nama Batch Asli] - Termin 2" (atau Termin 3, dst).
+ * Batch baru berstatus 'pending_finance' sehingga tetap aktif di antrean Finance Review.
+ */
+export async function autoSplitUnpaidBatchItems(supabase: any, batchId: number, user: any) {
+  // 1. Ambil data batch asli
+  const { data: batch, error: bErr } = await supabase.from('payment_batches').select('*').eq('id', batchId).single();
+  if (bErr || !batch) return;
+
+  // 2. Ambil semua item di batch ini yang BELUM lunas, ditolak, atau dibatalkan
+  const { data: unpaidItems, error: itemsErr } = await supabase.from('payment_items')
+    .select('id, final_status')
+    .eq('batch_id', batchId)
+    .not('final_status', 'in', '("paid","rejected","cancelled")');
+
+  if (itemsErr || !unpaidItems || unpaidItems.length === 0) {
+    return; // Semua item sudah beres, tidak perlu split
+  }
+
+  // 3. Tentukan nama batch baru dengan penomoran termin
+  let baseLabel = batch.batch_label || `Batch #${batch.id}`;
+  let nextTermin = 2;
+  const terminMatch = baseLabel.match(/\s*-\s*Termin\s*(\d+)$/i);
+  if (terminMatch) {
+    nextTermin = parseInt(terminMatch[1], 10) + 1;
+    baseLabel = baseLabel.replace(/\s*-\s*Termin\s*(\d+)$/i, '').trim();
+  }
+  const newBatchLabel = `${baseLabel} - Termin ${nextTermin}`;
+
+  // 4. Buat batch baru di database
+  const now = new Date().toISOString();
+  const { data: newBatch, error: newBatchErr } = await supabase.from('payment_batches').insert({
+    campaign_id: batch.campaign_id,
+    batch_label: newBatchLabel,
+    status: 'pending_finance', // Langsung aktif di antrean Finance Review
+    submitted_by: batch.submitted_by,
+    submitted_at: batch.submitted_at || now,
+    manager_reviewed_by: batch.manager_reviewed_by,
+    manager_reviewed_at: batch.manager_reviewed_at,
+    notes: batch.notes ? `${batch.notes} (Pemisahan dari ${batch.batch_label})` : `Pemisahan sisa dari ${batch.batch_label}`
+  }).select('id').single();
+
+  if (newBatchErr || !newBatch) {
+    console.error("Gagal membuat batch auto-split:", newBatchErr);
+    return;
+  }
+
+  // 5. Pindahkan item-item yang belum lunas ke batch baru
+  const unpaidItemIds = unpaidItems.map((i: any) => i.id);
+  const { error: moveErr } = await supabase.from('payment_items')
+    .update({ batch_id: newBatch.id })
+    .in('id', unpaidItemIds);
+
+  if (moveErr) {
+    console.error("Gagal memindahkan item ke batch auto-split:", moveErr);
+  }
+}
+
 export async function financeMarkPaid(batchId: number, payload: { actualPaymentDate: string, buktiTransferUrl: string, senderAccountId: number }) {
   const supabase = await createClient();
   const { data: user } = await supabase.auth.getUser();
+  const now = new Date().toISOString();
   
-  // 1. Update batch status
+  // 1. Update item final_status for all executive_approved items
+  const { error: itemsErr } = await supabase.from('payment_items').update({
+    final_status: 'paid'
+  }).eq('batch_id', batchId).eq('final_status', 'executive_approved');
+  if (itemsErr) throw new Error(itemsErr.message);
+
+  // 2. Auto-split any remaining unpaid items into Termin 2
+  await autoSplitUnpaidBatchItems(supabase, batchId, user);
+
+  // 3. Update batch status to paid
   const { error: batchErr } = await supabase.from('payment_batches').update({
     status: 'paid',
     paid_by: user?.user?.id,
-    paid_at: new Date().toISOString(),
+    paid_at: now,
     actual_payment_date: payload.actualPaymentDate,
     bukti_transfer_url: payload.buktiTransferUrl,
     sender_account_id: payload.senderAccountId
   }).eq('id', batchId);
   if (batchErr) throw new Error(batchErr.message);
-
-  // 2. Update item final_status for all executive_approved items
-  const { error: itemsErr } = await supabase.from('payment_items').update({
-    final_status: 'paid'
-  }).eq('batch_id', batchId).eq('final_status', 'executive_approved');
-  if (itemsErr) throw new Error(itemsErr.message);
 
   revalidatePath('/budgeting');
 }
@@ -602,35 +673,27 @@ export async function financeMarkPaid(batchId: number, payload: { actualPaymentD
 export async function financeBulkMarkPaidItems(batchId: number, itemIds: number[], payload: { actualPaymentDate: string, buktiTransferUrl: string, senderAccountId: number }) {
   const supabase = await createClient();
   const { data: user } = await supabase.auth.getUser();
+  const now = new Date().toISOString();
   
-  // Update specific items to paid
+  // 1. Update specific items to paid
   const { error: itemsErr } = await supabase.from('payment_items').update({
-    final_status: 'paid',
-    // Could also store bukti transfer per item if schema supported it, but we'll stick to updating status
+    final_status: 'paid'
   }).in('id', itemIds).eq('batch_id', batchId);
   if (itemsErr) throw new Error(itemsErr.message);
 
-  // Check if all items in batch are now paid, rejected or cancelled
-  const { data: allItems } = await supabase.from('payment_items')
-    .select('id, final_status')
-    .eq('batch_id', batchId);
-  
-  const remainingItems = (allItems || []).filter(item => 
-    !['paid', 'rejected', 'cancelled'].includes(item.final_status)
-  );
-  
-  if (remainingItems.length === 0) {
-    // All items are finalized, close the batch
-    const { error: batchErr } = await supabase.from('payment_batches').update({
-      status: 'paid',
-      paid_by: user?.user?.id,
-      paid_at: new Date().toISOString(),
-      actual_payment_date: payload.actualPaymentDate,
-      bukti_transfer_url: payload.buktiTransferUrl,
-      sender_account_id: payload.senderAccountId
-    }).eq('id', batchId);
-    if (batchErr) throw new Error(batchErr.message);
-  }
+  // 2. Auto-split any remaining unpaid items into Termin 2
+  await autoSplitUnpaidBatchItems(supabase, batchId, user);
+
+  // 3. All remaining items in batch are now finalized, close the batch as paid
+  const { error: batchErr } = await supabase.from('payment_batches').update({
+    status: 'paid',
+    paid_by: user?.user?.id,
+    paid_at: now,
+    actual_payment_date: payload.actualPaymentDate,
+    bukti_transfer_url: payload.buktiTransferUrl,
+    sender_account_id: payload.senderAccountId
+  }).eq('id', batchId);
+  if (batchErr) throw new Error(batchErr.message);
 
   revalidatePath('/budgeting');
 }
@@ -684,7 +747,21 @@ export async function executiveFinalizeReview(batchId: number) {
 export async function getBudgetSummary() {
   const supabase = await createClient();
   
-  // Ambil semua campaigns yang aktif
+  // 1. Coba query view agregasi berkecepatan tinggi jika ada
+  try {
+    const { data: viewData, error: vErr } = await supabase
+      .from('vw_campaign_budget_summary')
+      .select('*')
+      .order('campaign_nama', { ascending: true });
+      
+    if (!vErr && viewData && viewData.length > 0) {
+      return viewData;
+    }
+  } catch (e) {
+    // Abaikan jika view belum ada di Supabase, gunakan fallback
+  }
+
+  // 2. Fallback perhitungan manual yang telah dioptimasi
   const { data: campaigns, error: campErr } = await supabase
     .from('campaigns')
     .select('id, nama, budget_creator_plafon, budget_ads_plafon, status')
@@ -692,15 +769,13 @@ export async function getBudgetSummary() {
     
   if (campErr) throw new Error(campErr.message);
 
-  // Ambil semua payment items yang berstatus paid
   const { data: paidItems, error: itemsErr } = await supabase
     .from('payment_items')
-    .select('payment_type, nominal, biaya_transfer, payment_batches!inner(campaign_id)')
+    .select('payment_type, nominal, actual_transfer, biaya_transfer, payment_batches!inner(campaign_id)')
     .eq('final_status', 'paid');
     
   if (itemsErr) throw new Error(itemsErr.message);
 
-  // Kalkulasi per campaign
   const summary = campaigns.map(camp => {
     let terpakaiCreator = 0;
     let terpakaiAds = 0;
@@ -708,10 +783,11 @@ export async function getBudgetSummary() {
     paidItems?.forEach(item => {
       const itemCampaignId = (item.payment_batches as any)?.campaign_id;
       if (itemCampaignId === camp.id) {
+        const baseNominal = item.actual_transfer != null ? Number(item.actual_transfer) : Number(item.nominal || 0);
         if (item.payment_type === 'ads') {
-          terpakaiAds += Number(item.nominal || 0);
+          terpakaiAds += baseNominal + Number(item.biaya_transfer || 0);
         } else {
-          terpakaiCreator += Number(item.nominal || 0) + Number(item.biaya_transfer || 0);
+          terpakaiCreator += baseNominal + Number(item.biaya_transfer || 0);
         }
       }
     });
@@ -758,11 +834,11 @@ export async function fetchCommandCenterBatches() {
   const { data, error } = await supabase.from('payment_batches').select(`
     *,
     campaigns(nama),
-    submitter:profiles!submitted_by(nama),
+    submitter:profiles!submitted_by(nama, role),
     payment_items(
-      id, final_status, nominal, biaya_transfer, ratecard_awal, payment_type, metode_pembayaran, nomor_rekening, nama_penerima, notes, transaction_id,
+      id, final_status, nominal, biaya_transfer, ratecard_awal, actual_transfer, payment_type, metode_pembayaran, nomor_rekening, nama_penerima, notes, transaction_id, created_at,
       manager_status, executive_1_status, finance_selected, executive_status,
-      campaign_creators(id, tier, price, qty_vt, qty_live, creators(username, nama_asli, avatar_url))
+      campaign_creators(id, tier, price, qty_vt, qty_live, creators(username, nama_asli, avatar_url), profiles:profiles!added_by(nama, role))
     )
   `)
   .in('status', ['pending_manager', 'pending_executive_1', 'pending_finance', 'pending_executive', 'ready_to_pay'])
@@ -977,15 +1053,15 @@ export async function bulkMarkPaidFinance(itemIds: number[], payload: { actualPa
         sender_account_id: payload.senderAccountId
       }).eq('id', bId);
 
-      const { data: allItems } = await supabase.from('payment_items').select('final_status').eq('batch_id', bId);
-      const allDone = allItems?.every(i => ['paid', 'rejected', 'cancelled', 'pending_finance_outstanding'].includes(i.final_status));
-      if (allDone) {
-        await supabase.from('payment_batches').update({
-          status: 'paid',
-          paid_by: userId,
-          paid_at: now
-        }).eq('id', bId);
-      }
+      // Auto-split remaining unpaid items (seperti pending_finance_outstanding) ke Termin 2
+      await autoSplitUnpaidBatchItems(supabase, bId, user);
+
+      // Setelah auto-split, batch bId dijamin hanya berisi item yang sudah paid/rejected/cancelled
+      await supabase.from('payment_batches').update({
+        status: 'paid',
+        paid_by: userId,
+        paid_at: now
+      }).eq('id', bId);
     }
   }
 

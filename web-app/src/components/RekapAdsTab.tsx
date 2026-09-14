@@ -30,8 +30,13 @@ export function RekapAdsTab() {
 
   const totalPending = pendingAds.reduce((sum, item) => sum + (Number(item.actual_transfer || item.nominal || 0) + Number(item.biaya_transfer || 0)), 0);
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: string, itemStatus?: string) => {
+    if (itemStatus === 'pending_finance_outstanding') {
+      return <span className="px-2 py-1 bg-amber-100 text-amber-700 rounded text-xs font-bold uppercase">Ditunda Finance</span>;
+    }
     switch (status) {
+      case 'pending_manager': return <span className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded text-xs font-bold uppercase">Menunggu Manager</span>;
+      case 'pending_executive_1': return <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs font-bold uppercase">Menunggu Executive 1</span>;
       case 'pending_finance': return <span className="px-2 py-1 bg-orange-100 text-orange-700 rounded text-xs font-bold uppercase">Menunggu Finance</span>;
       case 'pending_executive': return <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs font-bold uppercase">Menunggu Executive</span>;
       case 'ready_to_pay': return <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-bold uppercase">Siap Bayar</span>;
@@ -65,19 +70,20 @@ export function RekapAdsTab() {
           <table className="w-full text-left text-sm">
             <thead className="bg-slate-50 border-b border-slate-100 text-slate-600 font-medium">
               <tr>
+                <th className="px-4 py-3">Tgl Pengajuan</th>
                 <th className="px-4 py-3">Campaign & Batch</th>
                 <th className="px-4 py-3">Penerima & Rekening</th>
                 <th className="px-4 py-3 max-w-[150px]">Catatan</th>
                 <th className="px-4 py-3 text-right">Nominal</th>
                 <th className="px-4 py-3 text-right">Biaya TF</th>
                 <th className="px-4 py-3 text-right">Total Transaksi</th>
-                <th className="px-4 py-3 text-center">Status Batch</th>
+                <th className="px-4 py-3 text-center">Status Item / Batch</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
               {pendingAds.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
+                  <td colSpan={8} className="px-4 py-8 text-center text-slate-500">
                     Tidak ada pengajuan Ads yang belum dibayar saat ini.
                   </td>
                 </tr>
@@ -87,9 +93,11 @@ export function RekapAdsTab() {
                   const biayaTf = Number(item.biaya_transfer || 0);
                   const total = nominal + biayaTf;
                   const bankName = item.bank_name || item.metode_pembayaran || 'Bank';
+                  const dateCreated = formatDateTime(item.created_at);
 
                   return (
                     <tr key={item.id} className="hover:bg-slate-50 transition-colors">
+                      <td className="px-4 py-3 text-xs text-slate-500 font-mono whitespace-nowrap">{dateCreated}</td>
                       <td className="px-4 py-3">
                         <div className="font-medium text-slate-800">{item.payment_batches?.campaigns?.nama || '-'}</div>
                         <div className="text-[11px] text-slate-500">{item.payment_batches?.batch_label || '-'}</div>
@@ -105,7 +113,7 @@ export function RekapAdsTab() {
                       <td className="px-4 py-3 text-right text-slate-400 text-xs">Rp {biayaTf.toLocaleString()}</td>
                       <td className="px-4 py-3 text-right font-bold text-slate-800">Rp {total.toLocaleString()}</td>
                       <td className="px-4 py-3 text-center">
-                        {getStatusBadge(item.payment_batches?.status)}
+                        {getStatusBadge(item.payment_batches?.status, item.final_status)}
                       </td>
                     </tr>
                   );

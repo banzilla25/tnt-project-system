@@ -10,6 +10,7 @@ import {
   bulkMarkPaidFinance
 } from '@/app/campaigns/actions/paymentActions';
 import { getSenderAccounts } from '@/app/campaigns/actions/paymentActions';
+import { formatDateTime, formatUserWithRole } from '@/utils/formatters';
 
 export function GlobalCommandCenter({ role, onSuccess }: { role: string, onSuccess?: () => void }) {
   const [batches, setBatches] = useState<any[]>([]);
@@ -286,7 +287,9 @@ export function GlobalCommandCenter({ role, onSuccess }: { role: string, onSucce
                       <div className="flex items-center gap-3 text-xs text-slate-500 mt-1">
                         <span>{batch.campaigns?.nama || 'Unknown Campaign'}</span>
                         <span>•</span>
-                        <span>Oleh: {batch.submitter?.nama}</span>
+                        <span>Oleh: {formatUserWithRole(batch.submitter?.nama, batch.submitter?.role)}</span>
+                        <span>•</span>
+                        <span>{formatDateTime(batch.submitted_at || batch.created_at)}</span>
                       </div>
                     </div>
                   </div>
@@ -309,6 +312,7 @@ export function GlobalCommandCenter({ role, onSuccess }: { role: string, onSucce
                         <tr>
                           <th className="py-2 pl-4 w-12"></th>
                           <th className="py-2">Kreator / Deskripsi</th>
+                          <th className="py-2">Tgl Pengajuan</th>
                           <th className="py-2">Pembayaran ke</th>
                           <th className="py-2 text-right">Nominal</th>
                           <th className="py-2 text-center pr-4">Status</th>
@@ -333,10 +337,13 @@ export function GlobalCommandCenter({ role, onSuccess }: { role: string, onSucce
                                   </div>
                                 ) : (
                                   <div>
-                                    <div className="font-semibold text-slate-800">Operasional</div>
+                                    <div className="font-semibold text-slate-800">{item.nama_penerima || 'Operasional'}</div>
                                     <div className="text-xs text-slate-500 uppercase">{item.payment_type}</div>
                                   </div>
                                 )}
+                              </td>
+                              <td className="py-3 text-xs text-slate-600 whitespace-nowrap">
+                                <div>{formatDateTime(item.created_at)}</div>
                               </td>
                               <td className="py-3 text-slate-600 text-xs">
                                 <div className="font-medium text-slate-800">{item.nama_penerima}</div>
