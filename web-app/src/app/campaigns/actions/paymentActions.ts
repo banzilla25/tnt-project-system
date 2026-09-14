@@ -66,56 +66,109 @@ export async function fetchCampaignCreatorMutations(campaignId: number) {
 }
 
 export async function fetchUnpaidCreators(campaignId: number) {
-  const supabase = await createClient();
-  const { data, error } = await supabase.from('campaign_creators')
-    .select(`
-      id, price, tier, qty_vt, qty_live, approval,
-      creator_id,
-      creators ( 
-        username, 
-        nama_lengkap,
-        avatar_url, 
-        nik, link_ktp, link_npwp, link_kontrak, nama_wa_pic, nomor_wa_dealing, alamat_ktp,
-        creator_snapshots ( followers, gmv_30d, ratecard ),
-        creator_bank_accounts ( id, bank_name, account_number, account_holder )
-      ),
-      videos ( id, link_video ),
-      payment_items ( id, final_status, payment_type, nominal )
-    `)
-    .eq('campaign_id', campaignId)
-    .eq('approval', 'approved')
-    .order('created_at', { ascending: false })
-    .range(0, 4999);
+  try {
+    const supabase = await createClient();
+    
+    let allData: any[] = [];
+    let page = 0;
+    const limit = 1000;
+    let hasMore = true;
+    
+    while (hasMore) {
+      const { data, error } = await supabase.from('campaign_creators')
+        .select(`
+          id, price, tier, qty_vt, qty_live, approval,
+          creator_id,
+          creators ( 
+            username, 
+            nama_lengkap,
+            avatar_url, 
+            nik, link_ktp, link_npwp, link_kontrak, nama_wa_pic, nomor_wa_dealing, alamat_ktp,
+            creator_snapshots ( followers, gmv_30d, ratecard ),
+            creator_bank_accounts ( id, bank_name, account_number, account_holder )
+          ),
+          videos ( id, link_video ),
+          payment_items ( id, final_status, payment_type, nominal )
+        `)
+        .eq('campaign_id', campaignId)
+        .eq('approval', 'approved')
+        .order('created_at', { ascending: false })
+        .range(page * limit, (page + 1) * limit - 1);
 
-  if (error) throw new Error(error.message);
-  return data;
+      if (error) {
+        console.error("Supabase Error in fetchUnpaidCreators:", error);
+        throw new Error(error.message);
+      }
+      
+      if (data && data.length > 0) {
+        allData = [...allData, ...data];
+        page++;
+      }
+      
+      if (!data || data.length < limit) {
+        hasMore = false;
+      }
+    }
+    
+    return allData;
+  } catch (err: any) {
+    console.error("Exception in fetchUnpaidCreators:", err);
+    throw err;
+  }
 }
 
 export async function fetchApprovedCreatorsForBatch(campaignId: number) {
-  const supabase = await createClient();
-  const { data, error } = await supabase.from('campaign_creators')
-    .select(`
-      *,
-      creators (
-        id,
-        username,
-        nama_lengkap,
-        nama_wa_pic,
-        nomor_wa_dealing,
-        alamat_ktp,
-        nik,
-        link_ktp,
-        link_npwp,
-        link_kontrak,
-        creator_snapshots ( ratecard, followers, gmv_30d )
-      )
-    `)
-    .eq('campaign_id', campaignId)
-    .eq('approval', 'approved')
-    .range(0, 4999);
+  try {
+    const supabase = await createClient();
+    
+    // Fetch in chunks to avoid any potential limits
+    let allData: any[] = [];
+    let page = 0;
+    const limit = 1000;
+    let hasMore = true;
+    
+    while (hasMore) {
+      const { data, error } = await supabase.from('campaign_creators')
+        .select(`
+          *,
+          creators (
+            id,
+            username,
+            nama_lengkap,
+            nama_wa_pic,
+            nomor_wa_dealing,
+            alamat_ktp,
+            nik,
+            link_ktp,
+            link_npwp,
+            link_kontrak,
+            creator_snapshots ( ratecard, followers, gmv_30d )
+          )
+        `)
+        .eq('campaign_id', campaignId)
+        .eq('approval', 'approved')
+        .range(page * limit, (page + 1) * limit - 1);
 
-  if (error) throw new Error(error.message);
-  return data;
+      if (error) {
+        console.error("Supabase Error in fetchApprovedCreatorsForBatch:", error);
+        throw new Error(error.message);
+      }
+      
+      if (data && data.length > 0) {
+        allData = [...allData, ...data];
+        page++;
+      }
+      
+      if (!data || data.length < limit) {
+        hasMore = false;
+      }
+    }
+    
+    return allData;
+  } catch (err: any) {
+    console.error("Exception in fetchApprovedCreatorsForBatch:", err);
+    throw err;
+  }
 }
 
 export async function fetchMutationsPaginated(page: number, limit: number, month: string, search: string, paymentType: string = 'all') {
