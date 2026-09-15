@@ -9,27 +9,15 @@ import { revalidatePath } from 'next/cache';
 
 export async function getPaymentBatches(campaignId?: number, status?: string) {
   const supabase = await createClient();
-  let query = supabase.from('payment_batches').select(`
-    *,
-    submitter:profiles!submitted_by(nama, role),
-    manager:profiles!manager_reviewed_by(nama, role),
-    finance:profiles!finance_reviewed_by(nama, role),
-    executive:profiles!executive_reviewed_by(nama, role),
-    payer:profiles!paid_by(nama, role),
-    campaigns(nama),
-    payment_items(
-      id, nominal, biaya_transfer, final_status, payment_type, campaign_creator_id, metode_pembayaran, nomor_rekening, nama_penerima, notes, ratecard_awal, actual_transfer, executive_note, manager_note, created_at,
-      campaign_creators(creators(username, nama_asli), profiles:profiles!added_by(nama, role)),
-      creator_bank_accounts(bank_name, account_number, account_holder)
-    )
-  `).order('created_at', { ascending: false });
+  
+  let rpcArgs: any = {};
+  if (campaignId) rpcArgs.p_campaign_id = campaignId;
+  if (status) rpcArgs.p_status_in = [status];
 
-  if (campaignId) query = query.eq('campaign_id', campaignId);
-  if (status) query = query.eq('status', status);
+  const { data, error } = await supabase.rpc('rpc_get_payment_batches', rpcArgs);
 
-  const { data, error } = await query;
   if (error) throw new Error(error.message);
-  return data;
+  return data || [];
 }
 
 export async function fetchPendingAdsTopUp() {
@@ -868,21 +856,12 @@ export async function financeUpdateAmounts(itemId: number, actualTransfer: numbe
 
 export async function fetchCommandCenterBatches() {
   const supabase = await createClient();
-  const { data, error } = await supabase.from('payment_batches').select(`
-    *,
-    campaigns(nama),
-    submitter:profiles!submitted_by(nama, role),
-    payment_items(
-      id, final_status, nominal, biaya_transfer, ratecard_awal, actual_transfer, payment_type, metode_pembayaran, nomor_rekening, nama_penerima, notes, transaction_id, created_at,
-      manager_status, executive_1_status, finance_selected, executive_status,
-      campaign_creators(id, tier, price, qty_vt, qty_live, creators(username, nama_asli, avatar_url), profiles:profiles!added_by(nama, role))
-    )
-  `)
-  .in('status', ['pending_manager', 'pending_executive_1', 'pending_finance', 'pending_executive', 'ready_to_pay'])
-  .order('submitted_at', { ascending: false });
+  const { data, error } = await supabase.rpc('rpc_get_payment_batches', {
+    p_status_in: ['pending_manager', 'pending_executive_1', 'pending_finance', 'pending_executive', 'ready_to_pay']
+  });
 
   if (error) throw new Error(error.message);
-  return data;
+  return data || [];
 }
 
 export async function bulkApproveManager(batchIds: number[]) {

@@ -5,8 +5,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/com
 import { Button } from "@/components/ui/Button";
 import { UploadCloud, CheckCircle2, AlertTriangle, FileSpreadsheet, Lock } from 'lucide-react';
 import * as xlsx from 'xlsx';
-import { uploadOrganik } from './actions/uploadOrganik';
-import { uploadAds } from './actions/uploadAds';
+
 import OrganicImport from './OrganicImport';
 import AdsImport from './AdsImport';
 import { useAuth } from '@/providers/AuthProvider';

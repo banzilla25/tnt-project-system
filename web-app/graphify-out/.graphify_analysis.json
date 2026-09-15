@@ -1,0 +1,2448 @@
+{
+  "communities": {
+    "0": [
+      "src_app_ads_report_actions",
+      "src_app_ads_report_actions_getadsreportdata",
+      "src_app_budgeting_page",
+      "src_app_budgeting_page_globalbudgetingcontent",
+      "src_app_budgeting_page_globalbudgetingpage",
+      "src_app_budgeting_page_supabase",
+      "src_app_campaigns_actions_paymentactions",
+      "src_app_campaigns_actions_paymentactions_addpaymentitem",
+      "src_app_campaigns_actions_paymentactions_autosplitunpaidbatchitems",
+      "src_app_campaigns_actions_paymentactions_bulkapproveexecutive1",
+      "src_app_campaigns_actions_paymentactions_bulkapproveexecutivefinal",
+      "src_app_campaigns_actions_paymentactions_bulkapprovemanager",
+      "src_app_campaigns_actions_paymentactions_bulkmarkpaidfinance",
+      "src_app_campaigns_actions_paymentactions_bulkprocessfinancereview",
+      "src_app_campaigns_actions_paymentactions_createpaymentbatch",
+      "src_app_campaigns_actions_paymentactions_deletepaymentbatch",
+      "src_app_campaigns_actions_paymentactions_deletepaymentitem",
+      "src_app_campaigns_actions_paymentactions_executiveapproveitem",
+      "src_app_campaigns_actions_paymentactions_executiveapproveitem1",
+      "src_app_campaigns_actions_paymentactions_executivefinalizereview",
+      "src_app_campaigns_actions_paymentactions_executivefinalizereview1",
+      "src_app_campaigns_actions_paymentactions_executiverejectitem",
+      "src_app_campaigns_actions_paymentactions_executiverejectitem1",
+      "src_app_campaigns_actions_paymentactions_fetchapprovedcreatorsforbatch",
+      "src_app_campaigns_actions_paymentactions_fetchcampaigncreatormutations",
+      "src_app_campaigns_actions_paymentactions_fetchcommandcenterbatches",
+      "src_app_campaigns_actions_paymentactions_fetchmutationsexport",
+      "src_app_campaigns_actions_paymentactions_fetchmutationspaginated",
+      "src_app_campaigns_actions_paymentactions_fetchpendingadstopup",
+      "src_app_campaigns_actions_paymentactions_fetchunpaidcreators",
+      "src_app_campaigns_actions_paymentactions_financebulkmarkpaiditems",
+      "src_app_campaigns_actions_paymentactions_financemarkpaid",
+      "src_app_campaigns_actions_paymentactions_financesubmittoexecutive",
+      "src_app_campaigns_actions_paymentactions_financetoggleitem",
+      "src_app_campaigns_actions_paymentactions_financeupdateamounts",
+      "src_app_campaigns_actions_paymentactions_getbudgetsummary",
+      "src_app_campaigns_actions_paymentactions_getcreatorbankaccounts",
+      "src_app_campaigns_actions_paymentactions_getpaymentbatchdetail",
+      "src_app_campaigns_actions_paymentactions_getpaymentbatches",
+      "src_app_campaigns_actions_paymentactions_getsenderaccounts",
+      "src_app_campaigns_actions_paymentactions_importhistoricalbatch",
+      "src_app_campaigns_actions_paymentactions_managerapproveitem",
+      "src_app_campaigns_actions_paymentactions_managerfinalizereview",
+      "src_app_campaigns_actions_paymentactions_managerrejectitem",
+      "src_app_campaigns_actions_paymentactions_processbulkexecutive",
+      "src_app_campaigns_actions_paymentactions_processbulkmanageritems",
+      "src_app_campaigns_actions_paymentactions_resolvecreatorformigration",
+      "src_app_campaigns_actions_paymentactions_revertbatchstatus",
+      "src_app_campaigns_actions_paymentactions_submitbatchtomanager",
+      "src_app_campaigns_actions_paymentactions_updatepaymentitem",
+      "src_app_campaigns_id_keuangan_batchdetail",
+      "src_app_campaigns_id_keuangan_batchdetail_batchdetail",
+      "src_app_campaigns_id_keuangan_batchform",
+      "src_app_campaigns_id_keuangan_batchform_batchform",
+      "src_app_campaigns_id_keuangan_batchform_operationalitem",
+      "src_app_campaigns_id_keuangan_batchformads",
+      "src_app_campaigns_id_keuangan_batchformads_batchformads",
+      "src_app_campaigns_id_keuangan_import_page",
+      "src_app_campaigns_id_keuangan_import_page_importhistoricalbatchpage",
+      "src_app_campaigns_id_keuangan_page",
+      "src_app_campaigns_id_keuangan_page_campaignkeuangancontent",
+      "src_app_campaigns_id_keuangan_page_campaignkeuanganpage",
+      "src_app_campaigns_id_keuangan_page_viewstate",
+      "src_components_campaigncreatormutationtab",
+      "src_components_campaigncreatormutationtab_campaigncreatormutationtab",
+      "src_components_errorboundary",
+      "src_components_errorboundary_errorboundary",
+      "src_components_errorboundary_errorboundary_componentdidcatch",
+      "src_components_errorboundary_errorboundary_getderivedstatefromerror",
+      "src_components_errorboundary_errorboundary_render",
+      "src_components_errorboundary_props",
+      "src_components_errorboundary_state",
+      "src_components_globalcommandcenter",
+      "src_components_globalcommandcenter_globalcommandcenter",
+      "src_components_mutationtable",
+      "src_components_mutationtable_mutationtable",
+      "src_components_paymentstepper",
+      "src_components_paymentstepper_paymentbatchstatus",
+      "src_components_paymentstepper_paymentstepper",
+      "src_components_paymentstepper_stepperprops",
+      "src_components_rekapadstab",
+      "src_components_rekapadstab_rekapadstab",
+      "src_components_unpaidcreatorstab",
+      "src_components_unpaidcreatorstab_unpaidcreatorstab",
+      "src_utils_formatters",
+      "src_utils_formatters_formatdatetime",
+      "src_utils_formatters_formatuserwithrole",
+      "src_utils_statushelper",
+      "src_utils_statushelper_getlogicalstatus",
+      "src_utils_supabase_server",
+      "src_utils_supabase_server_createclient"
+    ],
+    "1": [
+      "ref_papaparse",
+      "scripts_analyze_csv",
+      "scripts_analyze_csv_analyzefile",
+      "src_app_import_data_page",
+      "src_app_import_data_page_importdatapage",
+      "src_components_addresssyncmodal",
+      "src_components_addresssyncmodal_addresssyncmodal",
+      "src_components_addresssyncmodal_supabase",
+      "src_components_budgetsyncmodal_budgetsyncmodal",
+      "src_components_campaignsyncmodal",
+      "src_components_campaignsyncmodal_campaignsyncmodal",
+      "src_components_campaignsyncmodal_supabase",
+      "src_components_creatorsyncmodal",
+      "src_components_creatorsyncmodal_creatorsyncmodal",
+      "src_components_creatorsyncmodal_supabase",
+      "src_components_ui_usernameautocomplete",
+      "src_components_ui_usernameautocomplete_supabase",
+      "src_components_ui_usernameautocomplete_usernameautocomplete",
+      "src_utils_exporterrorlog",
+      "src_utils_exporterrorlog_errorlogitem",
+      "src_utils_exporterrorlog_exporterrorlogtoexcel",
+      "src_utils_importaddresssync",
+      "src_utils_importaddresssync_addresscolumnmapping",
+      "src_utils_importaddresssync_addressparseresult",
+      "src_utils_importaddresssync_downloadaddresssynctemplate",
+      "src_utils_importaddresssync_parseaddresssyncfile",
+      "src_utils_importaddresssync_parsedaddressrow",
+      "src_utils_importbudgetsync",
+      "src_utils_importbudgetsync_budgetcolumnmapping",
+      "src_utils_importbudgetsync_budgetparseresult",
+      "src_utils_importbudgetsync_downloadbudgetsynctemplate",
+      "src_utils_importbudgetsync_parsebudgetfileheaders",
+      "src_utils_importbudgetsync_parsebudgetsyncfile",
+      "src_utils_importbudgetsync_parsedbudgetrow",
+      "src_utils_importcampaignsync",
+      "src_utils_importcampaignsync_campaigncolumnmapping",
+      "src_utils_importcampaignsync_campaignparseresult",
+      "src_utils_importcampaignsync_downloadcampaignsynctemplate",
+      "src_utils_importcampaignsync_parsecampaignsyncfile",
+      "src_utils_importcampaignsync_parsedcampaigncreatorrow",
+      "src_utils_importcampaignsync_parsefileheaders",
+      "src_utils_importcreatorsync",
+      "src_utils_importcreatorsync_columnmapping",
+      "src_utils_importcreatorsync_downloadcreatorsynctemplate",
+      "src_utils_importcreatorsync_parsecreatorsyncfile",
+      "src_utils_importcreatorsync_parsedcreatorrow",
+      "src_utils_importcreatorsync_parsefileheaders",
+      "src_utils_importcreatorsync_parseresult",
+      "src_utils_importcreatorsync_template_headers",
+      "src_utils_stringsimilarity",
+      "src_utils_stringsimilarity_findclosestmatch",
+      "src_utils_stringsimilarity_levenshteindistance"
+    ],
+    "2": [
+      "src_app_ads_report_import_ads_page",
+      "src_app_ads_report_import_ads_page_importadspage",
+      "src_app_campaigns_id_alamat_import_page",
+      "src_app_campaigns_id_alamat_import_page_importalamatpage",
+      "src_app_campaigns_id_alamat_import_spreadsheetimportaddressclient",
+      "src_app_campaigns_id_alamat_import_spreadsheetimportaddressclient_dragfillstate",
+      "src_app_campaigns_id_alamat_import_spreadsheetimportaddressclient_getemptyrow",
+      "src_app_campaigns_id_alamat_import_spreadsheetimportaddressclient_spreadsheetimportaddressclient",
+      "src_app_campaigns_id_alamat_import_spreadsheetimportaddressclient_spreadsheetrow",
+      "src_app_campaigns_id_error",
+      "src_app_campaigns_id_error_campaignerror",
+      "src_app_campaigns_id_listing_import_creator_error",
+      "src_app_campaigns_id_listing_import_creator_error_importcreatorerror",
+      "src_app_creator_pool_add_addcreatorclient",
+      "src_app_input_penjualan_adsimport",
+      "src_app_input_penjualan_adsimport_adsimport",
+      "src_app_input_penjualan_adsimport_fileconfig",
+      "src_app_input_penjualan_organicimport",
+      "src_app_input_penjualan_organicimport_creatorgmv",
+      "src_app_input_penjualan_organicimport_organicimport",
+      "src_app_input_penjualan_organicimport_previewrow",
+      "src_app_input_penjualan_organicimport_previewstats",
+      "src_app_input_penjualan_organicimport_skuinfo",
+      "src_app_input_penjualan_page",
+      "src_app_input_penjualan_page_inputpenjualanpage",
+      "src_components_livesyncmodal",
+      "src_components_livesyncmodal_livesyncmodal",
+      "src_components_livesyncmodal_parserp",
+      "src_components_livesyncmodal_supabase",
+      "src_components_stringcombobox",
+      "src_components_stringcombobox_stringcombobox",
+      "src_components_stringcombobox_stringcombobox_handleclickoutside",
+      "src_components_ui_button",
+      "src_components_ui_button_button",
+      "src_components_ui_button_buttonprops",
+      "src_components_ui_card",
+      "src_components_ui_card_card",
+      "src_components_ui_card_cardcontent",
+      "src_components_ui_card_carddescription"
+    ],
+    "3": [
+      "src_app_activity_log_page_activitylogpage",
+      "src_app_ads_report_page",
+      "src_app_ads_report_page_adsreportpage",
+      "src_app_ads_report_page_memoizedtablerow",
+      "src_app_campaigns_id_alamat_page",
+      "src_app_campaigns_id_alamat_page_alamatpage",
+      "src_app_campaigns_id_alamat_page_supabase",
+      "src_app_campaigns_id_concepts_page",
+      "src_app_campaigns_id_concepts_page_campaignconceptspage",
+      "src_app_campaigns_id_concepts_page_supabase",
+      "src_app_campaigns_id_layout_campaignfiltercontextwrapper",
+      "src_app_campaigns_id_performa_page",
+      "src_app_campaigns_id_performa_page_campaignperformapage",
+      "src_app_campaigns_id_performa_performaclient",
+      "src_app_campaigns_id_performa_performaclient_campaignperformaclient",
+      "src_app_campaigns_id_performa_performaclient_supabase",
+      "src_app_campaigns_page",
+      "src_app_campaigns_page_campaigncarditem",
+      "src_app_campaigns_page_campaignspage",
+      "src_app_creator_pool_add_addcreatorclient_addcreatorclient",
+      "src_app_creator_pool_page",
+      "src_app_creator_pool_page_creatorpoolpage",
+      "src_app_creator_pool_page_supabase",
+      "src_app_page",
+      "src_app_page_dashboard",
+      "src_app_settings_page_settingspage",
+      "src_providers_authprovider",
+      "src_providers_authprovider_authcontext",
+      "src_providers_authprovider_authcontexttype",
+      "src_providers_authprovider_profile",
+      "src_providers_authprovider_useauth",
+      "src_providers_authprovider_usercampaign",
+      "src_store_usedatabasestore_usedatabasestore",
+      "src_utils_exportcsv",
+      "src_utils_exportcsv_exporttocsv",
+      "src_utils_exporttoexcel",
+      "src_utils_exporttoexcel_exporttoexcel"
+    ],
+    "4": [
+      "ref_supabase_supabase_js",
+      "scripts_audit_new_excel",
+      "scripts_audit_new_excel_createclient",
+      "scripts_audit_new_excel_run",
+      "scripts_check_columns",
+      "scripts_check_columns_check",
+      "scripts_check_columns_createclient",
+      "scripts_check_columns_supabase",
+      "scripts_find_dates",
+      "scripts_find_dates_createclient",
+      "scripts_find_dates_run",
+      "scripts_get_rpc",
+      "scripts_get_rpc_run",
+      "scripts_get_rpc_supabase",
+      "scripts_query",
+      "scripts_query_createclient",
+      "scripts_query_js_scripts_query_supabase",
+      "scripts_temp",
+      "scripts_temp_createclient",
+      "scripts_temp_supabase",
+      "scripts_test_count",
+      "scripts_test_count_createclient",
+      "scripts_test_count_supabase",
+      "scripts_test_query_mjs_scripts_test_query",
+      "scripts_test_query_mjs_scripts_test_query_run",
+      "scripts_test_query_mjs_scripts_test_query_supabase",
+      "scripts_test_query_ts_scripts_test_query_80e59e",
+      "scripts_test_query_ts_scripts_test_query_run",
+      "scripts_test_query_ts_scripts_test_query_supabase_80e59e",
+      "scripts_test_video",
+      "scripts_test_video_run",
+      "scripts_test_video_supabase",
+      "src_app_campaigns_actions_performaactions",
+      "src_app_campaigns_actions_performaactions_getinternalperformadata",
+      "src_app_campaigns_actions_performaactions_supabase"
+    ],
+    "5": [
+      "src_app_activity_log_page",
+      "src_app_activity_log_page_supabase",
+      "src_app_ads_report_budgeting_ads_page",
+      "src_app_campaigns_id_layout",
+      "src_app_campaigns_id_layout_campaignlayout",
+      "src_app_campaigns_id_layout_campaignlayoutinner",
+      "src_app_invoice_page",
+      "src_app_portal_id_portaldashboardclient",
+      "src_app_portal_id_portaldashboardclient_sortableheader",
+      "src_app_settings_page",
+      "src_components_budgetsyncmodal",
+      "src_components_budgetsyncmodal_supabase",
+      "src_components_ui_badge",
+      "src_components_ui_badge_badge",
+      "src_components_ui_badge_badgeprops",
+      "src_components_ui_card_cardheader",
+      "src_components_ui_card_cardtitle",
+      "src_components_ui_dialog",
+      "src_components_ui_dialog_dialogcontent",
+      "src_components_ui_dialog_dialogheader",
+      "src_components_ui_dialog_dialogoverlay",
+      "src_components_ui_dialog_dialogtitle",
+      "src_components_ui_table",
+      "src_components_ui_table_table",
+      "src_components_ui_table_tablebody",
+      "src_components_ui_table_tablecell",
+      "src_components_ui_table_tablehead",
+      "src_components_ui_table_tableheader",
+      "src_components_ui_table_tablerow",
+      "src_utils_cn",
+      "src_utils_cn_cn"
+    ],
+    "6": [
+      "ref_pg",
+      "scripts_check_pg_fks",
+      "scripts_check_pg_fks_check",
+      "scripts_check_pg_fks_pool",
+      "scripts_db_audit_omg",
+      "scripts_db_audit_omg_createclient",
+      "scripts_db_audit_omg_pool",
+      "scripts_db_audit_omg_run",
+      "scripts_fix_view_vt",
+      "scripts_fix_view_vt_client",
+      "scripts_fix_view_vt_run",
+      "scripts_get_view_def",
+      "scripts_get_view_def_client",
+      "scripts_get_view_def_run",
+      "scripts_get_views",
+      "scripts_get_views_check",
+      "scripts_get_views_client",
+      "scripts_get_views_env",
+      "scripts_get_views_fs",
+      "scripts_get_views_urlmatch",
+      "scripts_q",
+      "scripts_q_client",
+      "scripts_script",
+      "scripts_script2",
+      "scripts_script2_client",
+      "scripts_script_client",
+      "scripts_update_views_skus",
+      "scripts_update_views_skus_client",
+      "scripts_update_views_skus_fs",
+      "scripts_update_views_skus_updateviews"
+    ],
+    "7": [
+      "src_store_usedatabasestore",
+      "src_store_usedatabasestore_databasestate",
+      "src_store_usedatabasestore_supabase",
+      "src_types_database",
+      "src_types_database_adnamemapping",
+      "src_types_database_adsperformance",
+      "src_types_database_adsspend",
+      "src_types_database_auditlog",
+      "src_types_database_brand",
+      "src_types_database_campaign",
+      "src_types_database_campaignsummary",
+      "src_types_database_creator",
+      "src_types_database_creatoraddress",
+      "src_types_database_creatoraddressbook",
+      "src_types_database_creatorcontact",
+      "src_types_database_creatorevaluation",
+      "src_types_database_creatorniche",
+      "src_types_database_creatornote",
+      "src_types_database_creatorpayment",
+      "src_types_database_dailyperformance",
+      "src_types_database_liveschedule",
+      "src_types_database_livesession",
+      "src_types_database_livesessionproduct",
+      "src_types_database_niche",
+      "src_types_database_organicvideo",
+      "src_types_database_payoutcreator",
+      "src_types_database_payoutrequest",
+      "src_types_database_sales",
+      "src_types_database_sku"
+    ],
+    "8": [
+      "ref_supabase_ssr",
+      "src_app_auth_callback_route",
+      "src_app_auth_callback_route_get",
+      "src_app_manajemen_akun_actions",
+      "src_app_manajemen_akun_actions_addwhitelistemail",
+      "src_app_manajemen_akun_actions_approveuser",
+      "src_app_manajemen_akun_actions_assigncampaignstouser",
+      "src_app_manajemen_akun_actions_changeuserrole",
+      "src_app_manajemen_akun_actions_deactivateuser",
+      "src_app_manajemen_akun_actions_getsupabaseadmin",
+      "src_app_manajemen_akun_actions_rejectuser",
+      "src_app_manajemen_akun_actions_removewhitelistemail",
+      "src_app_manajemen_akun_manajemenakunclient",
+      "src_app_manajemen_akun_manajemenakunclient_manajemenakunclient",
+      "src_app_manajemen_akun_manajemenakunclient_userassignmentcard",
+      "src_app_manajemen_akun_page",
+      "src_app_manajemen_akun_page_manajemenakunpage",
+      "src_proxy",
+      "src_proxy_config",
+      "src_proxy_proxy",
+      "src_utils_supabase_middleware",
+      "src_utils_supabase_middleware_updatesession"
+    ],
+    "9": [
+      "package_dependencies",
+      "package_dependencies_clsx",
+      "package_dependencies_dotenv",
+      "package_dependencies_exceljs",
+      "package_dependencies_file_saver",
+      "package_dependencies_lucide_react",
+      "package_dependencies_next",
+      "package_dependencies_papaparse",
+      "package_dependencies_pg",
+      "package_dependencies_radix_ui_react_dialog",
+      "package_dependencies_radix_ui_react_label",
+      "package_dependencies_radix_ui_react_switch",
+      "package_dependencies_react",
+      "package_dependencies_react_dom",
+      "package_dependencies_supabase_ssr",
+      "package_dependencies_supabase_supabase_js",
+      "package_dependencies_swr",
+      "package_dependencies_tailwind_merge",
+      "package_dependencies_types_papaparse",
+      "package_dependencies_xlsx",
+      "package_dependencies_zustand"
+    ],
+    "10": [
+      "src_app_ads_report_budgeting_ads_page_budgetingadspage",
+      "src_app_input_penjualan_adsimport_searchableselect",
+      "src_app_input_penjualan_adsimport_searchableselect_handleclickoutside",
+      "src_app_invoice_page_invoicepage",
+      "src_app_login_page",
+      "src_app_login_page_loginpage",
+      "src_app_pending_page",
+      "src_app_pending_page_pendingpage",
+      "src_app_skus_page",
+      "src_app_skus_page_skupage",
+      "src_components_layoutwrapper",
+      "src_components_searchableselect",
+      "src_components_searchableselect_searchableselect",
+      "src_components_searchableselect_searchableselect_handleclickoutside",
+      "src_components_sidebar",
+      "src_components_sidebar_navitems",
+      "src_components_sidebar_sidebar",
+      "src_providers_authprovider_authprovider",
+      "src_providers_authprovider_authprovider_loadauth",
+      "src_utils_supabase_client",
+      "src_utils_supabase_client_createclient"
+    ],
+    "11": [
+      "src_app_campaigns_id_listing_creatorrow",
+      "src_app_campaigns_id_listing_creatorrow_areequal",
+      "src_app_campaigns_id_listing_creatorrow_creatorrow",
+      "src_app_campaigns_id_listing_creatorrow_creatorrowprops",
+      "src_app_campaigns_id_listing_page",
+      "src_app_campaigns_id_listing_page_campaignlistingcontent",
+      "src_app_campaigns_id_listing_page_campaignlistingpage",
+      "src_app_campaigns_id_listing_page_extractcampaignsnapshot",
+      "src_app_campaigns_id_listing_page_supabase",
+      "src_app_creator_pool_id_page_creatorprofilepage",
+      "src_components_multiselect",
+      "src_components_multiselect_multiselect",
+      "src_components_multiselect_multiselectprops",
+      "src_components_multiselect_option",
+      "src_components_notestimeline",
+      "src_components_notestimeline_notestimeline",
+      "src_components_notestimeline_notestimelineprops",
+      "src_components_notestimeline_timelinenote",
+      "src_utils_computed_getcreatortype",
+      "src_utils_computed_getjeniskerjasama",
+      "src_utils_formatters_formatabbreviated"
+    ],
+    "12": [
+      "chrome_extension_manifest",
+      "chrome_extension_manifest_action",
+      "chrome_extension_manifest_action_default_icon",
+      "chrome_extension_manifest_action_default_popup",
+      "chrome_extension_manifest_background",
+      "chrome_extension_manifest_background_service_worker",
+      "chrome_extension_manifest_content_scripts",
+      "chrome_extension_manifest_default_icon_128",
+      "chrome_extension_manifest_default_icon_16",
+      "chrome_extension_manifest_default_icon_48",
+      "chrome_extension_manifest_description",
+      "chrome_extension_manifest_host_permissions",
+      "chrome_extension_manifest_icons",
+      "chrome_extension_manifest_icons_128",
+      "chrome_extension_manifest_icons_16",
+      "chrome_extension_manifest_icons_48",
+      "chrome_extension_manifest_manifest_version",
+      "chrome_extension_manifest_name",
+      "chrome_extension_manifest_permissions",
+      "chrome_extension_manifest_version"
+    ],
+    "13": [
+      "package",
+      "package_name",
+      "package_private",
+      "package_version",
+      "ref_clsx",
+      "ref_eslint",
+      "ref_eslint_config_next",
+      "ref_radix_ui_react_dialog",
+      "ref_react_dom",
+      "ref_swr",
+      "ref_tailwind_merge",
+      "ref_tailwindcss",
+      "ref_tailwindcss_postcss",
+      "ref_types_file_saver",
+      "ref_types_node",
+      "ref_types_papaparse",
+      "ref_types_react",
+      "ref_types_react_dom",
+      "ref_typescript",
+      "ref_zustand"
+    ],
+    "14": [
+      "ref_dotenv",
+      "scripts_clean_db_cleandb",
+      "scripts_clean_db_force",
+      "scripts_clean_db_force_run",
+      "scripts_clean_db_force_run_deleteinchunks",
+      "scripts_clean_db_force_supabase",
+      "scripts_clean_db_ts_scripts_clean_db",
+      "scripts_clean_db_ts_scripts_clean_db_supabase",
+      "scripts_fix_brands",
+      "scripts_fix_brands_fixbrands",
+      "scripts_fix_brands_supabase",
+      "scripts_run_migration",
+      "scripts_run_migration_run",
+      "scripts_run_migration_supabase",
+      "scripts_scratch_test",
+      "scripts_scratch_test_main",
+      "scripts_scratch_test_supabase",
+      "scripts_test_insert_snapshot",
+      "scripts_test_insert_snapshot_main",
+      "scripts_test_insert_snapshot_supabase"
+    ],
+    "15": [
+      "src_app_campaigns_id_alamat_loading",
+      "src_app_campaigns_id_alamat_loading_loading",
+      "src_app_campaigns_id_daily_loading",
+      "src_app_campaigns_id_daily_loading_loading",
+      "src_app_campaigns_id_keuangan_loading",
+      "src_app_campaigns_id_keuangan_loading_loading",
+      "src_app_campaigns_id_listing_loading",
+      "src_app_campaigns_id_listing_loading_loading",
+      "src_app_campaigns_id_live_loading",
+      "src_app_campaigns_id_live_loading_loading",
+      "src_app_campaigns_id_livestream_loading",
+      "src_app_campaigns_id_livestream_loading_loading",
+      "src_app_campaigns_id_performa_loading",
+      "src_app_campaigns_id_performa_loading_loading",
+      "src_app_campaigns_id_sku_loading",
+      "src_app_campaigns_id_sku_loading_loading",
+      "src_app_campaigns_id_video_loading",
+      "src_app_campaigns_id_video_loading_loading",
+      "src_components_tabloading",
+      "src_components_tabloading_tabloading"
+    ],
+    "16": [
+      "src_app_portal_actions_portalactions",
+      "src_app_portal_actions_portalactions_batchupdatedata",
+      "src_app_portal_actions_portalactions_batchupdateresibyclient",
+      "src_app_portal_actions_portalactions_getportaldata",
+      "src_app_portal_actions_portalactions_loginportal",
+      "src_app_portal_actions_portalactions_logoutportal",
+      "src_app_portal_actions_portalactions_submitclientapproval",
+      "src_app_portal_actions_portalactions_supabase",
+      "src_app_portal_actions_portalactions_updateclientnotes",
+      "src_app_portal_actions_portalactions_updateresibyclient",
+      "src_app_portal_id_dashboard_layout",
+      "src_app_portal_id_dashboard_layout_portaldashboardlayout",
+      "src_app_portal_id_dashboard_page",
+      "src_app_portal_id_dashboard_page_portaldashboardpage",
+      "src_app_portal_id_page",
+      "src_app_portal_id_page_portallogin",
+      "src_app_portal_id_page_supabase",
+      "src_app_portal_id_portaldashboardclient_portaldashboardclient",
+      "src_app_portal_id_portalloginform",
+      "src_app_portal_id_portalloginform_portalloginform"
+    ],
+    "17": [
+      "tsconfig",
+      "tsconfig_compileroptions",
+      "tsconfig_compileroptions_allowjs",
+      "tsconfig_compileroptions_esmoduleinterop",
+      "tsconfig_compileroptions_incremental",
+      "tsconfig_compileroptions_isolatedmodules",
+      "tsconfig_compileroptions_jsx",
+      "tsconfig_compileroptions_lib",
+      "tsconfig_compileroptions_module",
+      "tsconfig_compileroptions_moduleresolution",
+      "tsconfig_compileroptions_noemit",
+      "tsconfig_compileroptions_paths",
+      "tsconfig_compileroptions_plugins",
+      "tsconfig_compileroptions_resolvejsonmodule",
+      "tsconfig_compileroptions_skiplibcheck",
+      "tsconfig_compileroptions_strict",
+      "tsconfig_compileroptions_target",
+      "tsconfig_exclude",
+      "tsconfig_include"
+    ],
+    "18": [
+      "ref_lucide_react",
+      "src_app_campaigns_id_live_page",
+      "src_app_campaigns_id_live_page_liveschedulepage",
+      "src_app_campaigns_id_live_page_skeletonloader",
+      "src_app_campaigns_id_live_page_supabase",
+      "src_app_campaigns_id_livestream_livestreamclient",
+      "src_app_campaigns_id_livestream_livestreamclient_campaignlivestreamclient",
+      "src_app_extension_page",
+      "src_app_extension_page_extensionpage",
+      "src_app_portal_id_dashboard_loading",
+      "src_app_portal_id_dashboard_loading_portalloading",
+      "src_providers_campaignfilterprovider",
+      "src_providers_campaignfilterprovider_campaignfiltercontext",
+      "src_providers_campaignfilterprovider_campaignfiltercontexttype",
+      "src_providers_campaignfilterprovider_campaignfilterprovider",
+      "src_providers_campaignfilterprovider_campaignfilterproviderprops",
+      "src_providers_campaignfilterprovider_filtertype",
+      "src_providers_campaignfilterprovider_usecampaignfilter"
+    ],
+    "19": [
+      "ref_react",
+      "src_app_brand_portal_layout",
+      "src_app_brand_portal_layout_brandportallayout",
+      "src_app_campaigns_id_listing_import_creator_page",
+      "src_app_campaigns_id_listing_import_creator_page_importcreatorpage",
+      "src_app_campaigns_id_listing_import_creator_spreadsheetimportcreatorclient",
+      "src_app_campaigns_id_listing_import_creator_spreadsheetimportcreatorclient_determinecontenttype",
+      "src_app_campaigns_id_listing_import_creator_spreadsheetimportcreatorclient_dragfillstate",
+      "src_app_campaigns_id_listing_import_creator_spreadsheetimportcreatorclient_getemptyrow",
+      "src_app_campaigns_id_listing_import_creator_spreadsheetimportcreatorclient_parsesmartnumber",
+      "src_app_campaigns_id_listing_import_creator_spreadsheetimportcreatorclient_spreadsheetimportcreatorclient",
+      "src_app_campaigns_id_listing_import_creator_spreadsheetimportcreatorclient_spreadsheetrow",
+      "src_app_creator_pool_add_page",
+      "src_app_creator_pool_add_page_addcreatorpage",
+      "src_app_creator_pool_id_page",
+      "src_app_creator_pool_id_page_supabase",
+      "src_hooks_usedraftlocalstorage",
+      "src_hooks_usedraftlocalstorage_usedraftlocalstorage"
+    ],
+    "20": [
+      "ref_xlsx",
+      "scripts_analyze_excel",
+      "scripts_analyze_excel_analyzefiles",
+      "scripts_analyze_excel_xlsx",
+      "scripts_check_excel_checkexcel",
+      "scripts_check_excel_filepaths",
+      "scripts_check_excel_js_scripts_check_excel_f1e441",
+      "scripts_check_excel_js_scripts_check_excel_xlsx_f1e441",
+      "scripts_inspect_listing",
+      "scripts_inspect_listing_run",
+      "scripts_inspect_listing_xlsx",
+      "scripts_list_sheets",
+      "scripts_list_sheets_workbook",
+      "scripts_list_sheets_xlsx",
+      "scripts_read_excel_fs",
+      "scripts_read_excel_js_scripts_read_excel_f10b1a",
+      "scripts_read_excel_js_scripts_read_excel_workbook_f10b1a",
+      "scripts_read_excel_js_scripts_read_excel_xlsx_f10b1a"
+    ],
+    "21": [
+      "chrome_extension_popup",
+      "chrome_extension_popup_addcurrenttoqueue",
+      "chrome_extension_popup_appdatabase",
+      "chrome_extension_popup_formatfollowers",
+      "chrome_extension_popup_gettier",
+      "chrome_extension_popup_init",
+      "chrome_extension_popup_isindatabase",
+      "chrome_extension_popup_isinqueue",
+      "chrome_extension_popup_loadappdatabase",
+      "chrome_extension_popup_loadcurrenttab",
+      "chrome_extension_popup_queue",
+      "chrome_extension_popup_render",
+      "chrome_extension_popup_rendercurrentcard",
+      "chrome_extension_popup_renderfooter",
+      "chrome_extension_popup_renderqueuelist",
+      "chrome_extension_popup_savequeue",
+      "chrome_extension_popup_showstatus"
+    ],
+    "22": [
+      "next_config",
+      "next_config_nextconfig",
+      "ref_next",
+      "src_app_layout",
+      "src_app_layout_metadata",
+      "src_app_layout_rootlayout",
+      "src_app_manifest",
+      "src_app_manifest_manifest",
+      "src_components_dataloader",
+      "src_components_dataloader_dataloader",
+      "src_components_globalloadingoverlay",
+      "src_components_globalloadingoverlay_globalloadingoverlay",
+      "src_components_globalloadingoverlay_skeletonblock",
+      "src_components_globalloadingoverlay_skeletontablerows",
+      "src_components_layoutwrapper_layoutwrapper",
+      "src_hooks_usesmartrealtime",
+      "src_hooks_usesmartrealtime_usesmartrealtime"
+    ],
+    "23": [
+      "src_app_campaigns_actions_videoactions",
+      "src_app_campaigns_actions_videoactions_getinternalvideodata",
+      "src_app_campaigns_actions_videoactions_supabase",
+      "src_app_campaigns_id_video_page",
+      "src_app_campaigns_id_video_page_campaignvideopage",
+      "src_app_campaigns_id_video_page_dynamic",
+      "src_app_campaigns_id_video_page_revalidate",
+      "src_app_campaigns_id_video_videoclient",
+      "src_app_campaigns_id_video_videoclient_campaignvideopage",
+      "src_app_campaigns_id_video_videoclient_extractcampaignsnapshot",
+      "src_app_campaigns_id_video_videoclient_extractgdriveid",
+      "src_app_campaigns_id_video_videoclient_extracttiktokuploaddate",
+      "src_utils_computed_getconceptcolor",
+      "src_utils_formatters_formatdate",
+      "src_utils_formatters_formatdatetimeshort"
+    ],
+    "24": [
+      "ref_exceljs",
+      "ref_file_saver",
+      "src_app_brand_portal_summary_page",
+      "src_app_brand_portal_summary_page_dynamic",
+      "src_app_brand_portal_summary_page_summarypage",
+      "src_app_brand_portal_summary_page_tabs",
+      "src_components_excelexportbutton",
+      "src_components_excelexportbutton_excelexportbutton",
+      "src_components_excelexportbutton_props",
+      "src_lib_reporting",
+      "src_lib_reporting_fetchall",
+      "src_lib_reporting_fetchreportdata",
+      "src_lib_reporting_generateexcelbuffer"
+    ],
+    "25": [
+      "scripts_sync_data",
+      "scripts_sync_data_createclient",
+      "scripts_sync_data_getorcreatebrand",
+      "scripts_sync_data_getorcreatecampaign",
+      "scripts_sync_data_parseapproval",
+      "scripts_sync_data_parsegmv",
+      "scripts_sync_data_parseprice",
+      "scripts_sync_data_processall",
+      "scripts_sync_data_processsheet",
+      "scripts_sync_data_sheetmapping",
+      "scripts_sync_data_supabase",
+      "scripts_sync_data_xlsx"
+    ],
+    "26": [
+      "src_app_campaigns_actions_skuactions",
+      "src_app_campaigns_actions_skuactions_deletebatchskusaction",
+      "src_app_campaigns_actions_skuactions_deleteskuaction",
+      "src_app_campaigns_actions_skuactions_getcampaignskus",
+      "src_app_campaigns_actions_skuactions_savebatchskusaction",
+      "src_app_campaigns_actions_skuactions_skuinput",
+      "src_app_campaigns_actions_skuactions_supabase",
+      "src_app_campaigns_actions_skuactions_updateskuaction",
+      "src_app_campaigns_id_sku_page",
+      "src_app_campaigns_id_sku_page_skupage",
+      "src_app_campaigns_id_sku_page_skurow"
+    ],
+    "27": [
+      "package_devdependencies",
+      "package_devdependencies_eslint",
+      "package_devdependencies_eslint_config_next",
+      "package_devdependencies_tailwindcss",
+      "package_devdependencies_tailwindcss_postcss",
+      "package_devdependencies_types_file_saver",
+      "package_devdependencies_types_node",
+      "package_devdependencies_types_react",
+      "package_devdependencies_types_react_dom",
+      "package_devdependencies_typescript"
+    ],
+    "28": [
+      "scripts_compare_omg",
+      "scripts_compare_omg_allcreators",
+      "scripts_compare_omg_diffs",
+      "scripts_compare_omg_getlegacygmv",
+      "scripts_compare_omg_getsalesfilegmv",
+      "scripts_compare_omg_legacy",
+      "scripts_compare_omg_raw1",
+      "scripts_compare_omg_raw2",
+      "scripts_compare_omg_rawcreators",
+      "scripts_compare_omg_xlsx"
+    ],
+    "29": [
+      "scripts_compare_wardah",
+      "scripts_compare_wardah_allcreators",
+      "scripts_compare_wardah_diffs",
+      "scripts_compare_wardah_getlegacygmv",
+      "scripts_compare_wardah_getsalesfilegmv",
+      "scripts_compare_wardah_legacy",
+      "scripts_compare_wardah_raw1",
+      "scripts_compare_wardah_raw2",
+      "scripts_compare_wardah_rawcreators",
+      "scripts_compare_wardah_xlsx"
+    ],
+    "30": [
+      "scripts_migrate",
+      "scripts_migrate_createclient",
+      "scripts_migrate_datapath",
+      "scripts_migrate_filelisting",
+      "scripts_migrate_filetracking",
+      "scripts_migrate_findheaderrow",
+      "scripts_migrate_normalizestr",
+      "scripts_migrate_run",
+      "scripts_migrate_runmigration",
+      "scripts_migrate_supabase"
+    ],
+    "31": [
+      "scripts_migrate_relations",
+      "scripts_migrate_relations_datapath",
+      "scripts_migrate_relations_filebudgeting",
+      "scripts_migrate_relations_filelisting",
+      "scripts_migrate_relations_filetracking",
+      "scripts_migrate_relations_findheaderrow",
+      "scripts_migrate_relations_normalizestr",
+      "scripts_migrate_relations_runrelationsmigration",
+      "scripts_migrate_relations_supabase"
+    ],
+    "32": [
+      "scripts_patch_creators_metrics",
+      "scripts_patch_creators_metrics_createclient",
+      "scripts_patch_creators_metrics_parseaudienceage",
+      "scripts_patch_creators_metrics_parsegmv",
+      "scripts_patch_creators_metrics_parseprice",
+      "scripts_patch_creators_metrics_run",
+      "scripts_patch_creators_metrics_sheetmapping",
+      "scripts_patch_creators_metrics_supabase",
+      "scripts_patch_creators_metrics_xlsx"
+    ],
+    "33": [
+      "src_app_campaigns_id_daily_dailyclient",
+      "src_app_campaigns_id_daily_dailyclient_campaigndailyperformanceclient",
+      "src_app_campaigns_id_daily_dailyclient_supabase",
+      "src_app_campaigns_id_daily_dailyclient_towibdatestr",
+      "src_app_campaigns_id_daily_page",
+      "src_app_campaigns_id_daily_page_campaigndailyperformancepage",
+      "src_app_campaigns_id_daily_timelinetarget",
+      "src_app_campaigns_id_daily_timelinetarget_timelinetarget",
+      "src_app_campaigns_id_daily_timelinetarget_timelinetargetprops"
+    ],
+    "34": [
+      "scripts_audit",
+      "scripts_audit_datapath",
+      "scripts_audit_filelisting",
+      "scripts_audit_findheaderrow",
+      "scripts_audit_normalizelink",
+      "scripts_audit_normalizephone",
+      "scripts_audit_normalizeusername",
+      "scripts_audit_runaudit"
+    ],
+    "35": [
+      "scripts_find_discrepancies",
+      "scripts_find_discrepancies_datapath",
+      "scripts_find_discrepancies_filebudgeting",
+      "scripts_find_discrepancies_filelisting",
+      "scripts_find_discrepancies_filetracking",
+      "scripts_find_discrepancies_finddifferences",
+      "scripts_find_discrepancies_normalizestr",
+      "scripts_find_discrepancies_supabase"
+    ],
+    "36": [
+      "scripts_fix_campaigns",
+      "scripts_fix_campaigns_datapath",
+      "scripts_fix_campaigns_filelisting",
+      "scripts_fix_campaigns_filetracking",
+      "scripts_fix_campaigns_findheaderrow",
+      "scripts_fix_campaigns_fixcampaigns",
+      "scripts_fix_campaigns_normalizestr",
+      "scripts_fix_campaigns_supabase"
+    ],
+    "37": [
+      "scripts_fix_iswhite",
+      "scripts_fix_iswhite_datapath",
+      "scripts_fix_iswhite_filelisting",
+      "scripts_fix_iswhite_fixiswhite",
+      "scripts_fix_iswhite_normalizestr",
+      "scripts_fix_iswhite_require",
+      "scripts_fix_iswhite_supabase",
+      "scripts_fix_iswhite_xlsx"
+    ],
+    "38": [
+      "scripts_sync_sku",
+      "scripts_sync_sku_createclient",
+      "scripts_sync_sku_dotenv",
+      "scripts_sync_sku_fs",
+      "scripts_sync_sku_mapcampaign",
+      "scripts_sync_sku_run",
+      "scripts_sync_sku_supabase",
+      "scripts_sync_sku_xlsx"
+    ],
+    "39": [
+      "scripts_validate_migration",
+      "scripts_validate_migration_datapath",
+      "scripts_validate_migration_filebudgeting",
+      "scripts_validate_migration_filelisting",
+      "scripts_validate_migration_filetracking",
+      "scripts_validate_migration_normalizestr",
+      "scripts_validate_migration_supabase",
+      "scripts_validate_migration_validate"
+    ],
+    "40": [
+      "src_app_creator_pool_import_page",
+      "src_app_creator_pool_import_page_importcreatorpoolpage",
+      "src_app_creator_pool_import_spreadsheetimportclient",
+      "src_app_creator_pool_import_spreadsheetimportclient_dragfillstate",
+      "src_app_creator_pool_import_spreadsheetimportclient_getemptyrow",
+      "src_app_creator_pool_import_spreadsheetimportclient_spreadsheetimportclient",
+      "src_app_creator_pool_import_spreadsheetimportclient_spreadsheetrow",
+      "src_utils_importcreatorsync_getautotier"
+    ],
+    "41": [
+      "scripts_audit_omg",
+      "scripts_audit_omg_data",
+      "scripts_audit_omg_newkeyset",
+      "scripts_audit_omg_oldkeyset",
+      "scripts_audit_omg_omg_makeup_skus",
+      "scripts_audit_omg_workbook",
+      "scripts_audit_omg_xlsx"
+    ],
+    "42": [
+      "scripts_check_approval",
+      "scripts_check_approval_approvals",
+      "scripts_check_approval_data",
+      "scripts_check_approval_parseddata",
+      "scripts_check_approval_rows",
+      "scripts_check_approval_workbook",
+      "scripts_check_approval_xlsx"
+    ],
+    "43": [
+      "scripts_fix_campaigns_fast",
+      "scripts_fix_campaigns_fast_datapath",
+      "scripts_fix_campaigns_fast_filelisting",
+      "scripts_fix_campaigns_fast_findheaderrow",
+      "scripts_fix_campaigns_fast_fixcampaignsfast",
+      "scripts_fix_campaigns_fast_normalizestr",
+      "scripts_fix_campaigns_fast_supabase"
+    ],
+    "44": [
+      "scripts_parse_qahira",
+      "scripts_parse_qahira_approved",
+      "scripts_parse_qahira_data",
+      "scripts_parse_qahira_parseddata",
+      "scripts_parse_qahira_rows",
+      "scripts_parse_qahira_workbook",
+      "scripts_parse_qahira_xlsx"
+    ],
+    "45": [
+      "scripts_patch_approval",
+      "scripts_patch_approval_createclient",
+      "scripts_patch_approval_parseapproval",
+      "scripts_patch_approval_run",
+      "scripts_patch_approval_sheetmapping",
+      "scripts_patch_approval_supabase",
+      "scripts_patch_approval_xlsx"
+    ],
+    "46": [
+      "scripts_patch_ui",
+      "scripts_patch_ui_bdcontent",
+      "scripts_patch_ui_bdfile",
+      "scripts_patch_ui_cccontent",
+      "scripts_patch_ui_ccfile",
+      "scripts_patch_ui_fs",
+      "scripts_patch_ui_path"
+    ],
+    "47": [
+      "src_types_database_campaigncreator",
+      "src_types_database_creatorsnapshot",
+      "src_types_database_video",
+      "src_utils_computed",
+      "src_utils_computed_computecampaigngmv",
+      "src_utils_computed_computehighestvideogmv",
+      "src_utils_computed_getlatestsnapshot"
+    ],
+    "48": [
+      "src_utils_importadssync",
+      "src_utils_importadssync_columnmapping",
+      "src_utils_importadssync_downloadadssynctemplate",
+      "src_utils_importadssync_enrichedadsrow",
+      "src_utils_importadssync_parseadssyncfile",
+      "src_utils_importadssync_parsedadsrow",
+      "src_utils_importadssync_parsefileheaders"
+    ],
+    "49": [
+      "scripts_analyze",
+      "scripts_analyze_basepath",
+      "scripts_analyze_files",
+      "scripts_analyze_fs",
+      "scripts_analyze_path",
+      "scripts_analyze_xlsx"
+    ],
+    "50": [
+      "scripts_find_iswhite_qahira",
+      "scripts_find_iswhite_qahira_datapath",
+      "scripts_find_iswhite_qahira_filelisting",
+      "scripts_find_iswhite_qahira_findspecificdiffs",
+      "scripts_find_iswhite_qahira_normalizestr",
+      "scripts_find_iswhite_qahira_supabase"
+    ],
+    "51": [
+      "scripts_migrate_finance",
+      "scripts_migrate_finance_datapath",
+      "scripts_migrate_finance_filebudgeting",
+      "scripts_migrate_finance_normalizestr",
+      "scripts_migrate_finance_runfinancemigration",
+      "scripts_migrate_finance_supabase"
+    ],
+    "52": [
+      "scripts_parse_excel",
+      "scripts_parse_excel_data",
+      "scripts_parse_excel_parseddata",
+      "scripts_parse_excel_rows",
+      "scripts_parse_excel_workbook",
+      "scripts_parse_excel_xlsx"
+    ],
+    "53": [
+      "scripts_read_sku",
+      "scripts_read_sku_fs",
+      "scripts_read_sku_grouped",
+      "scripts_read_sku_rows",
+      "scripts_read_sku_workbook",
+      "scripts_read_sku_xlsx"
+    ],
+    "54": [
+      "package_scripts",
+      "package_scripts_build",
+      "package_scripts_dev",
+      "package_scripts_lint",
+      "package_scripts_start"
+    ],
+    "55": [
+      "scratch_fix_padding",
+      "scratch_fix_padding_content1",
+      "scratch_fix_padding_file1",
+      "scratch_fix_padding_fs",
+      "scratch_fix_padding_path"
+    ],
+    "56": [
+      "scripts_analyze_d987",
+      "scripts_analyze_d987_data",
+      "scripts_analyze_d987_uniquevideos",
+      "scripts_analyze_d987_workbook",
+      "scripts_analyze_d987_xlsx"
+    ],
+    "57": [
+      "scripts_backup_and_reset",
+      "scripts_backup_and_reset_createclient",
+      "scripts_backup_and_reset_fs",
+      "scripts_backup_and_reset_run",
+      "scripts_backup_and_reset_supabase"
+    ],
+    "58": [
+      "scripts_check_all_excel",
+      "scripts_check_all_excel_checkexcel",
+      "scripts_check_all_excel_fs",
+      "scripts_check_all_excel_path",
+      "scripts_check_all_excel_xlsx"
+    ],
+    "59": [
+      "scripts_check_brands",
+      "scripts_check_brands_brands",
+      "scripts_check_brands_data",
+      "scripts_check_brands_workbook",
+      "scripts_check_brands_xlsx"
+    ],
+    "60": [
+      "scripts_check_counts",
+      "scripts_check_counts_checkcount",
+      "scripts_check_counts_createclient",
+      "scripts_check_counts_run",
+      "scripts_check_counts_supabase"
+    ],
+    "61": [
+      "scripts_check_db",
+      "scripts_check_db_check",
+      "scripts_check_db_createclient",
+      "scripts_check_db_supabase",
+      "scripts_check_db_supabaseadmin"
+    ],
+    "62": [
+      "scripts_check_legacy",
+      "scripts_check_legacy_data",
+      "scripts_check_legacy_wardahrows",
+      "scripts_check_legacy_workbook",
+      "scripts_check_legacy_xlsx"
+    ],
+    "63": [
+      "scripts_check_schema_checkcolumns",
+      "scripts_check_schema_js_scripts_check_schema_6240d4",
+      "scripts_check_schema_js_scripts_check_schema_createclient_6240d4",
+      "scripts_check_schema_js_scripts_check_schema_run",
+      "scripts_check_schema_js_scripts_check_schema_supabase"
+    ],
+    "64": [
+      "scripts_check_top_products",
+      "scripts_check_top_products_fs",
+      "scripts_check_top_products_gettopproducts",
+      "scripts_check_top_products_path",
+      "scripts_check_top_products_xlsx"
+    ],
+    "65": [
+      "scripts_find_dupes",
+      "scripts_find_dupes_datapath",
+      "scripts_find_dupes_filelisting",
+      "scripts_find_dupes_finddupesinsheet",
+      "scripts_find_dupes_normalizestr"
+    ],
+    "66": [
+      "scripts_fix_all_campaigns",
+      "scripts_fix_all_campaigns_createclient",
+      "scripts_fix_all_campaigns_run",
+      "scripts_fix_all_campaigns_supabase",
+      "scripts_fix_all_campaigns_xlsx"
+    ],
+    "67": [
+      "scripts_fix_campaign15",
+      "scripts_fix_campaign15_createclient",
+      "scripts_fix_campaign15_run",
+      "scripts_fix_campaign15_supabase",
+      "scripts_fix_campaign15_xlsx"
+    ],
+    "68": [
+      "scripts_fix_contacts_snapshots",
+      "scripts_fix_contacts_snapshots_filelisting",
+      "scripts_fix_contacts_snapshots_fixcontactsandsnapshots",
+      "scripts_fix_contacts_snapshots_normalizestr",
+      "scripts_fix_contacts_snapshots_supabase"
+    ],
+    "69": [
+      "scripts_fix_organic_gmv",
+      "scripts_fix_organic_gmv_createclient",
+      "scripts_fix_organic_gmv_parsetiktokdate",
+      "scripts_fix_organic_gmv_run",
+      "scripts_fix_organic_gmv_supabase"
+    ],
+    "70": [
+      "scripts_fix_salsa",
+      "scripts_fix_salsa_createclient",
+      "scripts_fix_salsa_run",
+      "scripts_fix_salsa_supabase",
+      "scripts_fix_salsa_xlsx"
+    ],
+    "71": [
+      "scripts_fix_videos",
+      "scripts_fix_videos_filelisting",
+      "scripts_fix_videos_fixvideos",
+      "scripts_fix_videos_normalizestr",
+      "scripts_fix_videos_supabase"
+    ],
+    "72": [
+      "scripts_migrate_finance_fast",
+      "scripts_migrate_finance_fast_filebudgeting",
+      "scripts_migrate_finance_fast_normalizestr",
+      "scripts_migrate_finance_fast_runfinancemigrationfast",
+      "scripts_migrate_finance_fast_supabase"
+    ],
+    "73": [
+      "scripts_patch_gmv",
+      "scripts_patch_gmv_createclient",
+      "scripts_patch_gmv_run",
+      "scripts_patch_gmv_supabase",
+      "scripts_patch_gmv_xlsx"
+    ],
+    "74": [
+      "scripts_patch_payment_actions",
+      "scripts_patch_payment_actions_content",
+      "scripts_patch_payment_actions_file",
+      "scripts_patch_payment_actions_fs",
+      "scripts_patch_payment_actions_path"
+    ],
+    "75": [
+      "scripts_patch_payouts",
+      "scripts_patch_payouts_createclient",
+      "scripts_patch_payouts_levenshteindistance",
+      "scripts_patch_payouts_run",
+      "scripts_patch_payouts_supabase"
+    ],
+    "76": [
+      "scripts_reset_and_patch",
+      "scripts_reset_and_patch_createclient",
+      "scripts_reset_and_patch_run",
+      "scripts_reset_and_patch_supabase",
+      "scripts_reset_and_patch_xlsx"
+    ],
+    "77": [
+      "scripts_run_import",
+      "scripts_run_import_createclient",
+      "scripts_run_import_run",
+      "scripts_run_import_supabase",
+      "scripts_run_import_xlsx"
+    ],
+    "78": [
+      "scripts_run_sql",
+      "scripts_run_sql_createclient",
+      "scripts_run_sql_fs",
+      "scripts_run_sql_path",
+      "scripts_run_sql_run"
+    ],
+    "79": [
+      "scripts_test_address",
+      "scripts_test_address_anonkey",
+      "scripts_test_address_envfile",
+      "scripts_test_address_supabase",
+      "scripts_test_address_testinsert"
+    ],
+    "80": [
+      "scripts_test_bang_fey",
+      "scripts_test_bang_fey_anonkey",
+      "scripts_test_bang_fey_checkbangfey",
+      "scripts_test_bang_fey_envfile",
+      "scripts_test_bang_fey_supabase"
+    ],
+    "81": [
+      "scripts_test_contacts",
+      "scripts_test_contacts_anonkey",
+      "scripts_test_contacts_envfile",
+      "scripts_test_contacts_supabase",
+      "scripts_test_contacts_testcontacts"
+    ],
+    "82": [
+      "scripts_test_schema_anonkey",
+      "scripts_test_schema_checkschema",
+      "scripts_test_schema_envfile",
+      "scripts_test_schema_mjs_scripts_test_schema",
+      "scripts_test_schema_supabase"
+    ],
+    "83": [
+      "scripts_test_update_anonkey",
+      "scripts_test_update_envfile",
+      "scripts_test_update_mjs_scripts_test_update",
+      "scripts_test_update_mjs_scripts_test_update_supabase",
+      "scripts_test_update_testfetchandupdate"
+    ],
+    "84": [
+      "scripts_test_view",
+      "scripts_test_view_check",
+      "scripts_test_view_createclient",
+      "scripts_test_view_dotenv",
+      "scripts_test_view_supabase"
+    ],
+    "85": [
+      "scripts_test_view2",
+      "scripts_test_view2_check",
+      "scripts_test_view2_createclient",
+      "scripts_test_view2_dotenv",
+      "scripts_test_view2_supabase"
+    ],
+    "86": [
+      "scripts_verify_all",
+      "scripts_verify_all_anonkey",
+      "scripts_verify_all_check",
+      "scripts_verify_all_envfile",
+      "scripts_verify_all_supabase"
+    ],
+    "87": [
+      "scripts_verify_omg",
+      "scripts_verify_omg_anonkey",
+      "scripts_verify_omg_check",
+      "scripts_verify_omg_envfile",
+      "scripts_verify_omg_supabase"
+    ],
+    "88": [
+      "scripts_verify_reconciliation",
+      "scripts_verify_reconciliation_findheaderrow",
+      "scripts_verify_reconciliation_normalizestr",
+      "scripts_verify_reconciliation_run",
+      "scripts_verify_reconciliation_xlsx"
+    ],
+    "89": [
+      "src_app_campaigns_actions_livestreamactions",
+      "src_app_campaigns_actions_livestreamactions_getlivestreamdata",
+      "src_app_campaigns_actions_livestreamactions_supabase",
+      "src_app_campaigns_id_livestream_page",
+      "src_app_campaigns_id_livestream_page_campaignlivestreampage"
+    ],
+    "90": [
+      "chrome_extension_content",
+      "chrome_extension_content_extractpartnercenter",
+      "chrome_extension_content_parsecount",
+      "chrome_extension_content_savedata"
+    ],
+    "91": [
+      "scratch_check_db",
+      "scratch_check_db_check",
+      "scratch_check_db_createclient",
+      "scratch_check_db_supabase"
+    ],
+    "92": [
+      "scratch_check_kahf",
+      "scratch_check_kahf_check",
+      "scratch_check_kahf_createclient",
+      "scratch_check_kahf_supabase"
+    ],
+    "93": [
+      "scratch_check_kahf_rpc",
+      "scratch_check_kahf_rpc_check",
+      "scratch_check_kahf_rpc_createclient",
+      "scratch_check_kahf_rpc_supabase"
+    ],
+    "94": [
+      "scratch_check_schema",
+      "scratch_check_schema_check",
+      "scratch_check_schema_createclient",
+      "scratch_check_schema_supabase"
+    ],
+    "95": [
+      "scratch_test_import",
+      "scratch_test_import_createclient",
+      "scratch_test_import_supabase",
+      "scratch_test_import_test"
+    ],
+    "96": [
+      "scratch_test_insert",
+      "scratch_test_insert_createclient",
+      "scratch_test_insert_supabase",
+      "scratch_test_insert_testinsert"
+    ],
+    "97": [
+      "scratch_test_nan",
+      "scratch_test_nan_createclient",
+      "scratch_test_nan_supabase",
+      "scratch_test_nan_test"
+    ],
+    "98": [
+      "scripts_alter_db",
+      "scripts_alter_db_alterdb",
+      "scripts_alter_db_createclient",
+      "scripts_alter_db_supabaseadmin"
+    ],
+    "99": [
+      "scripts_audit_omg_new",
+      "scripts_audit_omg_new_omg_makeup_skus",
+      "scripts_audit_omg_new_processfiles",
+      "scripts_audit_omg_new_xlsx"
+    ],
+    "100": [
+      "scripts_audit_performa",
+      "scripts_audit_performa_checkrls",
+      "scripts_audit_performa_createclient",
+      "scripts_audit_performa_supabase"
+    ],
+    "101": [
+      "scripts_check",
+      "scripts_check_createclient",
+      "scripts_check_fix",
+      "scripts_check_supabase"
+    ],
+    "102": [
+      "scripts_check2",
+      "scripts_check2_check",
+      "scripts_check2_createclient",
+      "scripts_check2_supabase"
+    ],
+    "103": [
+      "scripts_check_ads",
+      "scripts_check_ads_check",
+      "scripts_check_ads_createclient",
+      "scripts_check_ads_supabase"
+    ],
+    "104": [
+      "scripts_check_all_constraints",
+      "scripts_check_all_constraints_check",
+      "scripts_check_all_constraints_createclient",
+      "scripts_check_all_constraints_supabaseadmin"
+    ],
+    "105": [
+      "scripts_check_all_sales_types",
+      "scripts_check_all_sales_types_checkallsalestypes",
+      "scripts_check_all_sales_types_createclient",
+      "scripts_check_all_sales_types_supabase"
+    ],
+    "106": [
+      "scripts_check_anon",
+      "scripts_check_anon_createclient",
+      "scripts_check_anon_run",
+      "scripts_check_anon_supabaseanon"
+    ],
+    "107": [
+      "scripts_check_arnilawati",
+      "scripts_check_arnilawati_createclient",
+      "scripts_check_arnilawati_run",
+      "scripts_check_arnilawati_supabase"
+    ],
+    "108": [
+      "scripts_check_arnilawati2",
+      "scripts_check_arnilawati2_createclient",
+      "scripts_check_arnilawati2_run",
+      "scripts_check_arnilawati2_supabase"
+    ],
+    "109": [
+      "scripts_check_budgets",
+      "scripts_check_budgets_check",
+      "scripts_check_budgets_createclient",
+      "scripts_check_budgets_supabase"
+    ],
+    "110": [
+      "scripts_check_campaign17",
+      "scripts_check_campaign17_createclient",
+      "scripts_check_campaign17_run",
+      "scripts_check_campaign17_supabase"
+    ],
+    "111": [
+      "scripts_check_campaigns",
+      "scripts_check_campaigns_checkcampaigns",
+      "scripts_check_campaigns_createclient",
+      "scripts_check_campaigns_supabase"
+    ],
+    "112": [
+      "scripts_check_cols",
+      "scripts_check_cols_checkcols",
+      "scripts_check_cols_createclient",
+      "scripts_check_cols_supabase"
+    ],
+    "113": [
+      "scripts_check_constraint",
+      "scripts_check_constraint_createclient",
+      "scripts_check_constraint_supabaseadmin",
+      "scripts_check_constraint_test"
+    ],
+    "114": [
+      "scripts_check_constraint_def",
+      "scripts_check_constraint_def_check",
+      "scripts_check_constraint_def_createclient",
+      "scripts_check_constraint_def_supabaseadmin"
+    ],
+    "115": [
+      "scripts_check_creator_pool",
+      "scripts_check_creator_pool_check",
+      "scripts_check_creator_pool_createclient",
+      "scripts_check_creator_pool_supabase"
+    ],
+    "116": [
+      "scripts_check_creators",
+      "scripts_check_creators_createclient",
+      "scripts_check_creators_run",
+      "scripts_check_creators_supabase"
+    ],
+    "117": [
+      "scripts_check_duplicates",
+      "scripts_check_duplicates_checkduplicates",
+      "scripts_check_duplicates_createclient",
+      "scripts_check_duplicates_supabase"
+    ],
+    "118": [
+      "scripts_check_enum",
+      "scripts_check_enum_check",
+      "scripts_check_enum_createclient",
+      "scripts_check_enum_supabaseadmin"
+    ],
+    "119": [
+      "scripts_check_enum2",
+      "scripts_check_enum2_check",
+      "scripts_check_enum2_createclient",
+      "scripts_check_enum2_supabaseadmin"
+    ],
+    "120": [
+      "scripts_check_excel_data",
+      "scripts_check_excel_js_scripts_check_excel_d8ab8a",
+      "scripts_check_excel_js_scripts_check_excel_xlsx_d8ab8a",
+      "scripts_check_excel_workbook"
+    ],
+    "121": [
+      "scripts_check_fk",
+      "scripts_check_fk_createclient",
+      "scripts_check_fk_supabaseadmin",
+      "scripts_check_fk_test"
+    ],
+    "122": [
+      "scripts_check_fk_exact",
+      "scripts_check_fk_exact_check",
+      "scripts_check_fk_exact_createclient",
+      "scripts_check_fk_exact_supabaseadmin"
+    ],
+    "123": [
+      "scripts_check_headers",
+      "scripts_check_headers_sheets",
+      "scripts_check_headers_workbook",
+      "scripts_check_headers_xlsx"
+    ],
+    "124": [
+      "scripts_check_item",
+      "scripts_check_item_check",
+      "scripts_check_item_createclient",
+      "scripts_check_item_supabaseadmin"
+    ],
+    "125": [
+      "scripts_check_matcha",
+      "scripts_check_matcha_createclient",
+      "scripts_check_matcha_run",
+      "scripts_check_matcha_supabase"
+    ],
+    "126": [
+      "scripts_check_null_price",
+      "scripts_check_null_price_createclient",
+      "scripts_check_null_price_run",
+      "scripts_check_null_price_supabase"
+    ],
+    "127": [
+      "scripts_check_null_users",
+      "scripts_check_null_users_createclient",
+      "scripts_check_null_users_run",
+      "scripts_check_null_users_supabase"
+    ],
+    "128": [
+      "scripts_check_raw",
+      "scripts_check_raw_check",
+      "scripts_check_raw_createclient",
+      "scripts_check_raw_supabaseadmin"
+    ],
+    "129": [
+      "scripts_check_riska",
+      "scripts_check_riska_createclient",
+      "scripts_check_riska_run",
+      "scripts_check_riska_supabase"
+    ],
+    "130": [
+      "scripts_check_sales",
+      "scripts_check_sales_createclient",
+      "scripts_check_sales_supabase",
+      "scripts_check_sales_test"
+    ],
+    "131": [
+      "scripts_check_schema_check",
+      "scripts_check_schema_js_scripts_check_schema_createclient_e90f4f",
+      "scripts_check_schema_js_scripts_check_schema_e90f4f",
+      "scripts_check_schema_supabaseadmin"
+    ],
+    "132": [
+      "scripts_check_syntax",
+      "scripts_check_syntax_check",
+      "scripts_check_syntax_createclient",
+      "scripts_check_syntax_supabaseadmin"
+    ],
+    "133": [
+      "scripts_check_table",
+      "scripts_check_table_check",
+      "scripts_check_table_createclient",
+      "scripts_check_table_supabaseadmin"
+    ],
+    "134": [
+      "scripts_check_total",
+      "scripts_check_total_createclient",
+      "scripts_check_total_run",
+      "scripts_check_total_supabase"
+    ],
+    "135": [
+      "scripts_check_total_creators",
+      "scripts_check_total_creators_createclient",
+      "scripts_check_total_creators_run",
+      "scripts_check_total_creators_supabase"
+    ],
+    "136": [
+      "scripts_check_total_videos",
+      "scripts_check_total_videos_createclient",
+      "scripts_check_total_videos_run",
+      "scripts_check_total_videos_supabase"
+    ],
+    "137": [
+      "scripts_check_trigger2",
+      "scripts_check_trigger2_check",
+      "scripts_check_trigger2_createclient",
+      "scripts_check_trigger2_supabaseadmin"
+    ],
+    "138": [
+      "scripts_check_trigger_pg",
+      "scripts_check_trigger_pg_check",
+      "scripts_check_trigger_pg_createclient",
+      "scripts_check_trigger_pg_supabaseadmin"
+    ],
+    "139": [
+      "scripts_check_triggers",
+      "scripts_check_triggers_check",
+      "scripts_check_triggers_createclient",
+      "scripts_check_triggers_supabaseadmin"
+    ],
+    "140": [
+      "scripts_check_unmapped",
+      "scripts_check_unmapped_checkunmappedsales",
+      "scripts_check_unmapped_createclient",
+      "scripts_check_unmapped_supabase"
+    ],
+    "141": [
+      "scripts_check_update",
+      "scripts_check_update_createclient",
+      "scripts_check_update_run",
+      "scripts_check_update_supabase"
+    ],
+    "142": [
+      "scripts_check_videos",
+      "scripts_check_videos_createclient",
+      "scripts_check_videos_run",
+      "scripts_check_videos_supabase"
+    ],
+    "143": [
+      "scripts_check_view",
+      "scripts_check_view_check",
+      "scripts_check_view_createclient",
+      "scripts_check_view_supabase"
+    ],
+    "144": [
+      "scripts_clean_all_dupes",
+      "scripts_clean_all_dupes_createclient",
+      "scripts_clean_all_dupes_run",
+      "scripts_clean_all_dupes_sb"
+    ],
+    "145": [
+      "scripts_clean_db_clean",
+      "scripts_clean_db_createclient",
+      "scripts_clean_db_js_scripts_clean_db",
+      "scripts_clean_db_js_scripts_clean_db_supabase"
+    ],
+    "146": [
+      "scripts_cleanup_duplicates",
+      "scripts_cleanup_duplicates_createclient",
+      "scripts_cleanup_duplicates_run",
+      "scripts_cleanup_duplicates_supabase"
+    ],
+    "147": [
+      "scripts_cleanup_duplicates_v2",
+      "scripts_cleanup_duplicates_v2_createclient",
+      "scripts_cleanup_duplicates_v2_run",
+      "scripts_cleanup_duplicates_v2_supabase"
+    ],
+    "148": [
+      "scripts_cleanup_videos",
+      "scripts_cleanup_videos_cleanupvideos",
+      "scripts_cleanup_videos_createclient",
+      "scripts_cleanup_videos_supabase"
+    ],
+    "149": [
+      "scripts_create_loadings",
+      "scripts_create_loadings_fs",
+      "scripts_create_loadings_path",
+      "scripts_create_loadings_tabs"
+    ],
+    "150": [
+      "scripts_debug_gap",
+      "scripts_debug_gap_checkgap",
+      "scripts_debug_gap_createclient",
+      "scripts_debug_gap_supabase"
+    ],
+    "151": [
+      "scripts_debug_videos",
+      "scripts_debug_videos_checkvideos",
+      "scripts_debug_videos_createclient",
+      "scripts_debug_videos_supabase"
+    ],
+    "152": [
+      "scripts_del_dup",
+      "scripts_del_dup_createclient",
+      "scripts_del_dup_deletedups",
+      "scripts_del_dup_supabase"
+    ],
+    "153": [
+      "scripts_find_campaign",
+      "scripts_find_campaign_createclient",
+      "scripts_find_campaign_run",
+      "scripts_find_campaign_supabase"
+    ],
+    "154": [
+      "scripts_find_pass",
+      "scripts_find_pass_fs",
+      "scripts_find_pass_processlinebyline",
+      "scripts_find_pass_readline"
+    ],
+    "155": [
+      "scripts_fix_sql",
+      "scripts_fix_sql_createclient",
+      "scripts_fix_sql_fix",
+      "scripts_fix_sql_supabase"
+    ],
+    "156": [
+      "scripts_fix_urutan",
+      "scripts_fix_urutan_createclient",
+      "scripts_fix_urutan_fixurutan",
+      "scripts_fix_urutan_supabase"
+    ],
+    "157": [
+      "scripts_fix_video_links",
+      "scripts_fix_video_links_createclient",
+      "scripts_fix_video_links_fixlinks",
+      "scripts_fix_video_links_supabase"
+    ],
+    "158": [
+      "scripts_inspect",
+      "scripts_inspect_data",
+      "scripts_inspect_workbook",
+      "scripts_inspect_xlsx"
+    ],
+    "159": [
+      "scripts_inspect2",
+      "scripts_inspect2_data",
+      "scripts_inspect2_workbook",
+      "scripts_inspect2_xlsx"
+    ],
+    "160": [
+      "scripts_inspect_680",
+      "scripts_inspect_680_createclient",
+      "scripts_inspect_680_inspect",
+      "scripts_inspect_680_supabase"
+    ],
+    "161": [
+      "scripts_merge_duplicate_creators",
+      "scripts_merge_duplicate_creators_createclient",
+      "scripts_merge_duplicate_creators_run",
+      "scripts_merge_duplicate_creators_supabase"
+    ],
+    "162": [
+      "scripts_patch_videos",
+      "scripts_patch_videos_createclient",
+      "scripts_patch_videos_run",
+      "scripts_patch_videos_supabase"
+    ],
+    "163": [
+      "scripts_query2",
+      "scripts_query2_createclient",
+      "scripts_query2_run",
+      "scripts_query2_supabase"
+    ],
+    "164": [
+      "scripts_query3",
+      "scripts_query3_createclient",
+      "scripts_query3_run",
+      "scripts_query3_supabase"
+    ],
+    "165": [
+      "scripts_query_supabase_check",
+      "scripts_query_supabase_createclient",
+      "scripts_query_supabase_js_scripts_query_supabase",
+      "scripts_query_supabase_supabase"
+    ],
+    "166": [
+      "scripts_read_daily_performance",
+      "scripts_read_daily_performance_data",
+      "scripts_read_daily_performance_workbook",
+      "scripts_read_daily_performance_xlsx"
+    ],
+    "167": [
+      "scripts_read_excel_data",
+      "scripts_read_excel_js_scripts_read_excel_ca5c4e",
+      "scripts_read_excel_js_scripts_read_excel_workbook_ca5c4e",
+      "scripts_read_excel_js_scripts_read_excel_xlsx_ca5c4e"
+    ],
+    "168": [
+      "scripts_read_excel_temp",
+      "scripts_read_excel_temp_data",
+      "scripts_read_excel_temp_workbook",
+      "scripts_read_excel_temp_xlsx"
+    ],
+    "169": [
+      "scripts_reconstruct_ads",
+      "scripts_reconstruct_ads_createclient",
+      "scripts_reconstruct_ads_run",
+      "scripts_reconstruct_ads_supabase"
+    ],
+    "170": [
+      "scripts_remap_sales",
+      "scripts_remap_sales_createclient",
+      "scripts_remap_sales_remapdata",
+      "scripts_remap_sales_supabase"
+    ],
+    "171": [
+      "scripts_remap_sales_rest",
+      "scripts_remap_sales_rest_createclient",
+      "scripts_remap_sales_rest_remaprest",
+      "scripts_remap_sales_rest_supabase"
+    ],
+    "172": [
+      "scripts_resolve_duplicates",
+      "scripts_resolve_duplicates_createclient",
+      "scripts_resolve_duplicates_resolveduplicates",
+      "scripts_resolve_duplicates_supabase"
+    ],
+    "173": [
+      "scripts_roundicon",
+      "scripts_roundicon_fs",
+      "scripts_roundicon_roundimage",
+      "scripts_roundicon_sharp"
+    ],
+    "174": [
+      "scripts_scratch_dupes",
+      "scripts_scratch_dupes_createclient",
+      "scripts_scratch_dupes_run",
+      "scripts_scratch_dupes_sb"
+    ],
+    "175": [
+      "scripts_seed_tiktok_niches",
+      "scripts_seed_tiktok_niches_newniches",
+      "scripts_seed_tiktok_niches_seed",
+      "scripts_seed_tiktok_niches_supabase"
+    ],
+    "176": [
+      "scripts_test_55",
+      "scripts_test_55_check",
+      "scripts_test_55_createclient",
+      "scripts_test_55_supabaseadmin"
+    ],
+    "177": [
+      "scripts_test_action",
+      "scripts_test_action_createclient",
+      "scripts_test_action_supabase",
+      "scripts_test_action_test"
+    ],
+    "178": [
+      "scripts_test_action_batch",
+      "scripts_test_action_batch_createclient",
+      "scripts_test_action_batch_supabase",
+      "scripts_test_action_batch_test"
+    ],
+    "179": [
+      "scripts_test_ads_delta",
+      "scripts_test_ads_delta_createclient",
+      "scripts_test_ads_delta_run",
+      "scripts_test_ads_delta_supabase"
+    ],
+    "180": [
+      "scripts_test_anon",
+      "scripts_test_anon_createclient",
+      "scripts_test_anon_supabase",
+      "scripts_test_anon_test"
+    ],
+    "181": [
+      "scripts_test_campaign_rls",
+      "scripts_test_campaign_rls_createclient",
+      "scripts_test_campaign_rls_supabaseadmin",
+      "scripts_test_campaign_rls_test"
+    ],
+    "182": [
+      "scripts_test_constraint",
+      "scripts_test_constraint_createclient",
+      "scripts_test_constraint_supabase",
+      "scripts_test_constraint_test"
+    ],
+    "183": [
+      "scripts_test_detail",
+      "scripts_test_detail_createclient",
+      "scripts_test_detail_supabaseadmin",
+      "scripts_test_detail_test"
+    ],
+    "184": [
+      "scripts_test_executive",
+      "scripts_test_executive_createclient",
+      "scripts_test_executive_supabaseadmin",
+      "scripts_test_executive_test"
+    ],
+    "185": [
+      "scripts_test_fetch_js_scripts_test_fetch_38dd35",
+      "scripts_test_fetch_js_scripts_test_fetch_createclient_38dd35",
+      "scripts_test_fetch_js_scripts_test_fetch_supabase_38dd35",
+      "scripts_test_fetch_testfetch"
+    ],
+    "186": [
+      "scripts_test_fetch_js_scripts_test_fetch_5eaba8",
+      "scripts_test_fetch_js_scripts_test_fetch_createclient_5eaba8",
+      "scripts_test_fetch_js_scripts_test_fetch_supabase_5eaba8",
+      "scripts_test_fetch_run"
+    ],
+    "187": [
+      "scripts_test_filter",
+      "scripts_test_filter_createclient",
+      "scripts_test_filter_run",
+      "scripts_test_filter_supabase"
+    ],
+    "188": [
+      "scripts_test_nurulaini",
+      "scripts_test_nurulaini_check",
+      "scripts_test_nurulaini_createclient",
+      "scripts_test_nurulaini_s"
+    ],
+    "189": [
+      "scripts_test_query2",
+      "scripts_test_query2_createclient",
+      "scripts_test_query2_run",
+      "scripts_test_query2_supabase"
+    ],
+    "190": [
+      "scripts_test_query_js_scripts_test_query_createclient_d1385f",
+      "scripts_test_query_js_scripts_test_query_d1385f",
+      "scripts_test_query_js_scripts_test_query_run",
+      "scripts_test_query_js_scripts_test_query_supabase_d1385f"
+    ],
+    "191": [
+      "scripts_test_query_js_scripts_test_query_createclient_f96a0d",
+      "scripts_test_query_js_scripts_test_query_f96a0d",
+      "scripts_test_query_js_scripts_test_query_supabase_f96a0d",
+      "scripts_test_query_test"
+    ],
+    "192": [
+      "scripts_test_rls",
+      "scripts_test_rls_createclient",
+      "scripts_test_rls_supabaseadmin",
+      "scripts_test_rls_test"
+    ],
+    "193": [
+      "scripts_test_rls2",
+      "scripts_test_rls2_createclient",
+      "scripts_test_rls2_supabase",
+      "scripts_test_rls2_test"
+    ],
+    "194": [
+      "scripts_test_rls3",
+      "scripts_test_rls3_createclient",
+      "scripts_test_rls3_supabaseadmin",
+      "scripts_test_rls3_test"
+    ],
+    "195": [
+      "scripts_test_schema_createclient",
+      "scripts_test_schema_js_scripts_test_schema",
+      "scripts_test_schema_supabaseadmin",
+      "scripts_test_schema_test"
+    ],
+    "196": [
+      "scripts_test_summary_anon",
+      "scripts_test_summary_anon_createclient",
+      "scripts_test_summary_anon_supabase",
+      "scripts_test_summary_anon_test"
+    ],
+    "197": [
+      "scripts_test_summary_fix",
+      "scripts_test_summary_fix_createclient",
+      "scripts_test_summary_fix_supabase",
+      "scripts_test_summary_fix_test"
+    ],
+    "198": [
+      "scripts_test_syntax",
+      "scripts_test_syntax_createclient",
+      "scripts_test_syntax_run",
+      "scripts_test_syntax_supabase"
+    ],
+    "199": [
+      "scripts_test_update_js_scripts_test_update_090411",
+      "scripts_test_update_js_scripts_test_update_createclient_090411",
+      "scripts_test_update_js_scripts_test_update_supabase",
+      "scripts_test_update_testupdate"
+    ],
+    "200": [
+      "scripts_test_update_js_scripts_test_update_18f5d6",
+      "scripts_test_update_js_scripts_test_update_createclient_18f5d6",
+      "scripts_test_update_supabaseadmin",
+      "scripts_test_update_test"
+    ],
+    "201": [
+      "scripts_test_videos",
+      "scripts_test_videos_createclient",
+      "scripts_test_videos_main",
+      "scripts_test_videos_supabase"
+    ],
+    "202": [
+      "scripts_test_videos2",
+      "scripts_test_videos2_createclient",
+      "scripts_test_videos2_main",
+      "scripts_test_videos2_supabase"
+    ],
+    "203": [
+      "scripts_verify",
+      "scripts_verify_createclient",
+      "scripts_verify_run",
+      "scripts_verify_supabase"
+    ],
+    "204": [
+      "scripts_verify_5_brands",
+      "scripts_verify_5_brands_createclient",
+      "scripts_verify_5_brands_run",
+      "scripts_verify_5_brands_supabase"
+    ],
+    "205": [
+      "src_app_api_sync_unmapped_route",
+      "src_app_api_sync_unmapped_route_post",
+      "src_app_api_sync_unmapped_route_supabase",
+      "src_types_database_databaseschema"
+    ],
+    "206": [
+      "src_app_campaigns_actions_dailyactions",
+      "src_app_campaigns_actions_dailyactions_getdailydata",
+      "src_app_campaigns_actions_dailyactions_supabase",
+      "src_app_campaigns_actions_dailyactions_towibdatestr"
+    ],
+    "207": [
+      "ref_radix_ui_react_label",
+      "src_components_ui_label",
+      "src_components_ui_label_label"
+    ],
+    "208": [
+      "ref_radix_ui_react_switch",
+      "src_components_ui_switch",
+      "src_components_ui_switch_switch"
+    ],
+    "209": [
+      "scratch_fix_button_sizes",
+      "scratch_fix_button_sizes_content",
+      "scratch_fix_button_sizes_fs"
+    ],
+    "210": [
+      "scratch_fix_buttons",
+      "scratch_fix_buttons_code",
+      "scratch_fix_buttons_fs"
+    ],
+    "211": [
+      "scratch_fix_classnames",
+      "scratch_fix_classnames_code",
+      "scratch_fix_classnames_fs"
+    ],
+    "212": [
+      "scratch_fix_daily",
+      "scratch_fix_daily_content",
+      "scratch_fix_daily_fs"
+    ],
+    "213": [
+      "scratch_fix_performa",
+      "scratch_fix_performa_content",
+      "scratch_fix_performa_fs"
+    ],
+    "214": [
+      "scratch_fix_tables",
+      "scratch_fix_tables_code",
+      "scratch_fix_tables_fs"
+    ],
+    "215": [
+      "scratch_fix_variant_attrs",
+      "scratch_fix_variant_attrs_content",
+      "scratch_fix_variant_attrs_fs"
+    ],
+    "216": [
+      "scratch_migrate",
+      "scratch_migrate_code",
+      "scratch_migrate_fs"
+    ],
+    "217": [
+      "scripts_check_db2",
+      "scripts_check_db2_check",
+      "scripts_check_db2_supabase"
+    ],
+    "218": [
+      "scripts_check_db3",
+      "scripts_check_db3_check",
+      "scripts_check_db3_supabase"
+    ],
+    "219": [
+      "scripts_check_schema_ts_scripts_check_schema",
+      "scripts_check_schema_ts_scripts_check_schema_run",
+      "scripts_check_schema_ts_scripts_check_schema_supabase"
+    ],
+    "220": [
+      "scripts_patch_actions",
+      "scripts_patch_actions_content",
+      "scripts_patch_actions_fs"
+    ],
+    "221": [
+      "scripts_scratch_query",
+      "scripts_scratch_query_run",
+      "scripts_scratch_query_supabase"
+    ],
+    "222": [
+      "scripts_test_awareness",
+      "scripts_test_awareness_main",
+      "scripts_test_awareness_supabase"
+    ],
+    "223": [
+      "scripts_test_count_creators",
+      "scripts_test_count_creators_check",
+      "scripts_test_count_creators_supabase"
+    ],
+    "224": [
+      "scripts_test_query_main",
+      "scripts_test_query_ts_scripts_test_query_92f46f",
+      "scripts_test_query_ts_scripts_test_query_supabase_92f46f"
+    ],
+    "225": [
+      "eslint_config",
+      "eslint_config_eslintconfig"
+    ],
+    "226": [
+      "postcss_config",
+      "postcss_config_config"
+    ],
+    "227": [
+      "scripts_check_excel_check_excel",
+      "scripts_check_excel_py_scripts_check_excel"
+    ],
+    "228": [
+      "scripts_test",
+      "scripts_test_puppeteer"
+    ],
+    "229": [
+      "scripts_test_crash",
+      "scripts_test_crash_puppeteer"
+    ],
+    "230": [
+      "scripts_test_tiktok",
+      "scripts_test_tiktok_test"
+    ],
+    "231": [
+      "src_app_api_expand_tiktok_route",
+      "src_app_api_expand_tiktok_route_post"
+    ],
+    "232": [
+      "src_app_portal_id_layout",
+      "src_app_portal_id_layout_portallayout"
+    ],
+    "233": [
+      "chrome_extension_background"
+    ],
+    "234": [
+      "scripts_clean_dupes"
+    ],
+    "235": [
+      "scripts_fetch_proc"
+    ],
+    "236": [
+      "temp_original"
+    ]
+  },
+  "cohesion": {
+    "0": 0.06837606837606838,
+    "1": 0.08597285067873303,
+    "2": 0.09446693657219973,
+    "3": 0.11411411411411411,
+    "4": 0.05714285714285714,
+    "5": 0.23225806451612904,
+    "6": 0.06666666666666667,
+    "7": 0.09359605911330049,
+    "8": 0.20346320346320346,
+    "9": 0.09523809523809523,
+    "10": 0.1523809523809524,
+    "11": 0.16666666666666666,
+    "12": 0.1,
+    "13": 0.1,
+    "14": 0.1,
+    "15": 0.14736842105263157,
+    "16": 0.1631578947368421,
+    "17": 0.10526315789473684,
+    "18": 0.1503267973856209,
+    "19": 0.1568627450980392,
+    "20": 0.1111111111111111,
+    "21": 0.27941176470588236,
+    "22": 0.14705882352941177,
+    "23": 0.23809523809523808,
+    "24": 0.2564102564102564,
+    "25": 0.25757575757575757,
+    "26": 0.36363636363636365,
+    "27": 0.2,
+    "28": 0.2,
+    "29": 0.2,
+    "30": 0.24444444444444444,
+    "31": 0.2777777777777778,
+    "32": 0.3055555555555556,
+    "33": 0.3055555555555556,
+    "34": 0.39285714285714285,
+    "35": 0.2857142857142857,
+    "36": 0.32142857142857145,
+    "37": 0.2857142857142857,
+    "38": 0.2857142857142857,
+    "39": 0.2857142857142857,
+    "40": 0.35714285714285715,
+    "41": 0.2857142857142857,
+    "42": 0.2857142857142857,
+    "43": 0.38095238095238093,
+    "44": 0.2857142857142857,
+    "45": 0.3333333333333333,
+    "46": 0.2857142857142857,
+    "47": 0.2857142857142857,
+    "48": 0.3333333333333333,
+    "49": 0.3333333333333333,
+    "50": 0.4,
+    "51": 0.4,
+    "52": 0.3333333333333333,
+    "53": 0.3333333333333333,
+    "54": 0.4,
+    "55": 0.4,
+    "56": 0.4,
+    "57": 0.4,
+    "58": 0.4,
+    "59": 0.4,
+    "60": 0.5,
+    "61": 0.4,
+    "62": 0.4,
+    "63": 0.5,
+    "64": 0.4,
+    "65": 0.5,
+    "66": 0.4,
+    "67": 0.4,
+    "68": 0.5,
+    "69": 0.5,
+    "70": 0.4,
+    "71": 0.5,
+    "72": 0.5,
+    "73": 0.4,
+    "74": 0.4,
+    "75": 0.5,
+    "76": 0.4,
+    "77": 0.4,
+    "78": 0.4,
+    "79": 0.4,
+    "80": 0.4,
+    "81": 0.4,
+    "82": 0.4,
+    "83": 0.4,
+    "84": 0.4,
+    "85": 0.4,
+    "86": 0.4,
+    "87": 0.4,
+    "88": 0.6,
+    "89": 0.6,
+    "90": 0.8333333333333334,
+    "91": 0.5,
+    "92": 0.5,
+    "93": 0.5,
+    "94": 0.5,
+    "95": 0.5,
+    "96": 0.5,
+    "97": 0.5,
+    "98": 0.5,
+    "99": 0.5,
+    "100": 0.5,
+    "101": 0.5,
+    "102": 0.5,
+    "103": 0.5,
+    "104": 0.5,
+    "105": 0.5,
+    "106": 0.5,
+    "107": 0.5,
+    "108": 0.5,
+    "109": 0.5,
+    "110": 0.5,
+    "111": 0.5,
+    "112": 0.5,
+    "113": 0.5,
+    "114": 0.5,
+    "115": 0.5,
+    "116": 0.5,
+    "117": 0.5,
+    "118": 0.5,
+    "119": 0.5,
+    "120": 0.5,
+    "121": 0.5,
+    "122": 0.5,
+    "123": 0.5,
+    "124": 0.5,
+    "125": 0.5,
+    "126": 0.5,
+    "127": 0.5,
+    "128": 0.5,
+    "129": 0.5,
+    "130": 0.5,
+    "131": 0.5,
+    "132": 0.5,
+    "133": 0.5,
+    "134": 0.5,
+    "135": 0.5,
+    "136": 0.5,
+    "137": 0.5,
+    "138": 0.5,
+    "139": 0.5,
+    "140": 0.5,
+    "141": 0.5,
+    "142": 0.5,
+    "143": 0.5,
+    "144": 0.5,
+    "145": 0.5,
+    "146": 0.5,
+    "147": 0.5,
+    "148": 0.5,
+    "149": 0.5,
+    "150": 0.5,
+    "151": 0.5,
+    "152": 0.5,
+    "153": 0.5,
+    "154": 0.5,
+    "155": 0.5,
+    "156": 0.5,
+    "157": 0.5,
+    "158": 0.5,
+    "159": 0.5,
+    "160": 0.5,
+    "161": 0.5,
+    "162": 0.5,
+    "163": 0.5,
+    "164": 0.5,
+    "165": 0.5,
+    "166": 0.5,
+    "167": 0.5,
+    "168": 0.5,
+    "169": 0.5,
+    "170": 0.5,
+    "171": 0.5,
+    "172": 0.5,
+    "173": 0.6666666666666666,
+    "174": 0.5,
+    "175": 0.5,
+    "176": 0.5,
+    "177": 0.5,
+    "178": 0.5,
+    "179": 0.5,
+    "180": 0.5,
+    "181": 0.5,
+    "182": 0.5,
+    "183": 0.5,
+    "184": 0.5,
+    "185": 0.5,
+    "186": 0.5,
+    "187": 0.5,
+    "188": 0.5,
+    "189": 0.5,
+    "190": 0.5,
+    "191": 0.5,
+    "192": 0.5,
+    "193": 0.5,
+    "194": 0.5,
+    "195": 0.5,
+    "196": 0.5,
+    "197": 0.5,
+    "198": 0.5,
+    "199": 0.5,
+    "200": 0.5,
+    "201": 0.5,
+    "202": 0.5,
+    "203": 0.5,
+    "204": 0.5,
+    "205": 0.5,
+    "206": 0.6666666666666666,
+    "207": 0.6666666666666666,
+    "208": 0.6666666666666666,
+    "209": 0.6666666666666666,
+    "210": 0.6666666666666666,
+    "211": 0.6666666666666666,
+    "212": 0.6666666666666666,
+    "213": 0.6666666666666666,
+    "214": 0.6666666666666666,
+    "215": 0.6666666666666666,
+    "216": 0.6666666666666666,
+    "217": 0.6666666666666666,
+    "218": 0.6666666666666666,
+    "219": 0.6666666666666666,
+    "220": 0.6666666666666666,
+    "221": 0.6666666666666666,
+    "222": 0.6666666666666666,
+    "223": 0.6666666666666666,
+    "224": 0.6666666666666666,
+    "225": 1.0,
+    "226": 1.0,
+    "227": 1.0,
+    "228": 1.0,
+    "229": 1.0,
+    "230": 1.0,
+    "231": 1.0,
+    "232": 1.0,
+    "233": 1.0,
+    "234": 1.0,
+    "235": 1.0,
+    "236": 1.0
+  },
+  "gods": [
+    {
+      "id": "ref_supabase_supabase_js",
+      "label": "@supabase/supabase-js",
+      "degree": 174
+    },
+    {
+      "id": "ref_react",
+      "label": "react",
+      "degree": 86
+    },
+    {
+      "id": "ref_xlsx",
+      "label": "xlsx",
+      "degree": 69
+    },
+    {
+      "id": "src_store_usedatabasestore_usedatabasestore",
+      "label": "useDatabaseStore",
+      "degree": 63
+    },
+    {
+      "id": "ref_lucide_react",
+      "label": "lucide-react",
+      "degree": 62
+    },
+    {
+      "id": "src_utils_supabase_client_createclient",
+      "label": "createClient()",
+      "degree": 60
+    },
+    {
+      "id": "src_utils_supabase_server_createclient",
+      "label": "createClient()",
+      "degree": 46
+    },
+    {
+      "id": "src_providers_authprovider_useauth",
+      "label": "useAuth()",
+      "degree": 42
+    },
+    {
+      "id": "ref_dotenv",
+      "label": "dotenv",
+      "degree": 31
+    },
+    {
+      "id": "src_utils_cn_cn",
+      "label": "cn()",
+      "degree": 27
+    }
+  ],
+  "surprises": [
+    {
+      "source": "InputPenjualanPage()",
+      "target": "useAuth()",
+      "source_files": [
+        "src/app/input-penjualan/page.tsx",
+        "src/providers/AuthProvider.tsx"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "bridges separate communities; peripheral node `InputPenjualanPage()` unexpectedly reaches hub `useAuth()`"
+    },
+    {
+      "source": "AdsReportPage()",
+      "target": "getAdsReportData()",
+      "source_files": [
+        "src/app/ads-report/page.tsx",
+        "src/app/ads-report/actions.ts"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "bridges separate communities"
+    },
+    {
+      "source": "GlobalBudgetingContent()",
+      "target": "useAuth()",
+      "source_files": [
+        "src/app/budgeting/page.tsx",
+        "src/providers/AuthProvider.tsx"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "bridges separate communities"
+    },
+    {
+      "source": "BatchDetail()",
+      "target": "useAuth()",
+      "source_files": [
+        "src/app/campaigns/[id]/keuangan/BatchDetail.tsx",
+        "src/providers/AuthProvider.tsx"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "bridges separate communities"
+    },
+    {
+      "source": "ImportHistoricalBatchPage()",
+      "target": "createClient()",
+      "source_files": [
+        "src/app/campaigns/[id]/keuangan/import/page.tsx",
+        "src/utils/supabase/client.ts"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "bridges separate communities"
+    }
+  ],
+  "tokens": {
+    "input": 0,
+    "output": 0
+  }
+}
