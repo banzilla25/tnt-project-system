@@ -336,7 +336,7 @@ function CampaignListingContent() {
       pendingChanges.clear();
       setPendingChanges(new Map());
       // Refetch from DB with reset to get freshly written data including approval metadata
-      await fetchListing(0, true);
+      await fetchListing(page, true);
     } catch (error) {
       console.error("Batch save error:", error);
       alert("Terjadi kesalahan saat menyimpan perubahan.");
@@ -1565,14 +1565,18 @@ function CampaignListingContent() {
   const handleDeleteCreator = async (ccId: number) => {
     if (!confirm('Yakin ingin mengeluarkan kreator ini dari campaign? Data performa campaign kreator ini akan ikut terhapus. (Kreator tetap ada di Pool)')) return;
     try {
+      setListingData(prev => prev.filter(c => c.id !== ccId));
       await useDatabaseStore.getState().deleteCampaignCreator(ccId);
-      // Refresh to show changes immediately
-      setPage(0);
-      fetchListing(0, true);
+      fetchListing(page, true);
       fetchCounts();
     } catch (err) {
       alert('Gagal menghapus kreator.');
     }
+  };
+
+  const optimisticUpdateCampaignCreator = async (ccId: number, data: any, changedBy?: string) => {
+    setListingData(prev => prev.map(c => c.id === ccId ? { ...c, ...data } : c));
+    await updateCampaignCreator(ccId, data, changedBy);
   };
 
   const handleScan = async (e: React.FormEvent) => {
@@ -2975,7 +2979,7 @@ function CampaignListingContent() {
                     profile={profile}
                     isBatchSaving={isBatchSaving}
                     handleDeleteCreator={handleDeleteCreator}
-                    updateCampaignCreator={updateCampaignCreator}
+                    updateCampaignCreator={optimisticUpdateCampaignCreator}
                     fetchListing={fetchListing}
                     page={page}
                     updateVideoField={updateVideoField}

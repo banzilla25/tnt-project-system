@@ -376,6 +376,7 @@ function CampaignKeuanganContent() {
             setSelectedBatch(detail);
             fetchData();
           }} 
+          onRefreshList={() => fetchData()}
         />
       )}
     </div>

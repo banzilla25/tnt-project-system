@@ -14,7 +14,7 @@ import { Check, X, Loader2, ArrowLeft, Send, Trash2, Pencil, Save, ChevronDown, 
 import { formatDateTime, formatUserWithRole } from "@/utils/formatters";
 import * as XLSX from "xlsx";
 
-export function BatchDetail({ batch, creatorHistory, onBack, onRefresh }: { batch: any, creatorHistory: Record<number, any[]>, onBack: () => void, onRefresh: () => void }) {
+export function BatchDetail({ batch, creatorHistory, onBack, onRefresh, onRefreshList }: { batch: any, creatorHistory: Record<number, any[]>, onBack: () => void, onRefresh: () => void, onRefreshList?: () => void }) {
   const { profile } = useAuth();
   const [loadingIds, setLoadingIds] = useState<Record<string, boolean>>({});
   const [isFinalizing, setIsFinalizing] = useState(false);
@@ -27,6 +27,8 @@ export function BatchDetail({ batch, creatorHistory, onBack, onRefresh }: { batc
 
   // Finance Inline Edit State
   const [financeEdits, setFinanceEdits] = useState<Record<number, { actual_transfer: string, biaya_transfer: string }>>({});
+
+
   const [savingFinanceId, setSavingFinanceId] = useState<number | null>(null);
 
   // Mark Paid form state
@@ -266,6 +268,7 @@ export function BatchDetail({ batch, creatorHistory, onBack, onRefresh }: { batc
     setIsFinalizing(true);
     try {
       await deletePaymentBatch(batch.id);
+      if (onRefreshList) onRefreshList();
       onBack();
     } catch (err: any) {
       alert("Gagal menghapus batch: " + err.message);

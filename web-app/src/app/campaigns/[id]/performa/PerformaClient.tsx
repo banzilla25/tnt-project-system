@@ -618,7 +618,7 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
       alert("Gagal update kurs: " + error.message);
     } else {
       setAdsPerf(adsPerf.map(a => a.id === id ? { ...a, kurs: numKurs } : a));
-      router.refresh();
+      fetchData(); // Fetch Data again to recalculate baseCreatorStats and totals
     }
     setEditingKursId(null);
   };
