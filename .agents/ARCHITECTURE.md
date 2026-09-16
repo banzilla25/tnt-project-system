@@ -73,5 +73,23 @@ Ketika pengguna membuat campaign baru atau menambahkan Product ID ke suatu campa
 2. **Pemicu Sinkronisasi (Sync Triggers)**:
    - **Saat Input Produk Massal**: Dieksekusi otomatis oleh `saveBatchSkusAction`.
    - **Saat Edit Produk**: Dieksekusi otomatis oleh `updateSkuAction`.
-   - **Saat Pendaftaran SKU Cepat di Form Import**: Dieksekusi otomatis oleh `handleRegisterSku`.
    - **Tombol Manual di Halaman SKU Campaign**: Tombol *"Sinkronkan Data Unmapped"* di `/campaigns/[id]/sku` untuk rekonsiliasi instan data kapan saja.
+
+---
+
+## 5. Sistem Master Konsep & Dropdown Pemilihan Konsep
+
+1. **Struktur Master Konsep (`campaign_concepts`)**:
+   - Dikelola melalui menu Master Konsep (`/campaigns/[id]/concepts`).
+   - Setiap konsep memiliki `no_konsep`, `sku_id` (terhubung ke tabel `skus`), `judul_konsep`, `tier_konsep`, `hook`, `fitur_usp`, `cta`, `status_approval`, dan `notes`.
+
+2. **Dropdown Pemilihan Konsep di Listing & Video Approval**:
+   - Diterapkan pada baris video kreator di halaman **Listing (`CreatorRow.tsx`)** dan **Video Approval (`VideoClient.tsx`)**.
+   - **Format Opsi Dropdown**:
+     `No. {no_konsep} - {nama_produk} - {judul_konsep}`
+   - **Handling Master Konsep Kosong**:
+     Jika campaign belum memiliki master konsep (`masterConcepts.length === 0`), UI menampilkan banner notifikasi yang rapi:
+     *"Belum ada konsep di master konsep campaign ini."* disertai tautan langsung *"+ Tambah di Menu Konsep"* (`/campaigns/[id]/concepts`).
+   - **Preservasi Data & Modal Detail**:
+     - Jika konsep dipilih, tombol info detail (`[Info]`) muncul di samping dropdown untuk membuka modal brief lengkap (Hook, USP, CTA, Catatan).
+     - Nilai yang disimpan ke database (`videos.concept`) tetap berupa string `no_konsep` yang kompatibel 100% dengan filter video, performa mingguan/bulanan, dan export CSV.

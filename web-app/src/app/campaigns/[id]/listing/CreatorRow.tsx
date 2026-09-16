@@ -1,6 +1,6 @@
 import React from "react";
 import Link from "next/link";
-import { ChevronDown, ChevronRight, Trash2, Edit2, Loader2, PlayCircle } from "lucide-react";
+import { ChevronDown, ChevronRight, Trash2, Edit2, Loader2, PlayCircle, Info, AlertCircle } from "lucide-react";
 import { formatAbbreviated, formatDateTime, formatDateTimeShort } from "@/utils/formatters";
 import { getCreatorType, getJenisKerjasama, getConceptColor } from "@/utils/computed";
 import { MultiSelect } from "@/components/MultiSelect";
@@ -632,46 +632,90 @@ export const CreatorRow = React.memo(({
                         const isPhantom = typeof v.id === 'string' && v.id.startsWith('phantom_');
                         const conceptNum = parseInt(v.concept);
                         const matchedConcept = !isNaN(conceptNum) ? masterConcepts.find((c: any) => c.no_konsep === conceptNum) : null;
-                        const isConceptError = v.concept && !matchedConcept;
+                        const isConceptError = v.concept && !matchedConcept && masterConcepts.length > 0;
 
                         return (
                         <tr key={v.id} className="border-b border-line last:border-0 align-top">
                           <td className="py-[12px]">{v.urutan}</td>
                           <td className="py-[12px]">
-                            <div className="flex flex-col gap-1 pr-4 relative">
-                              <div className={`flex items-center rounded-md border shadow-sm transition-all overflow-hidden w-[100px] h-8 focus-within:ring-1 ${isConceptError ? 'border-red-400 bg-red-50' : getConceptColor(v.concept)}`}>
-                                <button
-                                  type="button" 
-                                  className="pl-2 pr-1 text-[10px] font-bold uppercase tracking-wider hover:bg-black/5 active:bg-black/10 transition-colors h-full flex items-center"
-                                  onClick={() => matchedConcept && setSelectedConcept(matchedConcept)}
-                                  disabled={!matchedConcept}
-                                  title={matchedConcept ? "Lihat Brief Konsep" : ""}
-                                >
-                                  Konsep #
-                                </button>
-                                <input
-                                  type="number"
-                                  min="0"
-                                  className="w-full bg-transparent border-0 p-0 text-[13px] font-bold focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                  defaultValue={v.concept || ''}
-                                  onBlur={(e) => {
-                                    if (hasAccess && e.target.value !== (v.concept || '')) {
-                                      if (isPhantom) {
-                                        if (addAndSetVideoField) addAndSetVideoField(cc.id, v.urutan, { concept: e.target.value });
-                                      } else {
-                                        if (updateVideoField) updateVideoField(v.id, cc.id, { concept: e.target.value });
-                                      }
-                                    }
-                                  }}
-                                  onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-                                  disabled={!hasAccess || v.vt_approval === 'approved'}
-                                />
-                              </div>
-                              {isConceptError && (
-                                <p className="text-[10px] text-red-500 leading-tight mt-1">Konsep tidak ada di master.</p>
+                            <div className="flex flex-col gap-1.5 pr-4 min-w-[220px] max-w-[320px]">
+                              {masterConcepts.length === 0 ? (
+                                <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-[11px] leading-tight flex items-start gap-1.5 shadow-sm">
+                                  <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                                  <div className="flex flex-col gap-0.5">
+                                    <span className="font-medium">Belum ada konsep di master konsep campaign ini.</span>
+                                    <Link 
+                                      href={`/campaigns/${cc.campaign_id}/concepts`}
+                                      className="text-indigo-600 font-bold hover:underline inline-flex items-center gap-1"
+                                    >
+                                      + Tambah di Menu Konsep
+                                    </Link>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-1.5">
+                                  <div className="relative flex-1">
+                                    <select
+                                      className={`select select-sm w-full text-[12px] font-medium rounded-lg border shadow-sm transition-all focus:ring-1 ${
+                                        isConceptError 
+                                          ? 'border-red-400 bg-red-50 text-red-900 focus:ring-red-400' 
+                                          : matchedConcept 
+                                            ? 'border-indigo-200 bg-indigo-50/50 text-slate-800 focus:border-indigo-400 focus:ring-indigo-400' 
+                                            : 'border-slate-200 bg-white text-slate-600 focus:border-slate-400'
+                                      }`}
+                                      value={v.concept || ''}
+                                      onChange={(e) => {
+                                        const val = e.target.value;
+                                        if (hasAccess && val !== (v.concept || '')) {
+                                          if (isPhantom) {
+                                            if (addAndSetVideoField) addAndSetVideoField(cc.id, v.urutan, { concept: val });
+                                          } else {
+                                            if (updateVideoField) updateVideoField(v.id, cc.id, { concept: val });
+                                          }
+                                        }
+                                      }}
+                                      disabled={!hasAccess || v.vt_approval === 'approved'}
+                                    >
+                                      <option value="">-- Pilih Konsep --</option>
+                                      {v.concept && !matchedConcept && (
+                                        <option value={v.concept}>
+                                          [Custom] {v.concept}
+                                        </option>
+                                      )}
+                                      {masterConcepts.map((c: any) => {
+                                        const sku = (campaignSkus || []).find((s: any) => s.id === c.sku_id);
+                                        const productLabel = sku?.nama_produk || 'Semua Produk';
+                                        const optionLabel = `No. ${c.no_konsep} - ${productLabel} - ${c.judul_konsep || 'Tanpa Judul'}`;
+                                        return (
+                                          <option key={c.id || c.no_konsep} value={String(c.no_konsep)}>
+                                            {optionLabel}
+                                          </option>
+                                        );
+                                      })}
+                                    </select>
+                                  </div>
+
+                                  {matchedConcept && (
+                                    <button
+                                      type="button"
+                                      className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg border border-slate-200 hover:border-indigo-200 transition-colors shrink-0 shadow-sm"
+                                      onClick={() => setSelectedConcept(matchedConcept)}
+                                      title="Lihat Detail Brief Konsep"
+                                    >
+                                      <Info className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
+                                </div>
                               )}
+
+                              {isConceptError && (
+                                <p className="text-[10px] text-red-500 font-medium leading-tight">
+                                  Konsep belum ada di master konsep campaign ini.
+                                </p>
+                              )}
+
                               {v.concept && v.concept_updated_at && v.concept_updated_by ? (
-                                <p className="text-[9px] text-slate-400 leading-tight mt-1">
+                                <p className="text-[9px] text-slate-400 leading-tight">
                                   Diinput pd {formatDateTimeShort(v.concept_updated_at)} <br/>
                                   Oleh: <span className="font-medium text-slate-500">{v.concept_updated_by}</span>
                                 </p>
