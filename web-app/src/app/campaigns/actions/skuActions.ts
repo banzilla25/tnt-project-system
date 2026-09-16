@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from "@supabase/supabase-js";
+import { syncUnmappedForProduct } from "@/lib/syncUnmapped";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
@@ -234,13 +235,8 @@ export async function updateSkuAction(skuId: number, campaignId: number, payload
 
     if (error) throw error;
 
-    // Trigger sync unmapped in background (async)
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
-    fetch(`${siteUrl}/api/sync-unmapped`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ productId: trimmedProductId, campaignId })
-    }).catch(err => console.error("Sync unmapped error:", err));
+    // Trigger direct sync unmapped in database
+    await syncUnmappedForProduct(trimmedProductId, campaignId, data?.id);
 
     return { success: true, data };
   } catch (err: any) {
@@ -359,15 +355,10 @@ export async function saveBatchSkusAction(
       insertedCount = toInsert.length;
     }
 
-    // 3. Trigger background sync for all product IDs
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
-    Array.from(seenProductIds).forEach(pid => {
-      fetch(`${siteUrl}/api/sync-unmapped`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ productId: pid, campaignId })
-      }).catch(err => console.error("Sync error:", err));
-    });
+    // 3. Trigger direct database sync for all product IDs
+    for (const pid of Array.from(seenProductIds)) {
+      await syncUnmappedForProduct(pid, campaignId);
+    }
 
     return {
       success: true,
@@ -378,5 +369,32 @@ export async function saveBatchSkusAction(
   } catch (err: any) {
     console.error("Error saveBatchSkusAction:", err);
     return { success: false, error: err.message || 'Gagal menyimpan produk massal' };
+  }
+}
+
+/**
+ * Manually trigger synchronization of unmapped data for all SKUs of a campaign
+ */
+export async function syncCampaignUnmappedAction(campaignId: number) {
+  try {
+    if (!campaignId) return { success: false, error: "Campaign ID tidak valid" };
+    const { data: skus } = await supabase.from('skus').select('id, product_id').eq('campaign_id', campaignId);
+    if (!skus || skus.length === 0) {
+      return { success: true, message: "Tidak ada SKU terdaftar di campaign ini", syncedCount: 0 };
+    }
+    let totalSales = 0;
+    let totalVideos = 0;
+    let totalCreators = 0;
+    for (const s of skus) {
+      if (!s.product_id) continue;
+      const res = await syncUnmappedForProduct(s.product_id.trim(), campaignId, s.id);
+      totalSales += res.salesUpdated || 0;
+      totalVideos += res.videosUpdated || 0;
+      totalCreators += res.creatorsAdded || 0;
+    }
+    return { success: true, totalSales, totalVideos, totalCreators, skuCount: skus.length };
+  } catch (err: any) {
+    console.error("Error syncCampaignUnmappedAction:", err);
+    return { success: false, error: err.message || 'Gagal sinkronisasi data' };
   }
 }

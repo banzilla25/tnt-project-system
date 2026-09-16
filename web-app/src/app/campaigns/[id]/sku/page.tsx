@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useDatabaseStore } from "@/store/useDatabaseStore";
-import { Plus, Edit2, Trash2, Loader2, CheckCircle2, AlertCircle, X, CheckSquare, Square } from "lucide-react";
+import { Plus, Edit2, Trash2, Loader2, CheckCircle2, AlertCircle, X, CheckSquare, Square, RefreshCw } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useAuth } from "@/providers/AuthProvider";
 import {
@@ -10,7 +10,8 @@ import {
   deleteSkuAction,
   deleteBatchSkusAction,
   updateSkuAction,
-  saveBatchSkusAction
+  saveBatchSkusAction,
+  syncCampaignUnmappedAction
 } from "@/app/campaigns/actions/skuActions";
 
 type SkuRow = {
@@ -53,6 +54,7 @@ export default function SkuPage() {
 
   // Action states
   const [deletingSkuId, setDeletingSkuId] = useState<number | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const showNotification = (type: 'success' | 'error', message: string) => {
@@ -60,6 +62,25 @@ export default function SkuPage() {
     setTimeout(() => {
       setNotification(prev => (prev?.message === message ? null : prev));
     }, 5000);
+  };
+
+  const handleSyncUnmapped = async () => {
+    setIsSyncing(true);
+    try {
+      const res = await syncCampaignUnmappedAction(campaignId);
+      if (res.success) {
+        showNotification(
+          'success',
+          `Sinkronisasi selesai! ${res.totalSales || 0} penjualan dan ${res.totalVideos || 0} video terpetakan. ${res.totalCreators || 0} kreator baru terdaftar di listing.`
+        );
+      } else {
+        showNotification('error', res.error || 'Gagal sinkronisasi data');
+      }
+    } catch (err: any) {
+      showNotification('error', err.message || 'Terjadi kesalahan saat sinkronisasi');
+    } finally {
+      setIsSyncing(false);
+    }
   };
 
   // Load fresh SKUs directly for this campaign
@@ -384,6 +405,17 @@ export default function SkuPage() {
                 title="Hapus semua produk dari campaign ini sekaligus untuk tes"
               >
                 <Trash2 className="w-4 h-4" /> Hapus Semua Produk
+              </button>
+            )}
+            {localSkus.length > 0 && (
+              <button
+                className="btn btn-outline text-indigo-600 border-indigo-200 hover:bg-indigo-50 hover:border-indigo-300 flex items-center gap-[8px] text-xs font-semibold !py-2 !px-3"
+                onClick={handleSyncUnmapped}
+                disabled={isSyncing || isLoading || isDeletingBatch}
+                title="Sinkronisasi transaksi penjualan dan video yang belum terpetakan ke campaign ini"
+              >
+                <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
+                {isSyncing ? 'Menyinkronkan...' : 'Sinkronkan Data Unmapped'}
               </button>
             )}
             <button

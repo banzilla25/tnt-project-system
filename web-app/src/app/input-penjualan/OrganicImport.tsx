@@ -8,6 +8,7 @@ import Papa from "papaparse";
 import * as XLSX from "xlsx";
 import { createClient } from "@/utils/supabase/client";
 import { useDatabaseStore } from "@/store/useDatabaseStore";
+import { syncUnmappedForProduct } from "@/lib/syncUnmapped";
 
 type PreviewRow = {
   campaign_id: number | null;
@@ -210,18 +211,21 @@ export default function OrganicImport({ mode = 'sales' }: { mode?: 'sales' | 'vi
     
     setIsRegisteringSku(productId);
     try {
-      const { error } = await supabase.from('skus').insert({
+      const { data: newSku, error } = await supabase.from('skus').insert({
         product_id: productId,
         nama_produk: productName,
         campaign_id: parseInt(campaignId)
-      });
+      }).select('id').single();
       if (error) throw error;
       
-      alert(`SKU ${productName} berhasil didaftarkan! Memuat ulang data...`);
+      // Sinkronisasi otomatis data lama yang belum terpetakan
+      await syncUnmappedForProduct(productId, parseInt(campaignId), newSku?.id);
+
+      alert(`SKU ${productName} berhasil didaftarkan dan data historis telah disinkronkan! Memuat ulang...`);
       await fetchData(); // Refresh global state to get new SKU
       processFileLocally(); // Re-scan the file
     } catch (err: any) {
-      alert("Gagal mendaftarkan SKU: " + e.message);
+      alert("Gagal mendaftarkan SKU: " + (err?.message || err));
     } finally {
       setIsRegisteringSku(null);
     }
