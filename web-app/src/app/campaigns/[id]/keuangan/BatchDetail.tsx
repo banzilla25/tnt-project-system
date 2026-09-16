@@ -284,6 +284,7 @@ export function BatchDetail({ batch, creatorHistory, onBack, onRefresh, onRefres
   };
 
   const handleOpenEdit = (item: any) => {
+    const cr = item.campaign_creators?.creators;
     setEditingItemId(item.id);
     setEditForm({
       payment_type: item.payment_type || '100_akhir',
@@ -292,12 +293,12 @@ export function BatchDetail({ batch, creatorHistory, onBack, onRefresh, onRefres
       metode_pembayaran: item.metode_pembayaran || item.creator_bank_accounts?.bank_name || '',
       nomor_rekening: item.nomor_rekening || item.creator_bank_accounts?.account_number || '',
       nama_penerima: item.nama_penerima || item.creator_bank_accounts?.account_holder || '',
-      nama_wa_pic: item.nama_wa_pic || '',
-      nomor_wa_dealing: item.nomor_wa_dealing || '',
-      alamat_ktp: item.alamat_ktp || '',
-      nik: item.nik || '',
-      link_ktp: item.link_ktp || '',
-      link_kontrak: item.link_kontrak || '',
+      nama_wa_pic: item.nama_wa_pic || cr?.nama_wa_pic || '',
+      nomor_wa_dealing: item.nomor_wa_dealing || cr?.nomor_wa_dealing || '',
+      alamat_ktp: item.alamat_ktp || cr?.alamat_ktp || '',
+      nik: item.nik || cr?.nik || '',
+      link_ktp: item.link_ktp || cr?.link_ktp || '',
+      link_kontrak: item.link_kontrak || cr?.link_kontrak || '',
       bank_account_id: item.bank_account_id || '' // If they edit bank details we'll nullify this to force manual update
     });
   };
@@ -623,7 +624,11 @@ export function BatchDetail({ batch, creatorHistory, onBack, onRefresh, onRefres
                     <td className="px-4 py-3 text-xs text-slate-600 font-medium">
                       {item.campaign_creators?.profiles?.nama 
                         ? formatUserWithRole(item.campaign_creators.profiles.nama, item.campaign_creators.profiles.role) 
-                        : '-'}
+                        : (item.nama_wa_pic || item.campaign_creators?.creators?.nama_wa_pic 
+                            ? (item.nama_wa_pic || item.campaign_creators?.creators?.nama_wa_pic)
+                            : (batch.submitter?.nama 
+                                ? formatUserWithRole(batch.submitter.nama, batch.submitter.role) 
+                                : '-'))}
                     </td>
                     <td className="px-4 py-3 text-xs text-slate-500 max-w-[200px] truncate">
                       {bank ? (
@@ -731,26 +736,41 @@ export function BatchDetail({ batch, creatorHistory, onBack, onRefresh, onRefres
                           <div className="space-y-3">
                             <p className="font-semibold text-slate-700 border-b pb-1">Detail Administrasi</p>
                             <div className="grid grid-cols-3 gap-2">
-                              <span className="text-slate-500">NIK:</span>
-                              <span className="col-span-2 font-medium">{item.nik || '-'}</span>
-                              <span className="text-slate-500">Alamat KTP:</span>
-                              <span className="col-span-2 font-medium">{item.alamat_ktp || '-'}</span>
-                              <span className="text-slate-500">PIC WA:</span>
-                              <span className="col-span-2 font-medium">{item.nama_wa_pic || '-'} ({item.nomor_wa_dealing || '-'})</span>
-                              <span className="text-slate-500">Link KTP:</span>
-                              <span className="col-span-2 font-medium">{item.link_ktp ? <a href={item.link_ktp} target="_blank" className="text-blue-600 hover:underline">Lihat KTP</a> : '-'}</span>
-                              <span className="text-slate-500">Link Kontrak:</span>
-                              <span className="col-span-2 font-medium">{item.link_kontrak ? <a href={item.link_kontrak} target="_blank" className="text-blue-600 hover:underline">Lihat Kontrak</a> : '-'}</span>
-                              <span className="text-slate-500">Waktu Diajukan:</span>
-                              <span className="col-span-2 font-medium font-mono">{formatDateTime(item.created_at)}</span>
-                              {item.paid_at && (
-                                <>
-                                  <span className="text-slate-500">Waktu Dibayar:</span>
-                                  <span className="col-span-2 font-medium font-mono text-emerald-700">{formatDateTime(item.paid_at)}</span>
-                                </>
-                              )}
-                              <span className="text-slate-500">Catatan PIC:</span>
-                              <span className="col-span-2 font-medium text-orange-700 bg-orange-50 px-2 py-1 rounded">{item.notes || '-'}</span>
+                              {(() => {
+                                const cr = item.campaign_creators?.creators;
+                                const nik = item.nik || cr?.nik || '-';
+                                const alamat = item.alamat_ktp || cr?.alamat_ktp || '-';
+                                const picWa = item.nama_wa_pic || cr?.nama_wa_pic || '-';
+                                const nomorWa = item.nomor_wa_dealing || cr?.nomor_wa_dealing || '-';
+                                const linkKtp = item.link_ktp || cr?.link_ktp;
+                                const linkKontrak = item.link_kontrak || cr?.link_kontrak;
+                                const notes = item.notes || '-';
+
+                                return (
+                                  <>
+                                    <span className="text-slate-500">NIK:</span>
+                                    <span className="col-span-2 font-medium">{nik}</span>
+                                    <span className="text-slate-500">Alamat KTP:</span>
+                                    <span className="col-span-2 font-medium">{alamat}</span>
+                                    <span className="text-slate-500">PIC WA:</span>
+                                    <span className="col-span-2 font-medium">{picWa} ({nomorWa})</span>
+                                    <span className="text-slate-500">Link KTP:</span>
+                                    <span className="col-span-2 font-medium">{linkKtp ? <a href={linkKtp} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Lihat KTP</a> : '-'}</span>
+                                    <span className="text-slate-500">Link Kontrak:</span>
+                                    <span className="col-span-2 font-medium">{linkKontrak ? <a href={linkKontrak} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Lihat Kontrak</a> : '-'}</span>
+                                    <span className="text-slate-500">Waktu Diajukan:</span>
+                                    <span className="col-span-2 font-medium font-mono">{formatDateTime(item.created_at)}</span>
+                                    {item.paid_at && (
+                                      <>
+                                        <span className="text-slate-500">Waktu Dibayar:</span>
+                                        <span className="col-span-2 font-medium font-mono text-emerald-700">{formatDateTime(item.paid_at)}</span>
+                                      </>
+                                    )}
+                                    <span className="text-slate-500">Catatan PIC:</span>
+                                    <span className="col-span-2 font-medium text-orange-700 bg-orange-50 px-2 py-1 rounded">{notes}</span>
+                                  </>
+                                );
+                              })()}
                             </div>
                           </div>
                           <div className="space-y-3">

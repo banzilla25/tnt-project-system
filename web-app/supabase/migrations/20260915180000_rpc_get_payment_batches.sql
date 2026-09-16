@@ -43,6 +43,7 @@ BEGIN
             'final_status', pi.final_status,
             'payment_type', pi.payment_type,
             'campaign_creator_id', pi.campaign_creator_id,
+            'bank_account_id', pi.bank_account_id,
             'metode_pembayaran', pi.metode_pembayaran,
             'nomor_rekening', pi.nomor_rekening,
             'nama_penerima', pi.nama_penerima,
@@ -52,11 +53,18 @@ BEGIN
             'executive_note', pi.executive_note,
             'manager_note', pi.manager_note,
             'created_at', pi.created_at,
+            'paid_at', pi.paid_at,
             'manager_status', pi.manager_status,
             'executive_1_status', pi.executive_1_status,
             'finance_selected', pi.finance_selected,
             'executive_status', pi.executive_status,
             'transaction_id', pi.transaction_id,
+            'nik', pi.nik,
+            'alamat_ktp', pi.alamat_ktp,
+            'nama_wa_pic', pi.nama_wa_pic,
+            'nomor_wa_dealing', pi.nomor_wa_dealing,
+            'link_ktp', pi.link_ktp,
+            'link_kontrak', pi.link_kontrak,
             'campaign_creators', (
               SELECT jsonb_build_object(
                 'id', cc.id,
@@ -64,7 +72,20 @@ BEGIN
                 'price', cc.price,
                 'qty_vt', cc.qty_vt,
                 'qty_live', cc.qty_live,
-                'creators', (SELECT jsonb_build_object('username', cr.username, 'nama_asli', cr.nama_asli, 'avatar_url', cr.avatar_url) FROM creators cr WHERE cr.id = cc.creator_id),
+                'creators', (
+                  SELECT jsonb_build_object(
+                    'id', cr.id,
+                    'username', cr.username,
+                    'nama_asli', cr.nama_asli,
+                    'avatar_url', cr.avatar_url,
+                    'nik', cr.nik,
+                    'alamat_ktp', cr.alamat_ktp,
+                    'link_ktp', cr.link_ktp,
+                    'link_kontrak', cr.link_kontrak,
+                    'nama_wa_pic', cr.nama_wa_pic,
+                    'nomor_wa_dealing', cr.nomor_wa_dealing
+                  ) FROM creators cr WHERE cr.id = cc.creator_id
+                ),
                 'profiles', (SELECT jsonb_build_object('nama', p2.nama, 'role', p2.role) FROM profiles p2 WHERE p2.id = cc.added_by)
               )
               FROM campaign_creators cc WHERE cc.id = pi.campaign_creator_id
