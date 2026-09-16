@@ -682,16 +682,18 @@ export const CreatorRow = React.memo(({
                                           [Custom] {v.concept}
                                         </option>
                                       )}
-                                      {masterConcepts.map((c: any) => {
-                                        const sku = (campaignSkus || []).find((s: any) => s.id === c.sku_id);
-                                        const productLabel = sku?.nama_produk || 'Semua Produk';
-                                        const optionLabel = `No. ${c.no_konsep} - ${productLabel} - ${c.judul_konsep || 'Tanpa Judul'}`;
-                                        return (
-                                          <option key={c.id || c.no_konsep} value={String(c.no_konsep)}>
-                                            {optionLabel}
-                                          </option>
-                                        );
-                                      })}
+                                      {[...masterConcepts]
+                                        .sort((a: any, b: any) => (Number(a.no_konsep) || 0) - (Number(b.no_konsep) || 0))
+                                        .map((c: any) => {
+                                          const sku = (campaignSkus || []).find((s: any) => s.id === c.sku_id);
+                                          const productLabel = sku?.nama_produk || 'Semua Produk';
+                                          const optionLabel = `No. ${c.no_konsep} - ${productLabel} - ${c.judul_konsep || 'Tanpa Judul'}`;
+                                          return (
+                                            <option key={c.id || c.no_konsep} value={String(c.no_konsep)}>
+                                              {optionLabel}
+                                            </option>
+                                          );
+                                        })}
                                     </select>
                                   </div>
 

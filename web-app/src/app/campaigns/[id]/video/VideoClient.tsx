@@ -267,8 +267,12 @@ export default function CampaignVideoPage({
       .from('campaign_concepts')
       .select('*, skus(nama_produk)')
       .eq('campaign_id', campaignId)
+      .order('no_konsep', { ascending: true })
       .then(res => {
-        if (res.data) setMasterConcepts(res.data);
+        if (res.data) {
+          const sorted = [...res.data].sort((a: any, b: any) => (Number(a.no_konsep) || 0) - (Number(b.no_konsep) || 0));
+          setMasterConcepts(sorted);
+        }
       });
   }, [campaignId]);
 
@@ -1801,9 +1805,19 @@ export default function CampaignVideoPage({
                         <label className="text-xs font-semibold text-text-soft">Filter Konsep</label>
                         <select className="select w-full max-w-[150px]" value={filterConcept} onChange={e => setFilterConcept(e.target.value)}>
                            <option value="">Semua Konsep</option>
-                           {Array.from({length: 20}, (_, i) => (
-                              <option key={i+1} value={`${i+1}`}>Konsep {i+1}</option>
-                           ))}
+                           {masterConcepts && masterConcepts.length > 0 ? (
+                              [...masterConcepts]
+                                .sort((a: any, b: any) => (Number(a.no_konsep) || 0) - (Number(b.no_konsep) || 0))
+                                .map((c: any) => (
+                                   <option key={c.id || c.no_konsep} value={String(c.no_konsep)}>
+                                      No. {c.no_konsep} {c.judul_konsep ? `- ${c.judul_konsep}` : ''}
+                                   </option>
+                                ))
+                           ) : (
+                              Array.from({length: 20}, (_, i) => (
+                                 <option key={i+1} value={`${i+1}`}>Konsep {i+1}</option>
+                              ))
+                           )}
                         </select>
                      </div>
                    </>
@@ -1838,9 +1852,19 @@ export default function CampaignVideoPage({
                         <label className="text-xs font-semibold text-text-soft">Filter Konsep</label>
                         <select className="select w-full max-w-[150px]" value={filterConcept} onChange={e => setFilterConcept(e.target.value)}>
                            <option value="">Semua Konsep</option>
-                           {Array.from({length: 20}, (_, i) => (
-                              <option key={i+1} value={`${i+1}`}>Konsep {i+1}</option>
-                           ))}
+                           {masterConcepts && masterConcepts.length > 0 ? (
+                              [...masterConcepts]
+                                .sort((a: any, b: any) => (Number(a.no_konsep) || 0) - (Number(b.no_konsep) || 0))
+                                .map((c: any) => (
+                                   <option key={c.id || c.no_konsep} value={String(c.no_konsep)}>
+                                      No. {c.no_konsep} {c.judul_konsep ? `- ${c.judul_konsep}` : ''}
+                                   </option>
+                                ))
+                           ) : (
+                              Array.from({length: 20}, (_, i) => (
+                                 <option key={i+1} value={`${i+1}`}>Konsep {i+1}</option>
+                              ))
+                           )}
                         </select>
                      </div>
                      <div className="space-y-2">
@@ -2528,16 +2552,18 @@ export default function CampaignVideoPage({
                                           [Custom] {v.concept}
                                         </option>
                                       )}
-                                      {masterConcepts.map((c: any) => {
-                                        const sku = skus.find((s: any) => s.id === c.sku_id);
-                                        const productLabel = sku?.nama_produk || c.skus?.nama_produk || 'Semua Produk';
-                                        const optionLabel = `No. ${c.no_konsep} - ${productLabel} - ${c.judul_konsep || 'Tanpa Judul'}`;
-                                        return (
-                                          <option key={c.id || c.no_konsep} value={String(c.no_konsep)}>
-                                            {optionLabel}
-                                          </option>
-                                        );
-                                      })}
+                                      {[...masterConcepts]
+                                        .sort((a: any, b: any) => (Number(a.no_konsep) || 0) - (Number(b.no_konsep) || 0))
+                                        .map((c: any) => {
+                                          const sku = skus.find((s: any) => s.id === c.sku_id);
+                                          const productLabel = sku?.nama_produk || c.skus?.nama_produk || 'Semua Produk';
+                                          const optionLabel = `No. ${c.no_konsep} - ${productLabel} - ${c.judul_konsep || 'Tanpa Judul'}`;
+                                          return (
+                                            <option key={c.id || c.no_konsep} value={String(c.no_konsep)}>
+                                              {optionLabel}
+                                            </option>
+                                          );
+                                        })}
                                     </select>
                                   </div>
 

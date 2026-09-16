@@ -138,7 +138,11 @@ function CampaignListingContent() {
         .from('campaign_concepts')
         .select('*')
         .eq('campaign_id', campaignId)
-        .then(({ data }) => setMasterConcepts(data || []));
+        .order('no_konsep', { ascending: true })
+        .then(({ data }) => {
+          const sorted = (data || []).sort((a: any, b: any) => (Number(a.no_konsep) || 0) - (Number(b.no_konsep) || 0));
+          setMasterConcepts(sorted);
+        });
     }
   }, [campaignId]);
 
@@ -2259,9 +2263,19 @@ function CampaignListingContent() {
           </select>
           <select value={filterConcept} onChange={(e) => setFilterConcept(e.target.value)} className="select !mb-0 min-w-[120px] md:w-auto flex-1 text-sm py-1.5">
             <option value="">Semua Konsep</option>
-            {Array.from({length: 20}, (_, i) => (
-              <option key={i+1} value={`${i+1}`}>Konsep {i+1}</option>
-            ))}
+            {masterConcepts && masterConcepts.length > 0 ? (
+              [...masterConcepts]
+                .sort((a, b) => (Number(a.no_konsep) || 0) - (Number(b.no_konsep) || 0))
+                .map((c: any) => (
+                  <option key={c.id || c.no_konsep} value={String(c.no_konsep)}>
+                    No. {c.no_konsep} {c.judul_konsep ? `- ${c.judul_konsep}` : ''}
+                  </option>
+                ))
+            ) : (
+              Array.from({length: 20}, (_, i) => (
+                <option key={i+1} value={`${i+1}`}>Konsep {i+1}</option>
+              ))
+            )}
           </select>
           <select value={filterContentType} onChange={(e) => setFilterContentType(e.target.value)} className="select !mb-0 min-w-[120px] md:w-auto flex-1 text-sm py-1.5">
             <option value="">Semua Tipe Konten</option>

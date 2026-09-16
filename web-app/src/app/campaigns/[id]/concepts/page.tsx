@@ -55,7 +55,7 @@ export default function CampaignConceptsPage() {
 
     const { data, error } = await supabase.from('campaign_concepts').insert([newConcept]).select();
     if (!error && data) {
-      setConcepts([...concepts, data[0]]);
+      setConcepts(prev => [...prev, data[0]].sort((a, b) => (Number(a.no_konsep) || 0) - (Number(b.no_konsep) || 0)));
     }
   };
 

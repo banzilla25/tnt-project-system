@@ -74,7 +74,7 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
         vidCountRes
       ] = await Promise.all([
         supabase.from('campaigns').select('*').eq('id', campaignId).single(),
-        supabase.from('campaign_concepts').select('*, skus(nama_produk)').eq('campaign_id', campaignId),
+        supabase.from('campaign_concepts').select('*, skus(nama_produk)').eq('campaign_id', campaignId).order('no_konsep', { ascending: true }),
         supabase.from('skus').select('id, product_id').eq('campaign_id', campaignId),
         supabase.from('sales').select('id', { count: 'exact', head: true }).eq('campaign_id', campaignId),
         supabase.from('ads_performance').select('id', { count: 'exact', head: true }).eq('campaign_id', campaignId),
@@ -88,7 +88,10 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
       ]);
 
       if (campaignRes.data) setCampaign(campaignRes.data);
-      if (conceptsRes.data) setMasterConcepts(conceptsRes.data);
+      if (conceptsRes.data) {
+        const sortedConcepts = [...conceptsRes.data].sort((a: any, b: any) => (Number(a.no_konsep) || 0) - (Number(b.no_konsep) || 0));
+        setMasterConcepts(sortedConcepts);
+      }
 
       const skuList = (skusRes.data || []).map((s: any) => s.product_id).filter(Boolean);
       const campaignSkuIds = new Set((skusRes.data || []).map((s: any) => s.id).filter(Boolean));
