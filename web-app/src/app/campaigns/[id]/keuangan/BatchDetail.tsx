@@ -760,10 +760,10 @@ export function BatchDetail({ batch, creatorHistory, onBack, onRefresh, onRefres
                                     <span className="col-span-2 font-medium">{linkKontrak ? <a href={linkKontrak} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Lihat Kontrak</a> : '-'}</span>
                                     <span className="text-slate-500">Waktu Diajukan:</span>
                                     <span className="col-span-2 font-medium font-mono">{formatDateTime(item.created_at)}</span>
-                                    {item.paid_at && (
+                                    {(item.paid_at || batch.paid_at) && (
                                       <>
                                         <span className="text-slate-500">Waktu Dibayar:</span>
-                                        <span className="col-span-2 font-medium font-mono text-emerald-700">{formatDateTime(item.paid_at)}</span>
+                                        <span className="col-span-2 font-medium font-mono text-emerald-700">{formatDateTime(item.paid_at || batch.paid_at)}</span>
                                       </>
                                     )}
                                     <span className="text-slate-500">Catatan PIC:</span>

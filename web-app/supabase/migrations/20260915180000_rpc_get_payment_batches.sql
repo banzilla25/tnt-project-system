@@ -53,7 +53,6 @@ BEGIN
             'executive_note', pi.executive_note,
             'manager_note', pi.manager_note,
             'created_at', pi.created_at,
-            'paid_at', pi.paid_at,
             'manager_status', pi.manager_status,
             'executive_1_status', pi.executive_1_status,
             'finance_selected', pi.finance_selected,
