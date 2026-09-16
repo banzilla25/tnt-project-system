@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Loader2, Video, Search, ChevronRight, PlayCircle, AlertCircle, CheckSquare, Square } from 'lucide-react';
+import { Loader2, Video, Search, ChevronRight, PlayCircle, AlertCircle, CheckSquare, Square, Radio } from 'lucide-react';
 import { fetchUnpaidCreators } from '../app/campaigns/actions/paymentActions';
 import { BatchForm } from '../app/campaigns/[id]/keuangan/BatchForm';
 
@@ -24,8 +24,6 @@ export function UnpaidCreatorsTab({ campaignId, onSuccess }: { campaignId: numbe
       const data = await fetchUnpaidCreators(campaignId);
       // Filter out creators who are fully paid
       // A creator is fully paid if they have '100_akhir' paid/pending OR ('50_awal' + '50_akhir' paid/pending)
-      // Actually, since this is for PIC to submit new payments, we just show them if they haven't been fully paid.
-      // But we must also check if they have 0 GMV or no videos to disable them.
       
       const processed = (data || []).map(cc => {
         const history = cc.payment_items || [];
@@ -38,20 +36,46 @@ export function UnpaidCreatorsTab({ campaignId, onSuccess }: { campaignId: numbe
         const validSnap = snapshots.find((s: any) => Number(s.ratecard || 0) > 0);
         const effectivePrice = Number(cc.price || 0) || Number(validSnap?.ratecard || 0);
         
-        const hasVideo = cc.videos && cc.videos.length > 0;
-        const gmv = latestSnapshot.gmv_30d || 0;
+        // Content types
+        const rawContentType = (cc.content_type || '').toLowerCase();
+        const isLiveType = rawContentType.includes('live') || Number(cc.qty_live || 0) > 0;
+        const isVideoType = rawContentType.includes('video') || Number(cc.qty_vt || 0) > 0 || (!isLiveType);
+
+        // Deliverables check
+        const hasVideo = Boolean(cc.videos && cc.videos.some((v: any) => v.link_video || v.content_uid));
+        const hasLive = Boolean(cc.has_live_activity || (cc.videos && cc.videos.some((v: any) => v.content_uid && !v.link_video)));
+
+        // Eligible deliverables:
+        // - Creator has uploaded video (hasVideo)
+        // - OR creator has conducted livestream / live data exists in campaign (hasLive)
+        // - OR creator is configured as Live type and has data ready
+        const hasDeliverable = hasVideo || hasLive || (isLiveType && !isVideoType);
+
+        const gmv = latestSnapshot.gmv_30d || (Number(latestSnapshot.gmv_30d_video || 0) + Number(latestSnapshot.gmv_30d_live || 0)) || 0;
         const followers = latestSnapshot.followers || 0;
-        
-        const canSubmit = hasVideo && gmv > 0;
+
+        const canSubmit = hasDeliverable && (gmv > 0 || hasLive || hasVideo);
         let disableReason = '';
-        if (!hasVideo) disableReason = 'Belum upload video';
-        else if (gmv <= 0) disableReason = 'GMV 30 Days masih 0 (Data belum lengkap)';
+        if (!hasDeliverable) {
+          if (isLiveType && isVideoType) {
+            disableReason = 'Belum ada upload video atau data live stream';
+          } else if (isLiveType) {
+            disableReason = 'Belum ada data live stream di campaign';
+          } else {
+            disableReason = 'Belum upload video';
+          }
+        } else if (gmv <= 0 && !hasVideo && !hasLive) {
+          disableReason = 'GMV 30 Days masih 0 (Data belum lengkap)';
+        }
 
         return {
           ...cc,
           price: effectivePrice,
           isFullyPaid,
           hasVideo,
+          hasLive,
+          isLiveType,
+          isVideoType,
           gmv,
           followers,
           canSubmit,
@@ -153,7 +177,7 @@ export function UnpaidCreatorsTab({ campaignId, onSuccess }: { campaignId: numbe
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-slate-200">
         <div>
           <h2 className="text-lg font-bold text-slate-800">Daftar Kreator Belum Dibayar</h2>
-          <p className="text-sm text-slate-500">Pilih kreator yang sudah mengupload video dan memiliki GMV &gt; 0 untuk diajukan pembayarannya.</p>
+          <p className="text-sm text-slate-500">Pilih kreator yang sudah mengupload video atau memiliki data live stream di campaign untuk diajukan pembayarannya.</p>
         </div>
         <button
           disabled={selectedIds.size === 0}
@@ -230,9 +254,12 @@ export function UnpaidCreatorsTab({ campaignId, onSuccess }: { campaignId: numbe
                         <div className="text-xs text-slate-500">{cc.tier || 'No Tier'}</div>
                       </td>
                       <td className="px-4 py-3 text-center">
-                        <div className="text-xs bg-slate-100 text-slate-700 px-2 py-1 rounded inline-block">
-                          {cc.qty_vt} VT / {cc.qty_live} Live
+                        <div className="text-xs bg-slate-100 text-slate-700 px-2 py-1 rounded inline-block font-medium">
+                          {cc.qty_vt || 0} VT / {cc.qty_live || 0} Live
                         </div>
+                        {cc.content_type && (
+                          <div className="text-[10px] text-slate-500 mt-0.5">{cc.content_type}</div>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-right font-medium text-slate-700">
                         {cc.followers.toLocaleString()}
@@ -245,15 +272,30 @@ export function UnpaidCreatorsTab({ campaignId, onSuccess }: { campaignId: numbe
                       </td>
                       <td className="px-4 py-3 text-center">
                         {cc.canSubmit ? (
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); setActiveVideos(cc.videos || []); setActiveCreatorName(username); setShowVideoModal(true); }}
-                            className="text-xs bg-indigo-50 text-indigo-600 hover:bg-indigo-100 px-3 py-1.5 rounded-lg font-medium transition-colors inline-flex items-center gap-1"
-                          >
-                            <PlayCircle className="w-3.5 h-3.5" /> Lihat Video ({cc.videos?.length || 0})
-                          </button>
+                          <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                            {cc.hasVideo && (
+                              <button 
+                                onClick={(e) => { e.stopPropagation(); setActiveVideos(cc.videos || []); setActiveCreatorName(username); setShowVideoModal(true); }}
+                                className="text-xs bg-indigo-50 text-indigo-600 hover:bg-indigo-100 px-2.5 py-1.5 rounded-lg font-medium transition-colors inline-flex items-center gap-1"
+                                title="Lihat Video yang Diupload"
+                              >
+                                <PlayCircle className="w-3.5 h-3.5" /> Video ({cc.videos?.filter((v:any) => v.link_video || v.content_uid).length || 0})
+                              </button>
+                            )}
+                            {cc.hasLive && (
+                              <span className="text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-1.5 rounded-lg font-medium inline-flex items-center gap-1">
+                                <Radio className="w-3.5 h-3.5 text-emerald-600 animate-pulse" /> Live Ada
+                              </span>
+                            )}
+                            {!cc.hasVideo && !cc.hasLive && cc.isLiveType && (
+                              <span className="text-xs bg-blue-50 text-blue-700 border border-blue-200 px-2.5 py-1.5 rounded-lg font-medium inline-flex items-center gap-1">
+                                <Radio className="w-3.5 h-3.5 text-blue-600" /> Tipe Live
+                              </span>
+                            )}
+                          </div>
                         ) : (
                           <div className="flex items-center justify-center gap-1 text-[11px] text-red-500 font-medium">
-                            <AlertCircle className="w-3 h-3" /> {cc.disableReason}
+                            <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" /> {cc.disableReason}
                           </div>
                         )}
                       </td>

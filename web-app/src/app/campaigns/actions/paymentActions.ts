@@ -58,17 +58,17 @@ export async function fetchUnpaidCreators(campaignId: number) {
     const supabase = await createClient();
     const { data, error } = await supabase.from('campaign_creators')
       .select(`
-        id, price, tier, qty_vt, qty_live, approval,
+        id, price, tier, qty_vt, qty_live, content_type, approval,
         creator_id,
         creators ( 
           id,
           username, 
           nama_asli,
           avatar_url,
-          creator_snapshots ( id, followers, gmv_30d, ratecard ),
+          creator_snapshots ( id, followers, gmv_30d, gmv_30d_video, gmv_30d_live, ratecard ),
           creator_bank_accounts ( id, bank_name, account_number, account_holder )
         ),
-        videos ( id, link_video ),
+        videos ( id, link_video, content_uid, urutan, vt_approval ),
         payment_items ( id, final_status, payment_type, nominal )
       `)
       .eq('campaign_id', campaignId)
@@ -82,7 +82,31 @@ export async function fetchUnpaidCreators(campaignId: number) {
       throw new Error(error.message);
     }
     
-    return data || [];
+    // Cross-check if creators have recorded live activity in sales or organic_videos
+    const [salesLiveRes, organicLiveRes] = await Promise.all([
+      supabase.from('sales')
+        .select('creator_username')
+        .eq('campaign_id', campaignId)
+        .or('content_type.ilike.%live%,content_type.ilike.%livestream%'),
+      supabase.from('organic_videos')
+        .select('creator_username')
+        .eq('campaign_id', campaignId)
+        .or('content_type.ilike.%live%,content_type.ilike.%livestream%')
+    ]);
+
+    const liveUsernames = new Set<string>();
+    salesLiveRes.data?.forEach(r => r.creator_username && liveUsernames.add(r.creator_username.toLowerCase().replace(/^@/, '').trim()));
+    organicLiveRes.data?.forEach(r => r.creator_username && liveUsernames.add(r.creator_username.toLowerCase().replace(/^@/, '').trim()));
+
+    const enriched = (data || []).map(cc => {
+      const u = (cc.creators?.username || '').toLowerCase().replace(/^@/, '').trim();
+      return {
+        ...cc,
+        has_live_activity: liveUsernames.has(u)
+      };
+    });
+
+    return enriched;
   } catch (err: any) {
     console.error("Exception in fetchUnpaidCreators:", err);
     throw err;

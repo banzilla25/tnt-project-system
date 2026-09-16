@@ -28,8 +28,14 @@ Struktur direktori aplikasi menggunakan pola standar Next.js App Router dengan p
 
 ## 3. Core Data Flow & State Management
 - **Client-Server Communication:** Sebagian besar data dimanipulasi melalui Server Actions di folder ctions/ (contoh: paymentActions.ts, ideoActions.ts).
-- **Optimistic UI & Real-Time Sync (Baru diimplementasi):** 
-  - Karena pemanggilan outer.refresh() di Next.js App Router tidak menyegarkan state dalam useEffect, sistem kini dimigrasi untuk menggunakan **Optimistic UI Updates**.
+- **Payment Eligibility Rules (Aturan Pengajuan Pembayaran Kreator):**
+  - Kreator memenuhi syarat untuk diajukan pembayarannya (canSubmit) jika:
+    1. **Kreator Video:** Sudah mengupload video / link video terdaftar di campaign.
+    2. **Kreator Live:** Terdeteksi memiliki aktivitas livestream (sales atau organic_videos dengan tipe Livestream / Live) ATAU memiliki SOW tipe konten Live / qty_live > 0.
+    3. **Kreator Hybrid (Video & Live):** Memenuhi salah satu atau kedua deliverable (upload video atau melakukan live).
+  - Validasi data administrasi (KTP, Kontrak, NIK, No WA Dealing) wajib lengkap saat pengajuan batch agar audit trail dan pencairan dana transparan.
+- **Optimistic UI & Real-Time Sync:** 
+  - Karena pemanggilan outer.refresh() di Next.js App Router tidak menyegarkan state dalam useEffect, sistem dimigrasi ke **Optimistic UI Updates**.
   - **Listing (ListingClient):** Aksi perbaruan kolom (GMV, Followers, Approval) menggunakan sistem *Auto-Save/Pending Changes* yang secara instan merubah UI ke *amber-text* sementara menunggu *batch save* otomatis 2 detik, sehingga halaman tidak patah/memuat ulang (F5).
   - **Keuangan (BatchDetail & CampaignKeuanganContent):** Penghapusan/pengeditan Batch memicu injeksi fungsi onRefreshList() yang otomatis me-render ulang list data tanpa reload halaman.
   - **Performa (PerformaClient):** Mengganti outer.refresh() menjadi panggilan re-kalkulasi lokal via etchData() demi *responsiveness* tabel total GMV.
