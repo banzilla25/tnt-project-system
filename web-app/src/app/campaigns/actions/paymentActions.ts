@@ -672,6 +672,13 @@ export async function managerRejectItem(itemId: number, reason: string) {
 export async function managerFinalizeReview(batchId: number) {
   const supabase = await createClient();
   const { data: user } = await supabase.auth.getUser();
+
+  const { data: items } = await supabase.from('payment_items').select('id, final_status').eq('batch_id', batchId);
+  const pendingItems = items?.filter(i => i.final_status === 'pending') || [];
+  if (pendingItems.length > 0) {
+    throw new Error(`Masih ada ${pendingItems.length} tagihan yang belum direview (berstatus pending). Harap setujui atau tolak semua tagihan terlebih dahulu sebelum melakukan Finalize.`);
+  }
+
   const { error } = await supabase.from('payment_batches').update({
     status: 'pending_executive_1',
     manager_reviewed_by: user?.user?.id,
@@ -713,6 +720,13 @@ export async function executiveRejectItem1(itemId: number, reason: string) {
 export async function executiveFinalizeReview1(batchId: number) {
   const supabase = await createClient();
   const { data: user } = await supabase.auth.getUser();
+
+  const { data: items } = await supabase.from('payment_items').select('id, final_status').eq('batch_id', batchId);
+  const unreviewed = items?.filter(i => ['pending', 'manager_approved'].includes(i.final_status)) || [];
+  if (unreviewed.length > 0) {
+    throw new Error(`Masih ada ${unreviewed.length} tagihan yang belum selesai direview. Harap setujui atau tolak semua tagihan terlebih dahulu sebelum submit ke Finance.`);
+  }
+
   const { error } = await supabase.from('payment_batches').update({
     status: 'pending_finance',
     executive_reviewed_1_by: user?.user?.id,
@@ -780,12 +794,24 @@ export async function autoSplitUnpaidBatchItems(supabase: any, batchId: number, 
   }
   const newBatchLabel = `${baseLabel} - Termin ${nextTermin}`;
 
+  // Tentukan status batch baru sesuai status terendah dari sisa item yang belum selesai
+  const hasPendingManager = unpaidItems.some((i: any) => i.final_status === 'pending');
+  const hasPendingExec1 = unpaidItems.some((i: any) => i.final_status === 'manager_approved');
+  const hasPendingFinance = unpaidItems.some((i: any) => ['executive_1_approved', 'pending_finance_outstanding'].includes(i.final_status));
+  const hasPendingExecFinal = unpaidItems.some((i: any) => i.final_status === 'finance_selected');
+
+  let newBatchStatus = 'pending_finance';
+  if (hasPendingManager) newBatchStatus = 'pending_manager';
+  else if (hasPendingExec1) newBatchStatus = 'pending_executive_1';
+  else if (hasPendingFinance) newBatchStatus = 'pending_finance';
+  else if (hasPendingExecFinal) newBatchStatus = 'pending_executive';
+
   // 4. Buat batch baru di database
   const now = new Date().toISOString();
   const { data: newBatch, error: newBatchErr } = await supabase.from('payment_batches').insert({
     campaign_id: batch.campaign_id,
     batch_label: newBatchLabel,
-    status: 'pending_finance', // Langsung aktif di antrean Finance Review
+    status: newBatchStatus,
     submitted_by: batch.submitted_by,
     submitted_at: batch.submitted_at || now,
     manager_reviewed_by: batch.manager_reviewed_by,
@@ -898,6 +924,13 @@ export async function executiveRejectItem(itemId: number, reason: string) {
 export async function executiveFinalizeReview(batchId: number) {
   const supabase = await createClient();
   const { data: user } = await supabase.auth.getUser();
+
+  const { data: items } = await supabase.from('payment_items').select('id, final_status').eq('batch_id', batchId);
+  const unapproved = items?.filter(i => ['pending', 'manager_approved', 'finance_selected'].includes(i.final_status)) || [];
+  if (unapproved.length > 0) {
+    throw new Error(`Masih ada ${unapproved.length} tagihan yang belum selesai disetujui. Harap setujui atau tolak tagihan terlebih dahulu sebelum menandai batch siap bayar.`);
+  }
+
   const { error } = await supabase.from('payment_batches').update({
     status: 'ready_to_pay',
     executive_reviewed_by: user?.user?.id,
