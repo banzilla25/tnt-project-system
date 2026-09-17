@@ -131,6 +131,7 @@ function CampaignListingContent() {
 
   const [expandedRows, setExpandedRows] = useState<Record<number, boolean>>({});
   const [masterConcepts, setMasterConcepts] = useState<any[]>([]);
+  const [revisionNotes, setRevisionNotes] = useState<Record<string, any>>({});
 
   useEffect(() => {
     if (campaignId) {
@@ -145,6 +146,31 @@ function CampaignListingContent() {
         });
     }
   }, [campaignId]);
+
+  useEffect(() => {
+    if (!campaignId || listingData.length === 0) return;
+    const ccIds = listingData.map((cc: any) => cc.id).filter(Boolean);
+    if (ccIds.length === 0) return;
+
+    supabase
+      .from('campaign_creator_notes')
+      .select('*')
+      .in('campaign_creator_id', ccIds)
+      .ilike('role', 'draft_revisi_%')
+      .then(({ data, error }) => {
+        if (!error && data) {
+          const map: Record<string, any> = {};
+          data.forEach((n: any) => {
+            const match = n.role.match(/^draft_revisi_(\d+)$/);
+            if (match) {
+              const urutan = parseInt(match[1]);
+              map[`${n.campaign_creator_id}_${urutan}`] = n;
+            }
+          });
+          setRevisionNotes(map);
+        }
+      });
+  }, [campaignId, listingData]);
 
   // --- Batch Edit System ---
   type PendingChange = {
@@ -1564,6 +1590,54 @@ function CampaignListingContent() {
     }
     setIsSavingVideo(false);
   }, [profile, fetchListing]);
+
+  const saveRevisionNote = useCallback(async (ccId: number, urutan: number, noteText: string) => {
+    const roleKey = `draft_revisi_${urutan}`;
+    const existing = revisionNotes[`${ccId}_${urutan}`];
+
+    try {
+      if (existing?.id) {
+        const { data, error } = await supabase
+          .from('campaign_creator_notes')
+          .update({
+            isi: noteText,
+            author_id: profile?.id || null,
+            author_name: profile?.nama || 'Manager',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existing.id)
+          .select()
+          .single();
+
+        if (error) throw error;
+        if (data) {
+          setRevisionNotes(prev => ({ ...prev, [`${ccId}_${urutan}`]: data }));
+        }
+      } else {
+        const { data, error } = await supabase
+          .from('campaign_creator_notes')
+          .insert({
+            campaign_creator_id: ccId,
+            role: roleKey,
+            isi: noteText,
+            author_id: profile?.id || null,
+            author_name: profile?.nama || 'Manager',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+        if (data) {
+          setRevisionNotes(prev => ({ ...prev, [`${ccId}_${urutan}`]: data }));
+        }
+      }
+    } catch (err) {
+      console.error("Failed to save revision note:", err);
+      alert("Gagal menyimpan catatan revisi");
+    }
+  }, [revisionNotes, profile]);
 
   const handleDeleteCreator = async (ccId: number) => {
     if (!confirm('Yakin ingin mengeluarkan kreator ini dari campaign? Data performa campaign kreator ini akan ikut terhapus. (Kreator tetap ada di Pool)')) return;
@@ -3000,6 +3074,8 @@ function CampaignListingContent() {
                     addAndSetVideoField={addAndSetVideoField}
                     deleteVideoRow={deleteVideoRow}
                     masterConcepts={masterConcepts}
+                    revisionNotes={revisionNotes}
+                    saveRevisionNote={saveRevisionNote}
                   />
                 );
               })
