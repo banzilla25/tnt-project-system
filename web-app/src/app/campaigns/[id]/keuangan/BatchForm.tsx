@@ -565,7 +565,10 @@ export function BatchForm({
                         </div>
                       </div>
 
-                      <h4 className="font-semibold text-sm text-slate-700 border-b pb-2 pt-2">Rekening Penerima</h4>
+                      <div className="flex items-center justify-between border-b pb-2 pt-2">
+                        <h4 className="font-semibold text-sm text-slate-700">Rekening Penerima</h4>
+                        <span className="text-[11px] text-blue-600 font-medium bg-blue-50 px-2 py-0.5 rounded border border-blue-100">Otomatis Sync ke Master</span>
+                      </div>
                       {isBankLoading ? (
                         <div className="flex items-center gap-2 text-sm text-slate-500"><Loader2 className="w-4 h-4 animate-spin" /> Memuat rekening...</div>
                       ) : (
@@ -603,7 +606,7 @@ export function BatchForm({
                               }
                             }}
                           >
-                            <option value="">-- Ketik Manual (Belum Tersimpan) --</option>
+                            <option value="">+ Tambah Rekening Baru (Ketik Manual)</option>
                             {banks.map((b: any) => (
                               <option key={b.id} value={String(b.id)}>
                                 {b.bank_name} - {b.account_number} ({b.account_holder}) {b.is_primary ? '★ Utama' : ''}
@@ -612,18 +615,18 @@ export function BatchForm({
                           </select>
 
                           {!f.bank_account_id && (
-                            <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded border border-slate-200">
+                            <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-lg border border-slate-200">
                               <div className="col-span-2">
                                 <label className="block text-xs font-medium text-slate-600 mb-1">Metode / Bank</label>
-                                <input type="text" placeholder="BCA / DANA / ShopeePay" className="w-full p-2 border border-slate-300 rounded text-sm outline-none focus:border-blue-500" value={f.metode_pembayaran} onChange={e => handleChange(cc.id, 'metode_pembayaran', e.target.value)} />
+                                <input type="text" placeholder="BCA / Mandiri / BRI / DANA" className="w-full p-2 border border-slate-300 rounded text-sm outline-none focus:border-blue-500" value={f.metode_pembayaran} onChange={e => handleChange(cc.id, 'metode_pembayaran', e.target.value)} />
                               </div>
                               <div>
                                 <label className="block text-xs font-medium text-slate-600 mb-1">Nomor Rekening</label>
-                                <input type="text" className="w-full p-2 border border-slate-300 rounded text-sm outline-none focus:border-blue-500" value={f.nomor_rekening} onChange={e => handleChange(cc.id, 'nomor_rekening', e.target.value)} />
+                                <input type="text" placeholder="Contoh: 1234567890" className="w-full p-2 border border-slate-300 rounded text-sm outline-none focus:border-blue-500" value={f.nomor_rekening} onChange={e => handleChange(cc.id, 'nomor_rekening', e.target.value)} />
                               </div>
                               <div>
                                 <label className="block text-xs font-medium text-slate-600 mb-1">Nama Penerima</label>
-                                <input type="text" className="w-full p-2 border border-slate-300 rounded text-sm outline-none focus:border-blue-500" value={f.nama_penerima} onChange={e => handleChange(cc.id, 'nama_penerima', e.target.value)} />
+                                <input type="text" placeholder="Nama pemilik rekening" className="w-full p-2 border border-slate-300 rounded text-sm outline-none focus:border-blue-500" value={f.nama_penerima} onChange={e => handleChange(cc.id, 'nama_penerima', e.target.value)} />
                               </div>
                             </div>
                           )}
@@ -633,32 +636,92 @@ export function BatchForm({
 
                     {/* Data Administrasi */}
                     <div className="space-y-4">
-                      <h4 className="font-semibold text-sm text-slate-700 border-b pb-2">Data Administrasi (Wajib)</h4>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-xs font-medium text-slate-600 mb-1">Nama WA PIC Admin</label>
-                          <input type="text" className="w-full p-2 border border-slate-300 rounded text-sm outline-none focus:border-blue-500" value={f.nama_wa_pic} onChange={e => handleChange(cc.id, 'nama_wa_pic', e.target.value)} />
+                      {/* Section: Kontak WA PIC */}
+                      <div className="bg-slate-50 p-3.5 rounded-lg border border-slate-200 space-y-2.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">
+                            Kontak WA PIC
+                          </span>
+                          <span className="text-[10px] text-slate-400">Tersimpan ke Master Kreator</span>
                         </div>
-                        <div>
-                          <label className="block text-xs font-medium text-slate-600 mb-1">No WA Dealing</label>
-                          <input type="text" className="w-full p-2 border border-slate-300 rounded text-sm outline-none focus:border-blue-500" value={f.nomor_wa_dealing} onChange={e => handleChange(cc.id, 'nomor_wa_dealing', e.target.value)} />
-                        </div>
-                        <div className="col-span-2">
-                          <label className="block text-xs font-medium text-slate-600 mb-1">Alamat KTP</label>
-                          <input type="text" className="w-full p-2 border border-slate-300 rounded text-sm outline-none focus:border-blue-500" value={f.alamat_ktp} onChange={e => handleChange(cc.id, 'alamat_ktp', e.target.value)} />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-slate-600 mb-1">NIK</label>
-                          <input type="text" className="w-full p-2 border border-slate-300 rounded text-sm outline-none focus:border-blue-500" value={f.nik} onChange={e => handleChange(cc.id, 'nik', e.target.value)} />
-                        </div>
-                        <div className="col-span-2 grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-2 gap-3">
                           <div>
-                            <label className="block text-xs font-medium text-slate-600 mb-1">Link KTP (GDrive)</label>
-                            <input type="text" placeholder="https://drive.google.com/..." className="w-full p-2 border border-slate-300 rounded text-sm outline-none focus:border-blue-500" value={f.link_ktp} onChange={e => handleChange(cc.id, 'link_ktp', e.target.value)} />
+                            <label className="block text-xs font-medium text-slate-600 mb-1">No WA Dealing</label>
+                            <input 
+                              type="text" 
+                              placeholder="08xxxxxxxxxx"
+                              className="w-full p-2 border border-slate-300 rounded text-sm outline-none focus:border-blue-500" 
+                              value={f.nomor_wa_dealing} 
+                              onChange={e => handleChange(cc.id, 'nomor_wa_dealing', e.target.value)} 
+                            />
                           </div>
                           <div>
-                            <label className="block text-xs font-medium text-slate-600 mb-1">Link Kontrak (GDrive)</label>
-                            <input type="text" placeholder="https://drive.google.com/..." className="w-full p-2 border border-slate-300 rounded text-sm outline-none focus:border-blue-500" value={f.link_kontrak} onChange={e => handleChange(cc.id, 'link_kontrak', e.target.value)} />
+                            <label className="block text-xs font-medium text-slate-600 mb-1">Nama Kontak WA PIC</label>
+                            <input 
+                              type="text" 
+                              placeholder="Nama PIC / Admin Kreator"
+                              className="w-full p-2 border border-slate-300 rounded text-sm outline-none focus:border-blue-500" 
+                              value={f.nama_wa_pic} 
+                              onChange={e => handleChange(cc.id, 'nama_wa_pic', e.target.value)} 
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Section: Identitas & Dokumen */}
+                      <div className="bg-white p-3.5 rounded-lg border border-slate-200 space-y-3">
+                        <div className="flex items-center justify-between border-b pb-2">
+                          <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">
+                            Identitas KTP & Kontrak
+                          </span>
+                          <span className="text-[10px] text-emerald-600 font-semibold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
+                            Auto-sync Data Master
+                          </span>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs font-medium text-slate-600 mb-1">NIK (KTP)</label>
+                            <input 
+                              type="text" 
+                              placeholder="16 digit NIK"
+                              className="w-full p-2 border border-slate-300 rounded text-sm outline-none focus:border-blue-500" 
+                              value={f.nik} 
+                              onChange={e => handleChange(cc.id, 'nik', e.target.value)} 
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-slate-600 mb-1">Link KTP (GDrive)</label>
+                            <input 
+                              type="text" 
+                              placeholder="https://drive.google.com/..." 
+                              className="w-full p-2 border border-slate-300 rounded text-sm outline-none focus:border-blue-500" 
+                              value={f.link_ktp} 
+                              onChange={e => handleChange(cc.id, 'link_ktp', e.target.value)} 
+                            />
+                          </div>
+                          <div className="col-span-2">
+                            <label className="block text-xs font-medium text-slate-600 mb-1">Alamat Sesuai KTP</label>
+                            <input 
+                              type="text" 
+                              placeholder="Alamat lengkap sesuai KTP"
+                              className="w-full p-2 border border-slate-300 rounded text-sm outline-none focus:border-blue-500" 
+                              value={f.alamat_ktp} 
+                              onChange={e => handleChange(cc.id, 'alamat_ktp', e.target.value)} 
+                            />
+                          </div>
+                          <div className="col-span-2 pt-1 border-t border-slate-100">
+                            <div className="flex items-center justify-between mb-1">
+                              <label className="block text-xs font-bold text-indigo-900">Link Kontrak (GDrive) <span className="text-red-500">*</span></label>
+                              <span className="text-[10px] text-indigo-600 font-medium">Wajib diisi per pengajuan</span>
+                            </div>
+                            <input 
+                              type="text" 
+                              placeholder="https://drive.google.com/file/d/..." 
+                              className="w-full p-2 border border-indigo-200 bg-indigo-50/30 rounded text-sm outline-none focus:border-indigo-500 font-medium" 
+                              value={f.link_kontrak} 
+                              onChange={e => handleChange(cc.id, 'link_kontrak', e.target.value)} 
+                            />
                           </div>
                         </div>
                       </div>

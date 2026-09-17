@@ -1001,43 +1001,50 @@ export function BatchDetail({ batch, creatorHistory, onBack, onRefresh, onRefres
                 </div>
 
                 <div className="space-y-4">
-                  <h4 className="font-semibold text-slate-700 border-b pb-2">Informasi Administrasi</h4>
+                  <div className="flex items-center justify-between border-b pb-2">
+                    <h4 className="font-semibold text-slate-700">Informasi Administrasi & Kontak</h4>
+                    <span className="text-[10px] text-emerald-600 font-semibold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">Sync Master</span>
+                  </div>
                   
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-600 mb-1">Nama WA PIC</label>
-                      <input type="text" className="w-full p-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" 
-                        value={editForm.nama_wa_pic} onChange={e => setEditForm({...editForm, nama_wa_pic: e.target.value})} />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-600 mb-1">Nomor WA</label>
-                      <input type="text" className="w-full p-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" 
-                        value={editForm.nomor_wa_dealing} onChange={e => setEditForm({...editForm, nomor_wa_dealing: e.target.value})} />
+                  {/* Kontak WA PIC */}
+                  <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-2">
+                    <span className="text-xs font-bold text-slate-700 uppercase tracking-wide block">Kontak WA PIC</span>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1">Nomor WA Dealing</label>
+                        <input type="text" placeholder="08xxxxxxxxxx" className="w-full p-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" 
+                          value={editForm.nomor_wa_dealing} onChange={e => setEditForm({...editForm, nomor_wa_dealing: e.target.value})} />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1">Nama Kontak WA PIC</label>
+                        <input type="text" placeholder="Nama PIC Admin" className="w-full p-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" 
+                          value={editForm.nama_wa_pic} onChange={e => setEditForm({...editForm, nama_wa_pic: e.target.value})} />
+                      </div>
                     </div>
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1">NIK</label>
-                    <input type="text" className="w-full p-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" 
-                      value={editForm.nik} onChange={e => setEditForm({...editForm, nik: e.target.value})} />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1">Alamat Sesuai KTP</label>
-                    <textarea className="w-full p-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" rows={2}
-                      value={editForm.alamat_ktp} onChange={e => setEditForm({...editForm, alamat_ktp: e.target.value})} />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1">Link KTP (GDrive)</label>
-                    <input type="url" className="w-full p-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" 
-                      value={editForm.link_ktp} onChange={e => setEditForm({...editForm, link_ktp: e.target.value})} />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1">Link Kontrak (GDrive)</label>
-                    <input type="url" className="w-full p-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" 
-                      value={editForm.link_kontrak} onChange={e => setEditForm({...editForm, link_kontrak: e.target.value})} />
+                  {/* Identitas KTP */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-600 mb-1">NIK (KTP)</label>
+                      <input type="text" placeholder="16 digit NIK" className="w-full p-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" 
+                        value={editForm.nik} onChange={e => setEditForm({...editForm, nik: e.target.value})} />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-600 mb-1">Link KTP (GDrive)</label>
+                      <input type="text" placeholder="https://drive.google.com/..." className="w-full p-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" 
+                        value={editForm.link_ktp} onChange={e => setEditForm({...editForm, link_ktp: e.target.value})} />
+                    </div>
+                    <div className="col-span-2">
+                      <label className="block text-xs font-semibold text-slate-600 mb-1">Alamat Sesuai KTP</label>
+                      <textarea placeholder="Alamat lengkap sesuai KTP" className="w-full p-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" rows={2}
+                        value={editForm.alamat_ktp} onChange={e => setEditForm({...editForm, alamat_ktp: e.target.value})} />
+                    </div>
+                    <div className="col-span-2 pt-1 border-t border-slate-100">
+                      <label className="block text-xs font-bold text-indigo-900 mb-1">Link Kontrak (GDrive) *</label>
+                      <input type="text" placeholder="https://drive.google.com/file/d/..." className="w-full p-2 border border-indigo-200 bg-indigo-50/30 rounded text-sm focus:ring-2 focus:ring-indigo-500 outline-none font-medium" 
+                        value={editForm.link_kontrak} onChange={e => setEditForm({...editForm, link_kontrak: e.target.value})} />
+                    </div>
                   </div>
                 </div>
               </div>

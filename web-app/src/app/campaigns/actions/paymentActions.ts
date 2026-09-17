@@ -400,8 +400,74 @@ export async function addPaymentItem(batchId: number, itemData: any) {
 
 export async function updatePaymentItem(itemId: number, itemData: any) {
   const supabase = await createClient();
-  const { error } = await supabase.from('payment_items').update(itemData).eq('id', itemId);
+  
+  // Ambil data item awal untuk mendapatkan campaign_creator_id
+  const { data: item } = await supabase.from('payment_items').select('campaign_creator_id, batch_id').eq('id', itemId).maybeSingle();
+  
+  // Jika bank diubah manual
+  let bankAccountId = itemData.bank_account_id ? Number(itemData.bank_account_id) : null;
+  let bankName = itemData.metode_pembayaran ? String(itemData.metode_pembayaran).trim() : null;
+  let bankNumber = itemData.nomor_rekening ? String(itemData.nomor_rekening).trim() : null;
+  let bankHolder = itemData.nama_penerima ? String(itemData.nama_penerima).trim() : null;
+
+  if (item?.campaign_creator_id && bankName && bankNumber && !bankAccountId) {
+    const { data: ccData } = await supabase.from('campaign_creators').select('creator_id').eq('id', item.campaign_creator_id).maybeSingle();
+    if (ccData?.creator_id) {
+      const { data: existingBank } = await supabase
+        .from('creator_bank_accounts')
+        .select('id')
+        .eq('creator_id', ccData.creator_id)
+        .ilike('bank_name', bankName)
+        .eq('account_number', bankNumber)
+        .maybeSingle();
+
+      if (existingBank) {
+        bankAccountId = existingBank.id;
+      } else {
+        try {
+          const { data: newBank } = await supabase.from('creator_bank_accounts').insert({
+            creator_id: ccData.creator_id,
+            bank_name: bankName,
+            account_number: bankNumber,
+            account_holder: bankHolder || '',
+          }).select('id').maybeSingle();
+          if (newBank) bankAccountId = newBank.id;
+        } catch (e) {
+          console.warn('Could not insert new bank on update:', e);
+        }
+      }
+    }
+  }
+
+  const payload: any = { ...itemData };
+  if (bankAccountId) payload.bank_account_id = bankAccountId;
+  if (payload.nominal !== undefined) payload.nominal = Number(payload.nominal);
+  if (payload.biaya_transfer !== undefined) payload.biaya_transfer = Number(payload.biaya_transfer);
+
+  const { error } = await supabase.from('payment_items').update(payload).eq('id', itemId);
   if (error) throw new Error(error.message);
+
+  // Update creator master admin data if this is a creator payment
+  if (item?.campaign_creator_id) {
+    try {
+      const { data: cc } = await supabase.from('campaign_creators').select('creator_id').eq('id', item.campaign_creator_id).maybeSingle();
+      if (cc && cc.creator_id) {
+        const updateCreatorData: Record<string, any> = {};
+        if (itemData.nik !== undefined) updateCreatorData.nik = itemData.nik || null;
+        if (itemData.link_ktp !== undefined) updateCreatorData.link_ktp = itemData.link_ktp || null;
+        if (itemData.link_kontrak !== undefined) updateCreatorData.link_kontrak = itemData.link_kontrak || null;
+        if (itemData.nama_wa_pic !== undefined) updateCreatorData.nama_wa_pic = itemData.nama_wa_pic || null;
+        if (itemData.nomor_wa_dealing !== undefined) updateCreatorData.nomor_wa_dealing = itemData.nomor_wa_dealing || null;
+        if (itemData.alamat_ktp !== undefined) updateCreatorData.alamat_ktp = itemData.alamat_ktp || null;
+
+        if (Object.keys(updateCreatorData).length > 0) {
+          await supabase.from('creators').update(updateCreatorData).eq('id', cc.creator_id);
+        }
+      }
+    } catch (e) {
+      console.warn('Silent fallback for creator metadata update on updatePaymentItem:', e);
+    }
+  }
 }
 
 export async function deletePaymentItem(itemId: number) {
