@@ -186,7 +186,7 @@ export const CreatorRow = React.memo(({
             <Link href={`/creator-pool/${creator.id}`} className="font-semibold text-p300 hover:underline block">
               @{creator.username}
             </Link>
-            {cc.tier === 'Auto-Detect' && <span className="px-[6px] py-[2px] bg-yellow-100 text-yellow-800 text-[10px] font-bold rounded-full">AUTO</span>}
+            {(!cc.added_by || cc.tier === 'Auto-Detect') && <span className="px-[6px] py-[2px] bg-yellow-100 text-yellow-800 text-[10px] font-bold rounded-full">AUTO</span>}
           </div>
           <div className="flex items-center gap-2 mt-[4px]">
             <a href={creator.link_account || `https://www.tiktok.com/@${creator.username}`} target="_blank" rel="noopener noreferrer" className="inline-block hover:opacity-80 transition-opacity shrink-0">

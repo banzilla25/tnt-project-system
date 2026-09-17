@@ -803,7 +803,7 @@ export default function OrganicImport({ mode = 'sales' }: { mode?: 'sales' | 'vi
               newCcsToInsert.push({
                 campaign_id: campId,
                 creator_id: cId,
-                tier: 'Auto-Detect',
+                tier: 'Nano',
                 assigned_sku_ids: newSkus,
                 approval: 'pending',
                 client_approval: 'not_required',

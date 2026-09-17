@@ -1094,7 +1094,7 @@ function CampaignListingContent() {
         creators!inner (
           id, username, nama_asli, link_account,
           creator_contacts ( id, nomor, status ),
-          creator_snapshots${filterTier || filterLevel ? '!inner' : ''} ( id, audience_age, level, gmv_30d, gmv_30d_video, gmv_30d_live, tanggal_update, followers, tier ),
+          creator_snapshots${filterLevel ? '!inner' : ''} ( id, audience_age, level, gmv_30d, gmv_30d_video, gmv_30d_live, tanggal_update, followers, tier ),
           creator_niches${filterNiche ? '!inner' : ''} ( niche_id, niches ( nama ) )
         ),
         videos${filterConcept ? '!inner' : ''} (
@@ -1105,8 +1105,8 @@ function CampaignListingContent() {
       let query: any = supabase.from('campaign_creators').select(selectQuery).eq('campaign_id', campaignId);
 
       // Filters
-      if (filterType === 'auto_detect') query = query.eq('tier', 'Auto-Detect');
-      if (filterType === 'regular') query = query.or('tier.neq.Auto-Detect,tier.is.null');
+      if (filterType === 'auto_detect') query = query.or('added_by.is.null,tier.eq.Auto-Detect');
+      if (filterType === 'regular') query = query.and('added_by.not.is.null,tier.neq.Auto-Detect');
       
       if (filterPendingWithVideo) {
         query = query.neq('approval', 'approved');
@@ -1205,9 +1205,8 @@ function CampaignListingContent() {
       }
       
       // Multi-dimensional filters
-      // Multi-dimensional filters
       if (filterTier) {
-        query = query.ilike('creators.creator_snapshots.tier', filterTier);
+        query = query.ilike('tier', filterTier);
       }
       if (filterLevel) query = query.eq('creators.creator_snapshots.level', filterLevel);
       if (filterNiche) query = query.eq('creators.creator_niches.niche_id', filterNiche);

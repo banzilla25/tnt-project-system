@@ -900,7 +900,7 @@ export default function CampaignVideoPage({
              const { data: newCc } = await supabaseClient.from('campaign_creators').insert({
                 campaign_id: campaignId,
                 creator_id: creatorId,
-                tier: 'Auto-Detect',
+                tier: 'Nano',
                 approval: 'pending',
                 client_approval: 'not_required',
                 status_bayar: 'belum',

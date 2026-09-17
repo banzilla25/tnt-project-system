@@ -135,7 +135,7 @@ export async function syncUnmappedForProduct(productId: string, campaignId: numb
         const newCcs = missingCcs.map(cId => ({
           campaign_id: campaignId,
           creator_id: cId,
-          tier: 'Auto-Detect',
+          tier: 'Nano',
           assigned_sku_ids: resolvedSkuId ? [resolvedSkuId] : [],
           approval: 'pending',
           client_approval: 'not_required',
