@@ -131,7 +131,6 @@ function CampaignListingContent() {
 
   const [expandedRows, setExpandedRows] = useState<Record<number, boolean>>({});
   const [masterConcepts, setMasterConcepts] = useState<any[]>([]);
-  const [revisionNotes, setRevisionNotes] = useState<Record<string, any>>({});
 
   useEffect(() => {
     if (campaignId) {
@@ -146,31 +145,6 @@ function CampaignListingContent() {
         });
     }
   }, [campaignId]);
-
-  useEffect(() => {
-    if (!campaignId || listingData.length === 0) return;
-    const ccIds = listingData.map((cc: any) => cc.id).filter(Boolean);
-    if (ccIds.length === 0) return;
-
-    supabase
-      .from('campaign_creator_notes')
-      .select('*')
-      .in('campaign_creator_id', ccIds)
-      .ilike('role', 'draft_revisi_%')
-      .then(({ data, error }) => {
-        if (!error && data) {
-          const map: Record<string, any> = {};
-          data.forEach((n: any) => {
-            const match = n.role.match(/^draft_revisi_(\d+)$/);
-            if (match) {
-              const urutan = parseInt(match[1]);
-              map[`${n.campaign_creator_id}_${urutan}`] = n;
-            }
-          });
-          setRevisionNotes(map);
-        }
-      });
-  }, [campaignId, listingData]);
 
   // --- Batch Edit System ---
   type PendingChange = {
@@ -455,6 +429,32 @@ function CampaignListingContent() {
   const [page, setPage] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+  const [revisionNotes, setRevisionNotes] = useState<Record<string, any>>({});
+
+  useEffect(() => {
+    if (!campaignId || listingData.length === 0) return;
+    const ccIds = listingData.map((cc: any) => cc.id).filter(Boolean);
+    if (ccIds.length === 0) return;
+
+    supabase
+      .from('campaign_creator_notes')
+      .select('*')
+      .in('campaign_creator_id', ccIds)
+      .ilike('role', 'draft_revisi_%')
+      .then(({ data, error }) => {
+        if (!error && data) {
+          const map: Record<string, any> = {};
+          data.forEach((n: any) => {
+            const match = n.role.match(/^draft_revisi_(\d+)$/);
+            if (match) {
+              const urutan = parseInt(match[1]);
+              map[`${n.campaign_creator_id}_${urutan}`] = n;
+            }
+          });
+          setRevisionNotes(map);
+        }
+      });
+  }, [campaignId, listingData]);
 
   // Counts State
   const [counts, setCounts] = useState({ approved: 0, pending: 0, alternate: 0, not_approved: 0, all: 0 });
