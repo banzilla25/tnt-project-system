@@ -271,43 +271,63 @@ export async function createPaymentBatch(campaignId: number, batchLabel: string)
 export async function addPaymentItem(batchId: number, itemData: any) {
   const supabase = await createClient();
   
-  // Jika rekening diketik manual, kita harus insert ke creator_bank_accounts dulu
-  let bankAccountId = itemData.bank_account_id;
-  let bankName = itemData.metode_pembayaran || null;
-  let bankNumber = itemData.nomor_rekening || null;
-  let bankHolder = itemData.nama_penerima || null;
+  // Jika rekening diketik manual, kita harus cek/insert ke creator_bank_accounts
+  let bankAccountId = itemData.bank_account_id ? Number(itemData.bank_account_id) : null;
+  let bankName = itemData.metode_pembayaran ? String(itemData.metode_pembayaran).trim() : null;
+  let bankNumber = itemData.nomor_rekening ? String(itemData.nomor_rekening).trim() : null;
+  let bankHolder = itemData.nama_penerima ? String(itemData.nama_penerima).trim() : null;
   
   if (bankAccountId) {
     // Kunci data bank ke payment_items agar history mutasi statis & akurat
-    const { data: bankData } = await supabase.from('creator_bank_accounts').select('*').eq('id', bankAccountId).single();
+    const { data: bankData } = await supabase.from('creator_bank_accounts').select('*').eq('id', bankAccountId).maybeSingle();
     if (bankData) {
       bankName = bankData.bank_name;
       bankNumber = bankData.account_number;
       bankHolder = bankData.account_holder;
     }
-  } else if (itemData.metode_pembayaran && itemData.nomor_rekening) {
+  } else if (bankName && bankNumber && itemData.campaign_creator_id) {
     // Get creator_id from campaign_creators
-    const { data: ccData } = await supabase.from('campaign_creators').select('creator_id').eq('id', itemData.campaign_creator_id).single();
+    const { data: ccData } = await supabase.from('campaign_creators').select('creator_id').eq('id', itemData.campaign_creator_id).maybeSingle();
     
-    if (ccData) {
-      const { data: newBank } = await supabase.from('creator_bank_accounts').insert({
-        creator_id: ccData.creator_id,
-        bank_name: itemData.metode_pembayaran,
-        account_number: itemData.nomor_rekening,
-        account_holder: itemData.nama_penerima || '',
-      }).select('id').single();
-      
-      if (newBank) bankAccountId = newBank.id;
+    if (ccData && ccData.creator_id) {
+      // First check if this bank account already exists
+      const { data: existingBank } = await supabase
+        .from('creator_bank_accounts')
+        .select('id, bank_name, account_number, account_holder')
+        .eq('creator_id', ccData.creator_id)
+        .ilike('bank_name', bankName)
+        .eq('account_number', bankNumber)
+        .maybeSingle();
+
+      if (existingBank) {
+        bankAccountId = existingBank.id;
+        bankName = existingBank.bank_name;
+        bankNumber = existingBank.account_number;
+        bankHolder = existingBank.account_holder || bankHolder;
+      } else {
+        try {
+          const { data: newBank } = await supabase.from('creator_bank_accounts').insert({
+            creator_id: ccData.creator_id,
+            bank_name: bankName,
+            account_number: bankNumber,
+            account_holder: bankHolder || '',
+          }).select('id').maybeSingle();
+          
+          if (newBank) bankAccountId = newBank.id;
+        } catch (e) {
+          console.warn('Could not insert creator_bank_account:', e);
+        }
+      }
     }
   }
 
-  const payload = {
-    batch_id: batchId,
-    campaign_creator_id: itemData.campaign_creator_id || null, // Allow null for Ads Top Up
-    payment_type: itemData.payment_type,
-    ratecard_awal: itemData.ratecard_awal || null,
-    nominal: itemData.nominal,
-    biaya_transfer: itemData.biaya_transfer || 0,
+  const payload: any = {
+    batch_id: Number(batchId),
+    campaign_creator_id: itemData.campaign_creator_id ? Number(itemData.campaign_creator_id) : null,
+    payment_type: itemData.payment_type || '100_akhir',
+    ratecard_awal: itemData.ratecard_awal ? Number(itemData.ratecard_awal) : null,
+    nominal: Number(itemData.nominal) || 0,
+    biaya_transfer: Number(itemData.biaya_transfer) || 0,
     bank_account_id: bankAccountId,
     metode_pembayaran: bankName,
     nomor_rekening: bankNumber,
@@ -326,21 +346,33 @@ export async function addPaymentItem(batchId: number, itemData: any) {
   };
 
   const { error } = await supabase.from('payment_items').insert(payload);
-  if (error) throw new Error(error.message);
+  if (error) {
+    console.error('Error inserting payment_items:', error);
+    throw new Error(error.message);
+  }
 
   // Update creator master admin data if this is a creator payment
   if (itemData.campaign_creator_id) {
-    const { data: cc } = await supabase.from('campaign_creators').select('creator_id').eq('id', itemData.campaign_creator_id).single();
-    if (cc) {
-      await supabase.from('creators').update({
-        nik: itemData.nik || null,
-        link_ktp: itemData.link_ktp || null,
-        link_npwp: itemData.link_npwp || null,
-        link_kontrak: itemData.link_kontrak || null,
-        nama_wa_pic: itemData.nama_wa_pic || null,
-        nomor_wa_dealing: itemData.nomor_wa_dealing || null,
-        alamat_ktp: itemData.alamat_ktp || null,
-      }).eq('id', cc.creator_id);
+    try {
+      const { data: cc } = await supabase.from('campaign_creators').select('creator_id').eq('id', itemData.campaign_creator_id).maybeSingle();
+      if (cc && cc.creator_id) {
+        const updateCreatorData: Record<string, any> = {};
+        if (itemData.nik) updateCreatorData.nik = itemData.nik;
+        if (itemData.link_ktp) updateCreatorData.link_ktp = itemData.link_ktp;
+        if (itemData.link_kontrak) updateCreatorData.link_kontrak = itemData.link_kontrak;
+        if (itemData.nama_wa_pic) updateCreatorData.nama_wa_pic = itemData.nama_wa_pic;
+        if (itemData.nomor_wa_dealing) updateCreatorData.nomor_wa_dealing = itemData.nomor_wa_dealing;
+        if (itemData.alamat_ktp) updateCreatorData.alamat_ktp = itemData.alamat_ktp;
+
+        if (Object.keys(updateCreatorData).length > 0) {
+          const { error: updCreatorErr } = await supabase.from('creators').update(updateCreatorData).eq('id', cc.creator_id);
+          if (updCreatorErr) {
+            console.warn('Could not update creators admin metadata:', updCreatorErr.message);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Silent fallback for creator metadata update:', e);
     }
   }
 }

@@ -591,11 +591,11 @@ export function BatchForm({
                         <div className="col-span-2 grid grid-cols-2 gap-4">
                           <div>
                             <label className="block text-xs font-medium text-slate-600 mb-1">Link KTP (GDrive)</label>
-                            <input type="url" className="w-full p-2 border border-slate-300 rounded text-sm outline-none focus:border-blue-500" value={f.link_ktp} onChange={e => handleChange(cc.id, 'link_ktp', e.target.value)} />
+                            <input type="text" placeholder="https://drive.google.com/..." className="w-full p-2 border border-slate-300 rounded text-sm outline-none focus:border-blue-500" value={f.link_ktp} onChange={e => handleChange(cc.id, 'link_ktp', e.target.value)} />
                           </div>
                           <div>
                             <label className="block text-xs font-medium text-slate-600 mb-1">Link Kontrak (GDrive)</label>
-                            <input type="url" className="w-full p-2 border border-slate-300 rounded text-sm outline-none focus:border-blue-500" value={f.link_kontrak} onChange={e => handleChange(cc.id, 'link_kontrak', e.target.value)} />
+                            <input type="text" placeholder="https://drive.google.com/..." className="w-full p-2 border border-slate-300 rounded text-sm outline-none focus:border-blue-500" value={f.link_kontrak} onChange={e => handleChange(cc.id, 'link_kontrak', e.target.value)} />
                           </div>
                         </div>
                       </div>
