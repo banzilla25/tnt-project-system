@@ -1,4 +1,4 @@
-﻿# Architecture & Context Mapping
+# Architecture & Context Mapping
 
 ## 1. High-Level Overview
 Aplikasi ini adalah **Project Tracking System** (atau Sistem Manajemen Kampanye & Kreator) yang dirancang untuk mengelola berbagai aspek dari influencer marketing dan e-commerce campaigns. Sistem ini menangani lifecycle kampanye mulai dari pendataan kreator (Creator Pool), manajemen budget (Budgeting & Invoice), hingga pelacakan performa konten, penjualan (GMV), dan laporan iklan (Ads Report).
@@ -29,11 +29,14 @@ Struktur direktori aplikasi menggunakan pola standar Next.js App Router dengan p
 ## 3. Core Data Flow & State Management
 - **Client-Server Communication:** Sebagian besar data dimanipulasi melalui Server Actions di folder ctions/ (contoh: paymentActions.ts, ideoActions.ts).
 - **Payment Eligibility Rules (Aturan Pengajuan Pembayaran Kreator):**
-  - Kreator memenuhi syarat untuk diajukan pembayarannya (canSubmit) jika:
-    1. **Kreator Video:** Sudah mengupload video / link video terdaftar di campaign.
-    2. **Kreator Live:** Terdeteksi memiliki aktivitas livestream (sales atau organic_videos dengan tipe Livestream / Live) ATAU memiliki SOW tipe konten Live / qty_live > 0.
-    3. **Kreator Hybrid (Video & Live):** Memenuhi salah satu atau kedua deliverable (upload video atau melakukan live).
-  - Validasi data administrasi (KTP, Kontrak, NIK, No WA Dealing) wajib lengkap saat pengajuan batch agar audit trail dan pencairan dana transparan.
+  - Syarat wajib upload video dan wajib live stream **telah dihilangkan** agar fleksibel untuk berbagai skema kerja sama/pembayaran di awal maupun termin.
+  - Kreator memenuhi syarat untuk diajukan pembayarannya (`canSubmit = true`) jika:
+    1. **Ratecard Valid:** Nilai ratecard > 0 (`effectivePrice > 0`, baik dari `campaign_creators.price` maupun snapshot ratecard terbaru).
+    2. **Kelengkapan Data Profil Kreator:** Data metrik kreator sudah terisi lengkap:
+       - **Followers > 0**
+       - **GMV 30 Days > 0** (baik GMV total, maupun gabungan GMV Video & GMV Live).
+  - Indikator Video dan Live Stream tetap ditampilkan sebagai status informatif (apakah kreator sudah upload video atau ada aktivitas live), namun tidak lagi memblokir pengajuan pembayaran.
+  - Validasi data administrasi (KTP, Kontrak, NIK, No WA Dealing, Rekening Bank) tetap wajib dilengkapi saat pengajuan batch agar audit trail dan pencairan dana transparan.
 - **Optimistic UI & Real-Time Sync:** 
   - Karena pemanggilan outer.refresh() di Next.js App Router tidak menyegarkan state dalam useEffect, sistem dimigrasi ke **Optimistic UI Updates**.
   - **Listing (ListingClient):** Aksi perbaruan kolom (GMV, Followers, Approval) menggunakan sistem *Auto-Save/Pending Changes* yang secara instan merubah UI ke *amber-text* sementara menunggu *batch save* otomatis 2 detik, sehingga halaman tidak patah/memuat ulang (F5).

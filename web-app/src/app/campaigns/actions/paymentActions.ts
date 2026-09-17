@@ -65,7 +65,7 @@ export async function fetchUnpaidCreators(campaignId: number) {
           username, 
           nama_asli,
           avatar_url,
-          creator_snapshots ( id, followers, gmv_30d, gmv_30d_video, gmv_30d_live, ratecard ),
+          creator_snapshots ( id, followers, level, gmv_30d, gmv_30d_video, gmv_30d_live, ratecard, tanggal_update ),
           creator_bank_accounts ( id, bank_name, account_number, account_holder )
         ),
         videos ( id, link_video, content_uid, urutan, vt_approval ),
@@ -73,7 +73,6 @@ export async function fetchUnpaidCreators(campaignId: number) {
       `)
       .eq('campaign_id', campaignId)
       .eq('approval', 'approved')
-      .gt('price', 0)
       .order('created_at', { ascending: false })
       .range(0, 4999);
 

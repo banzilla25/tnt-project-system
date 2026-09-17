@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Loader2, Video, Search, ChevronRight, PlayCircle, AlertCircle, CheckSquare, Square, Radio } from 'lucide-react';
+import { Loader2, Video, Search, ChevronRight, PlayCircle, AlertCircle, CheckSquare, Square, Radio, CheckCircle2 } from 'lucide-react';
 import { fetchUnpaidCreators } from '../app/campaigns/actions/paymentActions';
 import { BatchForm } from '../app/campaigns/[id]/keuangan/BatchForm';
 
@@ -32,39 +32,47 @@ export function UnpaidCreatorsTab({ campaignId, onSuccess }: { campaignId: numbe
         
         // Find latest snapshot for GMV/Followers and Ratecard
         const snapshots = cc.creators?.creator_snapshots || [];
-        const latestSnapshot = snapshots.length > 0 ? snapshots[snapshots.length - 1] : { followers: 0, gmv_30d: 0, ratecard: 0 };
-        const validSnap = snapshots.find((s: any) => Number(s.ratecard || 0) > 0);
+        const sortedSnaps = [...snapshots].sort((a: any, b: any) => {
+          const tDiff = new Date(b.tanggal_update || 0).getTime() - new Date(a.tanggal_update || 0).getTime();
+          if (tDiff !== 0) return tDiff;
+          return (b.id || 0) - (a.id || 0);
+        });
+        const latestSnapshot = sortedSnaps[0] || { followers: 0, gmv_30d: 0, ratecard: 0 };
+        const validSnap = sortedSnaps.find((s: any) => Number(s.ratecard || 0) > 0);
         const effectivePrice = Number(cc.price || 0) || Number(validSnap?.ratecard || 0);
         
-        // Content types
+        // Content types (for display badges)
         const rawContentType = (cc.content_type || '').toLowerCase();
         const isLiveType = rawContentType.includes('live') || Number(cc.qty_live || 0) > 0;
         const isVideoType = rawContentType.includes('video') || Number(cc.qty_vt || 0) > 0 || (!isLiveType);
 
-        // Deliverables check
+        // Deliverables check (informational only, no longer blocks payment submission)
         const hasVideo = Boolean(cc.videos && cc.videos.some((v: any) => v.link_video || v.content_uid));
         const hasLive = Boolean(cc.has_live_activity || (cc.videos && cc.videos.some((v: any) => v.content_uid && !v.link_video)));
 
-        // Eligible deliverables:
-        // - Creator has uploaded video (hasVideo)
-        // - OR creator has conducted livestream / live data exists in campaign (hasLive)
-        // - OR creator is configured as Live type and has data ready
-        const hasDeliverable = hasVideo || hasLive || (isLiveType && !isVideoType);
+        const gmv = Number(latestSnapshot.gmv_30d || 0) || (Number(latestSnapshot.gmv_30d_video || 0) + Number(latestSnapshot.gmv_30d_live || 0)) || 0;
+        const followers = Number(latestSnapshot.followers || 0);
 
-        const gmv = latestSnapshot.gmv_30d || (Number(latestSnapshot.gmv_30d_video || 0) + Number(latestSnapshot.gmv_30d_live || 0)) || 0;
-        const followers = latestSnapshot.followers || 0;
+        // ATURAN BARU:
+        // Syarat harus ada video & harus ada live DIHILANGKAN.
+        // Yang penting:
+        // 1. Ratecard > 0 (effectivePrice > 0)
+        // 2. Data profil lengkap: followers > 0 dan gmv > 0
+        const hasRatecard = effectivePrice > 0;
+        const hasFollowers = followers > 0;
+        const hasGmv = gmv > 0;
 
-        const canSubmit = hasDeliverable && (gmv > 0 || hasLive || hasVideo);
+        const isDataLengkap = hasRatecard && hasFollowers && hasGmv;
+        const canSubmit = isDataLengkap;
+
         let disableReason = '';
-        if (!hasDeliverable) {
-          if (isLiveType && isVideoType) {
-            disableReason = 'Belum ada upload video atau data live stream';
-          } else if (isLiveType) {
-            disableReason = 'Belum ada data live stream di campaign';
-          } else {
-            disableReason = 'Belum upload video';
-          }
-        } else if (gmv <= 0 && !hasVideo && !hasLive) {
+        if (!hasRatecard) {
+          disableReason = 'Ratecard belum diisi / Rp 0';
+        } else if (!hasFollowers && !hasGmv) {
+          disableReason = 'Followers & GMV 30 Days belum lengkap';
+        } else if (!hasFollowers) {
+          disableReason = 'Followers belum diisi (Data belum lengkap)';
+        } else if (!hasGmv) {
           disableReason = 'GMV 30 Days masih 0 (Data belum lengkap)';
         }
 
@@ -177,7 +185,7 @@ export function UnpaidCreatorsTab({ campaignId, onSuccess }: { campaignId: numbe
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-slate-200">
         <div>
           <h2 className="text-lg font-bold text-slate-800">Daftar Kreator Belum Dibayar</h2>
-          <p className="text-sm text-slate-500">Pilih kreator yang sudah mengupload video atau memiliki data live stream di campaign untuk diajukan pembayarannya.</p>
+          <p className="text-sm text-slate-500">Pilih kreator dengan ratecard valid dan data profil lengkap (Followers &amp; GMV) untuk diajukan pembayarannya.</p>
         </div>
         <button
           disabled={selectedIds.size === 0}
@@ -283,15 +291,13 @@ export function UnpaidCreatorsTab({ campaignId, onSuccess }: { campaignId: numbe
                               </button>
                             )}
                             {cc.hasLive && (
-                              <span className="text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-1.5 rounded-lg font-medium inline-flex items-center gap-1">
+                              <span className="text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-1.5 rounded-lg font-medium inline-flex items-center gap-1" title="Aktivitas live stream tercatat">
                                 <Radio className="w-3.5 h-3.5 text-emerald-600 animate-pulse" /> Live Ada
                               </span>
                             )}
-                            {!cc.hasVideo && !cc.hasLive && cc.isLiveType && (
-                              <span className="text-xs bg-blue-50 text-blue-700 border border-blue-200 px-2.5 py-1.5 rounded-lg font-medium inline-flex items-center gap-1">
-                                <Radio className="w-3.5 h-3.5 text-blue-600" /> Tipe Live
-                              </span>
-                            )}
+                            <span className="text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-1.5 rounded-lg font-medium inline-flex items-center gap-1">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Siap Diajukan
+                            </span>
                           </div>
                         ) : (
                           <div className="flex items-center justify-center gap-1 text-[11px] text-red-500 font-medium">
