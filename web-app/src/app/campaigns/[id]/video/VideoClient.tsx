@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useDatabaseStore } from "@/store/useDatabaseStore";
 // Replaced standard UI imports
 import { createClient } from "@/utils/supabase/client";
-import { getCreatorType, getConceptColor } from "@/utils/computed";
+import { getCreatorType } from "@/utils/computed";
 import { formatDateTime, formatDateTimeShort, formatDate } from "@/utils/formatters";
 import { useParams } from "next/navigation";
 import Link from "next/link";
@@ -2045,25 +2045,84 @@ export default function CampaignVideoPage({
                             }
 
                             const rpm = vidViews > 0 ? (vidGmv / vidViews) * 1000 : 0;
+                            const conceptNum = parseInt(v.concept);
+                            const matchedConcept = !isNaN(conceptNum) ? masterConcepts.find((c: any) => c.no_konsep === conceptNum) : null;
+                            const isConceptError = v.concept && !matchedConcept && masterConcepts.length > 0;
 
                             return (
                               <tr key={v.urutan}>
                                 <td className="font-semibold text-center">{v.urutan}</td>
                                 <td>
-                                  <div className="flex flex-col gap-1">
-                                    <div className={`flex items-center rounded-md border shadow-sm transition-all overflow-hidden w-[100px] h-9 focus-within:ring-1 ${getConceptColor(v.concept)}`}>
-                                      <span className="pl-2 pr-1 text-[11px] font-bold uppercase tracking-wider pointer-events-none opacity-70">
-                                        Konsep #
-                                      </span>
-                                      <input
-                                        type="number"
-                                        min="0"
-                                        className="w-full bg-transparent border-0 p-0 text-[14px] font-bold focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                        value={v.concept || ''}
-                                        onChange={(e) => handleVideoChange(cc.id, v.urutan, 'concept', e.target.value)}
-                                        disabled={!hasAccess}
-                                      />
-                                    </div>
+                                  <div className="flex flex-col gap-1.5 pr-2 min-w-[220px] max-w-[320px]">
+                                    {masterConcepts.length === 0 ? (
+                                      <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-[11px] leading-tight flex items-start gap-1.5 shadow-sm">
+                                        <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                                        <div className="flex flex-col gap-0.5">
+                                          <span className="font-medium">Belum ada konsep di master konsep campaign ini.</span>
+                                          <Link 
+                                            href={`/campaigns/${campaignId}/concepts`}
+                                            className="text-indigo-600 font-bold hover:underline inline-flex items-center gap-1"
+                                          >
+                                            + Tambah di Menu Konsep
+                                          </Link>
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <div className="flex items-center gap-1.5">
+                                        <div className="relative flex-1">
+                                          <select
+                                            className={`select select-sm w-full text-[12px] font-medium rounded-lg border shadow-sm transition-all focus:ring-1 ${
+                                              isConceptError 
+                                                ? 'border-red-400 bg-red-50 text-red-900 focus:ring-red-400' 
+                                                : matchedConcept 
+                                                  ? 'border-indigo-200 bg-indigo-50/50 text-slate-800 focus:border-indigo-400 focus:ring-indigo-400' 
+                                                  : 'border-slate-200 bg-white text-slate-600 focus:border-slate-400'
+                                            }`}
+                                            value={v.concept || ''}
+                                            onChange={(e) => handleVideoChange(cc.id, v.urutan, 'concept', e.target.value)}
+                                            disabled={!hasAccess || v.vt_approval === 'approved'}
+                                            title={v.vt_approval === 'approved' ? "Tidak bisa diubah karena VT sudah di-approve" : "Pilih konsep"}
+                                          >
+                                            <option value="">-- Pilih Konsep --</option>
+                                            {v.concept && !matchedConcept && (
+                                              <option value={v.concept}>
+                                                [Custom] {v.concept}
+                                              </option>
+                                            )}
+                                            {[...masterConcepts]
+                                              .sort((a: any, b: any) => (Number(a.no_konsep) || 0) - (Number(b.no_konsep) || 0))
+                                              .map((c: any) => {
+                                                const sku = skus.find((s: any) => s.id === c.sku_id);
+                                                const productLabel = sku?.nama_produk || c.skus?.nama_produk || 'Semua Produk';
+                                                const optionLabel = `No. ${c.no_konsep} - ${productLabel} - ${c.judul_konsep || 'Tanpa Judul'}`;
+                                                return (
+                                                  <option key={c.id || c.no_konsep} value={String(c.no_konsep)}>
+                                                    {optionLabel}
+                                                  </option>
+                                                );
+                                              })}
+                                          </select>
+                                        </div>
+
+                                        {matchedConcept && (
+                                          <button
+                                            type="button"
+                                            className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg border border-slate-200 hover:border-indigo-200 transition-colors shrink-0 shadow-sm"
+                                            onClick={() => setSelectedConcept(matchedConcept)}
+                                            title="Lihat Detail Brief Konsep"
+                                          >
+                                            <Info className="w-3.5 h-3.5" />
+                                          </button>
+                                        )}
+                                      </div>
+                                    )}
+
+                                    {isConceptError && (
+                                      <p className="text-[10px] text-red-500 font-medium leading-tight">
+                                        Konsep belum ada di master konsep campaign ini.
+                                      </p>
+                                    )}
+
                                     {v.concept && v.concept_updated_at && v.concept_updated_by ? (
                                       <p className="text-[10px] text-slate-400 leading-tight">
                                         Diinput pd {formatDateTimeShort(v.concept_updated_at)} <br/>
@@ -2207,7 +2266,7 @@ export default function CampaignVideoPage({
               </div>
             )}
           </div>
-        ) : viewMode === 'video' ? (
+        ) : (viewMode === 'video' || viewMode === 'date') ? (
           <div className="overflow-x-auto pb-[24px]">
             <table className="w-full text-left border-collapse min-w-[800px]">
               <thead>
@@ -2232,6 +2291,9 @@ export default function CampaignVideoPage({
                 ) : (
                   visibleVideosData.map(v => {
                     const warningShortLink = v.link_video?.includes('vt.tiktok.com');
+                    const conceptNum = parseInt(v.concept);
+                    const matchedConcept = !isNaN(conceptNum) ? masterConcepts.find((c: any) => c.no_konsep === conceptNum) : null;
+                    const isConceptError = v.concept && !matchedConcept && masterConcepts.length > 0;
                     return (
                     <tr key={v.id} className="border-b border-slate-100 hover:bg-slate-50/50">
                       <td className="p-4 align-top">
@@ -2243,28 +2305,83 @@ export default function CampaignVideoPage({
                         <div className="text-[11px] font-semibold text-slate-500 bg-slate-100 w-fit px-2 py-0.5 rounded mt-1">{v.creatorTier || 'Tier -'}</div>
                       </td>
                       <td className="p-4 align-top">
-                        <div className="flex flex-col gap-1 pr-4">
-                           <div className={`flex items-center rounded-md border shadow-sm transition-all overflow-hidden w-[100px] h-9 focus-within:ring-1 ${getConceptColor(v.concept)}`}>
-                             <span className="pl-2 pr-1 text-[11px] font-bold uppercase tracking-wider pointer-events-none opacity-70">
-                               Konsep #
-                             </span>
-                             <input
-                               type="number"
-                               min="0"
-                               className="w-full bg-transparent border-0 p-0 text-[14px] font-bold focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                               value={v.concept || ''}
-                               onChange={(e) => handleVideoChange(v.ccId, v.urutan, 'concept', e.target.value)}
-                               disabled={!hasAccess || v.vt_approval === 'approved'}
-                               title={v.vt_approval === 'approved' ? "Tidak bisa diubah karena VT sudah di-approve" : "Ubah angka konsep"}
-                             />
-                           </div>
-                           {v.concept && v.concept_updated_at && v.concept_updated_by ? (
-                             <p className="text-[9px] text-slate-400 leading-tight">
-                               Diinput pd {new Date(v.concept_updated_at).toLocaleDateString('id-ID')} <br/>
-                               Oleh: <span className="font-medium text-slate-500">{v.concept_updated_by}</span>
-                             </p>
-                           ) : null}
-                         </div>
+                        <div className="flex flex-col gap-1.5 pr-2 min-w-[220px] max-w-[300px]">
+                          {masterConcepts.length === 0 ? (
+                            <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-[11px] leading-tight flex items-start gap-1.5 shadow-sm">
+                              <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                              <div className="flex flex-col gap-0.5">
+                                <span className="font-medium">Belum ada konsep di master konsep campaign ini.</span>
+                                <Link 
+                                  href={`/campaigns/${campaignId}/concepts`}
+                                  className="text-indigo-600 font-bold hover:underline inline-flex items-center gap-1"
+                                >
+                                  + Tambah di Menu Konsep
+                                </Link>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1.5">
+                              <div className="relative flex-1">
+                                <select
+                                  className={`select select-sm w-full text-[12px] font-medium rounded-lg border shadow-sm transition-all focus:ring-1 ${
+                                    isConceptError 
+                                      ? 'border-red-400 bg-red-50 text-red-900 focus:ring-red-400' 
+                                      : matchedConcept 
+                                        ? 'border-indigo-200 bg-indigo-50/50 text-slate-800 focus:border-indigo-400 focus:ring-indigo-400' 
+                                        : 'border-slate-200 bg-white text-slate-600 focus:border-slate-400'
+                                  }`}
+                                  value={v.concept || ''}
+                                  onChange={(e) => handleVideoChange(v.ccId, v.urutan, 'concept', e.target.value)}
+                                  disabled={!hasAccess || v.vt_approval === 'approved'}
+                                  title={v.vt_approval === 'approved' ? "Tidak bisa diubah karena VT sudah di-approve" : "Pilih konsep"}
+                                >
+                                  <option value="">-- Pilih Konsep --</option>
+                                  {v.concept && !matchedConcept && (
+                                    <option value={v.concept}>
+                                      [Custom] {v.concept}
+                                    </option>
+                                  )}
+                                  {[...masterConcepts]
+                                    .sort((a: any, b: any) => (Number(a.no_konsep) || 0) - (Number(b.no_konsep) || 0))
+                                    .map((c: any) => {
+                                      const sku = skus.find((s: any) => s.id === c.sku_id);
+                                      const productLabel = sku?.nama_produk || c.skus?.nama_produk || 'Semua Produk';
+                                      const optionLabel = `No. ${c.no_konsep} - ${productLabel} - ${c.judul_konsep || 'Tanpa Judul'}`;
+                                      return (
+                                        <option key={c.id || c.no_konsep} value={String(c.no_konsep)}>
+                                          {optionLabel}
+                                        </option>
+                                      );
+                                    })}
+                                </select>
+                              </div>
+
+                              {matchedConcept && (
+                                <button
+                                  type="button"
+                                  className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg border border-slate-200 hover:border-indigo-200 transition-colors shrink-0 shadow-sm"
+                                  onClick={() => setSelectedConcept(matchedConcept)}
+                                  title="Lihat Detail Brief Konsep"
+                                >
+                                  <Info className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          )}
+
+                          {isConceptError && (
+                            <p className="text-[10px] text-red-500 font-medium leading-tight">
+                              Konsep belum ada di master konsep campaign ini.
+                            </p>
+                          )}
+
+                          {v.concept && v.concept_updated_at && v.concept_updated_by ? (
+                            <p className="text-[9px] text-slate-400 leading-tight">
+                              Diinput pd {formatDateTimeShort(v.concept_updated_at)} <br/>
+                              Oleh: <span className="font-medium text-slate-500">{v.concept_updated_by}</span>
+                            </p>
+                          ) : null}
+                        </div>
                       </td>
                       <td className="p-4 align-middle text-center">
                         {v.post_time ? (
