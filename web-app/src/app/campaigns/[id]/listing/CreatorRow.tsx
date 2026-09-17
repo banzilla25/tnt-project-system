@@ -105,6 +105,8 @@ export const CreatorRow = React.memo(({
   const [selectedConcept, setSelectedConcept] = React.useState<any>(null);
   const [playingDriveId, setPlayingDriveId] = React.useState<string | null>(null);
 
+  const canManageRevisionNotes = profile?.role === 'manager' || profile?.role === 'executive';
+
   // Draft Video Revision Note state
   const [revisionModalState, setRevisionModalState] = React.useState<{
     open: boolean;
@@ -119,6 +121,7 @@ export const CreatorRow = React.memo(({
   });
 
   const handleOpenRevisionModal = (video: any) => {
+    if (!canManageRevisionNotes) return;
     const existingNote = revisionNotes[`${cc.id}_${video.urutan}`]?.isi || '';
     setRevisionModalState({
       open: true,
@@ -129,7 +132,7 @@ export const CreatorRow = React.memo(({
   };
 
   const handleSaveModalRevisionNote = async () => {
-    if (!revisionModalState.video || !saveRevisionNote) return;
+    if (!canManageRevisionNotes || !revisionModalState.video || !saveRevisionNote) return;
     setRevisionModalState(prev => ({ ...prev, isSaving: true }));
     try {
       await saveRevisionNote(cc.id, revisionModalState.video.urutan, revisionModalState.noteText);
@@ -819,7 +822,7 @@ export const CreatorRow = React.memo(({
                             </div>
                           </td>
                           <td className="py-[12px]">
-                            {hasAccess ? (
+                            {canManageRevisionNotes ? (
                               <div className="flex flex-col gap-1 pr-2">
                                 <select 
                                   className={`select !p-1.5 w-[110px] font-semibold !text-[12px] ${v.vt_approval === 'approved' ? 'text-emerald-700 bg-emerald-50 border-emerald-200' : v.vt_approval === 'revisi' ? 'text-amber-700 bg-amber-50 border-amber-200' : 'text-slate-600'}`}
@@ -847,9 +850,14 @@ export const CreatorRow = React.memo(({
                                 )}
                               </div>
                             ) : (
-                              <span className={`badge ${v.vt_approval === 'approved' ? 'b-success' : v.vt_approval === 'revisi' ? 'b-warning' : 'b-neutral'}`}>
-                                {v.vt_approval}
-                              </span>
+                              <div className="flex flex-col gap-1">
+                                <span className={`badge ${v.vt_approval === 'approved' ? 'b-success' : v.vt_approval === 'revisi' ? 'b-warning' : 'b-neutral'}`}>
+                                  {v.vt_approval || 'pending'}
+                                </span>
+                                {v.vt_approved_by && (
+                                  <span className="text-[9px] text-slate-400">Oleh: {v.vt_approved_by}</span>
+                                )}
+                              </div>
                             )}
                           </td>
                           <td className="py-[12px] align-top">
@@ -870,12 +878,12 @@ export const CreatorRow = React.memo(({
                                       }`}>
                                         {isRevisiStatus ? 'Catatan Revisi' : 'Riwayat Revisi'}
                                       </span>
-                                      {hasAccess && (
+                                      {canManageRevisionNotes && (
                                         <button
                                           type="button"
                                           onClick={() => handleOpenRevisionModal(v)}
                                           className="text-slate-400 hover:text-slate-700 p-0.5 hover:bg-white/80 rounded transition-colors"
-                                          title="Edit Catatan Revisi"
+                                          title="Edit Catatan Revisi (Manager / Eksekutif)"
                                         >
                                           <Edit2 className="w-3 h-3" />
                                         </button>
@@ -897,7 +905,7 @@ export const CreatorRow = React.memo(({
                               if (isRevisiStatus) {
                                 return (
                                   <div>
-                                    {hasAccess ? (
+                                    {canManageRevisionNotes ? (
                                       <button
                                         type="button"
                                         onClick={() => handleOpenRevisionModal(v)}
@@ -907,7 +915,7 @@ export const CreatorRow = React.memo(({
                                         <span>Tulis Catatan</span>
                                       </button>
                                     ) : (
-                                      <span className="text-[11px] text-rose-600 italic">Belum ada catatan revisi</span>
+                                      <span className="text-[11px] text-rose-600 italic">Menunggu catatan revisi manager</span>
                                     )}
                                   </div>
                                 );
@@ -916,12 +924,12 @@ export const CreatorRow = React.memo(({
                               return (
                                 <div className="flex items-center gap-1">
                                   <span className="text-slate-300 text-xs italic">-</span>
-                                  {hasAccess && (
+                                  {canManageRevisionNotes && (
                                     <button
                                       type="button"
                                       onClick={() => handleOpenRevisionModal(v)}
                                       className="text-slate-300 hover:text-slate-600 p-0.5 hover:bg-slate-100 rounded transition-colors"
-                                      title="Tambah Catatan"
+                                      title="Tambah Catatan Revisi"
                                     >
                                       <Plus className="w-3 h-3" />
                                     </button>

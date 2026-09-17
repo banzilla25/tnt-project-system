@@ -85,8 +85,9 @@ export default function CampaignVideoPage({
     campaigns
   } = useDatabaseStore();
 
-  const { canEditCampaign, profile } = useAuth();
+  const { canEditCampaign, profile, isManager, isExecutive } = useAuth();
   const hasAccess = canEditCampaign(campaignId);
+  const canManageRevisionNotes = isManager || isExecutive;
   const { isCreatorVisible } = useCampaignFilter();
 
   const campaign = campaigns.find(c => c.id === campaignId);
@@ -778,6 +779,10 @@ export default function CampaignVideoPage({
   };
 
   const handleOpenRevisionModal = (video: any) => {
+    if (!canManageRevisionNotes) {
+      alert('Hanya Manager dan Eksekutif yang memiliki hak akses untuk mengedit catatan revisi.');
+      return;
+    }
     const existingNote = revisionNotes[`${video.campaign_creator_id}_${video.urutan}`]?.isi || '';
     setRevisionModalState({
       open: true,
@@ -788,9 +793,13 @@ export default function CampaignVideoPage({
   };
 
   const handleVtApprovalChange = (video: any, newStatus: string) => {
+    if (!canManageRevisionNotes) {
+      alert('Hanya Manager dan Eksekutif yang dapat mengubah status approval video.');
+      return;
+    }
     const fields: Record<string, any> = {
       vt_approval: newStatus,
-      vt_approved_by: profile?.nama || 'Manager',
+      vt_approved_by: profile?.nama || (isExecutive ? 'Executive' : 'Manager'),
       vt_approved_at: new Date().toISOString()
     };
     handleUpdateSingleVideoField(video.campaign_creator_id, video, fields);
@@ -807,6 +816,10 @@ export default function CampaignVideoPage({
   };
 
   const handleSaveRevisionNote = async () => {
+    if (!canManageRevisionNotes) {
+      alert('Hanya Manager dan Eksekutif yang memiliki hak akses untuk menyimpan catatan revisi.');
+      return;
+    }
     if (!revisionModalState.video) return;
     const { video, noteText } = revisionModalState;
     const ccId = video.campaign_creator_id;
@@ -823,7 +836,7 @@ export default function CampaignVideoPage({
           .update({
             isi: noteText,
             author_id: profile?.id || null,
-            author_name: profile?.nama || 'Manager',
+            author_name: profile?.nama || (isExecutive ? 'Executive' : 'Manager'),
             updated_at: new Date().toISOString()
           })
           .eq('id', existing.id)
@@ -842,7 +855,7 @@ export default function CampaignVideoPage({
             role: roleKey,
             isi: noteText,
             author_id: profile?.id || null,
-            author_name: profile?.nama || 'Manager',
+            author_name: profile?.nama || (isExecutive ? 'Executive' : 'Manager'),
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
           })
@@ -2953,9 +2966,9 @@ export default function CampaignVideoPage({
                             )}
                           </td>
 
-                          {/* VT Approval (Manager) */}
+                          {/* VT Approval (Manager & Executive) */}
                           <td className="p-4">
-                            {hasAccess ? (
+                            {canManageRevisionNotes ? (
                               <div className="flex flex-col gap-1">
                                 <select 
                                   className={`select !p-1.5 w-[125px] font-bold !text-[12px] border rounded-md shadow-sm transition-colors ${
@@ -2991,9 +3004,14 @@ export default function CampaignVideoPage({
                                 )}
                               </div>
                             ) : (
-                              <span className={`badge ${v.vt_approval === 'approved' ? 'b-success' : v.vt_approval === 'revisi' ? 'b-warning' : 'b-neutral'}`}>
-                                {v.vt_approval || 'pending'}
-                              </span>
+                              <div className="flex flex-col gap-1">
+                                <span className={`badge ${v.vt_approval === 'approved' ? 'b-success' : v.vt_approval === 'revisi' ? 'b-warning' : 'b-neutral'}`}>
+                                  {v.vt_approval === 'approved' ? 'Approved' : v.vt_approval === 'revisi' ? 'Revisi' : 'Pending'}
+                                </span>
+                                {v.vt_approved_by && (
+                                  <span className="text-[10px] text-slate-400">Oleh: {v.vt_approved_by}</span>
+                                )}
+                              </div>
                             )}
                           </td>
 
@@ -3016,12 +3034,12 @@ export default function CampaignVideoPage({
                                       }`}>
                                         {isRevisiStatus ? 'Catatan Revisi' : 'Riwayat Revisi'}
                                       </span>
-                                      {hasAccess && (
+                                      {canManageRevisionNotes && (
                                         <button
                                           type="button"
                                           onClick={() => handleOpenRevisionModal(v)}
                                           className="text-slate-400 hover:text-slate-700 p-0.5 hover:bg-white/80 rounded transition-colors"
-                                          title="Edit Catatan Revisi"
+                                          title="Edit Catatan Revisi (Manager / Eksekutif)"
                                         >
                                           <Edit2 className="w-3.5 h-3.5" />
                                         </button>
@@ -3043,7 +3061,7 @@ export default function CampaignVideoPage({
                               if (isRevisiStatus) {
                                 return (
                                   <div>
-                                    {hasAccess ? (
+                                    {canManageRevisionNotes ? (
                                       <button
                                         type="button"
                                         onClick={() => handleOpenRevisionModal(v)}
@@ -3053,7 +3071,7 @@ export default function CampaignVideoPage({
                                         <span>Tulis Catatan Revisi</span>
                                       </button>
                                     ) : (
-                                      <span className="text-xs text-rose-600 italic">Belum ada catatan revisi</span>
+                                      <span className="text-xs text-rose-600 italic">Menunggu catatan revisi manager</span>
                                     )}
                                   </div>
                                 );
@@ -3062,12 +3080,12 @@ export default function CampaignVideoPage({
                               return (
                                 <div className="flex items-center gap-2">
                                   <span className="text-slate-300 text-xs italic">-</span>
-                                  {hasAccess && (
+                                  {canManageRevisionNotes && (
                                     <button
                                       type="button"
                                       onClick={() => handleOpenRevisionModal(v)}
                                       className="opacity-0 hover:opacity-100 group-hover:opacity-100 text-slate-400 hover:text-slate-600 p-1 hover:bg-slate-100 rounded transition-opacity"
-                                      title="Tambah Catatan"
+                                      title="Tambah Catatan Revisi"
                                     >
                                       <Plus className="w-3 h-3" />
                                     </button>
