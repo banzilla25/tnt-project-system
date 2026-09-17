@@ -3,7 +3,7 @@
 import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
 const supabase = createClient(supabaseUrl, supabaseServiceKey, {
   global: {
     fetch: (url, options) => {
@@ -43,7 +43,7 @@ export async function getInternalVideoData(campaignId: number, searchKeyword: st
   const [skusRes, videoStatsRes, orgDataRes, creatorsRes] = await Promise.all([
     supabase.from('skus').select('*').eq('campaign_id', campaignId),
     supabase.rpc('get_campaign_video_stats', { p_campaign_id: campaignId }),
-    supabase.from('organic_videos').select('content_uid, post_time').eq('campaign_id', campaignId),
+    supabase.from('organic_videos').select('content_uid, post_time, product_id').eq('campaign_id', campaignId),
     creatorsQuery
   ]);
 
@@ -62,19 +62,47 @@ export async function getInternalVideoData(campaignId: number, searchKeyword: st
 
   const allResults: any[] = creatorsRes.data || [];
 
+  // Map post_time and product_id from organic_videos
+  const orgData = orgDataRes.data || [];
+  const postTimeMap = new Map<string, string>();
+  const orgProductMap = new Map<string, string>();
+  orgData.forEach((o: any) => {
+    if (o.content_uid) {
+      if (o.post_time) postTimeMap.set(o.content_uid, o.post_time);
+      if (o.product_id) orgProductMap.set(o.content_uid, o.product_id);
+    }
+  });
+
   // Map SKU IDs to DB videos
-  const allVideosFromDb = allResults.flatMap((cc: any) => cc.videos || []).map((v: any) => {
-    if (!v.sku_id && v.content_uid) {
+  const allVideosFromDb = allResults.flatMap((cc: any) => (cc.videos || []).map((v: any) => {
+    let cleanConcept = v.concept;
+    if (typeof cleanConcept === 'string' && cleanConcept.includes('Auto-detected')) {
+      cleanConcept = null;
+    }
+
+    let resolvedSkuId = v.sku_id;
+    if (!resolvedSkuId && v.content_uid) {
        const matchingStat = statsList.find((s: any) => s.content_uid === v.content_uid);
-       if (matchingStat && matchingStat.product_id) {
-          const matchingSku = skus.find((sku: any) => sku.product_id === matchingStat.product_id && sku.campaign_id === campaignId);
+       const pid = matchingStat?.product_id || orgProductMap.get(v.content_uid) || orgProductMap.get(v.content_uid.replace(/^video_/, ''));
+       if (pid) {
+          const matchingSku = skus.find((sku: any) => sku.product_id === pid && sku.campaign_id === campaignId);
           if (matchingSku) {
-             return { ...v, sku_id: matchingSku.id };
+             resolvedSkuId = matchingSku.id;
           }
        }
     }
-    return v;
-  });
+
+    // Fallback: If creator only has 1 assigned SKU, use it
+    if (!resolvedSkuId && cc.assigned_sku_ids && cc.assigned_sku_ids.length === 1) {
+      resolvedSkuId = cc.assigned_sku_ids[0];
+    }
+
+    return {
+      ...v,
+      concept: cleanConcept,
+      sku_id: resolvedSkuId || v.sku_id || null
+    };
+  }));
 
   // Auto-detect videos from sales (strictly respecting campaign SKUs)
   const autoVideos: any[] = [];
@@ -101,7 +129,7 @@ export async function getInternalVideoData(campaignId: number, searchKeyword: st
                 id: `auto_${vid}`,
                 campaign_creator_id: cc.id,
                 urutan: 999, // Re-assigned sequentially in frontend
-                concept: 'Auto-detected from Sales CSV',
+                concept: null,
                 link_video: `https://www.tiktok.com/@${creator.username}/video/${vid}`,
                 content_uid: vid,
                 sku_id: matchingSku.id,
@@ -114,13 +142,6 @@ export async function getInternalVideoData(campaignId: number, searchKeyword: st
   }
 
   const allVideos = [...allVideosFromDb, ...autoVideos];
-
-  // Map post_time from organic_videos
-  const orgData = orgDataRes.data || [];
-  const postTimeMap = new Map<string, string>();
-  orgData.forEach((o: any) => {
-    if (o.content_uid && o.post_time) postTimeMap.set(o.content_uid, o.post_time);
-  });
 
   allVideos.forEach(v => {
     if (v.content_uid && postTimeMap.has(v.content_uid)) {

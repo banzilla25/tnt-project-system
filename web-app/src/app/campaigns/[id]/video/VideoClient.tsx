@@ -1147,50 +1147,68 @@ export default function CampaignVideoPage({
            dynamicContentUid = match[1];
          }
        }
-       const hasContentUid = Boolean(dynamicContentUid);
-       
-       let vidGmv = 0;
-       let vidViews = 0;
-       let vidLikes = 0;
-       
-       if (dynamicContentUid) {
-          const rawUid = dynamicContentUid.replace(/^video_/, '');
-          const matchingStat = vStats.find((s: any) => {
-            const sUid = s.content_uid ? s.content_uid.replace(/^video_/, '') : '';
-            return s.content_uid === dynamicContentUid || sUid === rawUid;
-          });
-          if (matchingStat) {
-              vidGmv = matchingStat.gmv || 0;
-              vidViews = matchingStat.views || 0;
-              vidLikes = matchingStat.likes || 0;
-          }
-       }
-       
-       const rpm = vidViews > 0 ? (vidGmv / vidViews) * 1000 : 0;
-       
-       // Filter out empty rows that haven't been filled
-       if (!v.link_video && !dynamicContentUid && !v.concept) return;
+        const hasContentUid = Boolean(dynamicContentUid);
+        
+        let vidGmv = 0;
+        let vidViews = 0;
+        let vidLikes = 0;
+        let resolvedSkuId = v.sku_id;
+        
+        if (dynamicContentUid) {
+           const rawUid = dynamicContentUid.replace(/^video_/, '');
+           const matchingStat = vStats.find((s: any) => {
+             const sUid = s.content_uid ? s.content_uid.replace(/^video_/, '') : '';
+             return s.content_uid === dynamicContentUid || sUid === rawUid;
+           });
+           if (matchingStat) {
+               vidGmv = matchingStat.gmv || 0;
+               vidViews = matchingStat.views || 0;
+               vidLikes = matchingStat.likes || 0;
+               if (!resolvedSkuId && matchingStat.product_id) {
+                 const matchedSku = skus.find((s: any) => s.product_id === matchingStat.product_id && s.campaign_id === campaignId);
+                 if (matchedSku) {
+                   resolvedSkuId = matchedSku.id;
+                 }
+               }
+           }
+        }
 
-       let effectivePostTime = v.post_time || null;
-       if (!effectivePostTime && dynamicContentUid) {
-         effectivePostTime = extractTikTokUploadDate(dynamicContentUid);
-       }
+        if (!resolvedSkuId && cc.assigned_sku_ids && cc.assigned_sku_ids.length === 1) {
+          resolvedSkuId = cc.assigned_sku_ids[0];
+        }
 
-       allVids.push({
-          ...v,
-          post_time: effectivePostTime,
-          creatorUsername: creator.username,
-          creatorTier: cc.tier,
-          creatorId: creator.id,
-          ccId: cc.id,
-          vidGmv,
-          vidViews,
-          vidLikes,
-          rpm,
-          hasContentUid,
-          dynamicContentUid
-       });
-    });
+        let cleanConcept = v.concept;
+        if (typeof cleanConcept === 'string' && cleanConcept.includes('Auto-detected')) {
+          cleanConcept = null;
+        }
+        
+        const rpm = vidViews > 0 ? (vidGmv / vidViews) * 1000 : 0;
+        
+        // Filter out empty rows that haven't been filled
+        if (!v.link_video && !dynamicContentUid && !v.concept) return;
+
+        let effectivePostTime = v.post_time || null;
+        if (!effectivePostTime && dynamicContentUid) {
+          effectivePostTime = extractTikTokUploadDate(dynamicContentUid);
+        }
+
+        allVids.push({
+           ...v,
+           concept: cleanConcept,
+           sku_id: resolvedSkuId || v.sku_id || null,
+           post_time: effectivePostTime,
+           creatorUsername: creator.username,
+           creatorTier: cc.tier,
+           creatorId: creator.id,
+           ccId: cc.id,
+           vidGmv,
+           vidViews,
+           vidLikes,
+           rpm,
+           hasContentUid,
+           dynamicContentUid
+        });
+     });
 
     // 1. Posting Date Range Filter (Khusus Tampilan: Semua Video)
     if (postDateStart || postDateEnd) {
@@ -2045,9 +2063,30 @@ export default function CampaignVideoPage({
                             }
 
                             const rpm = vidViews > 0 ? (vidGmv / vidViews) * 1000 : 0;
-                            const conceptNum = parseInt(v.concept);
+                            let cleanConcept = v.concept;
+                            if (typeof cleanConcept === 'string' && cleanConcept.includes('Auto-detected')) {
+                              cleanConcept = null;
+                            }
+                            const conceptNum = parseInt(cleanConcept);
                             const matchedConcept = !isNaN(conceptNum) ? masterConcepts.find((c: any) => c.no_konsep === conceptNum) : null;
-                            const isConceptError = v.concept && !matchedConcept && masterConcepts.length > 0;
+                            const isConceptError = cleanConcept && !matchedConcept && masterConcepts.length > 0;
+
+                            let resolvedCreatorSkuId = v.sku_id;
+                            if (!resolvedCreatorSkuId && hasContentUid) {
+                              const vStats = cc._videoStats || [];
+                              const rawUid = dynamicContentUid.replace(/^video_/, '');
+                              const matchingStat = vStats.find((s: any) => {
+                                const sUid = s.content_uid ? s.content_uid.replace(/^video_/, '') : '';
+                                return s.content_uid === dynamicContentUid || sUid === rawUid;
+                              });
+                              if (matchingStat?.product_id) {
+                                const matchedSku = skus.find((s: any) => s.product_id === matchingStat.product_id && s.campaign_id === campaignId);
+                                if (matchedSku) resolvedCreatorSkuId = matchedSku.id;
+                              }
+                            }
+                            if (!resolvedCreatorSkuId && cc.assigned_sku_ids && cc.assigned_sku_ids.length === 1) {
+                              resolvedCreatorSkuId = cc.assigned_sku_ids[0];
+                            }
 
                             return (
                               <tr key={v.urutan}>
@@ -2078,15 +2117,15 @@ export default function CampaignVideoPage({
                                                   ? 'border-indigo-200 bg-indigo-50/50 text-slate-800 focus:border-indigo-400 focus:ring-indigo-400' 
                                                   : 'border-slate-200 bg-white text-slate-600 focus:border-slate-400'
                                             }`}
-                                            value={v.concept || ''}
+                                            value={cleanConcept || ''}
                                             onChange={(e) => handleVideoChange(cc.id, v.urutan, 'concept', e.target.value)}
                                             disabled={!hasAccess || v.vt_approval === 'approved'}
                                             title={v.vt_approval === 'approved' ? "Tidak bisa diubah karena VT sudah di-approve" : "Pilih konsep"}
                                           >
                                             <option value="">- (Belum Dipilih)</option>
-                                            {v.concept && !matchedConcept && (
-                                              <option value={v.concept}>
-                                                [Custom] {v.concept}
+                                            {cleanConcept && !matchedConcept && (
+                                              <option value={cleanConcept}>
+                                                [Custom] {cleanConcept}
                                               </option>
                                             )}
                                             {[...masterConcepts]
@@ -2235,7 +2274,7 @@ export default function CampaignVideoPage({
                                 <td>
                                   <select 
                                     className="select w-full"
-                                    value={v.sku_id || ''}
+                                    value={v.sku_id || resolvedCreatorSkuId || ''}
                                     onChange={(e) => handleVideoChange(cc.id, v.urutan, 'sku_id', e.target.value)}
                                     disabled={!hasAccess}
                                   >

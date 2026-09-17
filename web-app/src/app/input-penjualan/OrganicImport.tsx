@@ -892,7 +892,8 @@ export default function OrganicImport({ mode = 'sales' }: { mode?: 'sales' | 'vi
                 link_video: `https://www.tiktok.com/@${missing.creator_username}/video/${missing.content_uid}`,
                 vt_approval: 'pending',
                 urutan: nextUrutan,
-                concept: 'Auto-detected from Awareness Import',
+                sku_id: missing.sku_id || null,
+                concept: null,
                 created_at: missing.tanggal
               });
             }

@@ -215,7 +215,8 @@ export async function syncUnmappedForProduct(productId: string, campaignId: numb
               link_video: `https://www.tiktok.com/@${missing.creator_username}/video/${missing.content_uid}`,
               vt_approval: 'pending',
               urutan: nextUrutan,
-              concept: 'Auto-detected from Unmapped Sync',
+              sku_id: resolvedSkuId || null,
+              concept: null,
               created_at: missing.post_time || new Date().toISOString()
             });
           }
