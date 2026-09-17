@@ -82,6 +82,15 @@ export function BatchForm({
       if (prev.find(s => s.id === cc.id)) return prev;
       return [...prev, cc];
     });
+
+    const creatorId = cc.creator_id || cc.creators?.id;
+    const initialBanks = cc.creators?.creator_bank_accounts || bankAccounts[creatorId] || [];
+    const primaryBank = initialBanks.find((b: any) => b.is_primary) || initialBanks[0];
+    
+    const defaultBankId = prefill?.bank_account_id || (primaryBank ? String(primaryBank.id) : '');
+    const defaultMetode = prefill?.metode_pembayaran || (primaryBank ? primaryBank.bank_name : '');
+    const defaultNomor = prefill?.nomor_rekening || (primaryBank ? primaryBank.account_number : '');
+    const defaultPenerima = prefill?.nama_penerima || (primaryBank ? primaryBank.account_holder : (cc.creators?.nama_asli || ''));
     
     setForms(prev => {
       if (prev[cc.id]) return prev;
@@ -98,10 +107,10 @@ export function BatchForm({
           ratecard_awal: cc.price || 0,
           nominal: prefill?.nominal || (defaultType === '50_akhir' ? (cc.price || 0) / 2 : (cc.price || 0)),
           biaya_transfer: 0,
-          bank_account_id: prefill?.bank_account_id || '',
-          metode_pembayaran: prefill?.metode_pembayaran || '',
-          nomor_rekening: prefill?.nomor_rekening || '',
-          nama_penerima: prefill?.nama_penerima || '',
+          bank_account_id: defaultBankId,
+          metode_pembayaran: defaultMetode,
+          nomor_rekening: defaultNomor,
+          nama_penerima: defaultPenerima,
           nama_wa_pic: prefill?.nama_wa_pic || cc.creators?.nama_wa_pic || '',
           nomor_wa_dealing: prefill?.nomor_wa_dealing || cc.creators?.nomor_wa_dealing || '',
           alamat_ktp: prefill?.alamat_ktp || cc.creators?.alamat_ktp || '',
@@ -113,16 +122,36 @@ export function BatchForm({
       };
     });
 
-    // Fetch bank accounts for this creator
-    if (!bankAccounts[cc.creator_id]) {
-      setLoadingBanks(prev => ({ ...prev, [cc.creator_id]: true }));
+    // Fetch bank accounts for this creator if not yet loaded
+    if (creatorId && (!bankAccounts[creatorId] || bankAccounts[creatorId].length === 0)) {
+      setLoadingBanks(prev => ({ ...prev, [creatorId]: true }));
       try {
-        const banks = await getCreatorBankAccounts(cc.creator_id);
-        setBankAccounts(prev => ({ ...prev, [cc.creator_id]: banks }));
+        const banks = await getCreatorBankAccounts(creatorId);
+        setBankAccounts(prev => ({ ...prev, [creatorId]: banks }));
+
+        if (banks && banks.length > 0) {
+          const autoBank = banks.find((b: any) => b.is_primary) || banks[0];
+          setForms(prev => {
+            const currentForm = prev[cc.id];
+            if (currentForm && !currentForm.bank_account_id) {
+              return {
+                ...prev,
+                [cc.id]: {
+                  ...currentForm,
+                  bank_account_id: String(autoBank.id),
+                  metode_pembayaran: autoBank.bank_name,
+                  nomor_rekening: autoBank.account_number,
+                  nama_penerima: autoBank.account_holder || currentForm.nama_penerima || cc.creators?.nama_asli || ''
+                }
+              };
+            }
+            return prev;
+          });
+        }
       } catch (err) {
-        console.error(err);
+        console.error('Failed to load bank accounts for creator', err);
       } finally {
-        setLoadingBanks(prev => ({ ...prev, [cc.creator_id]: false }));
+        setLoadingBanks(prev => ({ ...prev, [creatorId]: false }));
       }
     }
   };
@@ -541,10 +570,44 @@ export function BatchForm({
                         <div className="flex items-center gap-2 text-sm text-slate-500"><Loader2 className="w-4 h-4 animate-spin" /> Memuat rekening...</div>
                       ) : (
                         <div>
-                          <select className="w-full p-2 border border-slate-300 rounded text-sm outline-none focus:border-blue-500 mb-3" value={f.bank_account_id} onChange={e => handleChange(cc.id, 'bank_account_id', e.target.value)}>
+                          <select 
+                            className="w-full p-2 border border-slate-300 rounded text-sm outline-none focus:border-blue-500 mb-3 font-medium text-slate-800" 
+                            value={f.bank_account_id || ''} 
+                            onChange={e => {
+                              const selectedId = e.target.value;
+                              if (selectedId) {
+                                const selectedBank = banks.find((b: any) => String(b.id) === String(selectedId));
+                                if (selectedBank) {
+                                  setForms(prev => ({
+                                    ...prev,
+                                    [cc.id]: {
+                                      ...prev[cc.id],
+                                      bank_account_id: selectedId,
+                                      metode_pembayaran: selectedBank.bank_name,
+                                      nomor_rekening: selectedBank.account_number,
+                                      nama_penerima: selectedBank.account_holder || prev[cc.id]?.nama_penerima || cc.creators?.nama_asli || ''
+                                    }
+                                  }));
+                                }
+                              } else {
+                                setForms(prev => ({
+                                  ...prev,
+                                  [cc.id]: {
+                                    ...prev[cc.id],
+                                    bank_account_id: '',
+                                    metode_pembayaran: '',
+                                    nomor_rekening: '',
+                                    nama_penerima: cc.creators?.nama_asli || ''
+                                  }
+                                }));
+                              }
+                            }}
+                          >
                             <option value="">-- Ketik Manual (Belum Tersimpan) --</option>
                             {banks.map((b: any) => (
-                              <option key={b.id} value={b.id}>{b.bank_name} - {b.account_number} ({b.account_holder})</option>
+                              <option key={b.id} value={String(b.id)}>
+                                {b.bank_name} - {b.account_number} ({b.account_holder}) {b.is_primary ? '★ Utama' : ''}
+                              </option>
                             ))}
                           </select>
 

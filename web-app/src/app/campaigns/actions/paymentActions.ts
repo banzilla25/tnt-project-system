@@ -121,15 +121,36 @@ export async function fetchApprovedCreatorsForBatch(campaignId: number) {
         creators (
           id,
           username,
-          nama_asli
+          nama_asli,
+          avatar_url,
+          nik,
+          alamat_ktp,
+          link_ktp,
+          link_kontrak,
+          nama_wa_pic,
+          nomor_wa_dealing,
+          creator_bank_accounts ( id, bank_name, account_number, account_holder, is_primary )
         )
       `)
       .eq('campaign_id', campaignId)
       .range(0, 4999);
 
     if (error) {
-      console.error("Supabase Error in fetchApprovedCreatorsForBatch:", error);
-      throw new Error(error.message);
+      console.warn("Supabase Warning in fetchApprovedCreatorsForBatch, using fallback:", error.message);
+      const { data: fallbackData, error: fallbackError } = await supabase.from('campaign_creators')
+        .select(`
+          id, campaign_id, creator_id, tier, price, qty_vt, content_type, approval, status_bayar, created_at,
+          creators (
+            id,
+            username,
+            nama_asli,
+            creator_bank_accounts ( id, bank_name, account_number, account_holder, is_primary )
+          )
+        `)
+        .eq('campaign_id', campaignId)
+        .range(0, 4999);
+      if (fallbackError) throw fallbackError;
+      return fallbackData || [];
     }
     
     return data || [];
