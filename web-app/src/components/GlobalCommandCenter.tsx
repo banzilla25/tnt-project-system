@@ -48,18 +48,9 @@ export function GlobalCommandCenter({ role, onSuccess }: { role: string, onSucce
         return { ...b, payment_items: validItems };
       }).filter(b => b.payment_items.length > 0);
 
-      // Apply batch status gatekeeping if needed, but allow items that are ready/pending_outstanding to override strict batch statuses
-      if (role === 'manager') {
-        processedBatches = processedBatches.filter(b => b.status === 'pending_manager');
-      } else if (role === 'executive') {
-        if (subTab === 'exec_approval') {
-          processedBatches = processedBatches.filter(b => ['pending_manager', 'pending_executive_1', 'pending_executive'].includes(b.status));
-        }
-        // for review and transfer, we rely on item presence instead of strictly blocking by batch status, 
-        // to handle mixed-status batches (e.g. pending_finance_outstanding items in a ready_to_pay batch)
-      } else if (role === 'finance') {
-        // same here, rely on item presence for review and transfer
-      }
+      // In all tabs and roles, rely on item presence instead of strictly blocking by batch status.
+      // This ensures mixed-status batches (e.g. some items approved while others are still pending)
+      // never cause pending items to become hidden from Manager, Executive, or Finance.
 
       setBatches(processedBatches);
       setExpandedBatches(new Set(processedBatches.map(b => b.id)));

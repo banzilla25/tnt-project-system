@@ -1162,16 +1162,20 @@ export async function bulkProcessFinanceReview(itemIds: number[], actionType: 'a
     const { data: items } = await supabase.from('payment_items').select('batch_id').in('id', itemIds);
     if (items && actionType === 'approve') {
       const batchIds = [...new Set(items.map(i => i.batch_id))];
-      const { error: batchError } = await supabase.from('payment_batches')
-        .update({
-          status: 'pending_executive',
-          finance_reviewed_by: userId,
-          finance_reviewed_at: now
-        })
-        .in('id', batchIds)
-        .eq('status', 'pending_finance');
-        
-      if (batchError) return { success: false, error: "Failed to update batches: " + batchError.message };
+      for (const bId of batchIds) {
+        const { data: rem } = await supabase.from('payment_items').select('final_status').eq('batch_id', bId);
+        const hasEarlierStages = rem?.some(i => ['pending', 'manager_approved', 'executive_1_approved', 'pending_finance_outstanding'].includes(i.final_status));
+        if (!hasEarlierStages) {
+          await supabase.from('payment_batches')
+            .update({
+              status: 'pending_executive',
+              finance_reviewed_by: userId,
+              finance_reviewed_at: now
+            })
+            .eq('id', bId)
+            .eq('status', 'pending_finance');
+        }
+      }
     }
 
     revalidatePath('/budgeting');
@@ -1272,23 +1276,45 @@ export async function processBulkExecutive(itemIds: number[]) {
     }).in('id', toReady);
   }
 
-  // Advance batches
+  // Advance batches carefully based on remaining item states
   const batchIds = [...new Set(items.map(i => i.batch_id))];
   for (const bId of batchIds) {
-    // just try to advance the batch if applicable
-    // advance from pending_manager
-    await supabase.from('payment_batches')
-      .update({ status: 'pending_finance', manager_reviewed_by: userId, manager_reviewed_at: now, executive_reviewed_1_by: userId, executive_reviewed_1_at: now })
-      .eq('id', bId).eq('status', 'pending_manager');
-      
-    // advance from pending_executive_1
-    await supabase.from('payment_batches')
-      .update({ status: 'pending_finance', executive_reviewed_1_by: userId, executive_reviewed_1_at: now })
-      .eq('id', bId).eq('status', 'pending_executive_1');
-      
-    await supabase.from('payment_batches')
-      .update({ status: 'ready_to_pay', executive_reviewed_by: userId, executive_reviewed_at: now })
-      .eq('id', bId).eq('status', 'pending_executive');
+    const { data: remItems } = await supabase.from('payment_items').select('final_status').eq('batch_id', bId);
+    const hasPendingManager = remItems?.some(i => i.final_status === 'pending');
+    const hasPendingExec1 = remItems?.some(i => i.final_status === 'manager_approved');
+    const hasPendingFinance = remItems?.some(i => ['executive_1_approved', 'pending_finance_outstanding'].includes(i.final_status));
+    const hasPendingExecFinal = remItems?.some(i => i.final_status === 'finance_selected');
+
+    if (hasPendingManager) {
+      // Do not advance past pending_manager while items are still pending manager review
+      await supabase.from('payment_batches').update({ status: 'pending_manager' }).eq('id', bId);
+    } else if (hasPendingExec1) {
+      await supabase.from('payment_batches').update({
+        status: 'pending_executive_1',
+        manager_reviewed_by: userId,
+        manager_reviewed_at: now
+      }).eq('id', bId);
+    } else if (hasPendingFinance) {
+      await supabase.from('payment_batches').update({
+        status: 'pending_finance',
+        manager_reviewed_by: userId,
+        manager_reviewed_at: now,
+        executive_reviewed_1_by: userId,
+        executive_reviewed_1_at: now
+      }).eq('id', bId);
+    } else if (hasPendingExecFinal) {
+      await supabase.from('payment_batches').update({
+        status: 'pending_executive',
+        finance_reviewed_by: userId,
+        finance_reviewed_at: now
+      }).eq('id', bId);
+    } else {
+      await supabase.from('payment_batches').update({
+        status: 'ready_to_pay',
+        executive_reviewed_by: userId,
+        executive_reviewed_at: now
+      }).eq('id', bId);
+    }
   }
 
   revalidatePath('/budgeting');
@@ -1314,14 +1340,21 @@ export async function processBulkManagerItems(itemIds: number[]) {
   const { data: items } = await supabase.from('payment_items').select('batch_id').in('id', itemIds);
   if (items) {
     const batchIds = [...new Set(items.map(i => i.batch_id))];
-    await supabase.from('payment_batches')
-      .update({
-        status: 'pending_executive_1',
-        manager_reviewed_by: userId,
-        manager_reviewed_at: now
-      })
-      .in('id', batchIds)
-      .eq('status', 'pending_manager');
+    for (const bId of batchIds) {
+      const { data: remItems } = await supabase.from('payment_items').select('final_status').eq('batch_id', bId);
+      const hasPending = remItems?.some(i => i.final_status === 'pending');
+      // Only advance to pending_executive_1 if ALL pending items in the batch were acted on!
+      if (!hasPending) {
+        await supabase.from('payment_batches')
+          .update({
+            status: 'pending_executive_1',
+            manager_reviewed_by: userId,
+            manager_reviewed_at: now
+          })
+          .eq('id', bId)
+          .eq('status', 'pending_manager');
+      }
+    }
   }
   revalidatePath('/budgeting');
 }

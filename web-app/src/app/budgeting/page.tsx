@@ -98,7 +98,7 @@ function GlobalBudgetingContent() {
     if (e.key === 'Escape') cancelEditing();
   };
 
-  const actionStatuses = ['pending_manager', 'pending_finance', 'pending_executive', 'ready_to_pay'];
+  const actionStatuses = ['pending_manager', 'pending_executive_1', 'pending_finance', 'pending_executive', 'ready_to_pay'];
   const totalActionNeeded = batches.filter(b => actionStatuses.includes(b.status)).length;
   const totalPaid = batches.filter(b => b.status === 'paid').length;
   const totalAll = batches.length;
