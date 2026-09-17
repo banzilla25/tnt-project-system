@@ -156,10 +156,15 @@ export type Video = {
   campaign_creator_id: number;
   urutan: number;
   concept: string | null;
+  link_draft?: string | null;
   link_video: string | null;
   content_uid: string | null;
   sku_id: number | null;
-  vt_approval: 'pending' | 'approved' | 'reject';
+  vt_approval: 'pending' | 'approved' | 'reject' | 'revisi';
+  vt_approved_by?: string | null;
+  vt_approved_at?: string | null;
+  concept_updated_at?: string | null;
+  concept_updated_by?: string | null;
   created_at: string;
 };
 

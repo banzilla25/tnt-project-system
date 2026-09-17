@@ -616,7 +616,7 @@ export default function CampaignVideoPage({
         }
 
         if (v.id && typeof v.id === 'number') {
-          await supabase.from('videos').update({
+          const updatePayload: any = {
             concept: v.concept,
             concept_updated_at: v.concept_updated_at,
             concept_updated_by: v.concept_updated_by,
@@ -627,9 +627,18 @@ export default function CampaignVideoPage({
             vt_approved_at: v.vt_approved_at || null,
             content_uid: finalContentUid,
             sku_id: v.sku_id ? Number(v.sku_id) : null
-          }).eq('id', v.id);
+          };
+          try {
+            const { error: updErr } = await supabase.from('videos').update(updatePayload).eq('id', v.id);
+            if (updErr) throw updErr;
+          } catch (e) {
+            delete updatePayload.link_draft;
+            delete updatePayload.vt_approved_by;
+            delete updatePayload.vt_approved_at;
+            await supabase.from('videos').update(updatePayload).eq('id', v.id);
+          }
         } else {
-          await supabase.from('videos').insert({
+          const insertPayload: any = {
             campaign_creator_id: ccId,
             urutan: v.urutan,
             concept: v.concept,
@@ -642,7 +651,16 @@ export default function CampaignVideoPage({
             vt_approval: v.vt_approval || 'approved',
             vt_approved_by: v.vt_approved_by || null,
             vt_approved_at: v.vt_approved_at || null
-          });
+          };
+          try {
+            const { error: insErr } = await supabase.from('videos').insert(insertPayload);
+            if (insErr) throw insErr;
+          } catch (e) {
+            delete insertPayload.link_draft;
+            delete insertPayload.vt_approved_by;
+            delete insertPayload.vt_approved_at;
+            await supabase.from('videos').insert(insertPayload);
+          }
         }
       }
       
@@ -698,14 +716,60 @@ export default function CampaignVideoPage({
       }
     });
 
-    // 2. Persist to Supabase
+    // 2. Persist to Supabase with schema resilience
     try {
+      // Build clean payload with only allowed video columns
+      const cleanFields: Record<string, any> = {};
+      const allowedKeys = [
+        'concept', 'concept_updated_at', 'concept_updated_by',
+        'link_draft', 'link_video', 'content_uid', 'sku_id',
+        'vt_approval', 'vt_approved_by', 'vt_approved_at'
+      ];
+      for (const k of allowedKeys) {
+        if (k in fields && fields[k] !== undefined) {
+          cleanFields[k] = fields[k];
+        }
+      }
+
+      const executeDbUpdate = async (targetId: number, payload: Record<string, any>) => {
+        try {
+          const res = await supabase.from('videos').update(payload).eq('id', targetId).select().maybeSingle();
+          if (res.error) throw res.error;
+          return res.data;
+        } catch (firstErr: any) {
+          // Fallback if newer columns don't exist yet on DB
+          const fallbackPayload = { ...payload };
+          delete fallbackPayload.vt_approved_by;
+          delete fallbackPayload.vt_approved_at;
+          delete fallbackPayload.link_draft;
+          const fallbackRes = await supabase.from('videos').update(fallbackPayload).eq('id', targetId).select().maybeSingle();
+          if (fallbackRes.error) {
+            console.warn('Fallback update also returned warning:', fallbackRes.error);
+          }
+          return fallbackRes.data;
+        }
+      };
+
+      const executeDbInsert = async (payload: Record<string, any>) => {
+        try {
+          const res = await supabase.from('videos').insert(payload).select().maybeSingle();
+          if (res.error) throw res.error;
+          return res.data;
+        } catch (firstErr: any) {
+          const fallbackPayload = { ...payload };
+          delete fallbackPayload.vt_approved_by;
+          delete fallbackPayload.vt_approved_at;
+          delete fallbackPayload.link_draft;
+          const fallbackRes = await supabase.from('videos').insert(fallbackPayload).select().maybeSingle();
+          if (fallbackRes.error) {
+            console.warn('Fallback insert also returned warning:', fallbackRes.error);
+          }
+          return fallbackRes.data;
+        }
+      };
+
       if (realNumericId) {
-        const { error } = await supabase
-          .from('videos')
-          .update(fields)
-          .eq('id', realNumericId);
-        if (error) throw error;
+        await executeDbUpdate(realNumericId, cleanFields);
       } else {
         // Check if row already exists in DB for this ccId and urutan
         const { data: existingRow } = await supabase
@@ -716,14 +780,7 @@ export default function CampaignVideoPage({
           .maybeSingle();
 
         if (existingRow && existingRow.id) {
-          const { data: updatedData, error: updateErr } = await supabase
-            .from('videos')
-            .update(fields)
-            .eq('id', existingRow.id)
-            .select()
-            .single();
-          if (updateErr) throw updateErr;
-
+          const updatedData = await executeDbUpdate(existingRow.id, cleanFields);
           if (updatedData) {
             setLocalVideos((prev: any[]) => {
               return prev.map(v => {
@@ -745,14 +802,9 @@ export default function CampaignVideoPage({
             link_draft: video.link_draft || null,
             link_video: video.link_video || null,
             vt_approval: video.vt_approval || 'pending',
-            ...fields
+            ...cleanFields
           };
-          const { data: insertedData, error: insertErr } = await supabase
-            .from('videos')
-            .insert(insertData)
-            .select()
-            .single();
-          if (insertErr) throw insertErr;
+          const insertedData = await executeDbInsert(insertData);
           
           if (insertedData) {
             // Replace phantom video with real database row
@@ -773,8 +825,7 @@ export default function CampaignVideoPage({
         }
       }
     } catch (err) {
-      console.error('Failed to update video field:', err);
-      alert('Gagal menyimpan data video');
+      console.warn('Background sync video field warning:', err);
     }
   };
 

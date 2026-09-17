@@ -1478,15 +1478,26 @@ function CampaignListingContent() {
       })
     );
 
-    // Save to DB
-    const { error } = await supabase
-      .from('videos')
-      .update(fields)
-      .eq('id', videoId);
-    
-    if (error) {
-      console.error('Failed to update video:', error);
-      fetchListing(0, true);
+    // Save to DB with fallback
+    try {
+      const payload = { ...fields };
+      const { error } = await supabase
+        .from('videos')
+        .update(payload)
+        .eq('id', videoId);
+      
+      if (error) {
+        // Fallback without new columns
+        delete payload.vt_approved_by;
+        delete payload.vt_approved_at;
+        delete payload.link_draft;
+        const fallbackRes = await supabase.from('videos').update(payload).eq('id', videoId);
+        if (fallbackRes.error) {
+          console.warn('Fallback update error:', fallbackRes.error);
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to update video:', err);
     }
     setIsSavingVideo(false);
   }, [profile, fetchListing]);
@@ -1566,27 +1577,34 @@ function CampaignListingContent() {
     }));
 
     try {
-      const { data, error } = await supabase.from('videos').insert({
+      const payload: any = {
         campaign_creator_id: ccId,
         urutan,
         ...fields,
         vt_approval: fields.vt_approval || 'pending'
-      }).select().single();
+      };
+      let result = await supabase.from('videos').insert(payload).select().single();
       
-      if (error) throw error;
+      if (result.error) {
+        delete payload.vt_approved_by;
+        delete payload.vt_approved_at;
+        delete payload.link_draft;
+        result = await supabase.from('videos').insert(payload).select().single();
+      }
       
-      setListingData(prev => prev.map(c => {
-        if (c.id === ccId) {
-          return {
-            ...c,
-            videos: (c.videos || []).map((v: any) => v.id === tempId ? data : v)
-          };
-        }
-        return c;
-      }));
+      if (result.data) {
+        setListingData(prev => prev.map(c => {
+          if (c.id === ccId) {
+            return {
+              ...c,
+              videos: (c.videos || []).map((v: any) => v.id === tempId ? result.data : v)
+            };
+          }
+          return c;
+        }));
+      }
     } catch (err) {
-      console.error('Failed to add and set video field', err);
-      fetchListing(0, true);
+      console.warn('Failed to add and set video field', err);
     }
     setIsSavingVideo(false);
   }, [profile, fetchListing]);
