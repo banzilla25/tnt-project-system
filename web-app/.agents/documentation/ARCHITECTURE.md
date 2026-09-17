@@ -37,6 +37,22 @@ Struktur direktori aplikasi menggunakan pola standar Next.js App Router dengan p
        - **GMV 30 Days > 0** (baik GMV total, maupun gabungan GMV Video & GMV Live).
   - Indikator Video dan Live Stream tetap ditampilkan sebagai status informatif (apakah kreator sudah upload video atau ada aktivitas live), namun tidak lagi memblokir pengajuan pembayaran.
   - Validasi data administrasi (KTP, Kontrak, NIK, No WA Dealing, Rekening Bank) tetap wajib dilengkapi saat pengajuan batch agar audit trail dan pencairan dana transparan.
+- **Payment Approval & Disbursement Lifecycle (Alur Persetujuan & Pencairan Dana):**
+  1. **PIC (Pengajuan Batch)**: Menginput atau memilih kreator/operasional yang akan dibayar, melengkapi data rekening bank dan administrasi, lalu mengajukan ke Manager (`status: pending_manager`).
+  2. **Manager Review**: Memeriksa kesesuaian deliverable dan komitmen kreator (`status: pending_executive_1`, item `manager_approved`).
+  3. **Executive 1 (Operasional)**: Memeriksa dan menyetujui alokasi pengeluaran operasional (`status: pending_finance`, item `executive_1_approved`).
+  4. **Finance Review (Seleksi Tagihan & Limit Transaksi)**:
+     - **Catatan Penting**: Finance **tidak** mengunggah bukti bayar di tahap ini.
+     - Fungsi utama Finance adalah **menyeleksi tagihan** sesuai ketersediaan budget dan batas harian transaksi bank (*daily transfer limit*):
+       - Item yang dipilih untuk dibayar di-approve menjadi `finance_selected` (batch maju ke `pending_executive`).
+       - Item yang melebihi batas atau dipending ditandai sebagai **Tunda / Outstanding (`pending_finance_outstanding`)**.
+       - Item tidak valid dapat di-reject permanen (`rejected`).
+  5. **Executive Final Approval (Direktur / Owner)**: Memberikan persetujuan akhir (*final authorization*) untuk daftar tagihan yang telah diseleksi oleh Finance (batch & item menjadi `ready_to_pay`).
+  6. **Finance Transfer & Upload Bukti (Tahap Paid / Lunas)**:
+     - Setelah batch berstatus `ready_to_pay`, Finance mengeksekusi transfer bank nyata melalui rekening pengirim yang dipilih (`sender_accounts`).
+     - Finance membuka modal **Tandai Lunas**, menginput **Tanggal Transfer**, dan **mengunggah Link Bukti Transfer (Google Drive)** (`bulkMarkPaidFinance` / `financeMarkPaid`).
+     - Tagihan yang dibayar resmi berstatus **`paid` (Lunas)**.
+     - Tagihan yang sebelumnya tertunda (`pending_finance_outstanding`) secara otomatis di-*split* oleh sistem (`autoSplitUnpaidBatchItems`) menjadi batch baru dengan label **Termin Lanjutan**, sehingga antrean pembayaran tetap rapi dan tidak tercecer.
 - **Optimistic UI & Real-Time Sync:** 
   - Karena pemanggilan outer.refresh() di Next.js App Router tidak menyegarkan state dalam useEffect, sistem dimigrasi ke **Optimistic UI Updates**.
   - **Listing (ListingClient):** Aksi perbaruan kolom (GMV, Followers, Approval) menggunakan sistem *Auto-Save/Pending Changes* yang secara instan merubah UI ke *amber-text* sementara menunggu *batch save* otomatis 2 detik, sehingga halaman tidak patah/memuat ulang (F5).
