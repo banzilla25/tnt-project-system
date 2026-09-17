@@ -2083,7 +2083,7 @@ export default function CampaignVideoPage({
                                             disabled={!hasAccess || v.vt_approval === 'approved'}
                                             title={v.vt_approval === 'approved' ? "Tidak bisa diubah karena VT sudah di-approve" : "Pilih konsep"}
                                           >
-                                            <option value="">-- Pilih Konsep --</option>
+                                            <option value="">- (Belum Dipilih)</option>
                                             {v.concept && !matchedConcept && (
                                               <option value={v.concept}>
                                                 [Custom] {v.concept}
@@ -2335,7 +2335,7 @@ export default function CampaignVideoPage({
                                   disabled={!hasAccess || v.vt_approval === 'approved'}
                                   title={v.vt_approval === 'approved' ? "Tidak bisa diubah karena VT sudah di-approve" : "Pilih konsep"}
                                 >
-                                  <option value="">-- Pilih Konsep --</option>
+                                  <option value="">- (Belum Dipilih)</option>
                                   {v.concept && !matchedConcept && (
                                     <option value={v.concept}>
                                       [Custom] {v.concept}
@@ -2663,7 +2663,7 @@ export default function CampaignVideoPage({
                                       }}
                                       disabled={!hasAccess || v.vt_approval === 'approved'}
                                     >
-                                      <option value="">-- Pilih Konsep --</option>
+                                      <option value="">- (Belum Dipilih)</option>
                                       {v.concept && !matchedConcept && (
                                         <option value={v.concept}>
                                           [Custom] {v.concept}

@@ -676,7 +676,7 @@ export const CreatorRow = React.memo(({
                                       }}
                                       disabled={!hasAccess || v.vt_approval === 'approved'}
                                     >
-                                      <option value="">-- Pilih Konsep --</option>
+                                      <option value="">- (Belum Dipilih)</option>
                                       {v.concept && !matchedConcept && (
                                         <option value={v.concept}>
                                           [Custom] {v.concept}
