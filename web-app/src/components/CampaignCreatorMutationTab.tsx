@@ -128,8 +128,8 @@ export function CampaignCreatorMutationTab({ campaignId }: { campaignId: number 
                         {biayaTf > 0 && <div className="text-[10px] text-slate-400">+TF Rp {biayaTf.toLocaleString()}</div>}
                       </td>
                       <td className="px-4 py-3 text-center">
-                        {item.bukti_transfer ? (
-                          <a href={item.bukti_transfer} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center p-2 bg-blue-50 text-blue-600 rounded hover:bg-blue-100 transition-colors" title="Lihat Bukti Transfer">
+                        {item.bukti_transfer || item.bukti_transfer_url || item.payment_batches?.bukti_transfer_url ? (
+                          <a href={item.bukti_transfer || item.bukti_transfer_url || item.payment_batches?.bukti_transfer_url} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center p-2 bg-blue-50 text-blue-600 rounded hover:bg-blue-100 transition-colors" title="Lihat Bukti Transfer">
                             <LinkIcon className="w-4 h-4" />
                           </a>
                         ) : (

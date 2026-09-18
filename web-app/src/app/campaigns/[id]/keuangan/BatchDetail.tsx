@@ -10,7 +10,7 @@ import {
 } from "../../actions/paymentActions";
 import { getLogicalStatus } from "@/utils/statusHelper";
 import { useAuth } from "@/providers/AuthProvider";
-import { Check, X, Loader2, ArrowLeft, Send, Trash2, Pencil, Save, ChevronDown, ChevronRight, Download, Upload, Clock, UserCheck, ShieldCheck, History } from "lucide-react";
+import { Check, X, Loader2, ArrowLeft, Send, Trash2, Pencil, Save, ChevronDown, ChevronRight, Download, Upload, Clock, UserCheck, ShieldCheck, History, ExternalLink, Link as LinkIcon } from "lucide-react";
 import { formatDateTime, formatUserWithRole } from "@/utils/formatters";
 import * as XLSX from "xlsx";
 
@@ -400,18 +400,29 @@ export function BatchDetail({ batch, creatorHistory, onBack, onRefresh, onRefres
             </h2>
             <p className="text-sm text-slate-500 mt-1">Campaign: {batch.campaigns?.nama}</p>
           </div>
-          <div className="text-right">
-            <p className="text-sm font-semibold text-slate-700 mb-2">Total Nominal: Rp {(batch.payment_items || []).reduce((acc: number, item: any) => {
+          <div className="text-right flex flex-col items-end gap-2">
+            <p className="text-sm font-semibold text-slate-700">Total Nominal: Rp {(batch.payment_items || []).reduce((acc: number, item: any) => {
               const base = item.actual_transfer != null ? Number(item.actual_transfer) : Number(item.nominal || 0);
               return acc + base + Number(item.biaya_transfer || 0);
             }, 0).toLocaleString()}</p>
-            <div className="flex gap-2 justify-end text-xs">
+            <div className="flex gap-2 justify-end text-xs items-center flex-wrap">
               <span className="bg-slate-100 text-slate-700 px-2 py-1 rounded font-semibold">Diajukan: {(batch.payment_items || []).length}</span>
               {(batch.payment_items || []).filter((i: any) => i.final_status === 'paid').length > 0 && (
                 <span className="bg-green-100 text-green-700 px-2 py-1 rounded font-semibold">Dibayar: {(batch.payment_items || []).filter((i: any) => i.final_status === 'paid').length}</span>
               )}
               {(batch.payment_items || []).filter((i: any) => i.final_status === 'rejected' || i.final_status === 'cancelled').length > 0 && (
                 <span className="bg-red-100 text-red-700 px-2 py-1 rounded font-semibold">Ditolak: {(batch.payment_items || []).filter((i: any) => i.final_status === 'rejected' || i.final_status === 'cancelled').length}</span>
+              )}
+              {batch.bukti_transfer_url && (
+                <a
+                  href={batch.bukti_transfer_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 rounded font-semibold transition-colors"
+                  title="Buka Link Google Drive Bukti Transfer"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" /> Bukti Transfer (GDrive)
+                </a>
               )}
             </div>
           </div>
@@ -469,14 +480,28 @@ export function BatchDetail({ batch, creatorHistory, onBack, onRefresh, onRefres
             </div>
 
             {/* 5. Pencairan / Lunas */}
-            <div className={`p-3 rounded-lg border shadow-sm ${batch.paid_at || batch.status === 'paid' ? 'bg-emerald-50 border-emerald-200 text-emerald-900' : 'bg-slate-50/70 border-dashed border-slate-200 text-slate-400'}`}>
-              <div className="text-[11px] font-semibold text-slate-500 mb-1">5. Pencairan (Paid)</div>
-              <div className="font-bold text-slate-800 truncate">
-                {batch.paid_at || batch.status === 'paid' ? 'Selesai Dibayar' : 'Belum Ditransfer'}
+            <div className={`p-3 rounded-lg border shadow-sm flex flex-col justify-between ${batch.paid_at || batch.status === 'paid' ? 'bg-emerald-50 border-emerald-200 text-emerald-900' : 'bg-slate-50/70 border-dashed border-slate-200 text-slate-400'}`}>
+              <div>
+                <div className="text-[11px] font-semibold text-slate-500 mb-1">5. Pencairan (Paid)</div>
+                <div className="font-bold text-slate-800 truncate">
+                  {batch.paid_at || batch.status === 'paid' ? 'Selesai Dibayar' : 'Belum Ditransfer'}
+                </div>
+                <div className="text-[10px] text-slate-500 font-mono mt-0.5">
+                  {batch.paid_at ? formatDateTime(batch.paid_at) : '-'}
+                </div>
               </div>
-              <div className="text-[10px] text-slate-500 font-mono mt-0.5">
-                {batch.paid_at ? formatDateTime(batch.paid_at) : '-'}
-              </div>
+              {batch.bukti_transfer_url && (
+                <div className="mt-2 pt-1.5 border-t border-emerald-200">
+                  <a 
+                    href={batch.bukti_transfer_url} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-700 hover:text-blue-900 hover:underline"
+                  >
+                    <ExternalLink className="w-3 h-3" /> Bukti Transfer (GDrive)
+                  </a>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -764,6 +789,21 @@ export function BatchDetail({ batch, creatorHistory, onBack, onRefresh, onRefres
                                       <>
                                         <span className="text-slate-500">Waktu Dibayar:</span>
                                         <span className="col-span-2 font-medium font-mono text-emerald-700">{formatDateTime(item.paid_at || batch.paid_at)}</span>
+                                      </>
+                                    )}
+                                    {((item.final_status === 'paid' || batch.status === 'paid') && (item.bukti_transfer_url || batch.bukti_transfer_url)) && (
+                                      <>
+                                        <span className="text-slate-500 font-semibold text-blue-700">Bukti Transfer:</span>
+                                        <span className="col-span-2 font-medium">
+                                          <a 
+                                            href={item.bukti_transfer_url || batch.bukti_transfer_url} 
+                                            target="_blank" 
+                                            rel="noopener noreferrer" 
+                                            className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-md font-semibold hover:bg-blue-100 hover:underline transition-colors"
+                                          >
+                                            <ExternalLink className="w-3.5 h-3.5" /> Lihat Bukti Transfer
+                                          </a>
+                                        </span>
                                       </>
                                     )}
                                     <span className="text-slate-500">Catatan PIC:</span>

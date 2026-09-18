@@ -40,7 +40,7 @@ export async function fetchCampaignCreatorMutations(campaignId: number) {
   const { data, error } = await supabase.from('payment_items')
     .select(`
       *,
-      payment_batches!inner(campaign_id, batch_label, paid_at),
+      payment_batches!inner(campaign_id, batch_label, paid_at, bukti_transfer_url),
       campaign_creators(creators(username, nama_asli)),
       creator_bank_accounts(bank_name)
     `)
