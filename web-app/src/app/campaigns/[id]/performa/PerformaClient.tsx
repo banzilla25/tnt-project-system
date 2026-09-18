@@ -31,6 +31,7 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
   const [initialTotalViews, setInitialTotalViews] = useState(0);
   const [initialTotalLikes, setInitialTotalLikes] = useState(0);
   const [initialTotalVideos, setInitialTotalVideos] = useState(0);
+  const [initialTotalLivestreams, setInitialTotalLivestreams] = useState(0);
   const [hasSkus, setHasSkus] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -363,6 +364,7 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
       let calcTotalViews = 0;
       let calcTotalLikes = 0;
       let calcUniqueVideos = 0;
+      let calcUniqueLivestreams = 0;
 
       if (currentHasSkus && orgVidsData.length > 0) {
         for (const perf of perfMap.values()) {
@@ -373,6 +375,8 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
         for (const [uid, v] of orgUidMap.entries()) {
           if (v.contentType !== 'livestream' && v.contentType !== 'live') {
             calcUniqueVideos++;
+          } else {
+            calcUniqueLivestreams++;
           }
           calcTotalViews += v.views;
           calcTotalLikes += v.likes;
@@ -398,6 +402,7 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
       setInitialTotalViews(calcTotalViews);
       setInitialTotalLikes(calcTotalLikes);
       setInitialTotalVideos(calcUniqueVideos);
+      setInitialTotalLivestreams(calcUniqueLivestreams);
       setInitialTotalOrganic(calcOrganicGmv);
       setInitialUnattributedGmv(calcUnattributedGmv);
 
@@ -749,7 +754,11 @@ export default function CampaignPerformaClient({ campaignId }: { campaignId: num
 
   const totalCampaignLivestreams = !hasSkus ? 0 : (isFiltered 
     ? fbLivestreams 
-    : (fastVideoCountsData ? fastVideoCountsData.livestream : (Number(totalSales?.totalLivestreams || 0) || fbLivestreams)));
+    : (initialTotalLivestreams > 0 
+        ? initialTotalLivestreams 
+        : (fastVideoCountsData && fastVideoCountsData.livestream > 0 
+            ? fastVideoCountsData.livestream 
+            : (Number(totalSales?.totalLivestreams || 0) || fbLivestreams))));
 
   const totalOrganic = !hasSkus ? 0 : (isFiltered ? fbOrganic : (initialTotalOrganic || fbOrganic));
   // Total Ads GMV = ALL ads in this campaign (global, same as Ads Report page)
